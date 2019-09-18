@@ -18,7 +18,12 @@ OpenTargets ETL pipeline to process Pipeline output in order to obtain a new API
 ```sh
 export JAVA_OPTS="-Xms512m -Xmx<mostofthememingigslike100G>"
 # to compute the dataset
-time amm platformDataTarget.sc
+time amm platformDataBackend.sc \
+    --drugFilename 19.06_drug-data.json \
+    --targetFilename 19.06_gene-data.json \
+    --diseaseFilename 19.06_efo-data.json \
+    --evidenceFilename 19.06_eco-data.json \
+    --outputPathPrefix out/
 ```
 
 ### Generate the indices dump from ES7
