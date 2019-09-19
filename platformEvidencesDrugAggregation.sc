@@ -56,7 +56,7 @@ def main(evidencePath: String, efoPath: String, outPath: String): Unit = {
   val agg = ddf
     .where(col("private.datatype") === "known_drug")
     .withColumn("disease_id", col("disease.id"))
-    .withColumn("drug_id", substring_index(col("durg.id"), "/", -1))
+    .withColumn("drug_id", substring_index(col("drug.id"), "/", -1))
     .join(efos, Seq("disease_id"), "inner")
     .withColumn("ancestor", explode(col("ancestors")))
     .groupBy(col("ancestor"),
