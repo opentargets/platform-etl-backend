@@ -5,13 +5,15 @@ import org.apache.spark.sql.functions._
 import org.apache.spark.sql._
 
 /**
-  * install sdkman and scala 2.11.12
+  * install sdkman and scala 2.12.9
   * install ammonite repl
   * export some jvm mem things like this export JAVA_OPTS="-Xms1G -Xmx80G"
   * execute it as amm script.sc
-  * paths are hardcoded!
   */
 object Loaders {
+  /** load diseases from efo dump. extract the id compute ancestors and
+   * descendants and remove some innecesary fields
+   * */
   def loadDiseases(path: String)(implicit ss: SparkSession): DataFrame = {
     val genAncestors = udf((codes: Seq[Seq[String]]) =>
       codes.view.flatten.toSet.toSeq)
@@ -33,6 +35,7 @@ object Loaders {
       .drop("code", "children", "path_codes", "path_labels")
   }
 
+  /** load evidences from evidence dump from elasticsearch */
   def loadEvidences(path: String)(implicit ss: SparkSession): DataFrame = {
     val evidences = ss.read.json(path)
     evidences
@@ -49,10 +52,19 @@ def main(evidencePath: String, efoPath: String, outPath: String): Unit = {
     .config(sparkConf)
     .getOrCreate
 
+  /*
+   load evidences and efos and just select some id and fields
+   the id name change is just to easily match the evidence table
+   */
   val ddf = Loaders.loadEvidences(evidencePath)
   val efos = Loaders.loadDiseases(efoPath)
     .selectExpr("id as disease_id", "ancestors", "descendants")
 
+  /*
+   prepare and join with efo before compute the aggregation
+   the groupby is by exploded ancestor so a disease can match descendant
+   evidences and accumulate their drugs and the rest of stuff
+   */
   val agg = ddf
     .where(col("private.datatype") === "known_drug")
     .withColumn("disease_id", col("disease.id"))
