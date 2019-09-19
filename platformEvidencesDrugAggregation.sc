@@ -40,7 +40,7 @@ object Loaders {
 }
 
 @main
-def main(): Unit = {
+def main(evidencePath: String, efoPath: String, outPath: String): Unit = {
   val sparkConf = new SparkConf()
     .setAppName("drugs-aggregation")
     .setMaster("local[*]")
@@ -49,13 +49,18 @@ def main(): Unit = {
     .config(sparkConf)
     .getOrCreate
 
-  val ddf = Loaders.loadEvidences("input/19.06_evidence-data.json")
-  val efos = Loaders.loadDiseases("input/19.06_efo-data.json")
+  val ddf = Loaders.loadEvidences(evidencePath)
+  val efos = Loaders.loadDiseases(efoPath)
+    .selectExpr("id as disease_id", "ancestors", "descendants")
 
   val agg = ddf
-      .where(col("private.datatype") === "known_drug")
-    .groupBy(col("disease.id").as("disease_id"),
-      col("drug.id").as("drug_id"),
+    .where(col("private.datatype") === "known_drug")
+    .withColumn("disease_id", col("disease.id"))
+    .withColumn("drug_id", substring_index(col("durg.id"), "/", -1))
+    .join(efos, Seq("disease_id"), "inner")
+    .withColumn("ancestor", explode(col("ancestors")))
+    .groupBy(col("ancestor"),
+      col("drug_id"),
       col("evidence.drug2clinic.clinical_trial_phase.label").as("clinical_trial_phase"),
       col("evidence.drug2clinic.status").as("clinical_trial_status"),
       col("target.target_name").as("target_name"))
@@ -67,8 +72,9 @@ def main(): Unit = {
       first(col("target.target_class")).as("target_class")
     )
       .withColumn("list_urls", flatten(col("_list_urls")))
+      .withColumnRenamed("ancestor", "disease_id")
       .drop("_list_urls")
 
   agg.write
-    .json("evidences_agg_drugs/")
+    .json(outPath)
 }
