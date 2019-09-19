@@ -65,12 +65,22 @@ def main(evidencePath: String, efoPath: String, outPath: String): Unit = {
    the groupby is by exploded ancestor so a disease can match descendant
    evidences and accumulate their drugs and the rest of stuff
    */
-  val agg = ddf
+  val fds = ddf
     .where(col("private.datatype") === "known_drug")
     .withColumn("disease_id", col("disease.id"))
+    .withColumn("target_id", col("target.id"))
     .withColumn("drug_id", substring_index(col("drug.id"), "/", -1))
     .join(efos, Seq("disease_id"), "inner")
     .withColumn("ancestor", explode(col("ancestors")))
+
+  val associated = fds.groupBy(col("ancestor"))
+    .agg(collect_set(col("disease_id")).as("associated_diseases"),
+      collect_set(col("target_id")).as("associated_targets"))
+    .withColumn("associated_targets_count", size(col("associated_targets")))
+    .withColumn("associated_diseases_count", size(col("associated_diseases")))
+    .withColumnRenamed("ancestor", "disease_id")
+
+  val agg = fds
     .groupBy(col("ancestor"),
       col("drug_id"),
       col("evidence.drug2clinic.clinical_trial_phase.label").as("clinical_trial_phase"),
@@ -90,6 +100,7 @@ def main(evidencePath: String, efoPath: String, outPath: String): Unit = {
       .withColumn("ancestors_count", size(col("ancestors")))
       .withColumn("descendants_count", size(col("descendants")))
 
-  agg.write
+  agg.join(broadcast(associated), Seq("disease_id"), "inner")
+    .write
     .json(outPath)
 }
