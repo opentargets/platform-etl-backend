@@ -74,6 +74,9 @@ def main(evidencePath: String, efoPath: String, outPath: String): Unit = {
       .withColumn("list_urls", flatten(col("_list_urls")))
       .withColumnRenamed("ancestor", "disease_id")
       .drop("_list_urls")
+      .join(efos, Seq("disease_id"), "inner")
+      .withColumn("ancestors_count", size(col("ancestors")))
+      .withColumn("descendants_count", size(col("descendants")))
 
   agg.write
     .json(outPath)
