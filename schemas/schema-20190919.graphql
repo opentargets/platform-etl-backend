@@ -1,0 +1,1407 @@
+directive @cacheControl(maxAge: Int, scope: CacheControlScope) on FIELD_DEFINITION | OBJECT | INTERFACE
+
+type Abstract {
+  title: String!
+}
+
+enum AssociationType {
+  RESISTANT
+  RESPONSIVE
+  NOT_RESPONSIVE
+  INCREASED_TOXICITY
+}
+
+type Author {
+  firstName: String
+  lastName: String
+  initials: String
+}
+
+enum CacheControlScope {
+  PUBLIC
+  PRIVATE
+}
+
+type CancerHallmarkPromotionAndSuppression {
+  name: String!
+  promotes: Boolean!
+  suppresses: Boolean!
+}
+
+type CancerHallmarkPublication {
+  pmId: String!
+  description: String!
+}
+
+type CancerHallmarkPublicationFullDetails {
+  name: String!
+  promotes: Boolean!
+  suppresses: Boolean!
+  description: String!
+  pmId: String!
+}
+
+type CancerHallmarkPublicationsByHallmark {
+  name: String!
+  promotes: Boolean!
+  suppresses: Boolean!
+  publications: [CancerHallmarkPublication!]!
+}
+
+type CancerHallmarkRoleInCancer {
+  name: String!
+  pmId: String!
+}
+
+type CategoryFacetItem {
+  itemId: String!
+  name: String!
+  count: Int!
+}
+
+type ClinicalTrial {
+  phase: Int!
+  status: ClinicalTrialStatus
+  sourceUrl: String!
+  sourceName: String!
+}
+
+enum ClinicalTrialStatus {
+  ACTIVE_NOT_RECRUITING
+  COMPLETED
+  NOT_APPLICABLE
+  NOT_YET_RECRUITING
+  RECRUITING
+  SUSPENDED
+  TERMINATED
+  UNKNOWN_STATUS
+  WITHDRAWN
+  ENROLLING_BY_INVITATION
+}
+
+enum DataSource {
+  GWAS_CATALOG
+  PHEWAS_CATALOG
+  EVA
+  EVA_SOMATIC
+  GENE2PHENOTYPE
+  GENOMICS_ENGLAND
+  INTOGEN
+  CANCER_GENE_CENSUS
+  REACTOME
+  PROGENY
+  SLAPENRICH
+  CRISPR
+  SYSBIO
+  CHEMBL
+  EXPRESSION_ATLAS
+  EUROPEPMC
+  PHENODIGM
+  UNIPROT
+  UNIPROT_SOMATIC
+  UNIPROT_LITERATURE
+}
+
+type DataSourceFacetItem {
+  itemId: DataSource!
+  name: String!
+  count: Int!
+}
+
+enum DataType {
+  GENETIC_ASSOCIATION
+  SOMATIC_MUTATION
+  KNOWN_DRUGS
+  PATHWAYS
+  DIFFERENTIAL_EXPRESSION
+  ANIMAL_MODELS
+  TEXT_MINING
+}
+
+type DataTypeFacetItem {
+  itemId: DataType!
+  name: String!
+  count: Int!
+  children: [DataSourceFacetItem!]
+}
+
+type DifferentialExpressionActivity {
+  url: String!
+  name: String!
+}
+
+type DifferentialExpressionExperiment {
+  url: String!
+  name: String!
+}
+
+type Disease {
+  id: String!
+  name: String!
+  description: String!
+  synonyms: [String!]!
+  therapeuticAreas: [Disease!]!
+  summaries: DiseaseSummaries!
+  details: DiseaseDetails!
+  targetsConnection(facets: DiseaseTargetsConnectionFacetsInput, sortBy: DiseaseTargetsConnectionSortByInput, first: Int, after: String, search: String): DiseaseTargetsConnection!
+}
+
+type DiseaseDetailDrugs {
+  rows: [EvidenceRowDrugs!]!
+}
+
+type DiseaseDetailOntology {
+  nodes: [DiseaseOntologyNode!]!
+  therapeuticAreas: [String!]!
+}
+
+type DiseaseDetailPhenotypes {
+  rows: [DiseasePhenotype!]!
+}
+
+type DiseaseDetailRelatedDiseases {
+  rows: [RowRelatedDisease!]!
+  expanded(otherEfoId: String!): [ExpandedRowRelatedDisease!]!
+}
+
+type DiseaseDetails {
+  drugs: DiseaseDetailDrugs
+  ontology: DiseaseDetailOntology
+  phenotypes: DiseaseDetailPhenotypes
+  relatedDiseases: DiseaseDetailRelatedDiseases
+}
+
+type DiseaseOntology {
+  nodes: [DiseaseOntologyNode!]!
+  therapeuticAreas: [String!]!
+}
+
+type DiseaseOntologyNode {
+  id: String!
+  name: String!
+  parentIds: [String!]!
+}
+
+type DiseasePhenotype {
+  id: String!
+  name: String!
+  url: String!
+}
+
+type DiseaseSummaries {
+  drugs: DiseaseSummaryDrugs
+  ontology: DiseaseSummaryOntology
+  phenotypes: DiseaseSummaryPhenotypes
+  relatedDiseases: DiseaseSummaryRelatedDiseases
+}
+
+type DiseaseSummaryDrugs {
+  drugCount: Int!
+  sources: [Source!]!
+}
+
+type DiseaseSummaryOntology {
+  isTherapeuticArea: Boolean!
+  isLeaf: Boolean!
+  sources: [Source!]!
+}
+
+type DiseaseSummaryPhenotypes {
+  phenotypesCount: Int!
+  sources: [Source!]!
+}
+
+type DiseaseSummaryRelatedDiseases {
+  relatedDiseasesCount: Int!
+  sources: [Source!]!
+}
+
+type DiseaseTargetsConnection {
+  totalCount: Int!
+  facets: DiseaseTargetsConnectionFacets!
+  edges: [DiseaseTargetsConnectionEdge!]!
+  pageInfo: PageInfo!
+}
+
+type DiseaseTargetsConnectionEdge {
+  id: String!
+  node: Target!
+  score: Float!
+  scoresByDataType: [ScoreForDataType!]!
+  scoresByDataSource: [ScoreForDataSource!]!
+}
+
+type DiseaseTargetsConnectionFacetDataTypeAndSource {
+  items: [DataTypeFacetItem!]!
+}
+
+input DiseaseTargetsConnectionFacetInputDataTypeAndSource {
+  dataTypeIds: [DataType!]
+  dataSourceIds: [DataSource!]
+}
+
+input DiseaseTargetsConnectionFacetInputPathways {
+  pathwayIds: [String!]
+}
+
+input DiseaseTargetsConnectionFacetInputTargetClass {
+  targetClassIds: [String!]
+}
+
+input DiseaseTargetsConnectionFacetInputTissueSpecificity {
+  tissueIds: [String!]
+}
+
+input DiseaseTargetsConnectionFacetInputTractability {
+  tractabilityIds: [String!]
+}
+
+type DiseaseTargetsConnectionFacetPathways {
+  items: [SinglyNestedCategoryFacetItem!]!
+}
+
+type DiseaseTargetsConnectionFacets {
+  dataTypeAndSource: DiseaseTargetsConnectionFacetDataTypeAndSource
+  pathways: DiseaseTargetsConnectionFacetPathways
+  targetClass: DiseaseTargetsConnectionFacetTargetClass
+  tractability: DiseaseTargetsConnectionFacetTractability
+  tissueSpecificity: DiseaseTargetsConnectionFacetTissueSpecificity
+}
+
+input DiseaseTargetsConnectionFacetsInput {
+  dataTypeAndSource: DiseaseTargetsConnectionFacetInputDataTypeAndSource
+  pathways: DiseaseTargetsConnectionFacetInputPathways
+  targetClass: DiseaseTargetsConnectionFacetInputTargetClass
+  tractability: DiseaseTargetsConnectionFacetInputTractability
+  tissueSpecificity: DiseaseTargetsConnectionFacetInputTissueSpecificity
+}
+
+type DiseaseTargetsConnectionFacetTargetClass {
+  items: [SinglyNestedCategoryFacetItem!]!
+}
+
+type DiseaseTargetsConnectionFacetTissueSpecificity {
+  items: [TissueSpecificityFacetItem!]!
+}
+
+type DiseaseTargetsConnectionFacetTractability {
+  items: [CategoryFacetItem!]!
+}
+
+enum DiseaseTargetsConnectionSortByField {
+  GENETIC_ASSOCIATION
+  SOMATIC_MUTATION
+  KNOWN_DRUGS
+  PATHWAYS
+  DIFFERENTIAL_EXPRESSION
+  ANIMAL_MODELS
+  TEXT_MINING
+  SCORE_OVERALL
+  TARGET_SYMBOL
+}
+
+input DiseaseTargetsConnectionSortByInput {
+  field: DiseaseTargetsConnectionSortByField!
+  ascending: Boolean!
+}
+
+type Drug {
+  id: String!
+  name: String!
+  synonyms: [String!]!
+  tradeNames: [String!]!
+  yearOfFirstApproval: String
+  type: String!
+  maximumClinicalTrialPhase: Int
+  hasBeenWithdrawn: Boolean!
+  withdrawnNotice: WithdrawnNotice
+  summaries: DrugSummaries!
+  details: DrugDetails!
+  internalCompound: Boolean!
+}
+
+enum DrugActivity {
+  AGONIST
+  ANTAGONIST
+  UP_OR_DOWN
+}
+
+type DrugDetailLinkedDiseases {
+  rows: [Disease!]!
+}
+
+type DrugDetailLinkedTargets {
+  rows: [Target!]!
+}
+
+type DrugDetailMechanismsOfAction {
+  rows: [MechanismOfActionRow!]!
+}
+
+type DrugDetails {
+  mechanismsOfAction: DrugDetailMechanismsOfAction
+  linkedTargets: DrugDetailLinkedTargets
+  linkedDiseases: DrugDetailLinkedDiseases
+}
+
+type DrugSummaries {
+  mechanismsOfAction: DrugSummaryMechanismsOfAction
+  linkedTargets: DrugSummaryLinkedTargets
+  linkedDiseases: DrugSummaryLinkedDiseases
+}
+
+type DrugSummaryLinkedDiseases {
+  linkedDiseaseCount: Int!
+  sources: [Source!]!
+}
+
+type DrugSummaryLinkedTargets {
+  linkedTargetCount: Int!
+  sources: [Source!]!
+}
+
+type DrugSummaryMechanismsOfAction {
+  uniqueActionTypes: [String!]!
+  uniqueTargetTypes: [String!]!
+  sources: [Source!]!
+}
+
+enum DrugType {
+  SMALL_MOLECULE
+  PROTEIN
+  ENZYME
+  ANTIBODY
+  OLIGOSACCHARIDE
+  OLIGONUCLEOTIDE
+  UNKNOWN
+}
+
+type EvDrug {
+  id: String!
+  name: String!
+  type: DrugType!
+  activity: DrugActivity!
+}
+
+type Evidence {
+  summaries: EvidenceSummaries!
+  details: EvidenceDetails!
+}
+
+type EvidenceDetailAnimalModels {
+  rows: [EvidenceRowAnimalModels!]!
+}
+
+type EvidenceDetailCancerGeneCensus {
+  rows: [EvidenceRowCancerGeneCensus!]!
+}
+
+type EvidenceDetailCrispr {
+  rows: [EvidenceRowCrispr!]!
+}
+
+type EvidenceDetailDifferentialExpression {
+  rows: [EvidenceRowDifferentialExpression!]!
+}
+
+type EvidenceDetailDrugs {
+  rows: [EvidenceRowDrugs!]!
+}
+
+type EvidenceDetailEva {
+  rows: [EvidenceRowEva!]!
+}
+
+type EvidenceDetailEvaSomatic {
+  rows: [EvidenceRowEvaSomatic!]!
+}
+
+type EvidenceDetailGene2Phenotype {
+  rows: [EvidenceRowGene2Phenotype!]!
+}
+
+type EvidenceDetailGenomicsEngland {
+  rows: [EvidenceRowGenomicsEngland!]!
+}
+
+type EvidenceDetailGwasCatalog {
+  rows: [EvidenceRowGwasCatalog!]!
+}
+
+type EvidenceDetailIntogen {
+  rows: [EvidenceRowIntogen!]!
+}
+
+type EvidenceDetailPhewasCatalog {
+  rows: [EvidenceRowPhewasCatalog!]!
+}
+
+type EvidenceDetailProgeny {
+  rows: [EvidenceRowProgeny!]!
+}
+
+type EvidenceDetailReactome {
+  rows: [EvidenceRowReactome!]!
+}
+
+type EvidenceDetails {
+  animalModels: EvidenceDetailAnimalModels
+  differentialExpression: EvidenceDetailDifferentialExpression
+  drugs: EvidenceDetailDrugs
+  gwasCatalog: EvidenceDetailGwasCatalog
+  intogen: EvidenceDetailIntogen
+  cancerGeneCensus: EvidenceDetailCancerGeneCensus
+  phewasCatalog: EvidenceDetailPhewasCatalog
+  reactome: EvidenceDetailReactome
+  slapenrich: EvidenceDetailSlapenrich
+  progeny: EvidenceDetailProgeny
+  crispr: EvidenceDetailCrispr
+  sysBio: EvidenceDetailSysBio
+  eva: EvidenceDetailEva
+  evaSomatic: EvidenceDetailEvaSomatic
+  gene2Phenotype: EvidenceDetailGene2Phenotype
+  genomicsEngland: EvidenceDetailGenomicsEngland
+  uniProt: EvidenceDetailUniProt
+  uniProtLiterature: EvidenceDetailUniProtLiterature
+  uniProtSomatic: EvidenceDetailUniProtSomatic
+  textMining: EvidenceDetailTextMining
+}
+
+type EvidenceDetailSlapenrich {
+  rows: [EvidenceRowSlapenrich!]!
+}
+
+type EvidenceDetailSysBio {
+  rows: [EvidenceRowSysBio!]!
+}
+
+type EvidenceDetailTextMining {
+  rows: [EvidenceRowTextMining!]!
+  textMiningCount: Int!
+}
+
+type EvidenceDetailUniProt {
+  rows: [EvidenceRowUniProt!]!
+}
+
+type EvidenceDetailUniProtLiterature {
+  rows: [EvidenceRowUniProtLiterature!]!
+}
+
+type EvidenceDetailUniProtSomatic {
+  rows: [EvidenceRowUniProtSomatic!]!
+}
+
+type EvidenceMechanismOfAction {
+  name: String!
+  sourceUrl: String
+  sourceName: String
+}
+
+type EvidenceRowAnimalModels {
+  disease: Disease!
+  humanPhenotypes: [Phenotype!]!
+  modelPhenotypes: [Phenotype!]!
+  modelId: String!
+  allelicComposition: String!
+  geneticBackground: String!
+  source: Source!
+}
+
+type EvidenceRowCancerGeneCensus {
+  disease: Disease!
+  mutationType: String!
+  inheritancePattern: InheritancePattern!
+  samplesWithMutationTypeCount: Int!
+  mutatedSamplesCount: Int!
+  source: Source!
+  pmIds: [String!]!
+}
+
+type EvidenceRowCrispr {
+  disease: Disease!
+  score: Float!
+  method: String!
+  pmId: String!
+}
+
+type EvidenceRowDifferentialExpression {
+  disease: Disease!
+  tissue: Tissue!
+  activity: DifferentialExpressionActivity!
+  comparison: String!
+  evidenceSource: String!
+  log2FoldChange: Float!
+  percentileRank: Int!
+  pval: Float!
+  experiment: DifferentialExpressionExperiment!
+  pmIds: [String!]!
+}
+
+type EvidenceRowDrugs {
+  target: Target!
+  disease: Disease!
+  drug: EvDrug!
+  clinicalTrial: ClinicalTrial!
+  mechanismOfAction: EvidenceMechanismOfAction!
+}
+
+type EvidenceRowEva {
+  disease: Disease!
+  rsId: String!
+  clinVarId: String!
+  vepConsequence: VEPConsequence!
+  clinicalSignificance: String!
+  pmId: String
+}
+
+type EvidenceRowEvaSomatic {
+  disease: Disease!
+  rsId: String!
+  clinVarId: String!
+  vepConsequence: VEPConsequence!
+  clinicalSignificance: String!
+  pmId: String
+}
+
+type EvidenceRowGene2Phenotype {
+  disease: Disease!
+  panelsUrl: String!
+  pmId: String!
+}
+
+type EvidenceRowGenomicsEngland {
+  disease: Disease!
+  panel: GenomicsEnglandPanel!
+  source: Source
+}
+
+type EvidenceRowGwasCatalog {
+  disease: Disease!
+  rsId: String!
+  pval: Float!
+  oddsRatio: Float
+  confidenceInterval: String
+  vepConsequence: VEPConsequence
+  source: Source!
+}
+
+type EvidenceRowIntogen {
+  disease: Disease!
+  activity: IntogenActivity!
+  inheritancePattern: InheritancePattern!
+  source: Source!
+  pmId: String!
+}
+
+type EvidenceRowPhewasCatalog {
+  disease: Disease!
+  rsId: String!
+  pval: Float!
+  oddsRatio: Float
+  confidenceInterval: String
+  vepConsequence: VEPConsequence
+  source: Source!
+}
+
+type EvidenceRowProgeny {
+  disease: Disease!
+  pathway: ReactomePathway!
+  source: Source!
+}
+
+type EvidenceRowReactome {
+  activity: ReactomeActivity
+  disease: Disease!
+  pathway: ReactomePathway!
+  mutations: [String!]!
+  source: Source!
+}
+
+type EvidenceRowSlapenrich {
+  disease: Disease!
+  pathway: ReactomePathway!
+  source: Source!
+}
+
+type EvidenceRowSysBio {
+  disease: Disease!
+  geneSet: String!
+  method: String!
+  pmId: String!
+}
+
+type EvidenceRowTextMining {
+  access: String!
+  disease: Disease!
+  journal: Journal!
+  publication: Publication!
+  relevance: Float!
+}
+
+type EvidenceRowUniProt {
+  disease: Disease!
+  rsId: String!
+  vepConsequence: VEPConsequence!
+  source: Source!
+  pmIds: [String!]!
+}
+
+type EvidenceRowUniProtLiterature {
+  disease: Disease!
+  source: Source!
+  pmIds: [String!]!
+}
+
+type EvidenceRowUniProtSomatic {
+  disease: Disease!
+  vepConsequence: VEPConsequence!
+  source: Source!
+  pmIds: [String!]!
+}
+
+type EvidenceSummaries {
+  animalModels: EvidenceSummaryAnimalModels
+  differentialExpression: EvidenceSummaryDifferentialExpression
+  drugs: EvidenceSummaryDrugs
+  gwasCatalog: EvidenceSummaryGwasCatalog
+  intogen: EvidenceSummaryIntogen
+  cancerGeneCensus: EvidenceSummaryCancerGeneCensus
+  phewasCatalog: EvidenceSummaryPhewasCatalog
+  reactome: EvidenceSummaryReactome
+  slapenrich: EvidenceSummarySlapenrich
+  progeny: EvidenceSummaryProgeny
+  crispr: EvidenceSummaryCrispr
+  sysBio: EvidenceSummarySysBio
+  eva: EvidenceSummaryEva
+  evaSomatic: EvidenceSummaryEvaSomatic
+  gene2Phenotype: EvidenceSummaryGene2Phenotype
+  genomicsEngland: EvidenceSummaryGenomicsEngland
+  uniProt: EvidenceSummaryUniProt
+  uniProtLiterature: EvidenceSummaryUniProtLiterature
+  uniProtSomatic: EvidenceSummaryUniProtSomatic
+  textMining: EvidenceSummaryTextMining
+}
+
+type EvidenceSummaryAnimalModels {
+  mouseModelCount: Int!
+  sources: [Source!]!
+}
+
+type EvidenceSummaryCancerGeneCensus {
+  hasMutations: Boolean!
+  sources: [Source!]!
+}
+
+type EvidenceSummaryCrispr {
+  hasCrispr: Boolean!
+  sources: [Source!]!
+}
+
+type EvidenceSummaryDifferentialExpression {
+  experimentCount: Int!
+  sources: [Source!]!
+}
+
+type EvidenceSummaryDrugs {
+  drugCount: Int!
+  sources: [Source!]!
+}
+
+type EvidenceSummaryEva {
+  variantCount: Int!
+  sources: [Source!]!
+}
+
+type EvidenceSummaryEvaSomatic {
+  variantCount: Int!
+  sources: [Source!]!
+}
+
+type EvidenceSummaryGene2Phenotype {
+  hasPanel: Boolean!
+  sources: [Source!]!
+}
+
+type EvidenceSummaryGenomicsEngland {
+  hasPanel: Boolean!
+  sources: [Source!]!
+}
+
+type EvidenceSummaryGwasCatalog {
+  variantCount: Int!
+  sources: [Source!]!
+}
+
+type EvidenceSummaryIntogen {
+  hasMutations: Boolean!
+  sources: [Source!]!
+}
+
+type EvidenceSummaryPhewasCatalog {
+  variantCount: Int!
+  sources: [Source!]!
+}
+
+type EvidenceSummaryProgeny {
+  pathwayCount: Int!
+  sources: [Source!]!
+}
+
+type EvidenceSummaryReactome {
+  pathwayCount: Int!
+  sources: [Source!]!
+}
+
+type EvidenceSummarySlapenrich {
+  pathwayCount: Int!
+  sources: [Source!]!
+}
+
+type EvidenceSummarySysBio {
+  hasSysBio: Boolean!
+  sources: [Source!]!
+}
+
+type EvidenceSummaryTextMining {
+  textMiningCount: Int!
+  sources: [Source!]!
+}
+
+type EvidenceSummaryUniProt {
+  variantCount: Int!
+  sources: [Source!]!
+}
+
+type EvidenceSummaryUniProtLiterature {
+  hasVariants: Boolean!
+  sources: [Source!]!
+}
+
+type EvidenceSummaryUniProtSomatic {
+  hasVariants: Boolean!
+  sources: [Source!]!
+}
+
+type ExpandedRowRelatedDisease {
+  target: Target!
+  associationScoreA: Float!
+  associationScoreB: Float!
+}
+
+type ExpandedRowRelatedTarget {
+  disease: Disease!
+  associationScoreA: Float!
+  associationScoreB: Float!
+}
+
+enum GeneOntologyCategory {
+  CELLULAR_COMPONENT
+  BIOLOGICAL_PROCESS
+  MOLECULAR_FUNCTION
+}
+
+type GenomicsEnglandPanel {
+  id: String!
+  url: String!
+}
+
+type HomologyRow {
+  dNdS: Float
+  species: String!
+  speciesId: String!
+  homologyType: String!
+  queryPercentageIdentity: Float!
+  targetPercentageIdentity: Float!
+  targetGeneId: String!
+  targetGeneSymbol: String
+}
+
+enum InheritancePattern {
+  X_LINKED_RECESSIVE
+  DOMINANT_OR_RECESSIVE
+  DOMINANT
+  RECESSIVE
+  UNKNOWN
+}
+
+enum IntogenActivity {
+  GAIN_OF_FUNCTION
+  LOSS_OF_FUNCTION
+  UNKNOWN
+}
+
+type Journal {
+  title: String!
+  volume: String
+  issue: String
+  page: String
+  year: Int
+}
+
+type LowLevelReactomePathway {
+  id: String!
+  name: String!
+  parents: [ReactomePathway!]!
+}
+
+type Match {
+  start: Int!
+  end: Int!
+}
+
+type MechanismOfActionRow {
+  mechanismOfAction: String!
+  targetName: String!
+  targets: [Target!]!
+  references: [Source!]!
+}
+
+type MousePhenotypeCategory {
+  id: String!
+  name: String!
+  isAssociated: Boolean!
+}
+
+type MousePhenotypeRow {
+  mouseGeneId: String!
+  mouseGeneSymbol: String!
+  categoryId: String!
+  categoryLabel: String!
+  phenotypeId: String!
+  phenotypeLabel: String!
+  subjectAllelicComposition: [String!]!
+  subjectBackground: String!
+  pmIds: [String!]!
+}
+
+type OrthologuesBySpecies {
+  species: String!
+  speciesId: String!
+  orthologuesCount: Int!
+}
+
+type PageInfo {
+  nextCursor: String
+  hasNextPage: Boolean!
+}
+
+type Pdb {
+  pdbId: String!
+  chain: String
+  start: Int!
+  end: Int!
+  coverage: Float!
+  resolution: Float
+  method: String!
+}
+
+type Phenotype {
+  id: String!
+  name: String!
+  url: String!
+}
+
+type Protein {
+  level: Int!
+}
+
+type ProteinInteractionsGraphEdge {
+  source: String!
+  target: String!
+  isDirected: Boolean!
+  isStimulation: Boolean!
+  isInhibition: Boolean!
+  pmIds: [String!]!
+  sources: [String!]!
+  pathwaysSources: [String!]!
+  enzymeSubstrateSources: [String!]!
+  ppiSources: [String!]!
+}
+
+type ProteinInteractionsGraphNode {
+  uniprotId: String!
+  ensgId: String!
+  symbol: String!
+}
+
+type Publication {
+  id: String!
+  title: String!
+  date: String!
+  authors: [Author!]!
+  url: String
+  abstract: String
+  matches: [[SectionMatch]]
+}
+
+type Query {
+  target(ensgId: String!): Target!
+  disease(efoId: String!): Disease!
+  drug(chemblId: String!): Drug!
+  efo: DiseaseOntology!
+  evidence(ensgId: String!, efoId: String!, from: Int, size: Int, sortBy: String, order: String): Evidence!
+}
+
+enum ReactomeActivity {
+  DECREASED_TRANSCRIPT_LEVEL
+  GAIN_OF_FUNCTION
+  LOSS_OF_FUNCTION
+  PARTIAL_LOSS_OF_FUNCTION
+  UP_OR_DOWN
+}
+
+type ReactomePathway {
+  id: String!
+  name: String!
+}
+
+type Rna {
+  value: Float!
+  level: Int!
+}
+
+type RowCancerBiomarkers {
+  biomarker: String!
+  diseases: [Disease!]!
+  drugName: String!
+  associationType: AssociationType!
+  evidenceLevel: String!
+  sources: [Source!]!
+}
+
+type RowChemicalProbes {
+  chemicalProbe: String!
+  note: String
+  sources: [Source!]!
+}
+
+type RowExpression {
+  label: String!
+  organs: [String!]!
+  anatomicalSystems: [String!]!
+  rna: Rna!
+  protein: Protein!
+}
+
+type RowGeneOntology {
+  id: String!
+  term: String!
+  category: GeneOntologyCategory!
+}
+
+type RowRelatedDisease {
+  A: Disease!
+  B: Disease!
+  targetCountA: Int!
+  targetCountB: Int!
+  targetCountAAndB: Int!
+  targetCountAOrB: Int!
+  score: Float!
+}
+
+type RowRelatedTarget {
+  A: Target!
+  B: Target!
+  diseaseCountA: Int!
+  diseaseCountB: Int!
+  diseaseCountAAndB: Int!
+  diseaseCountAOrB: Int!
+  score: Float!
+}
+
+type ScoreForDataSource {
+  dataSourceId: DataSource!
+  score: Float!
+}
+
+type ScoreForDataType {
+  dataTypeId: DataType!
+  score: Float!
+}
+
+type SectionMatch {
+  text: String!
+  section: String!
+  target: Match
+  disease: Match
+}
+
+type SinglyNestedCategoryFacetItem {
+  itemId: String!
+  name: String!
+  count: Int!
+  children: [CategoryFacetItem!]!
+}
+
+type Source {
+  url: String!
+  name: String
+}
+
+type Target {
+  id: String!
+  uniprotId: String!
+  symbol: String!
+  name: String!
+  description: String
+  synonyms: [String!]!
+  summaries: TargetSummaries!
+  details: TargetDetails!
+  diseasesConnection(facets: TargetDiseasesConnectionFacetsInput, sortBy: TargetDiseasesConnectionSortByInput, first: Int, after: String, search: String): TargetDiseasesConnection!
+}
+
+type TargetDetailCancerBiomarkers {
+  rows: [RowCancerBiomarkers!]!
+}
+
+type TargetDetailCancerHallmarks {
+  publicationsByHallmark: [CancerHallmarkPublicationsByHallmark!]!
+  roleInCancer: [CancerHallmarkRoleInCancer!]!
+  rows: [CancerHallmarkPublicationFullDetails!]!
+}
+
+type TargetDetailChemicalProbes {
+  rows: [RowChemicalProbes!]!
+  probeMinerUrl: String
+}
+
+type TargetDetailDrugs {
+  rows: [EvidenceRowDrugs!]!
+}
+
+type TargetDetailExpression {
+  rows: [RowExpression!]!
+}
+
+type TargetDetailGeneOntology {
+  rows: [RowGeneOntology!]!
+}
+
+type TargetDetailHomology {
+  rows: [HomologyRow!]!
+}
+
+type TargetDetailMousePhenotypes {
+  categories: [MousePhenotypeCategory!]!
+  rows: [MousePhenotypeRow!]!
+}
+
+type TargetDetailPathways {
+  topLevelPathways: [TopLevelReactomePathway!]!
+  lowLevelPathways: [LowLevelReactomePathway!]!
+}
+
+type TargetDetailProtein {
+  uniprotId: String
+  pdbId: String
+  pdbs: [Pdb!]!
+  keywords: [UniprotKeyword!]
+  subCellularLocations: [UniprotSubCellularLocation!]
+  subUnit: [String!]
+  structuralFeatures: [UniprotStructuralFeature!]!
+  sequenceLength: Int
+}
+
+type TargetDetailProteinInteractions {
+  nodes: [ProteinInteractionsGraphNode!]!
+  edges: [ProteinInteractionsGraphEdge!]!
+}
+
+type TargetDetailRelatedTargets {
+  rows: [RowRelatedTarget!]!
+  expanded(otherEnsgId: String!): [ExpandedRowRelatedTarget!]!
+}
+
+type TargetDetails {
+  cancerBiomarkers: TargetDetailCancerBiomarkers
+  cancerHallmarks: TargetDetailCancerHallmarks
+  chemicalProbes: TargetDetailChemicalProbes
+  drugs: TargetDetailDrugs
+  expression: TargetDetailExpression
+  geneOntology: TargetDetailGeneOntology
+  homology: TargetDetailHomology
+  mousePhenotypes: TargetDetailMousePhenotypes
+  pathways: TargetDetailPathways
+  protein: TargetDetailProtein
+  proteinInteractions: TargetDetailProteinInteractions
+  relatedTargets: TargetDetailRelatedTargets
+  tractability: TargetDetailTractability
+}
+
+type TargetDetailTractability {
+  smallMolecule: [TractabilityAssessmentBucket!]!
+  antibody: [TractabilityAssessmentBucket!]!
+}
+
+type TargetDiseasesConnection {
+  totalCount: Int!
+  facets: TargetDiseasesConnectionFacets!
+  edges: [TargetDiseasesConnectionEdge!]!
+  pageInfo: PageInfo!
+}
+
+type TargetDiseasesConnectionEdge {
+  id: String!
+  node: Disease!
+  score: Float!
+  scoresByDataType: [ScoreForDataType!]!
+  scoresByDataSource: [ScoreForDataSource!]!
+}
+
+type TargetDiseasesConnectionFacetDataTypeAndSource {
+  items: [DataTypeFacetItem!]!
+}
+
+input TargetDiseasesConnectionFacetInputDataTypeAndSource {
+  dataTypeIds: [DataType!]
+  dataSourceIds: [DataSource!]
+}
+
+input TargetDiseasesConnectionFacetInputTherapeuticArea {
+  efoIds: [String!]!
+}
+
+type TargetDiseasesConnectionFacets {
+  dataTypeAndSource: TargetDiseasesConnectionFacetDataTypeAndSource
+  therapeuticArea: TargetDiseasesConnectionFacetTherapeuticArea
+}
+
+input TargetDiseasesConnectionFacetsInput {
+  dataTypeAndSource: TargetDiseasesConnectionFacetInputDataTypeAndSource
+  therapeuticArea: TargetDiseasesConnectionFacetInputTherapeuticArea
+}
+
+type TargetDiseasesConnectionFacetTherapeuticArea {
+  items: [CategoryFacetItem!]!
+}
+
+enum TargetDiseasesConnectionSortByField {
+  GENETIC_ASSOCIATION
+  SOMATIC_MUTATION
+  KNOWN_DRUGS
+  PATHWAYS
+  DIFFERENTIAL_EXPRESSION
+  ANIMAL_MODELS
+  TEXT_MINING
+  SCORE_OVERALL
+  DISEASE_NAME
+}
+
+input TargetDiseasesConnectionSortByInput {
+  field: TargetDiseasesConnectionSortByField!
+  ascending: Boolean!
+}
+
+type TargetSummaries {
+  cancerBiomarkers: TargetSummaryCancerBiomarkers
+  cancerHallmarks: TargetSummaryCancerHallmarks
+  chemicalProbes: TargetSummaryChemicalProbes
+  drugs: TargetSummaryDrugs
+  expression: TargetSummaryExpression
+  geneOntology: TargetSummaryGeneOntology
+  homology: TargetSummaryHomology
+  mousePhenotypes: TargetSummaryMousePhenotypes
+  pathways: TargetSummaryPathways
+  protein: TargetSummaryProtein
+  proteinInteractions: TargetSummaryProteinInteractions
+  relatedTargets: TargetSummaryRelatedTargets
+  tractability: TargetSummaryTractability
+  variation: TargetSummaryVariation
+}
+
+type TargetSummaryCancerBiomarkers {
+  hasCancerBiomarkers: Boolean!
+  cancerBiomarkerCount: Int!
+  diseaseCount: Int!
+  drugCount: Int!
+  sources: [Source!]!
+}
+
+type TargetSummaryCancerHallmarks {
+  promotionAndSuppressionByHallmark: [CancerHallmarkPromotionAndSuppression!]!
+  roleInCancer: [CancerHallmarkRoleInCancer!]!
+  sources: [Source!]!
+}
+
+type TargetSummaryChemicalProbes {
+  hasStructuralGenomicsConsortium: Boolean!
+  hasChemicalProbesPortal: Boolean!
+  hasOpenScienceProbes: Boolean!
+  hasProbeMiner: Boolean!
+  sources: [Source!]!
+}
+
+type TargetSummaryDrugs {
+  drugCount: Int!
+  sources: [Source!]!
+}
+
+type TargetSummaryExpression {
+  rnaBaselineExpression: Boolean!
+  proteinBaselineExpression: Boolean!
+  expressionAtlasExperiment: Boolean!
+  gtexData: Boolean!
+}
+
+type TargetSummaryGeneOntology {
+  molecularFunctionTermsCount: Int!
+  biologicalProcessTermsCount: Int!
+  cellularComponentTermsCount: Int!
+  sources: [Source!]!
+}
+
+type TargetSummaryHomology {
+  paraloguesCount: Int!
+  orthologuesBySpecies: [OrthologuesBySpecies!]!
+  sources: [Source!]!
+}
+
+type TargetSummaryMousePhenotypes {
+  phenotypeCount: Int!
+  categoryCount: Int!
+  sources: [Source!]!
+}
+
+type TargetSummaryPathways {
+  count: Int!
+  sources: [Source!]!
+}
+
+type TargetSummaryProtein {
+  hasSequenceAnnotationVisualisation: Boolean!
+  hasProteinStructure: Boolean!
+  hasSubCellularLocation: Boolean!
+  hasSubUnitData: Boolean!
+  hasUniprotKeywords: Boolean!
+  sources: [Source!]!
+}
+
+type TargetSummaryProteinInteractions {
+  ppi: Int!
+  pathways: Int!
+  enzymeSubstrate: Int!
+  interactorsCount: Int!
+  sources: [Source!]!
+}
+
+type TargetSummaryRelatedTargets {
+  relatedTargetsCount: Int!
+  sources: [Source!]!
+}
+
+type TargetSummaryTractability {
+  hasSmallMoleculeTractabilityAssessment: Boolean!
+  hasAntibodyTractabilityAssessment: Boolean!
+  sources: [Source!]!
+}
+
+type TargetSummaryVariation {
+  common: VariationCommon!
+  rare: VariationRare!
+  sources: [Source!]!
+}
+
+type Tissue {
+  id: String!
+  name: String!
+}
+
+type TissueSpecificityFacetItem {
+  itemId: String!
+  name: String!
+  organs: [String!]!
+  anatomicalSystems: [String!]!
+}
+
+type TopLevelReactomePathway {
+  id: String!
+  name: String!
+  isAssociated: Boolean!
+}
+
+type TractabilityAssessmentBucket {
+  chemblBucket: Int!
+  description: String!
+  value: Boolean!
+}
+
+type UniprotKeyword {
+  id: String!
+  name: String!
+  category: String!
+}
+
+type UniprotStructuralFeature {
+  type: String!
+  start: Int!
+  end: Int!
+}
+
+type UniprotSubCellularLocation {
+  id: String!
+  name: String!
+  description: String!
+}
+
+"""The `Upload` scalar type represents a file upload."""
+scalar Upload
+
+type VariationCommon {
+  variantsCount: Int!
+  diseasesCount: Int!
+}
+
+type VariationRare {
+  mutationsCount: Int!
+  diseasesCount: Int!
+}
+
+enum VEPConsequence {
+  TRANSCRIPT_ABLATION
+  SPLICE_ACCEPTOR_VARIANT
+  SPLICE_DONOR_VARIANT
+  STOP_GAINED
+  FRAMESHIFT_VARIANT
+  STOP_LOST
+  START_LOST
+  TRANSCRIPT_AMPLIFICATION
+  INFRAME_INSERTION
+  INFRAME_DELETION
+  MISSENSE_VARIANT
+  PROTEIN_ALTERING_VARIANT
+  SPLICE_REGION_VARIANT
+  INCOMPLETE_TERMINAL_CODON_VARIANT
+  START_RETAINED_VARIANT
+  STOP_RETAINED_VARIANT
+  SYNONYMOUS_VARIANT
+  CODING_SEQUENCE_VARIANT
+  MATURE_MIRNA_VARIANT
+  FIVE_PRIME_UTR_VARIANT
+  THREE_PRIME_UTR_VARIANT
+  NON_CODING_TRANSCRIPT_EXON_VARIANT
+  INTRON_VARIANT
+  NMD_TRANSCRIPT_VARIANT
+  NON_CODING_TRANSCRIPT_VARIANT
+  UPSTREAM_GENE_VARIANT
+  DOWNSTREAM_GENE_VARIANT
+  TFBS_ABLATION
+  TFBS_AMPLIFICATION
+  TF_BINDING_SITE_VARIANT
+  REGULATORY_REGION_ABLATION
+  REGULATORY_REGION_AMPLIFICATION
+  FEATURE_ELONGATION
+  REGULATORY_REGION_VARIANT
+  FEATURE_TRUNCATION
+  INTERGENIC_VARIANT
+  NEAREST_GENE_COUNTING_FROM_FIVE_PRIME_END
+  SEQUENCE_VARIANT
+}
+
+type WithdrawnNotice {
+  classes: [String!]
+  countries: [String!]!
+  reasons: [String!]
+  year: String!
+}
+

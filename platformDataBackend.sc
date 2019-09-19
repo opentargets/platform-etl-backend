@@ -59,11 +59,37 @@ object Transformers {
     }
 
     def setIdAndSelectFromDiseases: DataFrame = {
-      df.withColumn("id", substring_index(col("code"), "/", -1))
-        .drop("code")
+      val genAncestors = udf((codes: Seq[Seq[String]]) =>
+        codes.view.flatten.toSet.toSeq)
+
+      val efos = df
+        .withColumn("id", substring_index(col("code"), "/", -1))
+        .withColumn("ancestors", genAncestors(col("path_codes")))
+        .drop("paths", "private", "_private", "path")
+
+      val descendants = efos
+        .where(size(col("ancestors")) > 0)
+        .withColumn("ancestor", explode(col("ancestors")))
+        // all diseases have an ancestor, at least itself
+        .groupBy("ancestor")
+        .agg(collect_set(col("id")).as("descendants"))
+        .withColumnRenamed("ancestor", "id")
+
+      efos.join(descendants, Seq("id"))
+        .drop("code", "children", "path_codes", "path_labels")
     }
 
-    def setIdAndSelectFromDrugs: DataFrame = {
+    def setIdAndSelectFromDrugs(evidences: DataFrame): DataFrame = {
+      def _getUniqTargetsAndDiseasesPerDrugId(evs: DataFrame): DataFrame = {
+        evs.filter(col("sourceID") === "chembl")
+          .withColumn("drug_id", substring_index(col("drug.id"), "/", -1))
+          .groupBy(col("drug_id"))
+          .agg(collect_set(col("target.id")).as("linkedTargets"),
+            collect_set(col("disease.id")).as("linkedDiseases"))
+          .withColumn("linkedTargetsCount", size(col("linkedTargets")))
+          .withColumn("linkedDiseasesCount", size(col("linkedDiseases")))
+      }
+
       val selectExpression = Seq(
         "id",
         "pref_name as name",
@@ -74,6 +100,8 @@ object Transformers {
         "max_clinical_trial_phase as maximumClinicalTrialPhase",
         "withdrawn_flag as hasBeenWithdrawn",
         "internal_compound as internalCompound",
+        "struct(ifnull(linkedTargetsCount, 0) as count, ifnull(linkedTargets, array()) as rows) as linkedTargets",
+        "struct(ifnull(linkedDiseasesCount,0) as count, ifnull(linkedDiseases,array()) as rows) as linkedDiseases",
         "withdrawnNotice")
 
       val mechanismsOfAction =
@@ -85,11 +113,11 @@ object Transformers {
           |    array_distinct(
           |      transform(m.target_components, t -> t.ensembl)) as targets)) as rows,
           |  array_distinct(transform(mechanisms_of_action, x -> x.action_type)) as uniqueActionTypes,
-          |  array_distinct(transform(mechanisms_of_action, x -> x.target_type)) as uniqueTargetTypes,
-          |  flatten(transform(mechanisms_of_action, x -> x.references)) as references) as mechanismsOfAction
+          |  array_distinct(transform(mechanisms_of_action, x -> x.target_type)) as uniqueTargetTypes) as mechanismsOfAction
           |""".stripMargin
 
-      df.withColumn("withdrawnNotice", when(col("withdrawn_class").isNull and col("withdrawn_country").isNull and
+      df.join(_getUniqTargetsAndDiseasesPerDrugId(evidences), col("id") === col("drug_id"), "left_outer")
+        .withColumn("withdrawnNotice", when(col("withdrawn_class").isNull and col("withdrawn_country").isNull and
         col("withdrawn_year").isNull, lit(null))
         .otherwise(struct(col("withdrawn_class").as("classes"),
           col("withdrawn_country").as("countries"),
@@ -119,7 +147,7 @@ def main(drugFilename: String, targetFilename: String, diseaseFilename: String,
   val drugs = Loaders.loadDrugs(drugFilename)
   val targets = Loaders.loadTargets(targetFilename)
   val diseases = Loaders.loadDiseases(diseaseFilename)
-  //  val evidences = Loaders.loadEvidences(evidenceFilename)
+  val evidences = Loaders.loadEvidences(evidenceFilename)
 
   diseases
     .setIdAndSelectFromDiseases
@@ -130,6 +158,6 @@ def main(drugFilename: String, targetFilename: String, diseaseFilename: String,
     .write.json(outputPathPrefix + "/targets/")
 
   drugs
-    .setIdAndSelectFromDrugs
+    .setIdAndSelectFromDrugs(evidences)
     .write.json(outputPathPrefix + "/drugs/")
 }
