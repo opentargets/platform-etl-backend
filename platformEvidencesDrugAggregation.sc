@@ -73,7 +73,7 @@ def main(evidencePath: String, efoPath: String, outPath: String): Unit = {
     .join(efos, Seq("disease_id"), "inner")
     .withColumn("ancestor", explode(col("ancestors")))
 
-  val associated = fds.groupBy(col("ancestor"))
+  val associated = fds.groupBy(col("ancestor"), col("drug_id"))
     .agg(collect_set(col("disease_id")).as("associated_diseases"),
       collect_set(col("target_id")).as("associated_targets"))
     .withColumn("associated_targets_count", size(col("associated_targets")))
@@ -100,7 +100,7 @@ def main(evidencePath: String, efoPath: String, outPath: String): Unit = {
       .withColumn("ancestors_count", size(col("ancestors")))
       .withColumn("descendants_count", size(col("descendants")))
 
-  agg.join(broadcast(associated), Seq("disease_id"), "inner")
+  agg.join(broadcast(associated), Seq("disease_id", "drug_id"), "inner")
     .write
     .json(outPath)
 }
