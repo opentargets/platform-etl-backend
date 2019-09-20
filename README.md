@@ -1,6 +1,9 @@
 # Open Targets Post-Pipeline ETL process
 
-OpenTargets ETL pipeline to process Pipeline output in order to obtain a new API shaped entities.
+OpenTargets ETL pipeline to process Pipeline output in order to obtain a new API shaped entities. For the file 
+`platformDataBackend.sc`
+
+## platformDataBackend.sc
 
 ### Requirements
 
@@ -36,6 +39,12 @@ elasticdump --input=http://localhost:9200/<indexyouneed> \
     --limit 10000 \
     --sourceOnly
 ```
+
+## platformEvidenceDrugAggregation.sc
+
+This script generates the Disease-drug-phase-status-target... aggregation is order to obtain a ready 
+to aggregate table for drugs and clinical trials. To run it just use `--help` to get the list of 
+command line parameters.
 
 # Copyright
 Copyright 2014-2018 Biogen, Celgene Corporation, EMBL - European Bioinformatics Institute, GlaxoSmithKline, Takeda Pharmaceutical Company and Wellcome Sanger Institute
