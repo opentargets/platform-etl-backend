@@ -1,12 +1,64 @@
 {
+  "mappings": {
+    "properties": {
+      "id": {
+        "type": "text",
+        "fields": {
+          "keyword": {
+            "type": "keyword",
+            "ignore_above": 128
+          }
+        }
+      },
+      "relevance_multiplier": {
+        "type": "float"
+      },
+      "entity": {
+        "type": "text",
+        "fields": {
+          "keyword": {
+            "type": "keyword",
+            "ignore_above": 256
+          }
+        }
+      },
+      "field_keyword": {
+        "type": "text",
+        "analyzer": "token",
+        "search_analyzer": "token_search",
+        "fields": {
+          "keyword": {
+            "type": "keyword",
+            "ignore_above": 256
+          }
+        }
+      },
+      "field_prefix": {
+        "type": "text",
+        "analyzer": "prefix",
+        "search_analyzer": "prefix_search",
+        "fields": {
+          "keyword": {
+            "type": "keyword",
+            "ignore_above": 256
+          }
+        }
+      },
+      "field_ngram": {
+        "type": "text",
+        "analyzer": "autocomplete",
+        "search_analyzer": "autocomplete_search"
+      }
+    }
+  },
   "settings": {
     "index": {
       "number_of_replicas": 0,
       "analysis": {
         "filter": {
           "autocomplete_filter": {
-            "type":     "edge_ngram",
-            "min_gram": 2,
+            "type": "edge_ngram",
+            "min_gram": 4,
             "max_gram": 20,
             "token_chars": [
               "letter",
@@ -19,7 +71,7 @@
             "type": "word_delimiter",
             "catenate_numbers": false,
             "catenate_words": false,
-            "generate_word_parts": true,
+            "generate_word_parts": false,
             "generate_number_parts": true,
             "catenate_all": false,
             "split_on_case_change": false,
@@ -30,7 +82,7 @@
         },
         "analyzer": {
           "autocomplete": {
-            "type":      "custom",
+            "type": "custom",
             "tokenizer": "whitespace",
             "filter": [
               "lowercase",
@@ -39,7 +91,37 @@
             ]
           },
           "autocomplete_search": {
-            "type":      "custom",
+            "type": "custom",
+            "tokenizer": "whitespace",
+            "filter": [
+              "lowercase",
+              "word_delimiter_filter"
+            ]
+          },
+          "token": {
+            "type": "custom",
+            "tokenizer": "keyword",
+            "filter": [
+              "lowercase"
+            ]
+          },
+          "token_search": {
+            "type": "custom",
+            "tokenizer": "keyword",
+            "filter": [
+              "lowercase"
+            ]
+          },
+          "prefix": {
+            "type": "custom",
+            "tokenizer": "whitespace",
+            "filter": [
+              "lowercase",
+              "word_delimiter_filter"
+            ]
+          },
+          "prefix_search": {
+            "type": "custom",
             "tokenizer": "whitespace",
             "filter": [
               "lowercase",
@@ -49,57 +131,5 @@
         }
       }
     }
-  },
-  "mappings": {
-    "properties": {
-        "id": {
-          "type": "text",
-          "fields": {
-            "keyword": {
-              "type": "keyword",
-              "ignore_above": 128
-            }
-          }
-        },
-        "relevance_multiplier": {
-          "type": "float"
-        },
-        "entity": {
-          "type": "text",
-          "fields": {
-            "keyword": {
-              "type": "keyword",
-              "ignore_above": 256
-            }
-          }
-        },
-        "field_keyword": {
-          "type": "text",
-          "fields": {
-            "keyword": {
-              "type": "keyword",
-              "ignore_above": 256
-            }
-          }
-        },
-        "field_prefix": {
-          "type": "text",
-          "analyzer": "standard",
-          "fields": {
-            "keyword": {
-              "type": "keyword",
-              "ignore_above": 256
-            }
-          }
-        },
-        "field_ngram": {
-          "type": "text",
-          "analyzer": "autocomplete",
-          "search_analyzer": "autocomplete_search"
-        }
-    }
   }
 }
-
-
-

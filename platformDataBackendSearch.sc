@@ -64,6 +64,7 @@ object Transformers {
           col("symbol_synonyms"),
           col("name_synonyms"), col("uniprot_function")))), " ")))
         .withColumn("entity", lit("target"))
+        // include biotype as subtype
         .withColumn("relevance_multiplier", lit(1.0))
         .selectExpr(searchFields:_*)
     }
@@ -75,6 +76,7 @@ object Transformers {
           col("efo_synonyms")))), " ")))
         .withColumn("entity", lit("disease"))
         .withColumn("relevance_multiplier", lit(1.0))
+        // include therapeutic area as subtype
         .selectExpr(searchFields:_*)
     }
 
@@ -96,7 +98,8 @@ object Transformers {
             col("trade_names"),
             col("descriptions")))),
           " ")))
-        .withColumn("entity", concat_ws("_", lit("drug") + col("type")))
+        // put the drug type in another field
+        .withColumn("entity", concat_ws("_", lit("drug"), col("type")))
         .withColumn("relevance_multiplier", col("max_clinical_trial_phase").cast(FloatType))
         .selectExpr(searchFields:_*)
     }
