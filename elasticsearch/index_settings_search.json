@@ -1,53 +1,13 @@
 {
   "mappings": {
     "properties": {
-      "id": {
-        "type": "text",
-        "fields": {
-          "keyword": {
-            "type": "keyword",
-            "ignore_above": 128
-          }
-        }
-      },
       "relevance_multiplier": {
         "type": "float"
       },
-      "entity": {
-        "type": "text",
-        "fields": {
-          "keyword": {
-            "type": "keyword",
-            "ignore_above": 256
-          }
-        }
-      },
-      "field_keyword": {
-        "type": "text",
-        "analyzer": "token",
-        "search_analyzer": "token_search",
-        "fields": {
-          "keyword": {
-            "type": "keyword",
-            "ignore_above": 256
-          }
-        }
-      },
-      "field_prefix": {
-        "type": "text",
-        "analyzer": "prefix",
-        "search_analyzer": "prefix_search",
-        "fields": {
-          "keyword": {
-            "type": "keyword",
-            "ignore_above": 256
-          }
-        }
-      },
       "field_ngram": {
         "type": "text",
-        "analyzer": "autocomplete",
-        "search_analyzer": "autocomplete_search"
+        "analyzer": "ngram_analyzer",
+        "search_analyzer": "token"
       }
     }
   },
@@ -81,21 +41,19 @@
           }
         },
         "analyzer": {
-          "autocomplete": {
+          "default": {
             "type": "custom",
-            "tokenizer": "whitespace",
+            "tokenizer": "keyword",
             "filter": [
-              "lowercase",
-              "word_delimiter_filter",
-              "autocomplete_filter"
+              "lowercase"
             ]
           },
-          "autocomplete_search": {
+          "ngram_analyzer": {
             "type": "custom",
             "tokenizer": "whitespace",
             "filter": [
               "lowercase",
-              "word_delimiter_filter"
+              "autocomplete_filter"
             ]
           },
           "token": {
@@ -103,29 +61,6 @@
             "tokenizer": "keyword",
             "filter": [
               "lowercase"
-            ]
-          },
-          "token_search": {
-            "type": "custom",
-            "tokenizer": "keyword",
-            "filter": [
-              "lowercase"
-            ]
-          },
-          "prefix": {
-            "type": "custom",
-            "tokenizer": "whitespace",
-            "filter": [
-              "lowercase",
-              "word_delimiter_filter"
-            ]
-          },
-          "prefix_search": {
-            "type": "custom",
-            "tokenizer": "whitespace",
-            "filter": [
-              "lowercase",
-              "word_delimiter_filter"
             ]
           }
         }
