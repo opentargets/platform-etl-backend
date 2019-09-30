@@ -49,18 +49,6 @@ object Transformers {
   implicit class Implicits (val df: DataFrame) {
 
     def setIdAndSelectFromTargets(evidences: DataFrame): DataFrame = {
-      val evsByTarget = evidences
-        .orderBy(col("harmonic").desc)
-        .groupBy(col("target_id"))
-        .agg(
-          collect_list(col("disease_name")).as("diseases"),
-          collect_list(col("harmonic")).as("harmonics"),
-          sum(col("evidence_count")).as("evidence_sum"),
-          first(col("target_count")).as("target_count")
-        )
-        .withColumn("field_terms", array_distinct(slice(col("diseases"), 1, 25)))
-        .withColumn("field_factor", col("evidence_sum").cast(FloatType) / col("target_count").cast(FloatType))
-
       df.withColumn("field_keyword", array_distinct(flatten(array(
         array(col("approved_symbol"),
           col("approved_name"),
@@ -84,7 +72,7 @@ object Transformers {
         .withColumn("category", array(col("biotype")))
         .withColumn("name", col("approved_symbol"))
         .withColumn("description", col("approved_name"))
-        .join(evsByTarget, col("id") === col("target_id"), "left_outer")
+        .join(evidences, col("id") === col("target_id"), "left_outer")
         .withColumn("relevance_multiplier",
           when(col("field_factor").isNull, lit(0.01))
             .otherwise(log1p(col("field_factor")) + lit(1.0)))
@@ -92,19 +80,6 @@ object Transformers {
     }
 
     def setIdAndSelectFromDiseases(evidences: DataFrame): DataFrame = {
-      val evsByDisease = evidences
-        .orderBy(col("harmonic").desc)
-        .groupBy(col("disease_id"))
-        .agg(
-          collect_list(col("target_name")).as("targets"),
-          collect_list(col("target_symbol")).as("targets_symbols"),
-          collect_list(col("harmonic")).as("harmonics"),
-          sum(col("evidence_count")).as("evidence_sum"),
-          first(col("disease_count")).as("disease_count")
-        )
-        .withColumn("field_terms", array_union(slice(col("targets_symbols"), 1, 25), slice(col("targets"), 1, 25)))
-        .withColumn("field_factor", col("evidence_sum").cast(FloatType) / col("disease_count").cast(FloatType))
-
       df.withColumn("field_keyword", array_distinct(flatten(array(array(col("label")), col("efo_synonyms"), array(col("id"))))))
         .withColumn("field_prefix", array_distinct(flatten(array(array(col("label")), col("efo_synonyms")))))
         .withColumn("field_ngram", array_distinct(flatten(array(array(col("label")),
@@ -113,7 +88,7 @@ object Transformers {
         .withColumn("category", col("therapeutic_labels"))
         .withColumn("name", col("label"))
         .withColumn("description", when(length(col("definition")) === 0,lit(null)).otherwise(col("definition")))
-        .join(evsByDisease, col("id") === col("disease_id"), "left_outer")
+        .join(evidences, col("id") === col("disease_id"), "left_outer")
         .withColumn("relevance_multiplier",
           when(col("field_factor").isNull, lit(0.01))
             .otherwise(log1p(col("field_factor")) + lit(1.0)))
@@ -121,17 +96,6 @@ object Transformers {
     }
 
     def setIdAndSelectFromDrugs(evidences: DataFrame): DataFrame = {
-      val evsByDrug = evidences
-        .groupBy(col("drug_id"))
-        .agg(
-          collect_set(col("target_name")).as("targets"),
-          collect_set(col("target_symbol")).as("targets_symbols"),
-          collect_set(col("disease_name")).as("diseases"),
-          sum(col("drug_evs_ratio")).as("drug_evs_ratio_sum"))
-        .withColumn("field_terms", array_union(slice(col("targets_symbols"), 1, 25),
-          array_union(slice(col("targets"), 1, 25), slice(col("diseases"), 1, 25))))
-        .withColumn("field_factor", col("drug_evs_ratio_sum").cast(FloatType))
-
       df.withColumn("descriptions", col("mechanisms_of_action.description"))
         .withColumn("field_keyword", flatten(array(col("synonyms"),
         col("child_chembl_ids"),
@@ -153,7 +117,7 @@ object Transformers {
         .withColumn("category", array(col("type")))
         .withColumn("name", col("pref_name"))
         .withColumn("description", lit(null))
-        .join(evsByDrug, col("id") === col("drug_id"), "left_outer")
+        .join(evidences, col("id") === col("drug_id"), "left_outer")
         .withColumn("relevance_multiplier", when(col("field_factor").isNull, lit(0.01))
           .otherwise(log1p(col("field_factor")) + lit(1.0)))
         .selectExpr(searchFields:_*)
@@ -172,7 +136,6 @@ object Transformers {
       val targetCounts = fevs.groupBy("target_id").count().withColumnRenamed("count", "target_count")
 
       val pairs = fevs
-//        .withColumn("disease_id", explode(array_distinct(flatten(col("disease.efo_info.path")))))
         .groupBy(col("target_id"), col("disease_id"))
         .agg(count(col("id")).as("evidence_count"),
           collect_list(col("score")).as("_score_list"),
@@ -215,7 +178,6 @@ object Transformers {
       val drugCounts = fevs.groupBy("drug_id").count().withColumnRenamed("count", "drug_count")
 
       val pairs = fevs
-        //        .withColumn("disease_id", explode(array_distinct(flatten(col("disease.efo_info.path")))))
         .groupBy(col("target_id"), col("disease_id"))
         .agg(count(col("id")).as("evidence_count"),
           collect_list(col("score")).as("_score_list"),
@@ -244,7 +206,79 @@ object Transformers {
         .withColumn("drug_id", explode(col("drug_ids")))
         .join(tdrdCounts, Seq("target_id", "drug_id", "disease_id"), "left_outer")
         .join(drugCounts, Seq("drug_id"), "left_outer")
-        .withColumn("drug_evs_ratio", col("tdrd_count").cast(FloatType) / col("drug_count").cast(FloatType))
+    }
+
+    def termAndRelevanceFromEvidencePairsByDrug: DataFrame = {
+      df.groupBy(col("drug_id"))
+        .agg(
+          slice(sort_array(collect_list(
+            struct(col("harmonic"),
+              col("target_name"),
+              col("target_symbol"),
+              col("disease_name"),
+              col("evidence_count").cast(FloatType).as("evidence_count"),
+              col("tdrd_count").cast(FloatType).as("tdrd_count")
+            )), false),1,25).as("scored_drugs"),
+          first(col("drug_count").cast(FloatType)).as("drug_count")
+        )
+        .withColumn("field_terms", array_distinct(
+          flatten(array(
+            col("scored_drugs.target_name"),
+            col("scored_drugs.target_symbol"),
+            col("scored_drugs.disease_name")))))
+        .withColumn("field_factor",
+          expr(
+            """
+              |aggregate(scored_drugs.tdrd_count,
+              | 0D,
+              | (a, x) -> a + x
+              |) / drug_count
+              |""".stripMargin))
+        .select("drug_id", "field_terms", "field_factor")
+    }
+
+    def termAndRelevanceFromEvidencePairsByDisease: DataFrame = {
+      df.groupBy(col("disease_id"))
+        .agg(
+          slice(sort_array(collect_list(
+            struct(col("harmonic"),
+              col("target_name"),
+              col("target_symbol"),
+              col("evidence_count").cast(FloatType).as("evidence_count"))), false),1, 25).as("scored_targets"),
+          first(col("disease_count").cast(FloatType)).as("disease_count")
+        )
+        .withColumn("field_terms", array_distinct(
+          array_union(col("scored_targets.target_name"), col("scored_targets.target_symbol"))))
+        .withColumn("field_factor",
+          expr(
+            """
+              |aggregate(scored_targets.evidence_count,
+              | 0D,
+              | (a, x) -> a + x
+              |) / disease_count
+              |""".stripMargin))
+        .select("disease_id", "field_terms", "field_factor")
+    }
+
+    def termAndRelevanceFromEvidencePairsByTarget: DataFrame = {
+      df.groupBy(col("target_id"))
+        .agg(
+          slice(sort_array(collect_list(
+            struct(col("harmonic"),
+              col("disease_name"),
+              col("evidence_count").cast(FloatType).as("evidence_count"))), false),1, 25).as("scored_diseases"),
+          first(col("target_count").cast(FloatType)).as("target_count")
+        )
+        .withColumn("field_terms", array_distinct(col("scored_diseases.disease_name")))
+        .withColumn("field_factor",
+          expr(
+            """
+              |aggregate(scored_diseases.evidence_count,
+              | 0D,
+              | (a, x) -> a + x
+              |) / target_count
+              |""".stripMargin))
+        .select("target_id", "field_terms", "field_factor")
     }
   }
 }
@@ -274,13 +308,16 @@ def main(drugFilename: String, targetFilename: String, diseaseFilename: String,
   val evsAggregatedByTD = evidences.aggreateEvidencesByTD.persist
 
   val searchDiseases = diseases
-    .setIdAndSelectFromDiseases(evsAggregatedByTD)
+    .setIdAndSelectFromDiseases(
+      evsAggregatedByTD.termAndRelevanceFromEvidencePairsByDisease)
 
   val searchTargets = targets
-    .setIdAndSelectFromTargets(evsAggregatedByTD)
+    .setIdAndSelectFromTargets(
+      evsAggregatedByTD.termAndRelevanceFromEvidencePairsByTarget)
 
-  val searchDrugs = drugs
-    .setIdAndSelectFromDrugs(evidences.aggreateEvidencesByTDDrug)
+  val searchDrugs = drugs.setIdAndSelectFromDrugs(evidences
+    .aggreateEvidencesByTDDrug
+    .termAndRelevanceFromEvidencePairsByDrug)
 
 //  searchTargets.write.mode(SaveMode.Overwrite).json(outputPathPrefix + "/targets/")
 //  searchDiseases.write.mode(SaveMode.Overwrite).json(outputPathPrefix + "/diseases/")
