@@ -1,13 +1,8 @@
 {
   "mappings": {
     "properties": {
-      "relevance_multiplier": {
+      "multiplier": {
         "type": "float"
-      },
-      "field_ngram": {
-        "type": "text",
-        "analyzer": "ngram_analyzer",
-        "search_analyzer": "token"
       }
     }
   },
@@ -18,7 +13,7 @@
         "filter": {
           "autocomplete_filter": {
             "type": "edge_ngram",
-            "min_gram": 4,
+            "min_gram": 2,
             "max_gram": 20,
             "token_chars": [
               "letter",
@@ -42,6 +37,14 @@
         },
         "analyzer": {
           "default": {
+            "type": "custom",
+            "tokenizer": "whitespace",
+            "filter": [
+              "lowercase",
+              "autocomplete_filter"
+            ]
+          },
+          "default_search": {
             "type": "custom",
             "tokenizer": "keyword",
             "filter": [

@@ -40,16 +40,16 @@ object Transformers {
     "description",
     "entity",
     "category",
-    "field_keyword",
-    "field_prefix",
-    "field_ngram",
-    "field_terms",
-    "relevance_multiplier")
+    "keywords",
+    "prefixes",
+    "ngrams",
+    "terms",
+    "multiplier")
 
   implicit class Implicits (val df: DataFrame) {
 
     def setIdAndSelectFromTargets(evidences: DataFrame): DataFrame = {
-      df.withColumn("field_keyword", array_distinct(flatten(array(
+      df.withColumn("keywords", array_distinct(flatten(array(
         array(col("approved_symbol"),
           col("approved_name"),
           col("hgnc_id"),
@@ -58,13 +58,13 @@ object Transformers {
         col("name_synonyms"),
         col("uniprot_accessions")
         ))))
-        .withColumn("field_prefix", array_distinct(flatten(array(
+        .withColumn("prefixes", array_distinct(flatten(array(
           array(col("approved_symbol"),
             col("approved_name")),
           col("symbol_synonyms"),
           col("name_synonyms")
         ))))
-        .withColumn("field_ngram", array_distinct(
+        .withColumn("ngrams", array_distinct(
           flatten(array(array(col("approved_symbol"), col("approved_name")),
           col("symbol_synonyms"),
           col("name_synonyms"), col("uniprot_function")))))
@@ -73,23 +73,23 @@ object Transformers {
         .withColumn("name", col("approved_symbol"))
         .withColumn("description", col("approved_name"))
         .join(evidences, col("id") === col("target_id"), "left_outer")
-        .withColumn("relevance_multiplier",
+        .withColumn("multiplier",
           when(col("field_factor").isNull, lit(0.01))
             .otherwise(log1p(col("field_factor")) + lit(1.0)))
         .selectExpr(searchFields:_*)
     }
 
     def setIdAndSelectFromDiseases(evidences: DataFrame): DataFrame = {
-      df.withColumn("field_keyword", array_distinct(flatten(array(array(col("label")), col("efo_synonyms"), array(col("id"))))))
-        .withColumn("field_prefix", array_distinct(flatten(array(array(col("label")), col("efo_synonyms")))))
-        .withColumn("field_ngram", array_distinct(flatten(array(array(col("label")),
+      df.withColumn("keywords", array_distinct(flatten(array(array(col("label")), col("efo_synonyms"), array(col("id"))))))
+        .withColumn("prefixes", array_distinct(flatten(array(array(col("label")), col("efo_synonyms")))))
+        .withColumn("ngrams", array_distinct(flatten(array(array(col("label")),
           col("efo_synonyms")))))
         .withColumn("entity", lit("disease"))
         .withColumn("category", col("therapeutic_labels"))
         .withColumn("name", col("label"))
         .withColumn("description", when(length(col("definition")) === 0,lit(null)).otherwise(col("definition")))
         .join(evidences, col("id") === col("disease_id"), "left_outer")
-        .withColumn("relevance_multiplier",
+        .withColumn("multiplier",
           when(col("field_factor").isNull, lit(0.01))
             .otherwise(log1p(col("field_factor")) + lit(1.0)))
         .selectExpr(searchFields:_*)
@@ -97,16 +97,16 @@ object Transformers {
 
     def setIdAndSelectFromDrugs(evidences: DataFrame): DataFrame = {
       df.withColumn("descriptions", col("mechanisms_of_action.description"))
-        .withColumn("field_keyword", flatten(array(col("synonyms"),
+        .withColumn("keywords", flatten(array(col("synonyms"),
         col("child_chembl_ids"),
         col("trade_names"),
         array(col("pref_name"), col("id"))
         )))
-        .withColumn("field_prefix", flatten(array(col("synonyms"),
+        .withColumn("prefixes", flatten(array(col("synonyms"),
           col("trade_names"),
           array(col("pref_name")),
           col("descriptions"))))
-        .withColumn("field_ngram", flatten(array_distinct(
+        .withColumn("ngrams", flatten(array_distinct(
           array(
             array(col("pref_name")),
             col("synonyms"),
@@ -118,7 +118,7 @@ object Transformers {
         .withColumn("name", col("pref_name"))
         .withColumn("description", lit(null))
         .join(evidences, col("id") === col("drug_id"), "left_outer")
-        .withColumn("relevance_multiplier", when(col("field_factor").isNull, lit(0.01))
+        .withColumn("multiplier", when(col("field_factor").isNull, lit(0.01))
           .otherwise(log1p(col("field_factor")) + lit(1.0)))
         .selectExpr(searchFields:_*)
     }
@@ -221,11 +221,12 @@ object Transformers {
             )), false),1,25).as("scored_drugs"),
           first(col("drug_count").cast(FloatType)).as("drug_count")
         )
-        .withColumn("field_terms", array_distinct(
+        .withColumn("terms", array_distinct(
           flatten(array(
             col("scored_drugs.target_name"),
             col("scored_drugs.target_symbol"),
             col("scored_drugs.disease_name")))))
+        // TODO: DIVIDE BY TOTAL EVIDENCES FOR ALL DRUGS
         .withColumn("field_factor",
           expr(
             """
@@ -234,7 +235,7 @@ object Transformers {
               | (a, x) -> a + x
               |) / drug_count
               |""".stripMargin))
-        .select("drug_id", "field_terms", "field_factor")
+        .select("drug_id", "terms", "field_factor")
     }
 
     def termAndRelevanceFromEvidencePairsByDisease: DataFrame = {
@@ -247,7 +248,7 @@ object Transformers {
               col("evidence_count").cast(FloatType).as("evidence_count"))), false),1, 25).as("scored_targets"),
           first(col("disease_count").cast(FloatType)).as("disease_count")
         )
-        .withColumn("field_terms", array_distinct(
+        .withColumn("terms", array_distinct(
           array_union(col("scored_targets.target_name"), col("scored_targets.target_symbol"))))
         .withColumn("field_factor",
           expr(
@@ -257,7 +258,7 @@ object Transformers {
               | (a, x) -> a + x
               |) / disease_count
               |""".stripMargin))
-        .select("disease_id", "field_terms", "field_factor")
+        .select("disease_id", "terms", "field_factor")
     }
 
     def termAndRelevanceFromEvidencePairsByTarget: DataFrame = {
@@ -269,7 +270,7 @@ object Transformers {
               col("evidence_count").cast(FloatType).as("evidence_count"))), false),1, 25).as("scored_diseases"),
           first(col("target_count").cast(FloatType)).as("target_count")
         )
-        .withColumn("field_terms", array_distinct(col("scored_diseases.disease_name")))
+        .withColumn("terms", array_distinct(col("scored_diseases.disease_name")))
         .withColumn("field_factor",
           expr(
             """
@@ -278,7 +279,7 @@ object Transformers {
               | (a, x) -> a + x
               |) / target_count
               |""".stripMargin))
-        .select("target_id", "field_terms", "field_factor")
+        .select("target_id", "terms", "field_factor")
     }
   }
 }
@@ -319,12 +320,7 @@ def main(drugFilename: String, targetFilename: String, diseaseFilename: String,
     .aggreateEvidencesByTDDrug
     .termAndRelevanceFromEvidencePairsByDrug)
 
-//  searchTargets.write.mode(SaveMode.Overwrite).json(outputPathPrefix + "/targets/")
-//  searchDiseases.write.mode(SaveMode.Overwrite).json(outputPathPrefix + "/diseases/")
-//  evsAggregatedByTD.write.mode(SaveMode.Overwrite).json(outputPathPrefix + "/evidences/")
-
-  val searchObjs = Seq(searchDiseases, searchTargets, searchDrugs)
-  val objs = searchObjs.tail.foldLeft(searchObjs.head)((B, left) => B.union(left))
-
-  objs.write.mode(SaveMode.Overwrite).json(outputPathPrefix + "/search/")
+  searchTargets.write.mode(SaveMode.Overwrite).json(outputPathPrefix + "/search_targets/")
+  searchDiseases.write.mode(SaveMode.Overwrite).json(outputPathPrefix + "/search_diseases/")
+  searchDrugs.write.mode(SaveMode.Overwrite).json(outputPathPrefix + "/search_drugs/")
 }
