@@ -94,7 +94,7 @@ object Transformers {
         "id",
         "pref_name as name",
         "synonyms",
-        "trade_names as tradeNames",
+        "ifnull(trade_names, array()) as tradeNames",
         "year_first_approved as yearOfFirstApproval",
         "`type` as drugType",
         "max_clinical_trial_phase as maximumClinicalTrialPhase",
