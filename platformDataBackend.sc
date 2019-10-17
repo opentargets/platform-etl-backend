@@ -111,7 +111,7 @@ object Transformers {
           |    m.target_name as targetName,
           |    m.references as references,
           |    ifnull(array_distinct(
-          |      transform(m.target_components, t -> t.ensembl)) as targets)), array()) as rows,
+          |      transform(m.target_components, t -> t.ensembl)), array()) as targets)) as rows,
           |  array_distinct(transform(mechanisms_of_action, x -> x.action_type)) as uniqueActionTypes,
           |  array_distinct(transform(mechanisms_of_action, x -> x.target_type)) as uniqueTargetTypes) as mechanismsOfAction
           |""".stripMargin
