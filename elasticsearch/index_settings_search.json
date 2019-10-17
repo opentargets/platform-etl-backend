@@ -4,12 +4,36 @@
       "multiplier": {
         "type": "float"
       }
-    }
+    },
+    "dynamic_templates": [
+      {
+        "strings": {
+          "match_mapping_type": "string",
+          "mapping": {
+            "type": "text",
+            "fields": {
+              "raw": {
+                "type": "keyword",
+                "ignore_above": 256,
+                "normalizer": "custom"
+              }
+            }
+          }
+        }
+      }
+    ]
   },
   "settings": {
     "index": {
       "number_of_replicas": 0,
       "analysis": {
+        "normalizer": {
+          "custom": {
+            "type": "custom",
+            "char_filter": [],
+            "filter": ["lowercase"]
+          }
+        },
         "filter": {
           "autocomplete_filter": {
             "type": "edge_ngram",

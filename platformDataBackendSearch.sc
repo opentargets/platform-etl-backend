@@ -96,6 +96,8 @@ object Transformers {
     }
 
     def setIdAndSelectFromDrugs(evidences: DataFrame): DataFrame = {
+      // TODO include disease and target information into the terms field
+
       df.withColumn("descriptions", col("mechanisms_of_action.description"))
         .withColumn("keywords", flatten(array(col("synonyms"),
         col("child_chembl_ids"),
