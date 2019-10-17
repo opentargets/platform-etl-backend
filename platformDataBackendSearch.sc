@@ -49,7 +49,7 @@ object Transformers {
   implicit class Implicits (val df: DataFrame) {
 
     def setIdAndSelectFromTargets(evidences: DataFrame): DataFrame = {
-      df.withColumn("keywords", array_remove(array_distinct(flatten(array(
+      df.withColumn("_keywords", array_distinct(flatten(array(
         array(col("approved_symbol"),
           col("approved_name"),
           col("hgnc_id"),
@@ -57,7 +57,8 @@ object Transformers {
         col("symbol_synonyms"),
         col("name_synonyms"),
         col("uniprot_accessions")
-        ))), Nil))
+        ))))
+        .withColumn("keywords", expr("filter(_keywords, x -> isnotnull(x))"))
         .withColumn("prefixes", array_distinct(flatten(array(
           array(col("approved_symbol"),
             col("approved_name")),
