@@ -9,6 +9,68 @@ import org.apache.spark.SparkConf
 import org.apache.spark.sql._
 import org.apache.spark.sql.types._
 import org.apache.spark.sql.functions._
+import better.files.Dsl._
+import better.files._
+
+object SchemaConverter {
+  private def struct2SQL(struct: StructType): Seq[String] = {
+    def fCast(sf: DataType): String = {
+      // TODO esto tiene que ser programado mejor es un hack lo de nullable
+      sf match {
+        case _: BooleanType => "Nullable(UInt8)"
+        case _: IntegerType => "Nullable(Int32)"
+        case _: LongType => "Nullable(Int64)"
+        case _: FloatType => "Nullable(Float32)"
+        case _: DoubleType => "Nullable(Float64)"
+        case _: StringType => "Nullable(String)"
+        case s: StructType => s.fields.map(f => fCast(f.dataType)).mkString("Tuple(", ",", ")")
+        case l: ArrayType => fCast(l.elementType).mkString("Array(", "", ")")
+        case _ => "UnsupportedType"
+      }
+    }
+
+    def metaCast(sf: StructField, data: String): String = {
+      sf.dataType match {
+        case a: ArrayType => a.elementType match {
+          case _: ArrayType => s"$data default [[]]"
+          case _ => s"$data default []"
+        }
+
+        case _ => data
+      }
+    }
+
+    struct.fields.map(st => {
+      "`" + st.name.replace("$", "__") + "` " + metaCast(st, fCast(st.dataType))
+    })
+  }
+
+  def apply(schema: Option[StructType])(tableName: String): Option[String] = {
+    schema.map(jo => {
+      val tableTemplate =
+        """
+          |create table if not exists %s
+          |%s
+          |engine = Log;
+        """.stripMargin
+
+      tableTemplate.format(tableName, struct2SQL(jo).mkString("(\n", ",\n", ")"))
+    })
+  }
+}
+
+object Functions {
+  def saveJSONSchemaTo(df: DataFrame, path: File, fileName: String = "schema"): Unit =
+    (path / s"$fileName.json").createIfNotExists(createParents=true) < df.schema.json
+
+  def saveSQLSchemaTo(df: DataFrame, path: File, tableName: String, fileName: String = "schema"): Unit =
+    (path / s"$fileName.sql").createIfNotExists(createParents=true) < SchemaConverter(Some(df.schema))(tableName).get
+
+  def loadSchemaFrom(filename: String): Option[StructType] = {
+    val lines = filename.toFile.contentAsString
+    Option(DataType.fromJson(lines).asInstanceOf[StructType])
+  }
+}
 
 object NetworkDB {
   def buildTargetNetwork(ndbPath: String, genesDF: DataFrame)(implicit ss: SparkSession): DataFrame = {
@@ -100,8 +162,10 @@ object Loaders {
       .agg(collect_list(struct(
         col("evs_score"),
         col("evs_unique_obj")
-      )).as("evidences"))
-      .withColumn("evidences", reverse(slice(array_sort(col("evidences")),-1, 100)))
+      )).as("_evidences"))
+      .withColumn("_evidences", reverse(slice(array_sort(col("_evidences")),-1, 100)))
+      .withColumn("evidences", struct(col("_evidences.evs_score").as("scores"),
+        col("_evidences.evs_unique_obj").as("objs")))
       .selectExpr("target_id", "disease_id", "evs_source", "evidences")
 
     evidences.groupBy(col("target_id"), col("disease_id"))
@@ -148,4 +212,6 @@ def main(drugFilename: String,
   diseasesNetwork.write.json(outputPathPrefix + "/disease_network_dict/")
 
   evidences.write.json(outputPathPrefix + "/evidences_aotf/")
+  Functions.saveJSONSchemaTo(evidences, outputPathPrefix / "evidences_aotf")
+  Functions.saveSQLSchemaTo(evidences, outputPathPrefix / "evidences_aotf" , "ot.evidences")
 }
