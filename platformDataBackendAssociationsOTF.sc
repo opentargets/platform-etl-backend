@@ -112,10 +112,10 @@ object NetworkDB {
       .drop("target_name")
       .groupBy("symbol_a")
       .agg(collect_set(col("target_id")).as("_stringdb_set"))
-      .selectExpr("symbol_a as target_name", "neighbours")
+      .selectExpr("symbol_a as target_name", "_stringdb_set")
 
     links.join(targets.select("target_name", "target_id"), Seq("target_name"), "inner")
-      .withColumn("neighbours",array_union(array(col("target_id")), col("neighbours")))
+      .withColumn("neighbours",array_union(array(col("target_id")), col("_stringdb_set")))
       .drop("target_name")
   }
 
