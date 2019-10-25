@@ -148,29 +148,30 @@ object Loaders {
   }
 
   def loadEvidences(path: String)(implicit ss: SparkSession): DataFrame = {
-    val evidences = ss.read.json(path)
+    ss.read.json(path)
       .selectExpr(
         "target.id as target_id",
         "disease.id as disease_id",
         "to_json(evidence) as evs_obj",
         "to_json(unique_association_fields) As evs_unique_obj",
         "float(scores.association_score) as evs_score",
-        "concat('datasource_', sourceID) as evs_source"
+        "sourceID as evs_source",
+        "transform(literature.references, x -> x.lit_id) as publications"
       )
       .where(col("evs_score").isNotNull and col("evs_score") > 0.0)
+  }
+}
+
+object Transformers {
+  def evidencesForAOTF(evs: DataFrame): DataFrame = {
+    val evidences = evs
       .groupBy(col("target_id"), col("disease_id"), col("evs_source"))
-      .agg(collect_list(struct(
-        col("evs_score"),
-        col("evs_unique_obj")
-      )).as("_evidences"))
-      .withColumn("_evidences", reverse(slice(array_sort(col("_evidences")),-1, 100)))
-      .withColumn("evidences", struct(col("_evidences.evs_score").as("scores"),
-        col("_evidences.evs_unique_obj").as("objs")))
-      .selectExpr("target_id", "disease_id", "evs_source", "evidences")
+      .agg(reverse(slice(array_sort(collect_list(col("evs_score"))),-1, 100)).as("scores"))
+      .selectExpr("target_id", "disease_id", "evs_source", "scores")
 
     evidences.groupBy(col("target_id"), col("disease_id"))
       .pivot(col("evs_source"))
-      .agg(first(col("evidences")))
+      .agg(first(col("scores")))
   }
 }
 
@@ -202,16 +203,31 @@ def main(drugFilename: String,
 
   diseases
     .select("disease_id", "disease_name")
-    .write.json(outputPathPrefix + "/diseases_dict/")
+    .write.json(outputPathPrefix + "/disease_dict/")
+  Functions.saveJSONSchemaTo(evidences, outputPathPrefix / "disease_dict")
+  Functions.saveSQLSchemaTo(evidences, outputPathPrefix / "disease_dict" , "ot.disease_dict")
 
   targets
     .select("target_id", "target_name")
-    .write.json(outputPathPrefix + "/targets_dict/")
+    .write.json(outputPathPrefix + "/target_dict/")
+  Functions.saveJSONSchemaTo(evidences, outputPathPrefix / "target_dict")
+  Functions.saveSQLSchemaTo(evidences, outputPathPrefix / "target_dict" , "ot.target_dict")
 
   targetsNetwork.write.json(outputPathPrefix + "/target_network_dict/")
-  diseasesNetwork.write.json(outputPathPrefix + "/disease_network_dict/")
+  Functions.saveJSONSchemaTo(evidences, outputPathPrefix / "target_network_dict")
+  Functions.saveSQLSchemaTo(evidences, outputPathPrefix / "target_network_dict" , "ot.target_network_dict")
 
-  evidences.write.json(outputPathPrefix + "/evidences_aotf/")
-  Functions.saveJSONSchemaTo(evidences, outputPathPrefix / "evidences_aotf")
-  Functions.saveSQLSchemaTo(evidences, outputPathPrefix / "evidences_aotf" , "ot.evidences")
+  diseasesNetwork.write.json(outputPathPrefix + "/disease_network_dict/")
+  Functions.saveJSONSchemaTo(evidences, outputPathPrefix / "disease_network_dict")
+  Functions.saveSQLSchemaTo(evidences, outputPathPrefix / "disease_network_dict" , "ot.disease_network_dict")
+
+  evidences.write.json(outputPathPrefix + "/evidences/")
+  Functions.saveJSONSchemaTo(evidences, outputPathPrefix / "evidences")
+  Functions.saveSQLSchemaTo(evidences, outputPathPrefix / "evidences" , "ot.evidences")
+
+  val aotf = Transformers.evidencesForAOTF(evidences)
+  aotf.write.json(outputPathPrefix + "/evidences_aotf/")
+  Functions.saveJSONSchemaTo(aotf, outputPathPrefix / "evidences_aotf")
+  Functions.saveSQLSchemaTo(aotf, outputPathPrefix / "evidences_aotf" , "ot.evidences_aotf")
+
 }
