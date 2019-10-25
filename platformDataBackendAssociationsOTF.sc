@@ -116,7 +116,7 @@ object NetworkDB {
 
     links.join(targets.select("target_name", "target_id"), Seq("target_name"), "inner")
       .withColumn("neighbours",array_union(array(col("target_id")), col("_stringdb_set")))
-      .drop("target_name")
+      .select("target_id", "neighbours")
   }
 
   def buildTargetNetwork(ndbPath: String, genesDF: DataFrame)(implicit ss: SparkSession): DataFrame = {
