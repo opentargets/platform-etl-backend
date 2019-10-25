@@ -73,6 +73,52 @@ object Functions {
 }
 
 object NetworkDB {
+  /** load string-db datasets using the mappings and the COG data
+   * it needs the protein mapping to symbols gene ids
+   */
+  def buildStringDBTargetNetwork(protLinks: String, protInfo: String, targets: DataFrame)(implicit ss: SparkSession): DataFrame = {
+    val prot2Name = ss
+      .read
+      .option("sep", "\t")
+      .option("mode", "DROPMALFORMED")
+      .csv(protInfo)
+      .toDF("pid", "symbol", "protein_size", "annotation")
+      .select("pid", "symbol")
+      .filter(not(col("symbol").startsWith(lit("ENSG"))))
+      .filter(not(col("symbol").startsWith(lit("HGNC:"))))
+      .cache()
+
+    val p2p = ss
+      .read
+      .option("sep", " ")
+      .option("mode", "DROPMALFORMED")
+      .csv(protLinks)
+      .toDF("protein1", "protein2", "neighborhood", "fusion", "cooccurence", "coexpression",
+        "experimental", "database", "textmining", "combined_score")
+      .where(col("coexpression") > 0 and col("combined_score") > 700)
+
+    val links = p2p.join(prot2Name,
+      col("protein1") === col("pid"),
+      "inner")
+      .drop("pid", "protein1")
+      .withColumnRenamed("symbol", "symbol_a")
+      .join(prot2Name,
+        col("protein2") === col("pid"),
+        "inner")
+      .withColumnRenamed("symbol", "symbol_b")
+      .drop("protein2", "pid")
+      .withColumnRenamed("symbol_b", "target_name")
+      .join(targets.select("target_name", "target_id"), Seq("target_name"), "inner")
+      .drop("target_name")
+      .groupBy("symbol_a")
+      .agg(collect_set(col("target_id")).as("_stringdb_set"))
+      .withColumn("neighbours",array_union(array(col("symbol_a")), col("_stringdb_set")))
+      .selectExpr("symbol_a as target_name", "neighbours")
+
+    links.join(targets.select("target_name", "target_id"), Seq("target_name"), "inner")
+      .drop("target_name")
+  }
+
   def buildTargetNetwork(ndbPath: String, genesDF: DataFrame)(implicit ss: SparkSession): DataFrame = {
     val score = 0.45
     val p2pRaw = ss.read.json(ndbPath)
@@ -181,6 +227,8 @@ def main(drugFilename: String,
          diseaseFilename: String,
          interactionsFilename: String,
          evidenceFilename: String,
+         stringdbInfoFilename: String,
+         stringdbLinksFilename: String,
          outputPathPrefix: String): Unit = {
   val sparkConf = new SparkConf()
     .set("spark.driver.maxResultSize", "0")
@@ -198,28 +246,34 @@ def main(drugFilename: String,
   val targets = Loaders.loadTargets(targetFilename)
   val diseases = Loaders.loadDiseases(diseaseFilename)
   val targetsNetwork = NetworkDB.buildTargetNetwork(interactionsFilename, targets)
+  val targetsStringDBNetwork =
+    NetworkDB.buildStringDBTargetNetwork(stringdbLinksFilename, stringdbInfoFilename, targets)
   val diseasesNetwork = NetworkDB.buildDiseaseNetwork(diseases)
   val evidences = Loaders.loadEvidences(evidenceFilename)
 
   diseases
     .select("disease_id", "disease_name")
     .write.json(outputPathPrefix + "/disease_dict/")
-  Functions.saveJSONSchemaTo(evidences, outputPathPrefix / "disease_dict")
-  Functions.saveSQLSchemaTo(evidences, outputPathPrefix / "disease_dict" , "ot.disease_dict")
+  Functions.saveJSONSchemaTo(diseases, outputPathPrefix / "disease_dict")
+  Functions.saveSQLSchemaTo(diseases, outputPathPrefix / "disease_dict" , "ot.disease_dict")
 
   targets
     .select("target_id", "target_name")
     .write.json(outputPathPrefix + "/target_dict/")
-  Functions.saveJSONSchemaTo(evidences, outputPathPrefix / "target_dict")
-  Functions.saveSQLSchemaTo(evidences, outputPathPrefix / "target_dict" , "ot.target_dict")
+  Functions.saveJSONSchemaTo(targets, outputPathPrefix / "target_dict")
+  Functions.saveSQLSchemaTo(targets, outputPathPrefix / "target_dict" , "ot.target_dict")
 
   targetsNetwork.write.json(outputPathPrefix + "/target_network_dict/")
-  Functions.saveJSONSchemaTo(evidences, outputPathPrefix / "target_network_dict")
-  Functions.saveSQLSchemaTo(evidences, outputPathPrefix / "target_network_dict" , "ot.target_network_dict")
+  Functions.saveJSONSchemaTo(targetsNetwork, outputPathPrefix / "target_network_dict")
+  Functions.saveSQLSchemaTo(targetsNetwork, outputPathPrefix / "target_network_dict" , "ot.target_network_dict")
+
+  targetsStringDBNetwork.write.json(outputPathPrefix + "/target_network_stringdb_dict/")
+  Functions.saveJSONSchemaTo(targetsStringDBNetwork, outputPathPrefix / "target_network_stringdb_dict")
+  Functions.saveSQLSchemaTo(targetsStringDBNetwork, outputPathPrefix / "target_network_stringdb_dict" , "ot.target_network_stringdb_dict")
 
   diseasesNetwork.write.json(outputPathPrefix + "/disease_network_dict/")
-  Functions.saveJSONSchemaTo(evidences, outputPathPrefix / "disease_network_dict")
-  Functions.saveSQLSchemaTo(evidences, outputPathPrefix / "disease_network_dict" , "ot.disease_network_dict")
+  Functions.saveJSONSchemaTo(diseasesNetwork, outputPathPrefix / "disease_network_dict")
+  Functions.saveSQLSchemaTo(diseasesNetwork, outputPathPrefix / "disease_network_dict" , "ot.disease_network_dict")
 
   evidences.write.json(outputPathPrefix + "/evidences/")
   Functions.saveJSONSchemaTo(evidences, outputPathPrefix / "evidences")
