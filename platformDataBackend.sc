@@ -94,7 +94,7 @@ object Transformers {
         "id",
         "pref_name as name",
         "synonyms",
-        "trade_names as tradeNames",
+        "ifnull(trade_names, array()) as tradeNames",
         "year_first_approved as yearOfFirstApproval",
         "`type` as drugType",
         "max_clinical_trial_phase as maximumClinicalTrialPhase",
@@ -110,8 +110,8 @@ object Transformers {
           |  transform(mechanisms_of_action, m -> struct(m.description as mechanismOfAction,
           |    m.target_name as targetName,
           |    m.references as references,
-          |    array_distinct(
-          |      transform(m.target_components, t -> t.ensembl)) as targets)) as rows,
+          |    ifnull(array_distinct(
+          |      transform(m.target_components, t -> t.ensembl)), array()) as targets)) as rows,
           |  array_distinct(transform(mechanisms_of_action, x -> x.action_type)) as uniqueActionTypes,
           |  array_distinct(transform(mechanisms_of_action, x -> x.target_type)) as uniqueTargetTypes) as mechanismsOfAction
           |""".stripMargin
