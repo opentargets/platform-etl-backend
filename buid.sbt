@@ -19,6 +19,7 @@ lazy val sparkSeq = Seq(
 )
 lazy val ammonite = "com.lihaoyi" % "ammonite" % "1.7.1" % "test" cross CrossVersion.full
 lazy val ammoniteSpark = "sh.almond" %% "ammonite-spark" % "0.7.0"
+lazy val betterFiles = "com.github.pathikrit" %% "better-files" % "3.8.0"
 //lazy val ammoniteDeps = Seq(
 //  "com.github.pathikrit" %% "better-files" % "3.8.0",
 //  "com.typesafe.play" %% "play-json" % "2.7.3",
@@ -44,6 +45,7 @@ lazy val root = (project in file("."))
     libraryDependencies += scalaLoggingDep,
     libraryDependencies += scalaLogging,
     libraryDependencies += ammonite,
+    libraryDependencies += betterFiles,
 
     testFrameworks += new TestFramework("minitest.runner.Framework"),
 

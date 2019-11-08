@@ -1,64 +1,43 @@
 {
   "mappings": {
     "properties": {
-      "id": {
-        "type": "text",
-        "fields": {
-          "keyword": {
-            "type": "keyword",
-            "ignore_above": 128
-          }
-        }
-      },
-      "relevance_multiplier": {
+      "multiplier": {
         "type": "float"
-      },
-      "entity": {
-        "type": "text",
-        "fields": {
-          "keyword": {
-            "type": "keyword",
-            "ignore_above": 256
-          }
-        }
-      },
-      "field_keyword": {
-        "type": "text",
-        "analyzer": "token",
-        "search_analyzer": "token_search",
-        "fields": {
-          "keyword": {
-            "type": "keyword",
-            "ignore_above": 256
-          }
-        }
-      },
-      "field_prefix": {
-        "type": "text",
-        "analyzer": "prefix",
-        "search_analyzer": "prefix_search",
-        "fields": {
-          "keyword": {
-            "type": "keyword",
-            "ignore_above": 256
-          }
-        }
-      },
-      "field_ngram": {
-        "type": "text",
-        "analyzer": "autocomplete",
-        "search_analyzer": "autocomplete_search"
       }
-    }
+    },
+    "dynamic_templates": [
+      {
+        "strings": {
+          "match_mapping_type": "string",
+          "mapping": {
+            "type": "text",
+            "fields": {
+              "raw": {
+                "type": "keyword",
+                "ignore_above": 256,
+                "normalizer": "custom"
+              }
+            }
+          }
+        }
+      }
+    ]
   },
   "settings": {
     "index": {
       "number_of_replicas": 0,
       "analysis": {
+        "normalizer": {
+          "custom": {
+            "type": "custom",
+            "char_filter": [],
+            "filter": ["lowercase"]
+          }
+        },
         "filter": {
           "autocomplete_filter": {
             "type": "edge_ngram",
-            "min_gram": 4,
+            "min_gram": 2,
             "max_gram": 20,
             "token_chars": [
               "letter",
@@ -81,21 +60,27 @@
           }
         },
         "analyzer": {
-          "autocomplete": {
+          "default": {
             "type": "custom",
             "tokenizer": "whitespace",
             "filter": [
               "lowercase",
-              "word_delimiter_filter",
               "autocomplete_filter"
             ]
           },
-          "autocomplete_search": {
+          "default_search": {
+            "type": "custom",
+            "tokenizer": "keyword",
+            "filter": [
+              "lowercase"
+            ]
+          },
+          "ngram_analyzer": {
             "type": "custom",
             "tokenizer": "whitespace",
             "filter": [
               "lowercase",
-              "word_delimiter_filter"
+              "autocomplete_filter"
             ]
           },
           "token": {
@@ -103,29 +88,6 @@
             "tokenizer": "keyword",
             "filter": [
               "lowercase"
-            ]
-          },
-          "token_search": {
-            "type": "custom",
-            "tokenizer": "keyword",
-            "filter": [
-              "lowercase"
-            ]
-          },
-          "prefix": {
-            "type": "custom",
-            "tokenizer": "whitespace",
-            "filter": [
-              "lowercase",
-              "word_delimiter_filter"
-            ]
-          },
-          "prefix_search": {
-            "type": "custom",
-            "tokenizer": "whitespace",
-            "filter": [
-              "lowercase",
-              "word_delimiter_filter"
             ]
           }
         }
