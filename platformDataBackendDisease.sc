@@ -64,7 +64,7 @@ object Transformers {
     def getDiseaseRelatedDiseases(ss: SparkSession, dfDDR: DataFrame): DataFrame = {
       val relatedSummarySource = Seq(("Open Targets","https://docs.targetvalidation.org/getting-started/scoring"))
 
-      val dfRelatedDiseases = df.join(dfDDR, dfDDR("A.id") === col("id"), "inner")
+      val dfRelatedDiseases = df.join(dfDDR, dfDDR("A.id") === col("id"), "left")
         .withColumn("relatedSummarySource",typedLit(relatedSummarySource))
         .withColumn("relatedDiseasesSingleRow", struct(col("A"), col("B"),
           col("score"), col("targetCountA"),col("targetCountB"),col("targetCountAAndB"),
@@ -136,7 +136,7 @@ object Transformers {
         .agg(collect_set(col("id")).as("descendants"))
         .withColumnRenamed("ancestor", "id")
 
-      val efos= efosSummary.join(descendants, Seq("id"))
+      val efos= efosSummary.join(descendants, Seq("id"),"left")
         .withColumn(
           "is_id_included_descendent", array_contains(col("descendants"), col("id"))
         )
@@ -243,7 +243,9 @@ def main(relationalFilename: String,
   //println("DDR"+ ddr.count())
 
   val dfDDR = ddr.extractInfo(ss)
+  // efo3 index left join relatedDisease
   val dfDiseaseRelatedDiseases= dfDiseaseIds.getDiseaseRelatedDiseases(ss,dfDDR)
+  println("Diseases+DDR"+ dfDiseaseRelatedDiseases.count())
 
   val dfEvidencesBase = evidences
     .withColumn("mechanism_of_action",
@@ -257,10 +259,9 @@ def main(relationalFilename: String,
 
   //dfEvidencesBase.filter(col("disease.id") === "EFO_0000384").select("disease.id","mechanism_of_action","clinicalTrial").show(100,false)
 
-
   val dfSummariesAndDetails = dfEvidencesBase.getDiseaseDetailDrugs(ss, dfDiseases)
 
-  val dfFinal = dfSummariesAndDetails.join(dfDiseaseRelatedDiseases, Seq("id"))
+  val dfFinal = dfSummariesAndDetails.join(dfDiseaseRelatedDiseases, Seq("id"),"right")
     .withColumn("summaries", // <-- use the same column name so you hide the existing one
     struct(
       col("summaries.phenotypes"), // <-- reference existing column to copy the values
@@ -281,7 +282,7 @@ def main(relationalFilename: String,
     )
     .drop("relatedDiseases_rows_alias","phenotypes_rows_alias","drugs_rows_alias")
 
-
+  println("Size diseases:"+ dfFinal.count())
   dfFinal.write.json(outputPathPrefix + "/diseases")
 
 }
