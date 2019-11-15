@@ -39,55 +39,60 @@ object Loaders {
 object Transformers {
   implicit class Implicits (val df: DataFrame) {
 
+    def joinAll(ss: SparkSession, dfDDR: DataFrame, dfEvidence: DataFrame): DataFrame = {
+      dfEvidence.printSchema()
 
-    def extractInfo(ss: SparkSession): DataFrame = {
+      val dfKnowDrugs = dfEvidence
+        .where(col("`type`") === "known_drug")
+        .withColumn("disease_id", col("disease.id"))
+        .withColumn("drug_id", substring_index(col("drug.id"), "/", -1))
 
-      val dfDDR = df.withColumnRenamed("id", "relational_id")
-        .withColumn("score", col("scores.overlap"))
-        .withColumn("targetCountA", col("subject.links.targets_count"))
-        .withColumn("targetCountB", col("object.links.targets_count"))
-        .withColumn("targetCountAAndB", col("counts.shared_count"))
-        .withColumn("targetCountAOrB", col("counts.union_count"))
-        .withColumn("A",struct(
-          (col("subject.id")).as("id"),
-          col("subject.label").as("name")
-        ))
-        .withColumn("B",struct(
-          (col("object.id")).as("id"),
-          col("object.label").as("name")
-        ))
-        .drop("relational_id","shared_targets","type","subject", "object","counts", "shared_diseases","scores")
 
-      dfDDR
-    }
+      val dfRelatedDiseases = df.join(dfDDR, dfDDR("subject.id") === df("id"), "left")
+        .withColumn("relatedDiseasesSingleRow", struct(col("object.id").as("B"),
+          col("scores.overlap").as("score"),
+          col("subject.links.targets_count").as("targetCountA"),
+          col("object.links.targets_count").as("targetCountB"),
+          col("counts.shared_count").as("targetCountAAndB"),
+          col("counts.union_count").as("targetCountAOrB")))
 
-    def getDiseaseRelatedDiseases(ss: SparkSession, dfDDR: DataFrame): DataFrame = {
-      val relatedSummarySource = Seq(("Open Targets","https://docs.targetvalidation.org/getting-started/scoring"))
-
-      val dfRelatedDiseases = df.join(dfDDR, dfDDR("A.id") === col("id"), "left")
-        .withColumn("relatedSummarySource",typedLit(relatedSummarySource))
-        .withColumn("relatedDiseasesSingleRow", struct(col("A"), col("B"),
-          col("score"), col("targetCountA"),col("targetCountB"),col("targetCountAAndB"),
-          col("targetCountAOrB")))
-        .withColumn("relatedSummarySource", col("relatedSummarySource").cast("""array<struct<name: String, url: String>>"""))
-        .drop("A","B","score","targetCountA","targetCountB","targetCountAAndB","targetCountAOrB")
-
-      val dfGroupRelatedDiseaseGrouped = dfRelatedDiseases.groupBy(col("id"), col("relatedSummarySource"),
+      val dfGroupRelatedAndDrug = dfRelatedDiseases.groupBy(col("id"),
         col("name"), col("description"), col("synonyms"), col("phenotypes"),
-        col("therapeuticAreas"), col("phenotypesSummarySource"), col("sourcePhenotypes"),
-        col("parentIds"), col("isTherapeuticArea"), col("leaf"), col("sources"),
-        col("ontology"), col("descendants"))
+        col("therapeuticAreas"), col("parentIds"), col("isTherapeuticArea"),
+        col("leaf"), col("ontology"), col("descendants"))
         .agg(collect_list(col("relatedDiseasesSingleRow")).as("detailsRelatedDiseasesRows"))
         .withColumn("relatedDiseasesCount", size(col("detailsRelatedDiseasesRows")))
+        .withColumn("relatedDiseases",
+          struct(col("relatedDiseasesCount"),
+            col("detailsRelatedDiseasesRows").as("rows")
+          ))
+        .drop("relatedDiseasesCount", "detailsRelatedDiseasesRows")
+        .join(dfKnowDrugs, expr("array_contains(descendants,disease_id)"), "left")
 
-      val dfGroupRelatedDiseaseSummary = dfGroupRelatedDiseaseGrouped
-        .withColumn("summaryrelatedDiseasesSummaries",struct(
-          col("relatedDiseasesCount"),
-          col("relatedSummarySource").as("sources")
+
+      val dfDiseases = dfGroupRelatedAndDrug.groupBy(col("id"),
+        col("disease"),col("target"),col("drug_id"),
+        col("mechanism_of_action"), col("clinicalTrial"),
+        col("ontology"), col("phenotypes"),
+        col("name"), col("description"), col("therapeuticAreas"),
+        col("parentIds"),col("synonyms"), col("relatedDiseases"))
+        .count()
+        .withColumn("EvidenceRowDrugs_single_row", struct(col("clinicalTrial"),
+          col("mechanism_of_action"),
+          col("drug_id").as("drug"), col("target.id").as("target")
         ))
-        .drop("relatedDiseasesCount","relatedSummarySource")
+        .drop("mechanism_of_action", "clinicalTrial","disease","target")
+        .groupBy(col("id"),col("ontology"), col("phenotypes"),
+          col("name"), col("description"), col("therapeuticAreas"),
+          col("parentIds"),col("synonyms"), col("relatedDiseases"))
+        .agg(collect_set(col("drug_id")).as("associated_drugs"),
+          collect_list(col("EvidenceRowDrugs_single_row")).as("drugs_rows"))
+        .withColumn("drugs",struct(
+          size(col("associated_drugs")).as("drugCount"),
+          col("drugs_rows").as("rows"))
+        ).drop("associated_drugs","drugs_rows")
 
-      dfGroupRelatedDiseaseSummary
+      dfDiseases
 
     }
 
@@ -95,26 +100,21 @@ object Transformers {
 
       val getParents = udf((codes: Seq[Seq[String]]) =>
         codes.flatMap(path => if (path.size < 2) None else Some(path.reverse(1))).toSet.toSeq)
-        //codes.withFilter(_.size > 1).flatMap(_.reverse(1)).toSet)
-
-     val phenotypesSummarySource = Seq(("EFO","https://www.ebi.ac.uk/efo/"),("Orphanet","https://www.orpha.net"))
+      //codes.withFilter(_.size > 1).flatMap(_.reverse(1)).toSet)
 
       val dfPhenotypeId =  df
-          .withColumn("phenotypesSummarySource",typedLit(phenotypesSummarySource))
-          .withColumn("sourcePhenotypes",
+        .withColumn("sourcePhenotypes",
           when(size(col("phenotypes")) > 0, expr("transform(phenotypes, phRow -> named_struct('url', phRow.uri,'name',  phRow.label, 'id', substring_index(phRow.uri, '/', -1)))")))
 
-      val efoSummaryRename = dfPhenotypeId.withColumn("phenotypesSummarySource", col("phenotypesSummarySource").cast("""array<struct<name: String, url: String>>"""))
-
-      val efosSummary = efoSummaryRename
+      val efosSummary = dfPhenotypeId
         .withColumn("id", substring_index(col("code"), "/", -1))
         .withColumn("ancestors", flatten(col("path_codes")))
         .withColumn("parentIds", getParents(col("path_codes")))
         .withColumn("phenotypesCount", size(col("phenotypes")))
         .drop("paths", "private", "_private", "path")
         .withColumn("phenotypes",struct(
-             col("phenotypesCount"),
-             col("phenotypesSummarySource").as("sources")
+          col("phenotypesCount"),
+          col("sourcePhenotypes").as("rows")
         ))
         //.withColumn("test",when(size(col("sourcePhenotypes")) > 0, extractIdPhenothypes(col("sourcePhenotypes"))).otherwise(col("sourcePhenotypes")))
         .withColumn(
@@ -153,83 +153,6 @@ object Transformers {
       efos.select(efos.columns.map(colname => col(colname).as(lookup.getOrElse(colname, colname))): _*)
     }
 
-    def getDiseaseDetailDrugs(ss: SparkSession, dfDiseases: DataFrame): DataFrame = {
-      val drugSummarySource = Seq(("ChEMBL","https://www.ebi.ac.uk/chembl/"))
-
-      df.printSchema()
-
-      val dfDrugsExtended = df
-        .where(col("`type`") === "known_drug")
-        .withColumn("disease_id", col("disease.id"))
-        .withColumn("drug_id", substring_index(col("drug.id"), "/", -1))
-        .join(dfDiseases, expr("array_contains(descendants,disease_id)"), "inner")
-
-      val dfDrugDetails = dfDrugsExtended.groupBy(col("id"),
-        col("disease"),col("target"),col("drug"),
-        col("drug_id"), col("mechanism_of_action"), col("clinicalTrial"))
-        .count()
-        .withColumn("target_details",
-          struct( col("target.id").as("id"),col("target.gene_info.symbol").as("symbol"),
-            col("target.gene_info.name").as("name")))
-        .withColumn("disease_details", struct(
-          col("disease.id").as("id"),col("disease.efo_info.label").as("name")
-        ))
-        .withColumn("drug_details", struct(
-          col("drug.id").as("id"), col("drug.molecule_name").as("name"),
-          col("drug.molecule_type").as("type")
-        ))
-        .drop("drug","target","disease")
-        .withColumn("EvidenceRowDrugs_single_row", struct(col("clinicalTrial"),
-          col("mechanism_of_action"),
-          col("drug_details").as("drug"), col("target_details").as("target"),
-          col("disease_details").as("disease")
-        ))
-        .drop("drug_details","target_details","disease_details","mechanism_of_action", "clinicalTrial")
-
-      val dfUnionInfo = dfDrugDetails.join(dfDiseases, Seq("id"),"right")
-
-      val dfEvidenceRows = dfUnionInfo.groupBy(col("id"),col("ontology"), col("phenotypes"),
-        col("name"),col("sourcePhenotypes"), col("detailsRelatedDiseasesRows"),
-        col("description"), col("therapeuticAreas"), col("parentIds"),col("synonyms"),
-        col("summaryrelatedDiseasesSummaries"))
-        .agg(collect_set(col("drug_id")).as("associated_drugs"),
-          collect_list(col("EvidenceRowDrugs_single_row")).as("drugs_rows"))
-        .withColumn("drugCount", size(col("associated_drugs")))
-        .withColumn("drugSummarySource",typedLit(drugSummarySource).cast("""array<struct<name: String, url: String>>"""))
-        .withColumn("drugs",struct(
-          (col("drugCount")),col("drugSummarySource").as("sources"))
-        ).drop("drugCount","drugsSources")
-        .withColumn("summaries",
-             struct(
-                 col("ontology"),
-                 col("phenotypes"),
-                 col("drugs")))
-        .drop("ontology","phenotypes","drugs","associated_drugs","drugsSources","drugCount","drugSummarySource")
-        .withColumn("summaries", // <-- use the same column name so you hide the existing one
-          struct(
-            col("summaries.phenotypes"), // <-- reference existing column to copy the values
-            col("summaries.ontology"),
-            col("summaries.drugs"),
-            col("summaryrelatedDiseasesSummaries").as("relatedDiseases"))) // <-- new field
-        .drop("summaryrelatedDiseasesSummaries")
-        .withColumn("drugs_rows_alias", struct(col("drugs_rows").as("rows")))
-        .withColumn("relatedDiseases_rows_alias", struct(col("detailsRelatedDiseasesRows").as("rows")))
-        .withColumn("phenotypes_rows_alias", struct(col("sourcePhenotypes").as("rows")))
-        .drop("drugs_rows","sourcePhenotypes","detailsRelatedDiseasesRows")
-        .withColumn("details",
-          struct(
-            col("drugs_rows_alias").as("drugs"),
-            col("phenotypes_rows_alias").as("phenotypes"),
-            col("relatedDiseases_rows_alias").as("relatedDiseases")
-          )
-        )
-        .drop("relatedDiseases_rows_alias","phenotypes_rows_alias","drugs_rows_alias")
-
-
-      //println(dfEvidenceRows.filter(col("id")==="EFO_0000311").show())
-      dfEvidenceRows
-    }
-
   }
 }
 
@@ -251,26 +174,8 @@ def main(relationalFilename: String,
   import ss.implicits._
   import Transformers.Implicits
 
-  val diseases = Loaders.loadDiseases(diseaseFilename)
+  val diseases = Loaders.loadDiseases(diseaseFilename).drop("type")
   val evidences = Loaders.loadEvidences(evidenceFilename)
-  val ddr = Loaders.loadDDR(relationalFilename)
-
-  val dfDiseases = diseases
-    .setIdAndSelectFromDiseases(ss)
-
-  //val listTherapeuticAreas = all_diseases.filter(col("isTherapeuticArea") === true).select("id")
-  //println(dfDiseases.filter(col("id") === "Orphanet_262").show(false))
-  //println("Diseases"+ dfDiseases.count())
-  //println("Evidences"+ evidences.count())
-  //println("DDR"+ ddr.count())
-
-  val dfDDR = ddr.extractInfo(ss)
-  // efo3 index left join relatedDisease
-  val dfDiseaseRelatedDiseases= dfDiseases.getDiseaseRelatedDiseases(ss,dfDDR)
-  println("Diseases+DDR"+ dfDiseaseRelatedDiseases.count())
-  dfDiseaseRelatedDiseases.printSchema()
-
-  val dfEvidencesBase = evidences
     .withColumn("mechanism_of_action",
       when(col("evidence.target2drug.mechanism_of_action").isNotNull, col("evidence.target2drug.mechanism_of_action")).otherwise(null))
     .withColumn("clinicalTrial",when(col("evidence.drug2clinic.clinical_trial_phase").isNotNull,
@@ -278,13 +183,14 @@ def main(relationalFilename: String,
         col("evidence.drug2clinic.status").as("status"),
         col("evidence.drug2clinic.urls.url").getItem(0).as("sourceUrl"),
         col("evidence.drug2clinic.urls.nice_name").getItem(0).as("sourceName"))).otherwise(null))
-  .drop("evidence","id","access_level","literature")
+    .drop("evidence","id","access_level","literature","scores")
+  val ddr = Loaders.loadDDR(relationalFilename).drop("id","type")
 
-  //dfEvidencesBase.filter(col("disease.id") === "EFO_0000384").select("disease.id","mechanism_of_action","clinicalTrial").show(100,false)
 
-  val dfSummariesAndDetails = dfEvidencesBase.getDiseaseDetailDrugs(ss, dfDiseaseRelatedDiseases)
+  val dfDiseases = diseases
+    .setIdAndSelectFromDiseases(ss)
+    .joinAll(ss,ddr,evidences)
 
-  println("Size diseases:"+ dfSummariesAndDetails.count())
-  dfSummariesAndDetails.write.json(outputPathPrefix + "/diseases")
-
+  //println("Size diseases:"+ dfDiseases.count())
+  dfDiseases.write.json(outputPathPrefix + "/diseases")
 }
