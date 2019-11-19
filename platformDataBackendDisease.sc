@@ -40,7 +40,6 @@ object Transformers {
   implicit class Implicits (val df: DataFrame) {
 
     def joinAll(ss: SparkSession, dfDDR: DataFrame, dfEvidence: DataFrame): DataFrame = {
-      dfEvidence.printSchema()
 
       val dfKnowDrugs = dfEvidence
         .where(col("`type`") === "known_drug")
@@ -49,12 +48,13 @@ object Transformers {
 
 
       val dfRelatedDiseases = df.join(dfDDR, dfDDR("subject.id") === df("id"), "left")
-        .withColumn("relatedDiseasesSingleRow", struct(col("object.id").as("B"),
-          col("scores.overlap").as("score"),
-          col("subject.links.targets_count").as("targetCountA"),
-          col("object.links.targets_count").as("targetCountB"),
-          col("counts.shared_count").as("targetCountAAndB"),
-          col("counts.union_count").as("targetCountAOrB")))
+        .withColumn("relatedDiseasesSingleRow",  when(col("object.id").isNotNull,
+          struct(col("object.id").as("B"),
+            col("scores.overlap").as("score"),
+            col("subject.links.targets_count").as("targetCountA"),
+            col("object.links.targets_count").as("targetCountB"),
+            col("counts.shared_count").as("targetCountAAndB"),
+            col("counts.union_count").as("targetCountAOrB"))))
 
       val dfGroupRelatedAndDrug = dfRelatedDiseases.groupBy(col("id"),
         col("name"), col("description"), col("synonyms"), col("phenotypes"),
