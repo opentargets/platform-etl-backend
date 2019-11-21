@@ -58,7 +58,7 @@ object Transformers {
 
       val dfGroupRelatedAndDrug = dfRelatedDiseases.groupBy(col("id"),
         col("name"), col("description"), col("synonyms"), col("phenotypes"),
-        col("therapeuticAreas"), col("parentIds"), col("isTherapeuticArea"),
+        col("therapeuticAreas"), col("parentIds"), col("isTherapeuticArea"), col("children"),
         col("leaf"), col("ontology"), col("descendants"))
         .agg(collect_list(col("relatedDiseasesSingleRow")).as("detailsRelatedDiseasesRows"))
         .withColumn("relatedDiseasesCount", size(col("detailsRelatedDiseasesRows")))
@@ -82,7 +82,8 @@ object Transformers {
         .drop("disease","target")
         .groupBy(col("id"),col("ontology"), col("phenotypes"),
           col("name"), col("description"), col("therapeuticAreas"),
-          col("parentIds"),col("synonyms"), col("relatedDiseases"))
+          col("parentIds"),col("children"),col("synonyms"),
+          col("relatedDiseases"))
         .agg(collect_set(col("drug_id")).as("associated_drugs"),
           collect_list(col("EvidenceRowDrugs_single_row")).as("drugs_rows"))
         .withColumn("drugs",struct(
