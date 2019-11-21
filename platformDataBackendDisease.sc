@@ -74,7 +74,7 @@ object Transformers {
         col("disease"),col("target"),col("drug_id"),
         col("ontology"), col("phenotypes"),
         col("name"), col("description"), col("therapeuticAreas"),
-        col("parentIds"),col("synonyms"), col("relatedDiseases"))
+        col("parentIds"),col("children"),col("synonyms"), col("relatedDiseases"))
         .count()
         .withColumn("EvidenceRowDrugs_single_row", struct(
           col("drug_id").as("drug"), col("target.id").as("target")
