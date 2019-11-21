@@ -176,13 +176,6 @@ def main(relationalFilename: String,
 
   val diseases = Loaders.loadDiseases(diseaseFilename).drop("type")
   val evidences = Loaders.loadEvidences(evidenceFilename)
-    .withColumn("mechanism_of_action",
-      when(col("evidence.target2drug.mechanism_of_action").isNotNull, col("evidence.target2drug.mechanism_of_action")).otherwise(null))
-    .withColumn("clinicalTrial",when(col("evidence.drug2clinic.clinical_trial_phase").isNotNull,
-      struct(col("evidence.drug2clinic.clinical_trial_phase.numeric_index").as("phase"),
-        col("evidence.drug2clinic.status").as("status"),
-        col("evidence.drug2clinic.urls.url").getItem(0).as("sourceUrl"),
-        col("evidence.drug2clinic.urls.nice_name").getItem(0).as("sourceName"))).otherwise(null))
     .drop("evidence","id","access_level","literature","scores")
   val ddr = Loaders.loadDDR(relationalFilename).drop("id","type")
 
