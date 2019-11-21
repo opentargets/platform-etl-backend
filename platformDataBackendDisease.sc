@@ -72,16 +72,14 @@ object Transformers {
 
       val dfDiseases = dfGroupRelatedAndDrug.groupBy(col("id"),
         col("disease"),col("target"),col("drug_id"),
-        col("mechanism_of_action"), col("clinicalTrial"),
         col("ontology"), col("phenotypes"),
         col("name"), col("description"), col("therapeuticAreas"),
         col("parentIds"),col("synonyms"), col("relatedDiseases"))
         .count()
-        .withColumn("EvidenceRowDrugs_single_row", struct(col("clinicalTrial"),
-          col("mechanism_of_action"),
+        .withColumn("EvidenceRowDrugs_single_row", struct(
           col("drug_id").as("drug"), col("target.id").as("target")
         ))
-        .drop("mechanism_of_action", "clinicalTrial","disease","target")
+        .drop("disease","target")
         .groupBy(col("id"),col("ontology"), col("phenotypes"),
           col("name"), col("description"), col("therapeuticAreas"),
           col("parentIds"),col("synonyms"), col("relatedDiseases"))
