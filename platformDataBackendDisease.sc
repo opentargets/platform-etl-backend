@@ -63,7 +63,7 @@ object Transformers {
         .agg(collect_list(col("relatedDiseasesSingleRow")).as("detailsRelatedDiseasesRows"))
         .withColumn("relatedDiseasesCount", size(col("detailsRelatedDiseasesRows")))
         .withColumn("relatedDiseases",
-          struct(col("relatedDiseasesCount"),
+          struct(col("relatedDiseasesCount").as("count"),
             col("detailsRelatedDiseasesRows").as("rows")
           ))
         .drop("relatedDiseasesCount", "detailsRelatedDiseasesRows")
@@ -87,7 +87,7 @@ object Transformers {
         .agg(collect_set(col("drug_id")).as("associated_drugs"),
           collect_list(col("EvidenceRowDrugs_single_row")).as("drugs_rows"))
         .withColumn("drugs",struct(
-          size(col("associated_drugs")).as("drugCount"),
+          size(col("associated_drugs")).as("count"),
           col("drugs_rows").as("rows"))
         ).drop("associated_drugs","drugs_rows")
 
@@ -112,7 +112,7 @@ object Transformers {
         .withColumn("phenotypesCount", size(col("phenotypes")))
         .drop("paths", "private", "_private", "path")
         .withColumn("phenotypes",struct(
-          col("phenotypesCount"),
+          col("phenotypesCount").as("count"),
           col("sourcePhenotypes").as("rows")
         ))
         //.withColumn("test",when(size(col("sourcePhenotypes")) > 0, extractIdPhenothypes(col("sourcePhenotypes"))).otherwise(col("sourcePhenotypes")))
