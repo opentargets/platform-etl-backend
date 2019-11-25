@@ -96,11 +96,6 @@ object Transformers {
     }
 
     def setIdAndSelectFromDiseases(ss: SparkSession): DataFrame = {
-
-      val getParents = udf((codes: Seq[Seq[String]]) =>
-        codes.flatMap(path => if (path.size < 2) None else Some(path.reverse(1))).toSet.toSeq)
-      //codes.withFilter(_.size > 1).flatMap(_.reverse(1)).toSet)
-
       val dfPhenotypeId =  df
         .withColumn("sourcePhenotypes",
           when(size(col("phenotypes")) > 0, expr("transform(phenotypes, phRow -> named_struct('url', phRow.uri,'name',  phRow.label, 'id', substring_index(phRow.uri, '/', -1)))")))
@@ -108,7 +103,9 @@ object Transformers {
       val efosSummary = dfPhenotypeId
         .withColumn("id", substring_index(col("code"), "/", -1))
         .withColumn("ancestors", flatten(col("path_codes")))
-        .withColumn("parentIds", getParents(col("path_codes")))
+        .withColumn("parents",
+          array_except(array_distinct(flatten(col("path_codes"))),
+            array(col("id"))) )
         .withColumn("phenotypesCount", size(col("phenotypes")))
         .drop("paths", "private", "_private", "path")
         .withColumn("phenotypes",struct(
@@ -130,11 +127,12 @@ object Transformers {
             col("sources").as("sources")
           )
         )
+        .withColumn("children",expr("transform(children, x -> x.code)"))
 
       val descendants = efosSummary
         .where(size(col("ancestors")) > 0)
-        .withColumn("ancestor", explode(col("ancestors")))
         // all diseases have an ancestor, at least itself
+        .withColumn("ancestor", explode(concat(col("ancestors"), array(col("id")))))
         .groupBy("ancestor")
         .agg(collect_set(col("id")).as("descendants"))
         .withColumnRenamed("ancestor", "id")
