@@ -25,7 +25,7 @@ time amm platformDataBackend.sc \
     --drugFilename 19.06_drug-data.json \
     --targetFilename 19.06_gene-data.json \
     --diseaseFilename 19.06_efo-data.json \
-    --evidenceFilename 19.06_eco-data.json \
+    --evidenceFilename 19.06_evidence-data.json \
     --outputPathPrefix out/
 ```
 
