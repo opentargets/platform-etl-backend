@@ -9,6 +9,7 @@ val buildResolvers = Seq(
 lazy val scalaLoggingDep = "ch.qos.logback" % "logback-classic" % "1.2.3"
 lazy val scalaLogging = "com.typesafe.scala-logging" %% "scala-logging" % "3.9.0"
 lazy val scalaCheck = "org.scalacheck" %% "scalacheck" % "1.14.0"
+lazy val playJson = "com.typesafe.play" %% "play-json" % "2.7.3"
 
 lazy val sparkSeq = Seq(
   "com.github.fommil.netlib" % "all" % "1.1.2" pomOnly(),
@@ -17,8 +18,10 @@ lazy val sparkSeq = Seq(
   "org.apache.spark" %% "spark-graphx" % "2.4.3",
   "org.apache.spark" %% "spark-mllib" % "2.4.3"
 )
-lazy val ammonite = "com.lihaoyi" % "ammonite" % "1.7.1" % "test" cross CrossVersion.full
-lazy val ammoniteSpark = "sh.almond" %% "ammonite-spark" % "0.7.0"
+
+lazy val typeSafeConfig = "com.typesafe" % "config" % "1.4.0"
+lazy val ammonite = "com.lihaoyi" % "ammonite" % "1.8.2" % "test" cross CrossVersion.full
+lazy val ammoniteSpark = "sh.almond" %% "ammonite-spark" % "0.8.0"
 lazy val betterFiles = "com.github.pathikrit" %% "better-files" % "3.8.0"
 //lazy val ammoniteDeps = Seq(
 //  "com.github.pathikrit" %% "better-files" % "3.8.0",
@@ -46,6 +49,8 @@ lazy val root = (project in file("."))
     libraryDependencies += scalaLogging,
     libraryDependencies += ammonite,
     libraryDependencies += betterFiles,
+    libraryDependencies += typeSafeConfig,
+    libraryDependencies += playJson,
 
     testFrameworks += new TestFramework("minitest.runner.Framework"),
 
