@@ -189,11 +189,27 @@ def main(expressionFilename: String,
   ).agg(
     first($"target").as("target"),
     first($"disease").as("disease"),
-    first($"datasource_counts").as("datasource_counts"),
-    first($"datasource_scores").as("datasource_scores"),
+    flatten(collect_list($"datasource_counts")).as("datasource_counts"),
+    flatten(collect_list($"datasource_scores")).as("datasource_scores"),
     collect_list($"datatype_count").as("datatype_counts"),
     collect_list($"datatype_score").as("datatype_scores")
-  )
+  ).withColumn("id", concat_ws("-", $"target_id", $"disease_id"))
+    .withColumn("_v", expr("flatten(transform(datasource_scores, x -> map_values(x)))"))
+    .withColumn("_hs_max", lit(Configuration.maxHS))
+    .withColumn("overall",
+      expr(
+        """
+          |aggregate(
+          | zip_with(
+          |   slice(sort_array(_v, false), 1, 100),
+          |   sequence(1, size(_v)),
+          |   (e, i) -> (e / pow(i,2))
+          | ),
+          | 0D,
+          | (a, el) -> a + el
+          |) / _hs_max
+          |""".stripMargin))
+    .drop("target_id", "disease_id", "_v", "_hs_max")
 
   assocsPrima.write.json(outputPathPrefix)
 }
