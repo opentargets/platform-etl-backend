@@ -17,9 +17,18 @@ import com.typesafe.config.{Config, ConfigFactory, ConfigObject, ConfigRenderOpt
 import com.typesafe.scalalogging.{LazyLogging, Logger}
 import play.api.libs.json.{Json, Reads}
 
+import scala.math.pow
+
 object Harmonic {
   implicit class Helpers(df: DataFrame) {
-    def harmonic(newColName: String, vectorColName: String, maxHarmonicValue: Double): DataFrame = {
+    def harmonic(newColName: String, vectorColName: String): DataFrame = {
+      val maxVectorElementsDefault: Int = 100
+      val pExponentDefault: Int = 2
+
+      def maxHarmonicValue(vSize: Int, pExponent: Int, maxScore: Double): Double =
+        (0 until vSize).foldLeft(0D)((acc: Double, n: Int) => acc + (maxScore / pow(1D + n, pExponent)))
+
+      val maxHS = maxHarmonicValue(maxVectorElementsDefault, pExponentDefault, 1.0)
       df.withColumn(newColName,
         expr(
           s"""
@@ -31,14 +40,13 @@ object Harmonic {
             | ),
             | 0D,
             | (a, el) -> a + el
-            |) / $maxHarmonicValue
+            |) / $maxHS
             |""".stripMargin))
     }
   }
 }
 
 object Configuration extends LazyLogging {
-  val maxHS = 1.6349839001848923
   case class DataSource(id: String, weight: Double, dataType: String, propagate: Boolean)
   case class Associations(defaultWeight: Double, dataSources: List[DataSource])
 
@@ -159,7 +167,7 @@ def main(expressionFilename: String,
       count($"id").as("_count")
     )
     .withColumn("datasource_count", expr("map(sourceID, _count)"))
-    .harmonic("_hs","_v", Configuration.maxHS)
+    .harmonic("_hs","_v")
     .join(datasources, $"sourceID" === datasources("id"), "left_outer")
     // fill null for weight to default weight in case we have new datasources
     .na.fill(otc.defaultWeight, Seq("weight"))
@@ -175,7 +183,7 @@ def main(expressionFilename: String,
     collect_list($"datasource_score").as("datasource_scores")
   )
     .withColumn("_v", expr("flatten(transform(datasource_scores, x -> map_values(x)))"))
-    .harmonic("_hs","_v", Configuration.maxHS)
+    .harmonic("_hs","_v")
     .withColumn("datatype_count",
       expr("map(dataType, aggregate(flatten(transform(datasource_counts, x -> map_values(x))) ,0D, (a, el) -> a + el))"))
     .withColumn("datatype_score",
@@ -192,7 +200,7 @@ def main(expressionFilename: String,
     collect_list($"datatype_score").as("datatype_scores")
   ).withColumn("id", concat_ws("-", $"target_id", $"disease_id"))
     .withColumn("_v", expr("flatten(transform(datasource_scores, x -> map_values(x)))"))
-    .harmonic("overall","_v", Configuration.maxHS)
+    .harmonic("overall","_v")
     .drop("target_id", "disease_id", "_v", "_hs_max")
 
   assocsPrima.write.json(outputPathPrefix)
