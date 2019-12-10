@@ -4,12 +4,15 @@
         <!-- encoders are assigned the type
              ch.qos.logback.classic.encoder.PatternLayoutEncoder by default -->
         <encoder>
-            <pattern>%d{HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n</pattern>
+            <!--pattern>%d{HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n</pattern-->
+            <pattern>%d{HH:mm:ss.SSS} [%thread] %-5level %logger - %msg%n</pattern>
         </encoder>
     </appender>
 
-    <root level="${ot.logging.level:-DEBUG}">
+    <logger name="ammonite" level="DEBUG"/>
+    <logger name="org.apache.spark" level="INFO"/>
+
+    <root level="${ot.logging.level:-WARN}">
         <appender-ref ref="STDOUT" />
     </root>
-    <!--logger name="ot.geckopipe" level="DEBUG" /-->
 </configuration>

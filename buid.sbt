@@ -20,8 +20,12 @@ lazy val sparkSeq = Seq(
 )
 
 lazy val typeSafeConfig = "com.typesafe" % "config" % "1.4.0"
-lazy val ammonite = "com.lihaoyi" % "ammonite" % "1.8.2" % "test" cross CrossVersion.full
-lazy val ammoniteSpark = "sh.almond" %% "ammonite-spark" % "0.8.0"
+lazy val aoyi = Seq(
+  "com.lihaoyi" %% "pprint" % "0.5.6",
+  "com.lihaoyi" % "ammonite" % "1.8.2" % "test" cross CrossVersion.full,
+  "sh.almond" %% "ammonite-spark" % "0.8.0"
+)
+
 lazy val betterFiles = "com.github.pathikrit" %% "better-files" % "3.8.0"
 //lazy val ammoniteDeps = Seq(
 //  "com.github.pathikrit" %% "better-files" % "3.8.0",
@@ -47,7 +51,7 @@ lazy val root = (project in file("."))
     libraryDependencies ++= sparkSeq,
     libraryDependencies += scalaLoggingDep,
     libraryDependencies += scalaLogging,
-    libraryDependencies += ammonite,
+    libraryDependencies ++= aoyi,
     libraryDependencies += betterFiles,
     libraryDependencies += typeSafeConfig,
     libraryDependencies += playJson,
