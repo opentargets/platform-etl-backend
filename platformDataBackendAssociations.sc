@@ -17,6 +17,26 @@ import com.typesafe.config.{Config, ConfigFactory, ConfigObject, ConfigRenderOpt
 import com.typesafe.scalalogging.{LazyLogging, Logger}
 import play.api.libs.json.{Json, Reads}
 
+object Harmonic {
+  implicit class Helpers(df: DataFrame) {
+    def harmonic(newColName: String, vectorColName: String, maxHarmonicValue: Double): DataFrame = {
+      df.withColumn(newColName,
+        expr(
+          s"""
+            |aggregate(
+            | zip_with(
+            |   $vectorColName,
+            |   sequence(1, size($vectorColName)),
+            |   (e, i) -> (e / pow(i,2))
+            | ),
+            | 0D,
+            | (a, el) -> a + el
+            |) / $maxHarmonicValue
+            |""".stripMargin))
+    }
+  }
+}
+
 object Configuration extends LazyLogging {
   val maxHS = 1.6349839001848923
   case class DataSource(id: String, weight: Double, dataType: String, propagate: Boolean)
@@ -118,6 +138,7 @@ def main(expressionFilename: String,
 
   // AmmoniteSparkSession.sync()
   import ss.implicits._
+  import Harmonic._
 
   val datasources = broadcast(otc.dataSources.toDS().orderBy($"id".asc))
 
@@ -138,21 +159,10 @@ def main(expressionFilename: String,
       count($"id").as("_count")
     )
     .withColumn("datasource_count", expr("map(sourceID, _count)"))
-    .withColumn("_hs_max", lit(Configuration.maxHS))
-    .withColumn("_hs",
-      expr(
-        """
-          |aggregate(
-          | zip_with(
-          |   _v,
-          |   sequence(1, size(_v)),
-          |   (e, i) -> (e / pow(i,2))
-          | ),
-          | 0D,
-          | (a, el) -> a + el
-          |) / _hs_max
-          |""".stripMargin))
-    .join(datasources, $"sourceID" === datasources("id"), "inner")
+    .harmonic("_hs","_v", Configuration.maxHS)
+    .join(datasources, $"sourceID" === datasources("id"), "left_outer")
+    // fill null for weight to default weight in case we have new datasources
+    .na.fill(otc.defaultWeight, Seq("weight"))
     .withColumn("_score", $"_hs" * $"weight")
     .withColumn("datasource_score", expr("map(sourceID, _score)"))
 
@@ -165,20 +175,7 @@ def main(expressionFilename: String,
     collect_list($"datasource_score").as("datasource_scores")
   )
     .withColumn("_v", expr("flatten(transform(datasource_scores, x -> map_values(x)))"))
-    .withColumn("_hs_max", lit(Configuration.maxHS))
-    .withColumn("_hs",
-      expr(
-        """
-          |aggregate(
-          | zip_with(
-          |   slice(sort_array(_v, false), 1, 100),
-          |   sequence(1, size(_v)),
-          |   (e, i) -> (e / pow(i,2))
-          | ),
-          | 0D,
-          | (a, el) -> a + el
-          |) / _hs_max
-          |""".stripMargin))
+    .harmonic("_hs","_v", Configuration.maxHS)
     .withColumn("datatype_count",
       expr("map(dataType, aggregate(flatten(transform(datasource_counts, x -> map_values(x))) ,0D, (a, el) -> a + el))"))
     .withColumn("datatype_score",
@@ -195,20 +192,7 @@ def main(expressionFilename: String,
     collect_list($"datatype_score").as("datatype_scores")
   ).withColumn("id", concat_ws("-", $"target_id", $"disease_id"))
     .withColumn("_v", expr("flatten(transform(datasource_scores, x -> map_values(x)))"))
-    .withColumn("_hs_max", lit(Configuration.maxHS))
-    .withColumn("overall",
-      expr(
-        """
-          |aggregate(
-          | zip_with(
-          |   slice(sort_array(_v, false), 1, 100),
-          |   sequence(1, size(_v)),
-          |   (e, i) -> (e / pow(i,2))
-          | ),
-          | 0D,
-          | (a, el) -> a + el
-          |) / _hs_max
-          |""".stripMargin))
+    .harmonic("overall","_v", Configuration.maxHS)
     .drop("target_id", "disease_id", "_v", "_hs_max")
 
   assocsPrima.write.json(outputPathPrefix)
