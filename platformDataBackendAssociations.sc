@@ -19,8 +19,119 @@ import play.api.libs.json.{Json, Reads}
 
 import scala.math.pow
 
-object Harmonic {
-  implicit class Helpers(df: DataFrame) {
+object AssociationHelpers {
+  implicit class AggregationHelpers(df: DataFrame)(implicit ss: SparkSession) {
+    import Configuration._
+    import ss.implicits._
+
+    def computeOntologyExpansion(diseases: DataFrame, datasources: Dataset[DataSource]): DataFrame = {
+      val diseaseStruct =
+        """
+          |named_struct(
+          | 'id', disease_id,
+          | 'efo_info', named_struct(
+          |   'efo_id', code,
+          |   'label', label,
+          |   'path', path_codes,
+          |   'therapeutic_area', named_struct(
+          |     'codes', therapeutic_codes,
+          |     'labels', therapeutic_labels
+          |   )
+          | )
+          |) as disease
+          |""".stripMargin
+      // generate needed fields as ancestors
+      val lut = diseases.selectExpr(
+        "disease_id",
+        "descendants",
+        diseaseStruct
+      ).withColumn("descendant", explode(col("descendants")))
+
+      // TODO reemplazar lut para expandir la seleccion de evidencias
+      // XXX MKARMONA
+
+      val efos = df.selectExpr("disease", "disease.id as disease_id")
+        .groupBy("disease_id")
+        .agg(first(col("disease")).as("disease"))
+        .withColumn("ancestors", flatten(col("disease.efo_info.path")))
+
+      // compute descendants
+      val descendants = efos
+        .where(size(col("ancestors")) > 0)
+        .withColumn("ancestor", explode(col("ancestors")))
+        // all diseases have an ancestor, at least itself
+        .groupBy("ancestor")
+        .agg(collect_set(col("disease_id")).as("descendants"))
+        .withColumnRenamed("ancestor", "disease_id")
+
+      // we use datasources to exclude some evidences from being propagated
+      val ontologyExpanded = efos.join(descendants, Seq("disease_id"))
+        .drop("ancestors")
+        .join(datasources.select("id", "propagate"),
+          col("sourceID") === col("id"), "left_outer")
+        .withColumn("descendants",
+          when(col("propagate") === false, array(col("disease_id")))
+            .otherwise(col("descendants")))
+        .drop("propagate")
+
+      ontologyExpanded
+    }
+    def groupByDataSources(datasources: Dataset[DataSource], otc: AssociationsSection): DataFrame = {
+      df
+        .withColumn("disease_id", $"disease.id")
+          .withColumn("target_id", $"target.id")
+          .withColumn("_score", $"scores.association_score")
+          .groupBy($"disease_id", $"target_id", $"sourceID")
+          .agg(
+            slice(sort_array(collect_list($"_score"), false), 1, 100).as("_v"),
+            first($"target").as("target"),
+            first($"disease").as("disease"),
+            count($"id").as("_count")
+          )
+          .withColumn("datasource_count", expr("map(sourceID, _count)"))
+          .harmonic("_hs","_v")
+          .join(datasources, $"sourceID" === datasources("id"), "left_outer")
+          // fill null for weight to default weight in case we have new datasources
+          .na.fill(otc.defaultWeight, Seq("weight"))
+          .withColumn("_score", $"_hs" * $"weight")
+          .withColumn("datasource_score", expr("map(sourceID, _score)"))
+    }
+
+    def groupByDataTypes: DataFrame = {
+      df.groupBy(
+        $"disease_id", $"target_id", $"dataType"
+      ).agg(
+        first($"target").as("target"),
+        first($"disease").as("disease"),
+        collect_list($"datasource_count").as("datasource_counts"),
+        collect_list($"datasource_score").as("datasource_scores")
+      )
+        .withColumn("_v", expr("flatten(transform(datasource_scores, x -> map_values(x)))"))
+        .harmonic("_hs","_v")
+        .withColumn("datatype_count",
+          expr("map(dataType, aggregate(flatten(transform(datasource_counts, x -> map_values(x))) ,0D, (a, el) -> a + el))"))
+        .withColumn("datatype_score",
+          expr("map(dataType, _hs)"))
+    }
+
+    def groupByPair: DataFrame = {
+      df.groupBy(
+        $"disease_id", $"target_id"
+      ).agg(
+        first($"target").as("target"),
+        first($"disease").as("disease"),
+        flatten(collect_list($"datasource_counts")).as("datasource_counts"),
+        flatten(collect_list($"datasource_scores")).as("datasource_scores"),
+        collect_list($"datatype_count").as("datatype_counts"),
+        collect_list($"datatype_score").as("datatype_scores")
+      ).withColumn("id", concat_ws("-", $"target_id", $"disease_id"))
+        .withColumn("_v", expr("flatten(transform(datasource_scores, x -> map_values(x)))"))
+        .harmonic("overall","_v")
+        .drop("target_id", "disease_id", "_v", "_hs_max")
+    }
+  }
+
+  implicit class HSHelpers(df: DataFrame) {
     def harmonic(newColName: String, vectorColName: String): DataFrame = {
       val maxVectorElementsDefault: Int = 100
       val pExponentDefault: Int = 2
@@ -48,10 +159,10 @@ object Harmonic {
 
 object Configuration extends LazyLogging {
   case class DataSource(id: String, weight: Double, dataType: String, propagate: Boolean)
-  case class Associations(defaultWeight: Double, dataSources: List[DataSource])
+  case class AssociationsSection(defaultWeight: Double, dataSources: List[DataSource])
 
   implicit val dataSourceImp = Json.reads[DataSource]
-  implicit val AssociationImp = Json.reads[Associations]
+  implicit val AssociationImp = Json.reads[AssociationsSection]
 
   def loadObject[T](key: String, config: Config)(implicit tReader: Reads[T]): T = {
     val defaultHarmonicOptions = Json.parse(config.getObject(key)
@@ -70,11 +181,11 @@ object Configuration extends LazyLogging {
     defaultHarmonicDatasourceOptions
   }
 
-  def load: Associations = {
+  def load: AssociationsSection = {
     logger.info("load configuration from file")
 
     val config = ConfigFactory.load()
-    val obj = loadObject[Associations]("ot.associations", config)
+    val obj = loadObject[AssociationsSection]("ot.associations", config)
     logger.debug(s"configuration properly case classed ${obj.toString}")
 
     obj
@@ -93,6 +204,7 @@ object Loaders extends LazyLogging {
     val expressions = ss.read.json(path)
     expressions
   }
+
 
   def loadDiseases(path: String)(implicit ss: SparkSession): DataFrame = {
     logger.info("load diseases jsonl")
@@ -146,7 +258,7 @@ def main(expressionFilename: String,
 
   // AmmoniteSparkSession.sync()
   import ss.implicits._
-  import Harmonic._
+  import AssociationHelpers._
 
   val datasources = broadcast(otc.dataSources.toDS().orderBy($"id".asc))
 
@@ -155,53 +267,30 @@ def main(expressionFilename: String,
 //  val expressions = Loaders.loadExpressions(expressionFilename)
   val evidences = Loaders.loadEvidences(evidenceFilename)
 
-  val pairs = evidences
-    .withColumn("disease_id", $"disease.id")
-    .withColumn("target_id", $"target.id")
-    .withColumn("_score", $"scores.association_score")
-    .groupBy($"disease_id", $"target_id", $"sourceID")
-    .agg(
-      slice(sort_array(collect_list($"_score"), false), 1, 100).as("_v"),
-      first($"target").as("target"),
-      first($"disease").as("disease"),
-      count($"id").as("_count")
-    )
-    .withColumn("datasource_count", expr("map(sourceID, _count)"))
-    .harmonic("_hs","_v")
-    .join(datasources, $"sourceID" === datasources("id"), "left_outer")
-    // fill null for weight to default weight in case we have new datasources
-    .na.fill(otc.defaultWeight, Seq("weight"))
-    .withColumn("_score", $"_hs" * $"weight")
-    .withColumn("datasource_score", expr("map(sourceID, _score)"))
+  val directPairs = evidences
+    .groupByDataSources(datasources, otc)
+    .groupByDataTypes
+    .groupByPair
+    .withColumn("is_direct", lit(true))
 
-  val assocs = pairs.groupBy(
-    $"disease_id", $"target_id", $"dataType"
-  ).agg(
-    first($"target").as("target"),
-    first($"disease").as("disease"),
-    collect_list($"datasource_count").as("datasource_counts"),
-    collect_list($"datasource_score").as("datasource_scores")
-  )
-    .withColumn("_v", expr("flatten(transform(datasource_scores, x -> map_values(x)))"))
-    .harmonic("_hs","_v")
-    .withColumn("datatype_count",
-      expr("map(dataType, aggregate(flatten(transform(datasource_counts, x -> map_values(x))) ,0D, (a, el) -> a + el))"))
-    .withColumn("datatype_score",
-      expr("map(dataType, _hs)"))
+  // compute indirect
+  val ontology = evidences.computeOntologyExpansion(datasources)
+    .withColumn("descendant", explode($"descendants"))
+    .drop("descendants")
+    .orderBy("descendant")
+    .persist
 
-  val assocsPrima = assocs.groupBy(
-    $"disease_id", $"target_id"
-  ).agg(
-    first($"target").as("target"),
-    first($"disease").as("disease"),
-    flatten(collect_list($"datasource_counts")).as("datasource_counts"),
-    flatten(collect_list($"datasource_scores")).as("datasource_scores"),
-    collect_list($"datatype_count").as("datatype_counts"),
-    collect_list($"datatype_score").as("datatype_scores")
-  ).withColumn("id", concat_ws("-", $"target_id", $"disease_id"))
-    .withColumn("_v", expr("flatten(transform(datasource_scores, x -> map_values(x)))"))
-    .harmonic("overall","_v")
-    .drop("target_id", "disease_id", "_v", "_hs_max")
+  val indirectPairs = evidences
+    .withColumn("did", expr("disease.id"))
+    .drop("disease")
+    .join(ontology, col("did") === col("descendant"), "inner")
+    .drop("descendant", "disease_id")
+    .groupByDataSources(datasources, otc)
+    .groupByDataTypes
+    .groupByPair
+    .withColumn("is_direct", lit(false))
 
-  assocsPrima.write.json(outputPathPrefix)
+  // write to jsonl both direct and indirect
+  directPairs.write.json(outputPathPrefix + "/direct/")
+  indirectPairs.write.json(outputPathPrefix + "/indirect/")
 }
