@@ -40,33 +40,21 @@ object AssociationHelpers {
           | )
           |) as disease
           |""".stripMargin
+
       // generate needed fields as ancestors
       val lut = diseases.selectExpr(
         "disease_id",
         "descendants",
         diseaseStruct
-      ).withColumn("descendant", explode(col("descendants")))
+      )
 
-      // TODO reemplazar lut para expandir la seleccion de evidencias
-      // XXX MKARMONA
-
-      val efos = df.selectExpr("disease", "disease.id as disease_id")
-        .groupBy("disease_id")
-        .agg(first(col("disease")).as("disease"))
-        .withColumn("ancestors", flatten(col("disease.efo_info.path")))
-
-      // compute descendants
-      val descendants = efos
-        .where(size(col("ancestors")) > 0)
-        .withColumn("ancestor", explode(col("ancestors")))
-        // all diseases have an ancestor, at least itself
-        .groupBy("ancestor")
-        .agg(collect_set(col("disease_id")).as("descendants"))
-        .withColumnRenamed("ancestor", "disease_id")
+      val dfWithLut = df
+        .withColumn("disease_id", expr("disease.id"))
+        .drop("disease")
+        .join(broadcast(lut), Seq("disease_id"), "inner")
 
       // we use datasources to exclude some evidences from being propagated
-      val ontologyExpanded = efos.join(descendants, Seq("disease_id"))
-        .drop("ancestors")
+      val ontologyExpanded = dfWithLut
         .join(datasources.select("id", "propagate"),
           col("sourceID") === col("id"), "left_outer")
         .withColumn("descendants",
