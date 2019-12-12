@@ -47,7 +47,9 @@ object AssociationHelpers {
         "descendants",
         diseaseStruct
       )
+        .withColumn("descendant", explode(col("descendants")))
 
+      // TODO get a way to avoid propagation
       val dfWithLut = df
         .withColumn("disease_id", expr("disease.id"))
         .drop("disease")
