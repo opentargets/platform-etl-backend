@@ -41,31 +41,42 @@ object AssociationHelpers {
           |) as disease
           |""".stripMargin
 
-      // generate needed fields as ancestors
-      val lut = diseases.selectExpr(
-        "disease_id",
-        "descendants",
-        diseaseStruct
-      )
+      // generate needed fields as descendants
+      val lut = diseases
+        .selectExpr(
+        "disease_id as did",
+          "descendants",
+          diseaseStruct)
         .withColumn("descendant", explode(col("descendants")))
+        .drop("descendants")
+        .orderBy(col("descendant"))
 
-      // TODO get a way to avoid propagation
+      /*
+       ontology propagation happens just when datasource is not one of the banned ones
+       by configuration file application.conf when the known datasource is specified
+       */
       val dfWithLut = df
         .withColumn("disease_id", expr("disease.id"))
         .drop("disease")
-        .join(broadcast(lut), Seq("disease_id"), "inner")
+        .join(broadcast(datasources.selectExpr("id as dsID", "propagate").orderBy("dsID")),
+          col("dsID") === col("sourceID"), "left_outer")
+        .na.fill(true, Seq("propagate"))
+        .drop("dsID")
+        .persist()
 
-      // we use datasources to exclude some evidences from being propagated
-      val ontologyExpanded = dfWithLut
-        .join(datasources.select("id", "propagate"),
-          col("sourceID") === col("id"), "left_outer")
-        .withColumn("descendants",
-          when(col("propagate") === false, array(col("disease_id")))
-            .otherwise(col("descendants")))
-        .drop("propagate")
+      val dfProp = dfWithLut.where(col("propagate") === true)
+        .join(broadcast(lut),
+          col("disease_id") === col("descendant"), "inner")
 
-      ontologyExpanded
+      val dfNoProp = dfWithLut.where(col("propagate") === false)
+        .join(broadcast(lut.orderBy(col("did"))),
+          col("disease_id") === col("did"), "inner")
+
+      dfProp.unionByName(dfNoProp)
+        .drop("disease_id", "descendant")
+        .withColumnRenamed("did", "disease_id")
     }
+
     def groupByDataSources(datasources: Dataset[DataSource], otc: AssociationsSection): DataFrame = {
       df
         .withColumn("disease_id", $"disease.id")
@@ -253,7 +264,7 @@ def main(expressionFilename: String,
   val datasources = broadcast(otc.dataSources.toDS().orderBy($"id".asc))
 
 //  val targets = Loaders.loadTargets(targetFilename)
-//  val diseases = Loaders.loadDiseases(diseaseFilename)
+  val diseases = Loaders.loadDiseases(diseaseFilename)
 //  val expressions = Loaders.loadExpressions(expressionFilename)
   val evidences = Loaders.loadEvidences(evidenceFilename)
 
@@ -264,17 +275,7 @@ def main(expressionFilename: String,
     .withColumn("is_direct", lit(true))
 
   // compute indirect
-  val ontology = evidences.computeOntologyExpansion(datasources)
-    .withColumn("descendant", explode($"descendants"))
-    .drop("descendants")
-    .orderBy("descendant")
-    .persist
-
-  val indirectPairs = evidences
-    .withColumn("did", expr("disease.id"))
-    .drop("disease")
-    .join(ontology, col("did") === col("descendant"), "inner")
-    .drop("descendant", "disease_id")
+  val indirectPairs = evidences.computeOntologyExpansion(diseases, datasources)
     .groupByDataSources(datasources, otc)
     .groupByDataTypes
     .groupByPair
