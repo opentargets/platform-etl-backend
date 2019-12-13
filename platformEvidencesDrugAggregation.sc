@@ -98,7 +98,7 @@ def main(evidencePath: String, efoPath: String, outPath: String): Unit = {
       .drop("_list_urls")
       .join(efos, Seq("disease_id"), "inner")
       .withColumn("ancestors_count", size(col("ancestors")))
-      .withColumn("descendants_count", size(col("no descendants")))
+      .withColumn("descendants_count", size(col("descendants")))
 
   agg.join(broadcast(associated), Seq("disease_id", "drug_id"), "inner")
     .write
