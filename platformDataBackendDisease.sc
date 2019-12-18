@@ -39,62 +39,6 @@ object Loaders {
 object Transformers {
   implicit class Implicits (val df: DataFrame) {
 
-    def joinAll(ss: SparkSession, dfDDR: DataFrame, dfEvidence: DataFrame): DataFrame = {
-
-      val dfKnowDrugs = dfEvidence
-        .where(col("`type`") === "known_drug")
-        .withColumn("disease_id", col("disease.id"))
-        .withColumn("drug_id", substring_index(col("drug.id"), "/", -1))
-
-
-      val dfRelatedDiseases = df.join(dfDDR, dfDDR("subject.id") === df("id"), "left")
-        .withColumn("relatedDiseasesSingleRow",  when(col("object.id").isNotNull,
-          struct(col("object.id").as("B"),
-            col("scores.overlap").as("score"),
-            col("subject.links.targets_count").as("targetCountA"),
-            col("object.links.targets_count").as("targetCountB"),
-            col("counts.shared_count").as("targetCountAAndB"),
-            col("counts.union_count").as("targetCountAOrB"))))
-
-      val dfGroupRelatedAndDrug = dfRelatedDiseases.groupBy(col("id"),
-        col("name"), col("description"), col("synonyms"), col("phenotypes"),
-        col("therapeuticAreas"), col("parentIds"), col("isTherapeuticArea"), col("children"),
-        col("leaf"), col("ontology"), col("descendants"))
-        .agg(collect_list(col("relatedDiseasesSingleRow")).as("detailsRelatedDiseasesRows"))
-        .withColumn("relatedDiseasesCount", size(col("detailsRelatedDiseasesRows")))
-        .withColumn("relatedDiseases",
-          struct(col("relatedDiseasesCount").as("count"),
-            col("detailsRelatedDiseasesRows").as("rows")
-          ))
-        .drop("relatedDiseasesCount", "detailsRelatedDiseasesRows")
-        .join(dfKnowDrugs, expr("array_contains(descendants,disease_id)"), "left")
-
-
-      val dfDiseases = dfGroupRelatedAndDrug.groupBy(col("id"),
-        col("disease"),col("target"),col("drug_id"),
-        col("ontology"), col("phenotypes"),
-        col("name"), col("description"), col("therapeuticAreas"),
-        col("parentIds"),col("children"),col("synonyms"), col("relatedDiseases"))
-        .count()
-        .withColumn("EvidenceRowDrugs_single_row", struct(
-          col("drug_id").as("drug"), col("target.id").as("target")
-        ))
-        .drop("disease","target")
-        .groupBy(col("id"),col("ontology"), col("phenotypes"),
-          col("name"), col("description"), col("therapeuticAreas"),
-          col("parentIds"),col("children"),col("synonyms"),
-          col("relatedDiseases"))
-        .agg(collect_set(col("drug_id")).as("associated_drugs"),
-          collect_list(col("EvidenceRowDrugs_single_row")).as("drugs_rows"))
-        .withColumn("drugs",struct(
-          size(col("associated_drugs")).as("count"),
-          col("drugs_rows").as("rows"))
-        ).drop("associated_drugs","drugs_rows")
-
-      dfDiseases
-
-    }
-
     def setIdAndSelectFromDiseases(ss: SparkSession): DataFrame = {
 
       val getParents = udf((codes: Seq[Seq[String]]) =>
@@ -103,12 +47,16 @@ object Transformers {
 
       val dfPhenotypeId =  df
         .withColumn("sourcePhenotypes",
-          when(size(col("phenotypes")) > 0, expr("transform(phenotypes, phRow -> named_struct('url', phRow.uri,'name',  phRow.label, 'id', substring_index(phRow.uri, '/', -1)))")))
+          when(size(col("phenotypes")) > 0, expr("transform(phenotypes, phRow -> named_struct('url', phRow.uri,'name',  phRow.label, 'disease', substring_index(phRow.uri, '/', -1)))")))
+
+      import ss.implicits._
 
       val efosSummary = dfPhenotypeId
         .withColumn("id", substring_index(col("code"), "/", -1))
-        .withColumn("ancestors", flatten(col("path_codes")))
-        .withColumn("parentIds", getParents(col("path_codes")))
+        .withColumn("ancestors",
+          array_except(array_distinct(flatten(col("path_codes"))),
+            array(col("id"))) )
+        .withColumn("parents", getParents(col("path_codes")))
         .withColumn("phenotypesCount", size(col("phenotypes")))
         .drop("paths", "private", "_private", "path")
         .withColumn("phenotypes",struct(
@@ -130,6 +78,8 @@ object Transformers {
             col("sources").as("sources")
           )
         )
+      // Change the value of children from array struct to array of code.
+      .withColumn("children", expr("transform(children, child -> child.code)"))
 
       val descendants = efosSummary
         .where(size(col("ancestors")) > 0)
@@ -148,17 +98,25 @@ object Transformers {
       //val efoDetails = efos.select("id","label","definition","efo_synonyms")
 
       // Rename the columns following the graphql schema.
-      val lookup = Map("label" -> "name", "definition" -> "description", "efo_synonyms" -> "synonyms", "therapeutic_codes" -> "therapeuticAreas" )
-      efos.select(efos.columns.map(colname => col(colname).as(lookup.getOrElse(colname, colname))): _*)
+      //val lookup = Map("label" -> "name", "definition" -> "description", "efo_synonyms" -> "synonyms", "therapeutic_codes" -> "therapeuticAreas" )
+      //efos.select(efos.columns.map(colname => col(colname).as(lookup.getOrElse(colname, colname))): _*)
+
+      val efosRenamed = efos.withColumnRenamed("label","name")
+          .withColumnRenamed("definition" , "description")
+          .withColumnRenamed( "efo_synonyms", "synonyms")
+          .withColumnRenamed("therapeutic_codes","therapeuticAreas")
+          .drop("definition_alternatives","path_codes", "isTherapeuticArea", "leaf","path_labels",
+            "therapeutic_labels","sources","phenotypesCount","sourcePhenotypes")
+
+      efosRenamed
+
     }
 
   }
 }
 
 @main
-def main(relationalFilename: String,
-         diseaseFilename: String,
-         evidenceFilename: String, outputPathPrefix: String): Unit = {
+def main(diseaseFilename: String, outputPathPrefix: String): Unit = {
   val sparkConf = new SparkConf()
     .set("spark.debug.maxToStringFields", "2000")
     .setAppName("diseases-aggregation")
@@ -174,15 +132,12 @@ def main(relationalFilename: String,
   import Transformers.Implicits
 
   val diseases = Loaders.loadDiseases(diseaseFilename).drop("type")
-  val evidences = Loaders.loadEvidences(evidenceFilename)
-    .drop("evidence","id","access_level","literature","scores")
-  val ddr = Loaders.loadDDR(relationalFilename).drop("id","type")
-
 
   val dfDiseases = diseases
     .setIdAndSelectFromDiseases(ss)
-    .joinAll(ss,ddr,evidences)
 
+
+  dfDiseases.printSchema()
   //println("Size diseases:"+ dfDiseases.count())
   dfDiseases.write.json(outputPathPrefix + "/diseases")
 }
