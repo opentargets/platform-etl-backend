@@ -24,7 +24,7 @@ object AssociationHelpers {
     import Configuration._
     import ss.implicits._
 
-    def computeOntologyExpansion(diseases: DataFrame, datasources: Dataset[DataSource]): DataFrame = {
+    def computeOntologyExpansion(diseases: DataFrame, otc: AssociationsSection): DataFrame = {
       val diseaseStruct =
         """
           |named_struct(
@@ -51,6 +51,9 @@ object AssociationHelpers {
         .drop("descendants")
         .orderBy(col("descendant"))
 
+      // map datasource list to a dataset
+      val datasources = broadcast(otc.dataSources.toDS().orderBy($"id".asc))
+
       /*
        ontology propagation happens just when datasource is not one of the banned ones
        by configuration file application.conf when the known datasource is specified
@@ -60,7 +63,7 @@ object AssociationHelpers {
         .drop("disease")
         .join(broadcast(datasources.selectExpr("id as dsID", "propagate").orderBy("dsID")),
           col("dsID") === col("sourceID"), "left_outer")
-        .na.fill(true, Seq("propagate"))
+        .na.fill(otc.defaultPropagate, Seq("propagate"))
         .drop("dsID")
         .persist()
 
@@ -126,9 +129,22 @@ object AssociationHelpers {
         collect_list($"datatype_count").as("datatype_counts"),
         collect_list($"datatype_score").as("datatype_scores")
       ).withColumn("id", concat_ws("-", $"target_id", $"disease_id"))
-        .withColumn("_v", expr("flatten(transform(datasource_scores, x -> map_values(x)))"))
+        .withColumn("datasource_scores",
+          expr("map_from_arrays(flatten(transform(datasource_scores, x -> map_keys(x))), flatten(transform(datasource_scores, x -> map_values(x))))"))
+        .withColumn("datatype_scores",
+          expr("map_from_arrays(flatten(transform(datatype_scores, x -> map_keys(x))), flatten(transform(datatype_scores, x -> map_values(x))))"))
+        .withColumn("datasource_counts",
+          expr("map_from_arrays(flatten(transform(datasource_counts, x -> map_keys(x))), flatten(transform(datasource_counts, x -> map_values(x))))"))
+        .withColumn("datatype_counts",
+          expr("map_from_arrays(flatten(transform(datatype_counts, x -> map_keys(x))), flatten(transform(datatype_counts, x -> map_values(x))))"))
+        .withColumn("_v", expr("map_values(datasource_scores)"))
         .harmonic("overall","_v")
-        .drop("target_id", "disease_id", "_v", "_hs_max")
+        .withColumn("evidence_count", expr("named_struct('datasources', datasource_counts, " +
+          "'datatypes', datatype_counts, 'total', aggregate(map_values(datasource_counts), 0D, (agg, el) -> agg + el))"))
+        .withColumn("harmonic_sum", expr("named_struct('datasources', datasource_scores, " +
+          "'datatypes', datatype_scores, 'overall', overall)"))
+        .drop("target_id", "disease_id", "_v", "_hs_max",
+          "datasource_counts", "datatype_counts", "datasource_scores", "datatype_scores", "overall")
     }
   }
 
@@ -160,7 +176,7 @@ object AssociationHelpers {
 
 object Configuration extends LazyLogging {
   case class DataSource(id: String, weight: Double, dataType: String, propagate: Boolean)
-  case class AssociationsSection(defaultWeight: Double, dataSources: List[DataSource])
+  case class AssociationsSection(defaultWeight: Double, defaultPropagate: Boolean, dataSources: List[DataSource])
 
   implicit val dataSourceImp = Json.reads[DataSource]
   implicit val AssociationImp = Json.reads[AssociationsSection]
@@ -275,7 +291,7 @@ def main(expressionFilename: String,
     .withColumn("is_direct", lit(true))
 
   // compute indirect
-  val indirectPairs = evidences.computeOntologyExpansion(diseases, datasources)
+  val indirectPairs = evidences.computeOntologyExpansion(diseases, otc)
     .groupByDataSources(datasources, otc)
     .groupByDataTypes
     .groupByPair
