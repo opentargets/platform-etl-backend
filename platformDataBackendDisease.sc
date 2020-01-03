@@ -106,7 +106,7 @@ object Transformers {
           when(size(col("phenotypes")) > 0, expr("transform(phenotypes, phRow -> named_struct('url', phRow.uri,'name',  phRow.label, 'id', substring_index(phRow.uri, '/', -1)))")))
 
       val efosSummary = dfPhenotypeId
-        .withColumn("id", substring_index(col("code"), "/", -1))
+        .withColumn("id",substring_index(col("code"), "/", -1))
         .withColumn("ancestors", flatten(col("path_codes")))
         .withColumn("parentIds", getParents(col("path_codes")))
         .withColumn("phenotypesCount", size(col("phenotypes")))
