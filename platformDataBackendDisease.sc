@@ -19,21 +19,6 @@ object Loaders {
     val diseaseList = ss.read.json(path)
     diseaseList
   }
-
-  /** Load Evidences file */
-  def loadEvidences(path: String)(implicit ss: SparkSession): DataFrame = {
-    val evidences = ss.read.json(path)
-    evidences
-  }
-
-  /** Load Relation file */
-  def loadDDR(path: String)(implicit ss: SparkSession): DataFrame = {
-    val ddr = ss.read.json(path)
-    ddr
-  }
-
-
-
 }
 
 object Transformers {
@@ -94,13 +79,6 @@ object Transformers {
           "is_id_included_descendent", array_contains(col("descendants"), col("id"))
         )
 
-      //val included = efos.filter(col("is_id_included_descendent") === false).select("id","is_id_included_descendent").show(10, false)
-      //val efoDetails = efos.select("id","label","definition","efo_synonyms")
-
-      // Rename the columns following the graphql schema.
-      //val lookup = Map("label" -> "name", "definition" -> "description", "efo_synonyms" -> "synonyms", "therapeutic_codes" -> "therapeuticAreas" )
-      //efos.select(efos.columns.map(colname => col(colname).as(lookup.getOrElse(colname, colname))): _*)
-
       val efosRenamed = efos.withColumnRenamed("label","name")
           .withColumnRenamed("definition" , "description")
           .withColumnRenamed( "efo_synonyms", "synonyms")
@@ -135,7 +113,6 @@ def main(diseaseFilename: String, outputPathPrefix: String): Unit = {
 
   val dfDiseases = diseases
     .setIdAndSelectFromDiseases(ss)
-
 
   dfDiseases.printSchema()
   //println("Size diseases:"+ dfDiseases.count())
