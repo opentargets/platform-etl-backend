@@ -1,0 +1,30 @@
+log-level = "INFO"
+output-dir = output
+input-dir = data/input 
+execution-mode = production
+input {
+    disease {
+		data-source-input  {
+		 disease = "/data/input/19.11_efo-data.json"
+	    }
+	}
+	target {
+		data-source-input {
+	       target = "/data/input/19.11_gene-data.json"
+        }
+	}
+	drug {
+		data-source-input {
+	       drug = "/data/input/19.11_drug-data.json"
+	       evidence = "/data/input/19.11_evidence-data-reduced.json"
+        }
+	}
+	all {
+		data-source-input {
+           drug = "/data/input/19.11_drug-data.json"
+           evidence = "/data/input/19.11_evidence-data-reduced.json"
+	       disease = "/data/input/19.11_efo-data.json"
+	       target = "/data/input/19.11_gene-data.json"
+        }
+	}
+}

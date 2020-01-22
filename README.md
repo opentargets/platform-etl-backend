@@ -12,11 +12,35 @@ OpenTargets ETL pipeline to process Pipeline output in order to obtain a new API
 3. ammonite REPL
 4. Drug index dump from OpenTargets ES
 5. Target index dump from OpenTargets ES
-5. Disease index dump from OpenTargets ES
-5. Evidence index dump from OpenTargets ES
-5. Expression index dump from OpenTargets ES
+6. Disease index dump from OpenTargets ES
+7. Evidence index dump from OpenTargets ES
+8. Expression index dump from OpenTargets ES
 
-### Run the scala script
+
+### Run platformETL.sc
+```sh
+export JAVA_OPTS="-Xms512m -Xmx<mostofthememingigslike100G>"
+
+# to compute the dataset
+In order to run the script the user must provide a config file called "amm.application.conf"
+An example is avaible under
+resources/amm.application.conf.example
+
+
+The command below will build the disease, target and drug indexes using the config file under resources/amm.application.conf
+
+time amm platformETL.sc  
+
+The parameters conf and step (disease,target,drug) can be use to customise the index to build
+Eg.
+time amm platformETL.sc  -conf /path/filename.conf 
+time amm platformETL.sc  -conf /path/filename.conf -step disease
+time amm platformETL.sc  -step target
+
+```
+
+
+### Run the scala script: platformDataBackend.sc
 
 ```sh
 export JAVA_OPTS="-Xms512m -Xmx<mostofthememingigslike100G>"
