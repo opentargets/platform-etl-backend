@@ -7,5 +7,8 @@
 /project/project
 /project/target
 /input/
+/output
+/output/
 /tmp
 /scratch
+/resources/amm.application.conf
