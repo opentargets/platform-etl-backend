@@ -1,3 +1,6 @@
+import $file.common
+import common._
+
 import $ivy.`ch.qos.logback:logback-classic:1.2.3`
 import $ivy.`com.typesafe.scala-logging::scala-logging:3.9.2`
 import $ivy.`com.typesafe:config:1.4.0`
@@ -7,6 +10,7 @@ import $ivy.`org.apache.spark::spark-mllib:2.4.3`
 import $ivy.`org.apache.spark::spark-sql:2.4.3`
 import $ivy.`com.github.pathikrit::better-files:3.8.0`
 import $ivy.`com.typesafe.play::play-json:2.7.3`
+
 import org.apache.spark.SparkConf
 import org.apache.spark.sql._
 import org.apache.spark.sql.types._
@@ -15,7 +19,6 @@ import better.files.Dsl._
 import better.files._
 import com.typesafe.config.{Config, ConfigFactory, ConfigObject, ConfigRenderOptions}
 import com.typesafe.scalalogging.{LazyLogging, Logger}
-import play.api.libs.json.{Json, Reads}
 
 import scala.math.pow
 
@@ -174,41 +177,6 @@ object AssociationHelpers {
   }
 }
 
-object Configuration extends LazyLogging {
-  case class DataSource(id: String, weight: Double, dataType: String, propagate: Boolean)
-  case class AssociationsSection(defaultWeight: Double, defaultPropagate: Boolean, dataSources: List[DataSource])
-
-  implicit val dataSourceImp = Json.reads[DataSource]
-  implicit val AssociationImp = Json.reads[AssociationsSection]
-
-  def loadObject[T](key: String, config: Config)(implicit tReader: Reads[T]): T = {
-    val defaultHarmonicOptions = Json.parse(config.getObject(key)
-      .render(ConfigRenderOptions.concise()))
-
-    logger.debug(s"loaded configuration as json ${Json.asciiStringify(defaultHarmonicOptions)}")
-    defaultHarmonicOptions.as[T]
-  }
-
-  def loadObjectList[T](key: String, config: Config)(implicit tReader: Reads[T]): Seq[T] = {
-    val defaultHarmonicDatasourceOptions = config.getObjectList(key).toArray.toSeq.map(el => {
-      val co = el.asInstanceOf[ConfigObject]
-      Json.parse(co.render(ConfigRenderOptions.concise())).as[T]
-    })
-
-    defaultHarmonicDatasourceOptions
-  }
-
-  def load: AssociationsSection = {
-    logger.info("load configuration from file")
-
-    val config = ConfigFactory.load()
-    val obj = loadObject[AssociationsSection]("ot.associations", config)
-    logger.debug(s"configuration properly case classed ${obj.toString}")
-
-    obj
-  }
-}
-
 object Loaders extends LazyLogging {
   def loadTargets(path: String)(implicit ss: SparkSession): DataFrame = {
     logger.info("load targets jsonl")
@@ -252,52 +220,37 @@ object Loaders extends LazyLogging {
   }
 }
 
-object Transformers {
+object Associations extends LazyLogging {
+  def apply(config: Config)(implicit ss: SparkSession) = {
+    val associationsSec = Configuration.loadAssociationSection(config)
+    val commonSec = Configuration.loadCommon(config)
+
+    import ss.implicits._
+    import AssociationHelpers._
+
+    val datasources = broadcast(associationsSec.dataSources.toDS().orderBy($"id".asc))
+
+    //  val targets = Loaders.loadTargets(targetFilename)
+    val diseases = Loaders.loadDiseases(commonSec.inputs.disease)
+    //  val expressions = Loaders.loadExpressions(expressionFilename)
+    val evidences = Loaders.loadEvidences(commonSec.inputs.evidence)
+
+    val directPairs = evidences
+      .groupByDataSources(datasources, associationsSec)
+      .groupByDataTypes
+      .groupByPair
+      .withColumn("is_direct", lit(true))
+
+    // compute indirect
+    val indirectPairs = evidences.computeOntologyExpansion(diseases, associationsSec)
+      .groupByDataSources(datasources, associationsSec)
+      .groupByDataTypes
+      .groupByPair
+      .withColumn("is_direct", lit(false))
+
+    // write to jsonl both direct and indirect
+    directPairs.write.json(commonSec.output + "/direct/")
+    indirectPairs.write.json(commonSec.output + "/indirect/")
+  }
 }
 
-@main
-def main(expressionFilename: String,
-         targetFilename: String,
-         diseaseFilename: String,
-         evidenceFilename: String,
-         outputPathPrefix: String): Unit = {
-
-  val otc = Configuration.load
-
-  val sparkConf = new SparkConf()
-    .set("spark.driver.maxResultSize", "0")
-    .setAppName("similarities-loaders")
-    .setMaster("local[*]")
-
-  implicit val ss = SparkSession.builder
-    .config(sparkConf)
-    .getOrCreate
-
-  // AmmoniteSparkSession.sync()
-  import ss.implicits._
-  import AssociationHelpers._
-
-  val datasources = broadcast(otc.dataSources.toDS().orderBy($"id".asc))
-
-//  val targets = Loaders.loadTargets(targetFilename)
-  val diseases = Loaders.loadDiseases(diseaseFilename)
-//  val expressions = Loaders.loadExpressions(expressionFilename)
-  val evidences = Loaders.loadEvidences(evidenceFilename)
-
-  val directPairs = evidences
-    .groupByDataSources(datasources, otc)
-    .groupByDataTypes
-    .groupByPair
-    .withColumn("is_direct", lit(true))
-
-  // compute indirect
-  val indirectPairs = evidences.computeOntologyExpansion(diseases, otc)
-    .groupByDataSources(datasources, otc)
-    .groupByDataTypes
-    .groupByPair
-    .withColumn("is_direct", lit(false))
-
-  // write to jsonl both direct and indirect
-  directPairs.write.json(outputPathPrefix + "/direct/")
-  indirectPairs.write.json(outputPathPrefix + "/indirect/")
-}

@@ -26,6 +26,9 @@ In order to run the script the user must provide a config file called "amm.appli
 An example is avaible under
 resources/amm.application.conf.example
 
+export JAVA_OPTS="-Xms512m -Xmx<mostofthememingigslike100G> \
+    -Dconfig.file=resources/application.conf \
+    -Dlogback.configurationFile=resources/logback.xml"
 
 The command below will build the disease, target and drug indexes using the config file under resources/amm.application.conf
 
@@ -33,9 +36,9 @@ time amm platformETL.sc
 
 The parameters conf and step (disease,target,drug) can be use to customise the index to build
 Eg.
-time amm platformETL.sc  -conf /path/filename.conf 
-time amm platformETL.sc  -conf /path/filename.conf -step disease
-time amm platformETL.sc  -step target
+time amm platformETL.sc
+time amm platformETL.sc -step disease
+time amm platformETL.sc -step target
 
 ```
 

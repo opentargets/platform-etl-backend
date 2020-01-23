@@ -1,9 +1,9 @@
 import $file.common
 import common._
 
-import $ivy.`com.typesafe:config:1.3.4`
-import $ivy.`com.typesafe.scala-logging::scala-logging:3.9.0`
 import $ivy.`ch.qos.logback:logback-classic:1.2.3`
+import $ivy.`com.typesafe.scala-logging::scala-logging:3.9.2`
+import $ivy.`com.typesafe:config:1.4.0`
 import $ivy.`com.github.fommil.netlib:all:1.1.2`
 import $ivy.`org.apache.spark::spark-core:2.4.3`
 import $ivy.`org.apache.spark::spark-mllib:2.4.3`
@@ -94,15 +94,19 @@ object DrugTransformers extends LazyLogging {
 
 // This is option/step drug in the config file
 @main
-def main(conf: String = "resources/amm.application.conf", outputPathPrefix: String = "output"): Unit = {
+def main(outputPathPrefix: String = "output"): Unit = {
   import DrugTransformers.ImplicitsDrug
 
-  val cfg = getConfig(conf)
-  val listInputFiles = getInputFiles(cfg, "drug")
-  val inputDataFrame = SparkSessionWrapper.loader(listInputFiles)
+  val cfg = Configuration.load
+  val inputs = Configuration.loadInputs(cfg)
 
+  val mappedInputs = Map(
+    "drug" -> inputs.drug,
+    "evidence" -> inputs.evidence
+  )
+
+  val inputDataFrame = SparkSessionWrapper.loader(mappedInputs)
   val dfDrugIndex = inputDataFrame("drug").drugIndex(inputDataFrame("evidence"))
-
   SparkSessionWrapper.save(dfDrugIndex, outputPathPrefix + "/drugs")
 
 }

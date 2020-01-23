@@ -1,0 +1,37 @@
+ot {
+  common {
+    inputs {
+      target = "/data/input/19.11_gene-data.json"
+      disease = "/data/input/19.11_efo-data.json"
+      drug = "/data/input/19.11_drug-data.json"
+      evidences = "/data/input/19.11_evidence-data-reduced.json"
+    }
+  }
+
+  associations {
+    defaultWeight = 1.0
+    defaultPropagate = true
+    dataSources = [
+      {id: "cancer_gene_census", weight = 1, dataType = "somatic_mutation", propagate = true},
+      {id: "chembl", weight = 1, dataType = "known_drug", propagate = true},
+      {id: "crispr", weight: 1, dataType = "affected_pathway", propagate = true},
+      {id: "europepmc", weight: 0.2, dataType = "literature", propagate = true},
+      {id: "eva", weight: 1, dataType = "genetic_association", propagate = true},
+      {id: "eva_somatic", weight: 1, dataType = "somatic_mutation", propagate = true},
+      {id: "expression_atlas", weight: 0.2, dataType = "rna_expression", propagate = false},
+      {id: "gene2phenotype", weight: 1, dataType = "genetic_association", propagate = true},
+      {id: "genomics_england", weight: 1, dataType = "genetic_association", propagate = true},
+      {id: "gwas_catalog", weight: 1, dataType = "genetic_association", propagate = true},
+      {id: "intogen", weight: 1, dataType = "somatic_mutation", propagate = true},
+      {id: "phenodigm", weight: 0.2, dataType = "animal_model", propagate = true},
+      {id: "phewas_catalog", weight: 1, dataType = "genetic_association", propagate = true},
+      {id: "progeny", weight: 0.5, dataType = "affected_pathway", propagate = true},
+      {id: "reactome", weight: 1, dataType = "affected_pathway", propagate = true},
+      {id: "slapenrich", weight: 0.5, dataType = "affected_pathway", propagate = true},
+      {id: "sysbio", weight: 0.5, dataType = "affected_pathway", propagate = true},
+      {id: "uniprot", weight: 1, dataType = "genetic_association", propagate = true},
+      {id: "uniprot_literature", weight: 1, dataType = "genetic_association", propagate = true},
+      {id: "uniprot_somatic", weight: 1, dataType = "somatic_mutation", propagate = true}
+    ]
+  }
+}
