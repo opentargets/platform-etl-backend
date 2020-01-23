@@ -1,10 +1,17 @@
-import $ivy.`com.typesafe:config:1.3.4`
+import $file.common
+import common._
+
+import $ivy.`ch.qos.logback:logback-classic:1.2.3`
+import $ivy.`com.typesafe.scala-logging::scala-logging:3.9.2`
+import $ivy.`com.typesafe:config:1.4.0`
 import $ivy.`com.github.fommil.netlib:all:1.1.2`
 import $ivy.`org.apache.spark::spark-core:2.4.3`
 import $ivy.`org.apache.spark::spark-mllib:2.4.3`
 import $ivy.`org.apache.spark::spark-sql:2.4.3`
 import $ivy.`com.github.pathikrit::better-files:3.8.0`
 import $ivy.`sh.almond::ammonite-spark:0.7.0`
+import com.typesafe.config.Config
+import com.typesafe.scalalogging.LazyLogging
 import org.apache.spark.SparkConf
 import org.apache.spark.sql._
 import org.apache.spark.sql.types._
@@ -287,43 +294,35 @@ object Transformers {
   }
 }
 
-@main
-def main(drugFilename: String, targetFilename: String, diseaseFilename: String,
-         evidenceFilename: String, outputPathPrefix: String): Unit = {
-  val sparkConf = new SparkConf()
-    .set("spark.driver.maxResultSize", "0")
-    .setAppName("similarities-loaders")
-    .setMaster("local[*]")
+object Search extends LazyLogging {
+  def apply(config: Config)(implicit ss: SparkSession) = {
+    import ss.implicits._
+    import Transformers.Implicits
 
-  implicit val ss = SparkSession.builder
-    .config(sparkConf)
-    .getOrCreate
+    val commonSec = Configuration.loadCommon(config)
 
-  // AmmoniteSparkSession.sync()
+    val drugs = Loaders.loadDrugs(commonSec.inputs.drug)
+    val targets = Loaders.loadTargets(commonSec.inputs.target)
+    val diseases = Loaders.loadDiseases(commonSec.inputs.disease)
+    val evidences = Loaders.loadEvidences(commonSec.inputs.evidence)
 
-  import ss.implicits._
-  import Transformers.Implicits
+    val evsAggregatedByTD = evidences.aggreateEvidencesByTD.persist
 
-  val drugs = Loaders.loadDrugs(drugFilename)
-  val targets = Loaders.loadTargets(targetFilename)
-  val diseases = Loaders.loadDiseases(diseaseFilename)
-  val evidences = Loaders.loadEvidences(evidenceFilename)
+    val searchDiseases = diseases
+      .setIdAndSelectFromDiseases(
+        evsAggregatedByTD.termAndRelevanceFromEvidencePairsByDisease)
 
-  val evsAggregatedByTD = evidences.aggreateEvidencesByTD.persist
+    val searchTargets = targets
+      .setIdAndSelectFromTargets(
+        evsAggregatedByTD.termAndRelevanceFromEvidencePairsByTarget)
 
-  val searchDiseases = diseases
-    .setIdAndSelectFromDiseases(
-      evsAggregatedByTD.termAndRelevanceFromEvidencePairsByDisease)
+    val searchDrugs = drugs.setIdAndSelectFromDrugs(evidences
+      .aggreateEvidencesByTDDrug
+      .termAndRelevanceFromEvidencePairsByDrug)
 
-  val searchTargets = targets
-    .setIdAndSelectFromTargets(
-      evsAggregatedByTD.termAndRelevanceFromEvidencePairsByTarget)
-
-  val searchDrugs = drugs.setIdAndSelectFromDrugs(evidences
-    .aggreateEvidencesByTDDrug
-    .termAndRelevanceFromEvidencePairsByDrug)
-
-  searchTargets.write.mode(SaveMode.Overwrite).json(outputPathPrefix + "/search_targets/")
-  searchDiseases.write.mode(SaveMode.Overwrite).json(outputPathPrefix + "/search_diseases/")
-  searchDrugs.write.mode(SaveMode.Overwrite).json(outputPathPrefix + "/search_drugs/")
+    searchTargets.write.mode(SaveMode.Overwrite).json(commonSec.output + "/search_targets/")
+    searchDiseases.write.mode(SaveMode.Overwrite).json(commonSec.output + "/search_diseases/")
+    searchDrugs.write.mode(SaveMode.Overwrite).json(commonSec.output + "/search_drugs/")
+  }
 }
+

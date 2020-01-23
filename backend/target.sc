@@ -1,9 +1,9 @@
 import $file.common
 import common._
 
-import $ivy.`com.typesafe:config:1.3.4`
-import $ivy.`com.typesafe.scala-logging::scala-logging:3.9.0`
 import $ivy.`ch.qos.logback:logback-classic:1.2.3`
+import $ivy.`com.typesafe.scala-logging::scala-logging:3.9.2`
+import $ivy.`com.typesafe:config:1.4.0`
 import $ivy.`com.github.fommil.netlib:all:1.1.2`
 import $ivy.`org.apache.spark::spark-core:2.4.3`
 import $ivy.`org.apache.spark::spark-mllib:2.4.3`
@@ -58,7 +58,9 @@ object TargetTransformers extends LazyLogging {
 def main(conf: String = "resources/amm.application.conf", outputPathPrefix: String = "output"): Unit = {
   import TargetTransformers.ImplicitsTarget
 
-  val cfg = getConfig(conf)
+  val configFile = Configuration.load
+  val inputs = Configuration.loadInputs(configFile)
+
   val listInputFiles = getInputFiles(cfg, "target")
   val inputDataFrame = SparkSessionWrapper.loader(listInputFiles)
 
