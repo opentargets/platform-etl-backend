@@ -26,7 +26,13 @@ object Configuration extends LazyLogging {
   implicit val dataSourceImp = Json.reads[DataSource]
   implicit val AssociationImp = Json.reads[AssociationsSection]
 
-  case class Inputs(target: String, disease: String, drug: String, evidence: String)
+  case class ClinicalTrials(studies: String,
+                            studyReferences: String,
+                            countries: String)
+  implicit val clinicalTrialsImp = Json.reads[ClinicalTrials]
+
+  case class Inputs(target: String, disease: String, drug: String, evidence: String,
+                    clinicalTrials: ClinicalTrials)
   implicit val inputsImp = Json.reads[Inputs]
 
   case class Common(inputs: Inputs, output: String)
@@ -56,7 +62,7 @@ object Configuration extends LazyLogging {
 
   def loadCommon(config: Config): Common = {
     logger.info("load common configuration")
-    val obj = loadObject[Inputs]("ot.common", config)
+    val obj = loadObject[Common]("ot.common", config)
     logger.debug(s"configuration properly case classed ${obj.toString}")
 
     obj
