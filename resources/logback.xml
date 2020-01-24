@@ -10,7 +10,7 @@
     </appender>
 
     <logger name="ammonite" level="DEBUG"/>
-    <logger name="org.apache.spark" level="INFO"/>
+    <logger name="org.apache.spark" level="WARN"/>
 
     <root level="${ot.logging.level:-WARN}">
         <appender-ref ref="STDOUT" />

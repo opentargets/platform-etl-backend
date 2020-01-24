@@ -1,13 +1,17 @@
 import $file.backend.common
 import common._
-import $file.backend.disease
-import disease._
-import $file.backend.target
-import target._
-import $file.backend.drug
-import drug._
+//import $file.backend.disease
+//import disease._
+//import $file.backend.target
+//import target._
+//import $file.backend.drug
+//import drug._
 import $file.backend.associations
 import associations._
+
+import $file.backend.clinicaltrials
+import clinicaltrials._
+
 import $file.backend.search
 import search._
 import $ivy.`com.typesafe:config:1.4.0`
@@ -19,9 +23,9 @@ import com.typesafe.scalalogging.LazyLogging
 
 object ETL extends LazyLogging {
   def apply(step: String) = {
-    import DiseaseTransformers.ImplicitsDisease
-    import TargetTransformers.ImplicitsTarget
-    import DrugTransformers.ImplicitsDrug
+//    import DiseaseTransformers.ImplicitsDisease
+//    import TargetTransformers.ImplicitsTarget
+//    import DrugTransformers.ImplicitsDrug
 
     val otc = Configuration.load
 
@@ -40,6 +44,9 @@ object ETL extends LazyLogging {
         logger.info("run step associations")
         Associations(otc)
 
+      case "clinicaltrials" =>
+        logger.info("run step clinicaltrials")
+        ClinicalTrials(otc)
       //    case "disease" => SparkSessionWrapper.save(inputDataFrame("disease").diseaseIndex, outputPathPrefix + "/diseases")
       //    case "target"  => SparkSessionWrapper.save(inputDataFrame("target").targetIndex, outputPathPrefix + "/targets")
       //    case "drug"    => SparkSessionWrapper.save(inputDataFrame("drug").drugIndex(inputDataFrame("evidence")), outputPathPrefix + "/drugs")
