@@ -109,7 +109,7 @@ object ClinicalTrials extends LazyLogging {
         .otherwise(false))
       .withColumn("is_fda_regulated_device", when($"is_fda_regulated_device" === "t", true)
         .otherwise(false))
-      .withColumn("phase", when($"phase".isNull, "N/A").otherwise($"phase"))
+      .withColumn("phase", when($"phase".isNull or ($"phase" === ""), "N/A").otherwise($"phase"))
       .persist()
 
     val references = ctMap("studyReferences")
@@ -118,10 +118,11 @@ object ClinicalTrials extends LazyLogging {
         collect_list(when($"pmid".isNull, $"citation")).as("references"))
 
     val sponsors = ctMap("sponsors")
+      .withColumn("agency_class", when($"agency_class".isNull, "unknown").otherwise($"agency_class"))
+      .groupBy($"nct_id", $"agency_class")
+      .agg(collect_list($"name").as("names"))
       .groupBy($"nct_id")
-      .pivot($"agency_class")
-      .agg(collect_list($"name"))
-
+      .agg(collect_list(struct($"agency_class", $"names")).as("agencies"))
 
     val countries = ctMap("countries")
       .withColumn("rem",when($"removed" === "t", true).otherwise(false))
