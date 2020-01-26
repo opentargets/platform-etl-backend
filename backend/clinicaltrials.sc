@@ -82,12 +82,76 @@ object Loaders extends LazyLogging {
       "sponsors" -> _loadCSV(inputs.sponsors),
       "interventions" -> _loadCSV(inputs.interventions),
       "interventionsOtherNames" -> _loadCSV(inputs.interventionsOtherNames),
-      "interventionsMesh" -> _loadCSV(inputs.interventionsMesh)
+      "interventionsMesh" -> _loadCSV(inputs.interventionsMesh),
+      "conditions" -> _loadCSV(inputs.conditions),
+      "conditionsMesh" -> _loadCSV(inputs.conditionsMesh)
     )
   }
 }
 
 object ClinicalTrials extends LazyLogging {
+  def computeConditions(inputs: Map[String, DataFrame])(implicit ss: SparkSession): DataFrame = {
+    import ss.implicits._
+
+    val conditions = inputs("conditions")
+    val conditionsMesh = inputs("conditionsMesh")
+
+    val aggConditions = conditions.selectExpr("nct_id", "downcase_name as name")
+      .groupBy($"nct_id")
+      .agg(array_distinct(collect_list($"name")).as("condition_names"))
+
+    val aggMeshes = conditionsMesh.selectExpr("nct_id", "downcase_mesh_term as mesh")
+      .groupBy($"nct_id")
+      .agg(array_distinct(collect_list($"mesh")).as("condition_mesh_terms"))
+
+    val joint = aggConditions.join(aggMeshes, Seq("nct_id"), "full_outer")
+      .withColumn("condition_names", when($"condition_names".isNull, Array.empty[String])
+        .otherwise($"condition_names"))
+      .withColumn("condition_mesh_terms", when($"condition_mesh_terms".isNull, Array.empty[String])
+        .otherwise($"condition_mesh_terms"))
+
+    joint
+  }
+
+  def computeInterventions(inputs: Map[String, DataFrame])(implicit ss: SparkSession): DataFrame = {
+    import ss.implicits._
+
+    val interventions = inputs("interventions")
+    val otherNames = inputs("interventionsOtherNames")
+    val meshes = inputs("interventionsMesh")
+
+    val others = otherNames
+      // .withColumn("name", rtrim(trim(lower($"name")), ","))
+      .groupBy($"nct_id", $"intervention_id".as("id"))
+      .agg(first($"name").as("name"),
+        collect_set($"name").as("other_names"))
+      .withColumn("other_names", concat($"other_names", array($"name")))
+      .drop("name")
+
+    val browse = meshes.groupBy($"nct_id")
+      .agg(collect_set($"downcase_mesh_term").as("browse_names"))
+
+    val inters = interventions.select("id", "nct_id", "intervention_type", "name")
+
+    val jointInters = inters.join(others, Seq("id", "nct_id"), "full_outer")
+      .join(browse, Seq("nct_id"), "full_outer")
+      .withColumn("browse_names", when($"browse_names".isNull, Array.empty[String])
+        .otherwise($"browse_names"))
+      .withColumn("other_names", when($"other_names".isNull, Array.empty[String])
+        .otherwise($"other_names"))
+      .groupBy($"nct_id", $"intervention_type")
+      .agg(collect_list($"name").as("names"),
+        flatten(collect_list($"other_names")).as("other_names"),
+        flatten(collect_list($"browse_names")).as("browse_names"))
+      .groupBy($"nct_id")
+      .agg(collect_list(struct($"intervention_type", array_distinct($"names").as("names"),
+          array_distinct($"other_names").as("other_names"),
+          array_distinct($"browse_names").as("browse_names")))
+        .as("intervention_names"))
+
+    jointInters
+  }
+
   def apply(config: Config)(implicit ss: SparkSession) = {
     val associationsSec = Configuration.loadAssociationSection(config)
     val commonSec = Configuration.loadCommon(config)
@@ -109,7 +173,11 @@ object ClinicalTrials extends LazyLogging {
         .otherwise(false))
       .withColumn("is_fda_regulated_device", when($"is_fda_regulated_device" === "t", true)
         .otherwise(false))
-      .withColumn("phase", when($"phase".isNull or ($"phase" === ""), "N/A").otherwise($"phase"))
+      .withColumn("phase", when(($"phase".isNull or ($"phase" === "") or ($"phase" === "n/a")), "N/A")
+        .when($"phase" === "phase 1/phase 2", "phase 2")
+        .when($"phase" === "phase 2/phase 3", "phase 3")
+        .otherwise(lower($"phase")))
+      .withColumn("overall_status", lower(trim($"overall_status", "\"")))
       .persist()
 
     val references = ctMap("studyReferences")
@@ -131,9 +199,12 @@ object ClinicalTrials extends LazyLogging {
       .agg(collect_set(lower($"name")).as("countries"))
 
     // studies aggregations
-    val numStudies = studies.count()
-    val grouppedPhases = studies.groupBy($"phase", $"overall_status")
-      .count()
+//    val numStudies = studies.count()
+//    val grouppedPhases = studies.groupBy($"phase", $"overall_status")
+//      .count()
+
+    val interventions = computeInterventions(ctMap)
+    val conditions = computeConditions(ctMap)
 
     // joining references
     val studiesWithCitations = studies.join(references, Seq("nct_id"), "left_outer")
@@ -141,27 +212,13 @@ object ClinicalTrials extends LazyLogging {
       .withColumn("references", when($"references".isNull, Array.empty[String]).otherwise($"references"))
       .join(countries, Seq("nct_id"), "left_outer")
       .join(sponsors, Seq("nct_id"), "left_outer")
+      .join(interventions, Seq("nct_id"), "left_outer")
+      .join(conditions, Seq("nct_id"), "left_outer")
 
-    logger.debug(s"number of clinical trials contained $numStudies studies")
+//    logger.debug(s"number of clinical trials contained $numStudies studies")
     studiesWithCitations.sample(0.01D).write.json(commonSec.output + "/clinicaltrials_sample100/")
 //    studiesWithCitations.write.json(commonSec.output + "/clinicaltrials/")
-    grouppedPhases.write.json(commonSec.output + "/clinicaltrials_phase_status/")
-
-    /*
-      interventions - select(id(intervention_id)|nct_id|intervention_type|name)
-        1. concat(array_distinct(trim(lower(split(name)))),lower(name)) as names
-      invervention_other_names - group by (nct_id,intervention_id)
-        1. concat(array_distinct(rtrim(',',trim(lower(split(collect_set(name))))), array(lower(name))) as other_names
-      browse_interventions - group by (nct_id) collect_set(lower(downcase_mesh_term) as browse_names
-        4. interventions
-          left join intervention_other_names by intervention_id as id, nct_id
-          left join bwose_interventions by nct_id
-        5. inteventions - create intervention_all_names = concat(names, other_names, browse_names)
-     */
-
-    /*
-
-     */
+//    grouppedPhases.write.json(commonSec.output + "/clinicaltrials_phase_status/")
   }
 }
 
