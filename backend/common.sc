@@ -26,9 +26,17 @@ object Configuration extends LazyLogging {
   implicit val dataSourceImp = Json.reads[DataSource]
   implicit val AssociationImp = Json.reads[AssociationsSection]
 
+  //browse_interventions.txt
+  //design_group_interventions.txt
+  //intervention_other_names.txt
+  //interventions.txt
   case class ClinicalTrials(studies: String,
                             studyReferences: String,
-                            countries: String)
+                            countries: String,
+                            sponsors: String,
+                            interventions: String,
+                            interventionsOtherNames: String,
+                            interventionsMesh: String)
   implicit val clinicalTrialsImp = Json.reads[ClinicalTrials]
 
   case class Inputs(target: String, disease: String, drug: String, evidence: String,

@@ -78,7 +78,11 @@ object Loaders extends LazyLogging {
     Map(
       "studies" -> _loadCSV(inputs.studies),
       "studyReferences" -> _loadCSV(inputs.studyReferences),
-      "countries" -> _loadCSV(inputs.countries)
+      "countries" -> _loadCSV(inputs.countries),
+      "sponsors" -> _loadCSV(inputs.sponsors),
+      "interventions" -> _loadCSV(inputs.interventions),
+      "interventionsOtherNames" -> _loadCSV(inputs.interventionsOtherNames),
+      "interventionsMesh" -> _loadCSV(inputs.interventionsMesh)
     )
   }
 }
@@ -106,11 +110,18 @@ object ClinicalTrials extends LazyLogging {
       .withColumn("is_fda_regulated_device", when($"is_fda_regulated_device" === "t", true)
         .otherwise(false))
       .withColumn("phase", when($"phase".isNull, "N/A").otherwise($"phase"))
+      .persist()
 
     val references = ctMap("studyReferences")
       .groupBy($"nct_id")
       .agg(collect_set(when($"pmid".isNotNull, $"pmid")).as("pmids"),
         collect_list(when($"pmid".isNull, $"citation")).as("references"))
+
+    val sponsors = ctMap("sponsors")
+      .groupBy($"nct_id")
+      .pivot($"agency_class")
+      .agg(collect_list($"name"))
+
 
     val countries = ctMap("countries")
       .withColumn("rem",when($"removed" === "t", true).otherwise(false))
@@ -128,14 +139,28 @@ object ClinicalTrials extends LazyLogging {
       .withColumn("pmids", when($"pmids".isNull, Array.empty[Long]).otherwise($"pmids"))
       .withColumn("references", when($"references".isNull, Array.empty[String]).otherwise($"references"))
       .join(countries, Seq("nct_id"), "left_outer")
+      .join(sponsors, Seq("nct_id"), "left_outer")
 
     logger.debug(s"number of clinical trials contained $numStudies studies")
     studiesWithCitations.sample(0.01D).write.json(commonSec.output + "/clinicaltrials_sample100/")
 //    studiesWithCitations.write.json(commonSec.output + "/clinicaltrials/")
     grouppedPhases.write.json(commonSec.output + "/clinicaltrials_phase_status/")
 
-    // TODO interventions filtering the intervention_type to Drug but better get the intervention itself
-    // and try to get what it is inside (drugs as a subset if possible parsing some texts by token
+    /*
+      interventions - select(id(intervention_id)|nct_id|intervention_type|name)
+        1. concat(array_distinct(trim(lower(split(name)))),lower(name)) as names
+      invervention_other_names - group by (nct_id,intervention_id)
+        1. concat(array_distinct(rtrim(',',trim(lower(split(collect_set(name))))), array(lower(name))) as other_names
+      browse_interventions - group by (nct_id) collect_set(lower(downcase_mesh_term) as browse_names
+        4. interventions
+          left join intervention_other_names by intervention_id as id, nct_id
+          left join bwose_interventions by nct_id
+        5. inteventions - create intervention_all_names = concat(names, other_names, browse_names)
+     */
+
+    /*
+
+     */
   }
 }
 
