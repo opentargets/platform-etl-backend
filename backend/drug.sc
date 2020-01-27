@@ -1,9 +1,9 @@
 import $file.common
 import common._
 
-import $ivy.`com.typesafe:config:1.3.4`
-import $ivy.`com.typesafe.scala-logging::scala-logging:3.9.0`
 import $ivy.`ch.qos.logback:logback-classic:1.2.3`
+import $ivy.`com.typesafe.scala-logging::scala-logging:3.9.2`
+import $ivy.`com.typesafe:config:1.4.0`
 import $ivy.`com.github.fommil.netlib:all:1.1.2`
 import $ivy.`org.apache.spark::spark-core:2.4.3`
 import $ivy.`org.apache.spark::spark-mllib:2.4.3`
@@ -16,12 +16,14 @@ import org.apache.spark.sql.functions._
 import org.apache.spark.sql.functions.col
 import org.apache.spark.sql._
 import org.apache.spark.sql.types._
+import com.typesafe.config.Config
 
-object DrugTransformers extends LazyLogging {
+object DrugHelpers {
+  implicit class AggregationHelpers(df: DataFrame)(implicit ss: SparkSession) {
+    import Configuration._
+    import ss.implicits._
 
-  implicit class ImplicitsDrug(val df: DataFrame) {
-	  
-	// Method used in the main and in platformETL.sc
+    // Method used in the main and in platformETL.sc
     def drugIndex(evidences: DataFrame): DataFrame = {
       val dfDrug = df.setIdAndSelectFromDrugs(evidences)
       dfDrug
@@ -93,16 +95,21 @@ object DrugTransformers extends LazyLogging {
 }
 
 // This is option/step drug in the config file
-@main
-def main(conf: String = "resources/amm.application.conf", outputPathPrefix: String = "output"): Unit = {
-  import DrugTransformers.ImplicitsDrug
+object Drug extends LazyLogging {
+  def apply(config: Config)(implicit ss: SparkSession) = {
+    import ss.implicits._
+    import DrugHelpers._
 
-  val cfg = getConfig(conf)
-  val listInputFiles = getInputFiles(cfg, "drug")
-  val inputDataFrame = SparkSessionWrapper.loader(listInputFiles)
+    val common = Configuration.loadCommon(config)
+    val mappedInputs = Map(
+      "drug"     -> common.inputs.drug,
+      "evidence" -> common.inputs.evidence
+    )
+    val inputDataFrame = SparkSessionWrapper.loader(mappedInputs)
 
-  val dfDrugIndex = inputDataFrame("drug").drugIndex(inputDataFrame("evidence"))
+    val dfDrugIndex = inputDataFrame("drug").setIdAndSelectFromDrugs(inputDataFrame("evidence"))
 
-  SparkSessionWrapper.save(dfDrugIndex, outputPathPrefix + "/drugs")
+    SparkSessionWrapper.save(dfDrugIndex, common.output + "/drugs")
 
+  }
 }
