@@ -1,8 +1,9 @@
 import $file.common
 import common._
 
-import $ivy.`com.typesafe:config:1.3.4`
-import $ivy.`com.typesafe.scala-logging::scala-logging:3.9.0`
+import $ivy.`ch.qos.logback:logback-classic:1.2.3`
+import $ivy.`com.typesafe.scala-logging::scala-logging:3.9.2`
+import $ivy.`com.typesafe:config:1.4.0`
 import $ivy.`com.github.fommil.netlib:all:1.1.2`
 import $ivy.`org.apache.spark::spark-core:2.4.3`
 import $ivy.`org.apache.spark::spark-mllib:2.4.3`
@@ -15,17 +16,12 @@ import org.apache.spark.sql.functions._
 import org.apache.spark.sql.functions.col
 import org.apache.spark.sql._
 import org.apache.spark.sql.types._
+import com.typesafe.config.Config
 
-object DiseaseTransformers extends LazyLogging {
-
-  implicit class ImplicitsDisease(val dfDisease: DataFrame) {
-	  
-	// Method used in the main and in platformETL.sc
-    def diseaseIndex: DataFrame = {
-      val diseases = dfDisease.drop("type")
-      val dfDiseases = diseases.setIdAndSelectFromDiseases
-      dfDiseases
-    }
+object DiseaseHelpers {
+  implicit class AggregationHelpers(df: DataFrame)(implicit ss: SparkSession) {
+    import Configuration._
+    import ss.implicits._
 
     def setIdAndSelectFromDiseases: DataFrame = {
 
@@ -37,7 +33,8 @@ object DiseaseTransformers extends LazyLogging {
       )
       //codes.withFilter(_.size > 1).flatMap(_.reverse(1)).toSet)
 
-      val dfPhenotypeId = dfDisease
+      val dfPhenotypeId = df
+        .drop("type")
         .withColumn(
           "sourcePhenotypes",
           when(
@@ -132,17 +129,18 @@ object DiseaseTransformers extends LazyLogging {
   }
 }
 
-// This is option/step disease in the config file
-@main
-def main(conf: String = "resources/amm.application.conf", outputPathPrefix: String = "output"): Unit = {
-  import DiseaseTransformers.ImplicitsDisease
+object Disease extends LazyLogging {
+  def apply(config: Config)(implicit ss: SparkSession) = {
+    import ss.implicits._
+    import DiseaseHelpers._
 
-  val cfg = getConfig(conf)
-  val listInputFiles = getInputFiles(cfg, "disease")
-  val inputDataFrame = SparkSessionWrapper.loader(listInputFiles)
+    val common         = Configuration.loadCommon(config)
+    val mappedInputs   = Map("disease" -> common.inputs.disease)
+    val inputDataFrame = SparkSessionWrapper.loader(mappedInputs)
 
-  val dfDiseaseIndex = inputDataFrame("disease").diseaseIndex
+    val diseaseDF = inputDataFrame("disease").setIdAndSelectFromDiseases
 
-  SparkSessionWrapper.save(dfDiseaseIndex, outputPathPrefix + "/diseases")
-  //dfDiseaseIndex.write.json(outputPathPrefix + "/diseases")
+    SparkSessionWrapper.save(diseaseDF, common.output + "/diseases")
+
+  }
 }

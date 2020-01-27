@@ -1,4 +1,13 @@
 ot {
+  common {
+    inputs {
+      target = "/data/input/19.11_gene-data.json"
+      disease = "/data/input/19.11_efo-data.json"
+      drug = "/data/input/19.11_drug-data.json"
+      evidences = "/data/input/19.11_evidence-data-reduced.json"
+    }
+  }
+
   associations {
     defaultWeight = 1.0
     defaultPropagate = true
