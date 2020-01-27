@@ -59,8 +59,20 @@ object Loaders extends LazyLogging {
   }
 
   def loadDrugs(path: String)(implicit ss: SparkSession): DataFrame = {
+    import ss.implicits._
+
     logger.info("load drugs jsonl")
     val drugs = ss.read.json(path)
+      .where($"number_of_mechanisms_of_action" > 0)
+      .withColumn("drug_names",
+        expr("transform(concat(array(pref_name), synonyms, trade_names), x -> lower(x))"))
+      .selectExpr("id as drug_id",
+        "lower(pref_name) as drug_name",
+        "drug_names",
+        "indications as drug_indications",
+        "mechanisms_of_action as drug_mechanisms_of_action",
+        "indication_therapeutic_areas as drug_indication_therapeutic_areas")
+
     drugs
   }
 
@@ -160,7 +172,7 @@ object ClinicalTrials extends LazyLogging {
 
 //    val targets = Loaders.loadTargets(commonSec.inputs.target)
 //    val diseases = Loaders.loadDiseases(commonSec.inputs.disease)
-//    val drugs = Loaders.loadDrugs(commonSec.inputs.drug)
+    val drugs = Loaders.loadDrugs(commonSec.inputs.drug)
 
     val ctMap = Loaders.loadClinicalTrials(commonSec.inputs.clinicalTrials)
 
@@ -198,11 +210,6 @@ object ClinicalTrials extends LazyLogging {
       .groupBy($"nct_id")
       .agg(collect_set(lower($"name")).as("countries"))
 
-    // studies aggregations
-//    val numStudies = studies.count()
-//    val grouppedPhases = studies.groupBy($"phase", $"overall_status")
-//      .count()
-
     val interventions = computeInterventions(ctMap)
     val conditions = computeConditions(ctMap)
 
@@ -214,11 +221,33 @@ object ClinicalTrials extends LazyLogging {
       .join(sponsors, Seq("nct_id"), "left_outer")
       .join(interventions, Seq("nct_id"), "left_outer")
       .join(conditions, Seq("nct_id"), "left_outer")
+      .persist()
+
+    studies.unpersist()
+
+    val drugsExploded = drugs
+    .withColumn("drug_name_exploded", explode($"drug_names"))
+
+    val studiesWithInterventions = studiesWithCitations
+      .select(
+        "nct_id",
+        "intervention_names")
+      .withColumn("intervention_names",
+        expr("flatten(transform(intervention_names, x -> concat(x.names,x.other_names,x.browse_names)))"))
+      .withColumn("intervention_name", explode($"intervention_names"))
+      .join(drugsExploded, $"intervention_name" === $"drug_name_exploded", "inner")
+        .selectExpr("nct_id",
+          "drug_id",
+          "drug_mechanisms_of_action").distinct()
+      .groupBy($"nct_id")
+      .agg(collect_list(struct($"drug_id", $"drug_mechanisms_of_action")).as("drugs"))
+
+    val ctWithDrug = studiesWithCitations
+      .join(studiesWithInterventions, Seq("nct_id"), "left_outer")
 
 //    logger.debug(s"number of clinical trials contained $numStudies studies")
-    studiesWithCitations.sample(0.01D).write.json(commonSec.output + "/clinicaltrials_sample100/")
-//    studiesWithCitations.write.json(commonSec.output + "/clinicaltrials/")
-//    grouppedPhases.write.json(commonSec.output + "/clinicaltrials_phase_status/")
+    ctWithDrug.sample(0.01D).write.json(commonSec.output + "/clinicaltrials_sample100/")
+//    ctWithDrug.write.json(commonSec.output + "/clinicaltrials/")
   }
 }
 
