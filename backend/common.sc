@@ -21,46 +21,64 @@ import play.api.libs.json.{Json, Reads}
 
 object Configuration extends LazyLogging {
   case class DataSource(id: String, weight: Double, dataType: String, propagate: Boolean)
-  case class AssociationsSection(defaultWeight: Double, defaultPropagate: Boolean, dataSources: List[DataSource])
+  case class AssociationsSection(
+      defaultWeight: Double,
+      defaultPropagate: Boolean,
+      dataSources: List[DataSource]
+  )
 
-  implicit val dataSourceImp = Json.reads[DataSource]
+  implicit val dataSourceImp  = Json.reads[DataSource]
   implicit val AssociationImp = Json.reads[AssociationsSection]
 
   //browse_interventions.txt
   //design_group_interventions.txt
   //intervention_other_names.txt
   //interventions.txt
-  case class ClinicalTrials(studies: String,
-                            studyReferences: String,
-                            countries: String,
-                            sponsors: String,
-                            interventions: String,
-                            interventionsOtherNames: String,
-                            interventionsMesh: String,
-                            conditions: String,
-                            conditionsMesh: String)
+  case class ClinicalTrials(
+      studies: String,
+      studyReferences: String,
+      countries: String,
+      sponsors: String,
+      interventions: String,
+      interventionsOtherNames: String,
+      interventionsMesh: String,
+      conditions: String,
+      conditionsMesh: String
+  )
   implicit val clinicalTrialsImp = Json.reads[ClinicalTrials]
 
-  case class Inputs(target: String, disease: String, drug: String, evidence: String,
-                    clinicalTrials: ClinicalTrials)
+  case class Inputs(
+      target: String,
+      disease: String,
+      drug: String,
+      evidence: String,
+      clinicalTrials: ClinicalTrials
+  )
   implicit val inputsImp = Json.reads[Inputs]
 
   case class Common(inputs: Inputs, output: String)
   implicit val commonImp = Json.reads[Common]
 
   def loadObject[T](key: String, config: Config)(implicit tReader: Reads[T]): T = {
-    val defaultHarmonicOptions = Json.parse(config.getObject(key)
-      .render(ConfigRenderOptions.concise()))
+    val defaultHarmonicOptions = Json.parse(
+      config
+        .getObject(key)
+        .render(ConfigRenderOptions.concise())
+    )
 
     logger.debug(s"loaded configuration as json ${Json.asciiStringify(defaultHarmonicOptions)}")
     defaultHarmonicOptions.as[T]
   }
 
   def loadObjectList[T](key: String, config: Config)(implicit tReader: Reads[T]): Seq[T] = {
-    val defaultHarmonicDatasourceOptions = config.getObjectList(key).toArray.toSeq.map(el => {
-      val co = el.asInstanceOf[ConfigObject]
-      Json.parse(co.render(ConfigRenderOptions.concise())).as[T]
-    })
+    val defaultHarmonicDatasourceOptions = config
+      .getObjectList(key)
+      .toArray
+      .toSeq
+      .map(el => {
+        val co = el.asInstanceOf[ConfigObject]
+        Json.parse(co.render(ConfigRenderOptions.concise())).as[T]
+      })
 
     defaultHarmonicDatasourceOptions
   }
@@ -89,7 +107,7 @@ object Configuration extends LazyLogging {
 
 /**
   Spark common functions
-*/
+  */
 object SparkSessionWrapper extends LazyLogging {
   type WriterConfigurator = DataFrameWriter[Row] => DataFrameWriter[Row]
 
@@ -113,7 +131,7 @@ object SparkSessionWrapper extends LazyLogging {
   /** It creates an hashmap of dataframes.
    Es. inputsDataFrame {"disease", Dataframe} , {"target", Dataframe}
    Reading is the first step in the pipeline
-  */
+    */
   def loader(
       inputFileConf: Map[String, String]
   ): Map[String, DataFrame] = {

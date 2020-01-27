@@ -16,15 +16,12 @@ import org.apache.spark.sql.functions._
 import org.apache.spark.sql.functions.col
 import org.apache.spark.sql._
 import org.apache.spark.sql.types._
+import com.typesafe.config.Config
 
-object TargetTransformers extends LazyLogging {
-
-  implicit class ImplicitsTarget(val df: DataFrame) {
-
-    def targetIndex: DataFrame = {
-      val dfTarget = df.setIdAndSelectFromTargets
-      dfTarget
-    }
+object TargetHelpers {
+  implicit class AggregationHelpers(df: DataFrame)(implicit ss: SparkSession) {
+    import Configuration._
+    import ss.implicits._
 
     def setIdAndSelectFromTargets: DataFrame = {
       val selectExpressions = Seq(
@@ -40,13 +37,13 @@ object TargetTransformers extends LazyLogging {
 
       val uniprotStructure =
         """
-        |case
-        |  when (uniprot_id = '' or uniprot_id = null) then null
-        |  else struct(uniprot_id as id,
-        |    uniprot_accessions as accessions,
-        |    uniprot_function as functions)
-        |end as proteinAnnotations
-        |""".stripMargin
+          |case
+          |  when (uniprot_id = '' or uniprot_id = null) then null
+          |  else struct(uniprot_id as id,
+          |    uniprot_accessions as accessions,
+          |    uniprot_function as functions)
+          |end as proteinAnnotations
+          |""".stripMargin
 
       df.selectExpr(selectExpressions :+ uniprotStructure: _*)
     }
@@ -54,18 +51,18 @@ object TargetTransformers extends LazyLogging {
 }
 
 // This is option/step target in the config file
-@main
-def main(conf: String = "resources/amm.application.conf", outputPathPrefix: String = "output"): Unit = {
-  import TargetTransformers.ImplicitsTarget
+object Target extends LazyLogging {
+  def apply(config: Config)(implicit ss: SparkSession) = {
+    import ss.implicits._
+    import TargetHelpers._
 
-  val configFile = Configuration.load
-  val inputs = Configuration.loadInputs(configFile)
+    val common         = Configuration.loadCommon(config)
+    val mappedInputs   = Map("target" -> common.inputs.target)
+    val inputDataFrame = SparkSessionWrapper.loader(mappedInputs)
 
-  val listInputFiles = getInputFiles(cfg, "target")
-  val inputDataFrame = SparkSessionWrapper.loader(listInputFiles)
+    val diseaseDF = inputDataFrame("target").setIdAndSelectFromTargets
 
-  val dfTargetIndex = inputDataFrame("target").targetIndex
+    SparkSessionWrapper.save(diseaseDF, common.output + "/targets")
 
-  SparkSessionWrapper.save(dfTargetIndex, outputPathPrefix + "/targets")
-  //dfTargetIndex.write.json(outputPathPrefix + "/targets")
+  }
 }

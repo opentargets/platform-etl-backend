@@ -16,12 +16,14 @@ import org.apache.spark.sql.functions._
 import org.apache.spark.sql.functions.col
 import org.apache.spark.sql._
 import org.apache.spark.sql.types._
+import com.typesafe.config.Config
 
-object DrugTransformers extends LazyLogging {
+object DrugHelpers {
+  implicit class AggregationHelpers(df: DataFrame)(implicit ss: SparkSession) {
+    import Configuration._
+    import ss.implicits._
 
-  implicit class ImplicitsDrug(val df: DataFrame) {
-	  
-	// Method used in the main and in platformETL.sc
+    // Method used in the main and in platformETL.sc
     def drugIndex(evidences: DataFrame): DataFrame = {
       val dfDrug = df.setIdAndSelectFromDrugs(evidences)
       dfDrug
@@ -93,20 +95,21 @@ object DrugTransformers extends LazyLogging {
 }
 
 // This is option/step drug in the config file
-@main
-def main(outputPathPrefix: String = "output"): Unit = {
-  import DrugTransformers.ImplicitsDrug
+object Drug extends LazyLogging {
+  def apply(config: Config)(implicit ss: SparkSession) = {
+    import ss.implicits._
+    import DrugHelpers._
 
-  val cfg = Configuration.load
-  val inputs = Configuration.loadInputs(cfg)
+    val common = Configuration.loadCommon(config)
+    val mappedInputs = Map(
+      "drug"     -> common.inputs.drug,
+      "evidence" -> common.inputs.evidence
+    )
+    val inputDataFrame = SparkSessionWrapper.loader(mappedInputs)
 
-  val mappedInputs = Map(
-    "drug" -> inputs.drug,
-    "evidence" -> inputs.evidence
-  )
+    val dfDrugIndex = inputDataFrame("drug").setIdAndSelectFromDrugs(inputDataFrame("evidence"))
 
-  val inputDataFrame = SparkSessionWrapper.loader(mappedInputs)
-  val dfDrugIndex = inputDataFrame("drug").drugIndex(inputDataFrame("evidence"))
-  SparkSessionWrapper.save(dfDrugIndex, outputPathPrefix + "/drugs")
+    SparkSessionWrapper.save(dfDrugIndex, common.output + "/drugs")
 
+  }
 }
