@@ -246,8 +246,24 @@ object ClinicalTrials extends LazyLogging {
       .join(studiesWithInterventions, Seq("nct_id"), "left_outer")
 
 //    logger.debug(s"number of clinical trials contained $numStudies studies")
-    ctWithDrug.sample(0.01D).write.json(commonSec.output + "/clinicaltrials_sample100/")
-//    ctWithDrug.write.json(commonSec.output + "/clinicaltrials/")
+//    ctWithDrug.sample(0.01D).write.json(commonSec.output + "/clinicaltrials_sample100/")
+    ctWithDrug.write.json(commonSec.output + "/clinicaltrials/")
+
+    // compute pseudo-evidences without condition efo resolution
+    ctWithDrug
+      .where($"drugs".isNotNull and
+        $"condition_mesh_terms".isNotNull and
+        (size($"condition_mesh_terms") > 0) and
+        (size($"drugs") > 0))
+      .withColumn("condition_mesh_term", explode($"condition_mesh_terms"))
+      .withColumn("drug", explode($"drugs"))
+      .withColumn("targets",
+        expr("array_distinct(flatten(transform(drug.drug_mechanisms_of_action," +
+          "x -> transform(x.target_components, " +
+          "y -> y.ensembl))))"))
+      .where($"targets".isNotNull and (size($"targets") > 0))
+      .withColumn("target", explode($"targets"))
+      .write.json(commonSec.output + "/clinicaltrials_evidences/")
   }
 }
 
