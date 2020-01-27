@@ -203,9 +203,10 @@ object ClinicalTrials extends LazyLogging {
                     .otherwise(false))
       .withColumn(
         "phase",
-        when(($"phase".isNull or ($"phase" === "") or ($"phase" === "n/a")), "N/A")
+        when(($"phase".isNull or ($"phase" === "") or ($"phase" === "n/a")), "not applicable")
           .when($"phase" === "phase 1/phase 2", "phase 2")
           .when($"phase" === "phase 2/phase 3", "phase 3")
+          .when($"phase" === "early phase 1", "phase 0")
           .otherwise(lower($"phase"))
       )
       .withColumn("overall_status", lower(trim($"overall_status", "\"")))
