@@ -404,10 +404,10 @@ object Search extends LazyLogging {
 
     val common = Configuration.loadCommon(config)
     val mappedInputs = Map(
-      "disease"  -> common.inputs.disease,
-      "drug"     -> common.inputs.drug,
+      "disease" -> common.inputs.disease,
+      "drug" -> common.inputs.drug,
       "evidence" -> common.inputs.evidence,
-      "target"   -> common.inputs.target
+      "target" -> common.inputs.target
     )
 
     val inputDataFrame = SparkSessionWrapper.loader(mappedInputs)

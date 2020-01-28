@@ -90,15 +90,15 @@ object Loaders extends LazyLogging {
     }
 
     Map(
-      "studies"                 -> _loadCSV(inputs.studies),
-      "studyReferences"         -> _loadCSV(inputs.studyReferences),
-      "countries"               -> _loadCSV(inputs.countries),
-      "sponsors"                -> _loadCSV(inputs.sponsors),
-      "interventions"           -> _loadCSV(inputs.interventions),
+      "studies" -> _loadCSV(inputs.studies),
+      "studyReferences" -> _loadCSV(inputs.studyReferences),
+      "countries" -> _loadCSV(inputs.countries),
+      "sponsors" -> _loadCSV(inputs.sponsors),
+      "interventions" -> _loadCSV(inputs.interventions),
       "interventionsOtherNames" -> _loadCSV(inputs.interventionsOtherNames),
-      "interventionsMesh"       -> _loadCSV(inputs.interventionsMesh),
-      "conditions"              -> _loadCSV(inputs.conditions),
-      "conditionsMesh"          -> _loadCSV(inputs.conditionsMesh)
+      "interventionsMesh" -> _loadCSV(inputs.interventionsMesh),
+      "conditions" -> _loadCSV(inputs.conditions),
+      "conditionsMesh" -> _loadCSV(inputs.conditionsMesh)
     )
   }
 }
@@ -107,7 +107,7 @@ object ClinicalTrials extends LazyLogging {
   def computeConditions(inputs: Map[String, DataFrame])(implicit ss: SparkSession): DataFrame = {
     import ss.implicits._
 
-    val conditions     = inputs("conditions")
+    val conditions = inputs("conditions")
     val conditionsMesh = inputs("conditionsMesh")
 
     val aggConditions = conditions
@@ -136,8 +136,8 @@ object ClinicalTrials extends LazyLogging {
     import ss.implicits._
 
     val interventions = inputs("interventions")
-    val otherNames    = inputs("interventionsOtherNames")
-    val meshes        = inputs("interventionsMesh")
+    val otherNames = inputs("interventionsOtherNames")
+    val meshes = inputs("interventionsMesh")
 
     val others = otherNames
     // .withColumn("name", rtrim(trim(lower($"name")), ","))
@@ -178,7 +178,7 @@ object ClinicalTrials extends LazyLogging {
 
   def apply(config: Config)(implicit ss: SparkSession) = {
     val associationsSec = Configuration.loadAssociationSection(config)
-    val commonSec       = Configuration.loadCommon(config)
+    val commonSec = Configuration.loadCommon(config)
 
     import ss.implicits._
 
@@ -232,7 +232,7 @@ object ClinicalTrials extends LazyLogging {
       .agg(collect_set(lower($"name")).as("countries"))
 
     val interventions = computeInterventions(ctMap)
-    val conditions    = computeConditions(ctMap)
+    val conditions = computeConditions(ctMap)
 
     // joining references
     val studiesWithCitations = studies

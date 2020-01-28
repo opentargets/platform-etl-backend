@@ -203,12 +203,11 @@ object AssociationHelpers {
   implicit class HSHelpers(df: DataFrame) {
     def harmonic(newColName: String, vectorColName: String): DataFrame = {
       val maxVectorElementsDefault: Int = 100
-      val pExponentDefault: Int         = 2
+      val pExponentDefault: Int = 2
 
       def maxHarmonicValue(vSize: Int, pExponent: Int, maxScore: Double): Double =
         (0 until vSize).foldLeft(0d)((acc: Double, n: Int) =>
-          acc + (maxScore / pow(1d + n, pExponent))
-        )
+          acc + (maxScore / pow(1d + n, pExponent)))
 
       val maxHS = maxHarmonicValue(maxVectorElementsDefault, pExponentDefault, 1.0)
       df.withColumn(
@@ -274,7 +273,7 @@ object Loaders extends LazyLogging {
 object Associations extends LazyLogging {
   def apply(config: Config)(implicit ss: SparkSession) = {
     val associationsSec = Configuration.loadAssociationSection(config)
-    val commonSec       = Configuration.loadCommon(config)
+    val commonSec = Configuration.loadCommon(config)
 
     import ss.implicits._
     import AssociationHelpers._
