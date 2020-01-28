@@ -27,7 +27,7 @@ object Configuration extends LazyLogging {
       dataSources: List[DataSource]
   )
 
-  implicit val dataSourceImp  = Json.reads[DataSource]
+  implicit val dataSourceImp = Json.reads[DataSource]
   implicit val AssociationImp = Json.reads[AssociationsSection]
 
   //browse_interventions.txt
