@@ -56,8 +56,8 @@ object Target extends LazyLogging {
     import ss.implicits._
     import TargetHelpers._
 
-    val common         = Configuration.loadCommon(config)
-    val mappedInputs   = Map("target" -> common.inputs.target)
+    val common = Configuration.loadCommon(config)
+    val mappedInputs = Map("target" -> common.inputs.target)
     val inputDataFrame = SparkSessionWrapper.loader(mappedInputs)
 
     val diseaseDF = inputDataFrame("target").setIdAndSelectFromTargets

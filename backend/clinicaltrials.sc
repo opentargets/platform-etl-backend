@@ -64,10 +64,8 @@ object Loaders extends LazyLogging {
     val drugs = ss.read
       .json(path)
       .where($"number_of_mechanisms_of_action" > 0)
-      .withColumn(
-        "drug_names",
-        expr("transform(concat(array(pref_name), synonyms, trade_names), x -> lower(x))")
-      )
+      .withColumn("drug_names",
+                  expr("transform(concat(array(pref_name), synonyms, trade_names), x -> lower(x))"))
       .selectExpr(
         "id as drug_id",
         "lower(pref_name) as drug_name",
@@ -80,9 +78,8 @@ object Loaders extends LazyLogging {
     drugs
   }
 
-  def loadClinicalTrials(
-      inputs: Configuration.ClinicalTrials
-  )(implicit ss: SparkSession): Map[String, DataFrame] = {
+  def loadClinicalTrials(inputs: Configuration.ClinicalTrials)(
+      implicit ss: SparkSession): Map[String, DataFrame] = {
     def _loadCSV(path: String)(implicit ss: SparkSession) = {
       ss.read
         .option("sep", "|")
@@ -93,15 +90,15 @@ object Loaders extends LazyLogging {
     }
 
     Map(
-      "studies"                 -> _loadCSV(inputs.studies),
-      "studyReferences"         -> _loadCSV(inputs.studyReferences),
-      "countries"               -> _loadCSV(inputs.countries),
-      "sponsors"                -> _loadCSV(inputs.sponsors),
-      "interventions"           -> _loadCSV(inputs.interventions),
+      "studies" -> _loadCSV(inputs.studies),
+      "studyReferences" -> _loadCSV(inputs.studyReferences),
+      "countries" -> _loadCSV(inputs.countries),
+      "sponsors" -> _loadCSV(inputs.sponsors),
+      "interventions" -> _loadCSV(inputs.interventions),
       "interventionsOtherNames" -> _loadCSV(inputs.interventionsOtherNames),
-      "interventionsMesh"       -> _loadCSV(inputs.interventionsMesh),
-      "conditions"              -> _loadCSV(inputs.conditions),
-      "conditionsMesh"          -> _loadCSV(inputs.conditionsMesh)
+      "interventionsMesh" -> _loadCSV(inputs.interventionsMesh),
+      "conditions" -> _loadCSV(inputs.conditions),
+      "conditionsMesh" -> _loadCSV(inputs.conditionsMesh)
     )
   }
 }
@@ -110,7 +107,7 @@ object ClinicalTrials extends LazyLogging {
   def computeConditions(inputs: Map[String, DataFrame])(implicit ss: SparkSession): DataFrame = {
     import ss.implicits._
 
-    val conditions     = inputs("conditions")
+    val conditions = inputs("conditions")
     val conditionsMesh = inputs("conditionsMesh")
 
     val aggConditions = conditions
@@ -125,16 +122,12 @@ object ClinicalTrials extends LazyLogging {
 
     val joint = aggConditions
       .join(aggMeshes, Seq("nct_id"), "full_outer")
-      .withColumn(
-        "condition_names",
-        when($"condition_names".isNull, Array.empty[String])
-          .otherwise($"condition_names")
-      )
-      .withColumn(
-        "condition_mesh_terms",
-        when($"condition_mesh_terms".isNull, Array.empty[String])
-          .otherwise($"condition_mesh_terms")
-      )
+      .withColumn("condition_names",
+                  when($"condition_names".isNull, Array.empty[String])
+                    .otherwise($"condition_names"))
+      .withColumn("condition_mesh_terms",
+                  when($"condition_mesh_terms".isNull, Array.empty[String])
+                    .otherwise($"condition_mesh_terms"))
 
     joint
   }
@@ -143,8 +136,8 @@ object ClinicalTrials extends LazyLogging {
     import ss.implicits._
 
     val interventions = inputs("interventions")
-    val otherNames    = inputs("interventionsOtherNames")
-    val meshes        = inputs("interventionsMesh")
+    val otherNames = inputs("interventionsOtherNames")
+    val meshes = inputs("interventionsMesh")
 
     val others = otherNames
     // .withColumn("name", rtrim(trim(lower($"name")), ","))
@@ -162,40 +155,30 @@ object ClinicalTrials extends LazyLogging {
     val jointInters = inters
       .join(others, Seq("id", "nct_id"), "full_outer")
       .join(browse, Seq("nct_id"), "full_outer")
-      .withColumn(
-        "browse_names",
-        when($"browse_names".isNull, Array.empty[String])
-          .otherwise($"browse_names")
-      )
-      .withColumn(
-        "other_names",
-        when($"other_names".isNull, Array.empty[String])
-          .otherwise($"other_names")
-      )
+      .withColumn("browse_names",
+                  when($"browse_names".isNull, Array.empty[String])
+                    .otherwise($"browse_names"))
+      .withColumn("other_names",
+                  when($"other_names".isNull, Array.empty[String])
+                    .otherwise($"other_names"))
       .groupBy($"nct_id", $"intervention_type")
-      .agg(
-        collect_list($"name").as("names"),
-        flatten(collect_list($"other_names")).as("other_names"),
-        flatten(collect_list($"browse_names")).as("browse_names")
-      )
+      .agg(collect_list($"name").as("names"),
+           flatten(collect_list($"other_names")).as("other_names"),
+           flatten(collect_list($"browse_names")).as("browse_names"))
       .groupBy($"nct_id")
-      .agg(
-        collect_list(
-          struct(
-            $"intervention_type",
-            array_distinct($"names").as("names"),
-            array_distinct($"other_names").as("other_names"),
-            array_distinct($"browse_names").as("browse_names")
-          )
-        ).as("intervention_names")
-      )
+      .agg(collect_list(struct(
+        $"intervention_type",
+        array_distinct($"names").as("names"),
+        array_distinct($"other_names").as("other_names"),
+        array_distinct($"browse_names").as("browse_names")
+      )).as("intervention_names"))
 
     jointInters
   }
 
   def apply(config: Config)(implicit ss: SparkSession) = {
     val associationsSec = Configuration.loadAssociationSection(config)
-    val commonSec       = Configuration.loadCommon(config)
+    val commonSec = Configuration.loadCommon(config)
 
     import ss.implicits._
 
@@ -206,31 +189,24 @@ object ClinicalTrials extends LazyLogging {
     val ctMap = Loaders.loadClinicalTrials(commonSec.inputs.clinicalTrials)
 
     val studies = ctMap("studies")
-      .withColumn(
-        "has_expanded_access",
-        when($"has_expanded_access" === "t", true)
-          .otherwise(false)
-      )
-      .withColumn(
-        "has_dmc",
-        when($"has_dmc" === "t", true)
-          .otherwise(false)
-      )
-      .withColumn(
-        "is_fda_regulated_drug",
-        when($"is_fda_regulated_drug" === "t", true)
-          .otherwise(false)
-      )
-      .withColumn(
-        "is_fda_regulated_device",
-        when($"is_fda_regulated_device" === "t", true)
-          .otherwise(false)
-      )
+      .withColumn("has_expanded_access",
+                  when($"has_expanded_access" === "t", true)
+                    .otherwise(false))
+      .withColumn("has_dmc",
+                  when($"has_dmc" === "t", true)
+                    .otherwise(false))
+      .withColumn("is_fda_regulated_drug",
+                  when($"is_fda_regulated_drug" === "t", true)
+                    .otherwise(false))
+      .withColumn("is_fda_regulated_device",
+                  when($"is_fda_regulated_device" === "t", true)
+                    .otherwise(false))
       .withColumn(
         "phase",
-        when(($"phase".isNull or ($"phase" === "") or ($"phase" === "n/a")), "N/A")
+        when(($"phase".isNull or ($"phase" === "") or ($"phase" === "n/a")), "not applicable")
           .when($"phase" === "phase 1/phase 2", "phase 2")
           .when($"phase" === "phase 2/phase 3", "phase 3")
+          .when($"phase" === "early phase 1", "phase 0")
           .otherwise(lower($"phase"))
       )
       .withColumn("overall_status", lower(trim($"overall_status", "\"")))
@@ -238,16 +214,12 @@ object ClinicalTrials extends LazyLogging {
 
     val references = ctMap("studyReferences")
       .groupBy($"nct_id")
-      .agg(
-        collect_set(when($"pmid".isNotNull, $"pmid")).as("pmids"),
-        collect_list(when($"pmid".isNull, $"citation")).as("references")
-      )
+      .agg(collect_set(when($"pmid".isNotNull, $"pmid")).as("pmids"),
+           collect_list(when($"pmid".isNull, $"citation")).as("references"))
 
     val sponsors = ctMap("sponsors")
-      .withColumn(
-        "agency_class",
-        when($"agency_class".isNull, "unknown").otherwise($"agency_class")
-      )
+      .withColumn("agency_class",
+                  when($"agency_class".isNull, "unknown").otherwise($"agency_class"))
       .groupBy($"nct_id", $"agency_class")
       .agg(collect_list($"name").as("names"))
       .groupBy($"nct_id")
@@ -260,16 +232,14 @@ object ClinicalTrials extends LazyLogging {
       .agg(collect_set(lower($"name")).as("countries"))
 
     val interventions = computeInterventions(ctMap)
-    val conditions    = computeConditions(ctMap)
+    val conditions = computeConditions(ctMap)
 
     // joining references
     val studiesWithCitations = studies
       .join(references, Seq("nct_id"), "left_outer")
       .withColumn("pmids", when($"pmids".isNull, Array.empty[Long]).otherwise($"pmids"))
-      .withColumn(
-        "references",
-        when($"references".isNull, Array.empty[String]).otherwise($"references")
-      )
+      .withColumn("references",
+                  when($"references".isNull, Array.empty[String]).otherwise($"references"))
       .join(countries, Seq("nct_id"), "left_outer")
       .join(sponsors, Seq("nct_id"), "left_outer")
       .join(interventions, Seq("nct_id"), "left_outer")
@@ -285,10 +255,7 @@ object ClinicalTrials extends LazyLogging {
       .select("nct_id", "intervention_names")
       .withColumn(
         "intervention_names",
-        expr(
-          "flatten(transform(intervention_names, x -> concat(x.names,x.other_names,x.browse_names)))"
-        )
-      )
+        expr("flatten(transform(intervention_names, x -> concat(x.names,x.other_names,x.browse_names)))"))
       .withColumn("intervention_name", explode($"intervention_names"))
       .join(drugsExploded, $"intervention_name" === $"drug_name_exploded", "inner")
       .selectExpr("nct_id", "drug_id", "drug_mechanisms_of_action")
@@ -300,7 +267,26 @@ object ClinicalTrials extends LazyLogging {
       .join(studiesWithInterventions, Seq("nct_id"), "left_outer")
 
 //    logger.debug(s"number of clinical trials contained $numStudies studies")
-    ctWithDrug.sample(0.01d).write.json(commonSec.output + "/clinicaltrials_sample100/")
-//    ctWithDrug.write.json(commonSec.output + "/clinicaltrials/")
+//    ctWithDrug.sample(0.01D).write.json(commonSec.output + "/clinicaltrials_sample100/")
+    ctWithDrug.write.json(commonSec.output + "/clinicaltrials/")
+
+    // compute pseudo-evidences without condition efo resolution
+    ctWithDrug
+      .where(
+        $"drugs".isNotNull and
+          $"condition_mesh_terms".isNotNull and
+          (size($"condition_mesh_terms") > 0) and
+          (size($"drugs") > 0))
+      .withColumn("condition_mesh_term", explode($"condition_mesh_terms"))
+      .withColumn("drug", explode($"drugs"))
+      .withColumn("targets",
+                  expr(
+                    "array_distinct(flatten(transform(drug.drug_mechanisms_of_action," +
+                      "x -> transform(x.target_components, " +
+                      "y -> y.ensembl))))"))
+      .where($"targets".isNotNull and (size($"targets") > 0))
+      .withColumn("target", explode($"targets"))
+      .write
+      .json(commonSec.output + "/clinicaltrials_evidences/")
   }
 }

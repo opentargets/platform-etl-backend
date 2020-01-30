@@ -13,7 +13,7 @@ lazy val root = (project in file("."))
     inThisBuild(
       List(
         organization := "io.opentargets",
-        scalaVersion := "2.12.9",
+        scalaVersion := "2.12.10",
         version := "0.1.0"
       )
     ),

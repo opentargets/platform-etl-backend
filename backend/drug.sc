@@ -102,7 +102,7 @@ object Drug extends LazyLogging {
 
     val common = Configuration.loadCommon(config)
     val mappedInputs = Map(
-      "drug"     -> common.inputs.drug,
+      "drug" -> common.inputs.drug,
       "evidence" -> common.inputs.evidence
     )
     val inputDataFrame = SparkSessionWrapper.loader(mappedInputs)
