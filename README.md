@@ -19,8 +19,6 @@ OpenTargets ETL pipeline to process Pipeline output in order to obtain a new API
 
 ### Run platformETL.sc
 ```sh
-export JAVA_OPTS="-Xms512m -Xmx<mostofthememingigslike100G>"
-
 # to compute the dataset
 In order to run the script the user must provide a config file called "amm.application.conf"
 An example is avaible under
