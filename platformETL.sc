@@ -60,10 +60,6 @@ object ETL extends LazyLogging {
 /**
   Read by default the conf file amm.application.conf and it generates all the indexes.
   step: disease, target, drug
-  */
-@main
-def main(
-    step: String = ""
-): Unit = {
-  ETL(step)
-}
+    */
+  @main
+  def main(step: String = ""): Unit = ETL(step)
