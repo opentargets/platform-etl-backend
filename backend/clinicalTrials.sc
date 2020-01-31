@@ -177,8 +177,8 @@ object ClinicalTrials extends LazyLogging {
   }
 
   def apply(config: Config)(implicit ss: SparkSession) = {
-    val associationsSec = Configuration.loadAssociationSection(config)
     val commonSec = Configuration.loadCommon(config)
+    val clinicalTrialsSec = Configuration.loadClinicalTrials(config)
 
     import ss.implicits._
 
@@ -186,7 +186,7 @@ object ClinicalTrials extends LazyLogging {
 //    val diseases = Loaders.loadDiseases(commonSec.inputs.disease)
     val drugs = Loaders.loadDrugs(commonSec.inputs.drug)
 
-    val ctMap = Loaders.loadClinicalTrials(commonSec.inputs.clinicalTrials)
+    val ctMap = Loaders.loadClinicalTrials(clinicalTrialsSec)
 
     val studies = ctMap("studies")
       .withColumn("has_expanded_access",

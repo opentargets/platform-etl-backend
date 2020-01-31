@@ -40,7 +40,8 @@ object Dependencies {
     "org.apache.spark" %% "spark-core" % "2.4.4",
     "org.apache.spark" %% "spark-sql" % "2.4.4",
     "org.apache.spark" %% "spark-graphx" % "2.4.4",
-    "org.apache.spark" %% "spark-mllib" % "2.4.4"
+    "org.apache.spark" %% "spark-mllib" % "2.4.4",
+    "com.databricks" %% "spark-xml" % "0.8.0"
   )
 
   lazy val testingDeps = Seq(
