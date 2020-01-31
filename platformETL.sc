@@ -12,6 +12,9 @@ import associations._
 import $file.backend.clinicalTrials
 import clinicalTrials._
 
+import $file.backend.dailymed
+import dailymed._
+
 import $file.backend.evidenceProteinFix
 import evidenceProteinFix._
 
@@ -56,6 +59,9 @@ object ETL extends LazyLogging {
       case "drug" =>
         logger.info("run step drug")
         Drug(otc)
+      case "dailymed" =>
+        logger.info("run step dailymed")
+        Dailymed(otc)
       case _ =>
         logger.error("Exit with error or ALL by defaul (?) ")
     }
