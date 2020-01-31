@@ -10,7 +10,6 @@ import $ivy.`org.apache.spark::spark-mllib:2.4.3`
 import $ivy.`org.apache.spark::spark-sql:2.4.3`
 import $ivy.`com.github.pathikrit::better-files:3.8.0`
 import $ivy.`com.typesafe.play::play-json:2.7.3`
-import $ivy.`com.databricks::spark-xml:0.8.0`
 
 import org.apache.spark.SparkConf
 import org.apache.spark.sql._
@@ -20,7 +19,6 @@ import better.files.Dsl._
 import better.files._
 import com.typesafe.config.{Config, ConfigFactory, ConfigObject, ConfigRenderOptions}
 import com.typesafe.scalalogging.{LazyLogging, Logger}
-import com.databricks.spark.xml._
 
 import scala.math.pow
 
@@ -77,9 +75,25 @@ object Loaders extends LazyLogging {
   def loadDailymed(inputs: Configuration.Dailymed)(
       implicit ss: SparkSession): Map[String, DataFrame] = {
     def _loadXML(path: String)(implicit ss: SparkSession) = {
-      ss.read
-        .option("rowTag", "document")
-        .xml(path)
+      import ss.implicits._
+
+      val schema = StructType(
+        Seq(
+          StructField(name = "filename", dataType = StringType, nullable = false),
+          StructField(name = "set_raw_content", dataType = StringType, nullable = false)
+        )
+      )
+
+      val xmls = ss.sparkContext
+        .wholeTextFiles(path)
+        .map[Row]( k => {
+          Row(k._1, k._2)
+        })
+
+      ss.createDataFrame(xmls, schema)
+        .withColumn("set_id",
+          substring_index(substring_index($"filename", "/", -1), ".", 1))
+        .drop("filename")
     }
 
     def _loadCSV(path: String)(implicit ss: SparkSession) = {
@@ -114,14 +128,13 @@ object Dailymed extends LazyLogging {
     val rxnorm = ctMap("rxnorm")
     val prescription = ctMap("prescription")
 
-    prescription
-      .write
+    prescription.write
       .json(commonSec.output + "/dailymed/prescriptions/")
 
     rxnorm
       .groupBy($"RXCUI".as("rx_id"))
       .agg(collect_set(lower($"RXSTRING")).as("rx_synonyms"),
-        collect_set(lower($"SETID")).as("set_ids"))
+           collect_set(lower($"SETID")).as("set_ids"))
       .write
       .json(commonSec.output + "/dailymed/rxnorms/")
   }
