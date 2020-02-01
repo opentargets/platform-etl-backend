@@ -9,8 +9,11 @@ import drug._
 import $file.backend.associations
 import associations._
 
-import $file.backend.clinicaltrials
-import clinicaltrials._
+import $file.backend.clinicalTrials
+import clinicalTrials._
+
+import $file.backend.evidenceProteinFix
+import evidenceProteinFix._
 
 import $file.backend.search
 import search._
@@ -38,9 +41,12 @@ object ETL extends LazyLogging {
       case "associations" =>
         logger.info("run step associations")
         Associations(otc)
-      case "clinicaltrials" =>
+      case "clinicalTrials" =>
         logger.info("run step clinicaltrials")
         ClinicalTrials(otc)
+      case "evidenceProteinFix" =>
+        logger.info("run step evidenceProteinFix")
+        EvidenceProteinFix(otc)
       case "disease" =>
         logger.info("run step disease")
         Disease(otc)

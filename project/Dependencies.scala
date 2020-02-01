@@ -4,7 +4,7 @@ object Dependencies {
 
   lazy val aoyi = Seq(
     "com.lihaoyi" %% "pprint" % "0.5.4",
-    "com.lihaoyi" % "ammonite" % "1.6.7" % "test" cross CrossVersion.full,
+    "com.lihaoyi" % "ammonite" % "2.0.4" % "test" cross CrossVersion.full,
     "sh.almond" %% "ammonite-spark" % "0.5.0"
   )
 
