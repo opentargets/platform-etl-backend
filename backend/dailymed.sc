@@ -21,6 +21,7 @@ import com.typesafe.config.{Config, ConfigFactory, ConfigObject, ConfigRenderOpt
 import com.typesafe.scalalogging.{LazyLogging, Logger}
 
 import scala.math.pow
+import scala.xml._
 
 object Loaders extends LazyLogging {
   def loadTargets(path: String)(implicit ss: SparkSession): DataFrame = {
@@ -80,19 +81,22 @@ object Loaders extends LazyLogging {
       val schema = StructType(
         Seq(
           StructField(name = "filename", dataType = StringType, nullable = false),
-          StructField(name = "set_raw_content", dataType = StringType, nullable = false)
+          StructField(name = "set_raw_content", dataType = StringType, nullable = false),
+          StructField(name = "title_content", dataType = ArrayType(StringType), nullable = false)
         )
       )
 
       val xmls = ss.sparkContext
         .wholeTextFiles(path)
-        .map[Row]( k => {
-          Row(k._1, k._2)
+        .map[Row](k => {
+          val obj = XML.loadString(k._2)
+          val titleContent = (obj \\ "document" \\ "title" \\ "content").map(_.text).toArray
+          println(titleContent)
+          Row(k._1, k._2, titleContent)
         })
 
       ss.createDataFrame(xmls, schema)
-        .withColumn("set_id",
-          substring_index(substring_index($"filename", "/", -1), ".", 1))
+        .withColumn("set_id", substring_index(substring_index($"filename", "/", -1), ".", 1))
         .drop("filename")
     }
 
