@@ -75,14 +75,19 @@ object Loaders extends LazyLogging {
 
   def loadDailymed(inputs: Configuration.Dailymed)(
       implicit ss: SparkSession): Map[String, DataFrame] = {
+    import ss.implicits._
+
     def _loadXML(path: String)(implicit ss: SparkSession) = {
       import ss.implicits._
 
       val schema = StructType(
         Seq(
-          StructField(name = "filename", dataType = StringType, nullable = false),
-          StructField(name = "set_raw_content", dataType = StringType, nullable = false),
-          StructField(name = "title_content", dataType = ArrayType(StringType), nullable = false)
+          StructField(name = "setId", dataType = StringType, nullable = false),
+          StructField(name = "genericMedicine", dataType = StringType, nullable = true),
+          StructField(name = "activeMoiety", dataType = StringType, nullable = true),
+          StructField(name = "ingredientSubstances",
+                      dataType = ArrayType(StringType),
+                      nullable = true)
         )
       )
 
@@ -90,17 +95,22 @@ object Loaders extends LazyLogging {
         .wholeTextFiles(path)
         .map[Row](k => {
           val obj = XML.loadString(k._2)
-          val titleContent = (obj \\ "document" \\ "title" \\ "content").map(_.text).toArray
-          println(titleContent)
-          Row(k._1, k._2, titleContent)
+          val setId = (obj \ "setId" \ "@root").text.toLowerCase()
+          val ingredients = (obj \\ "ingredientSubstance")
+          val genericMedicine = (obj \\ "genericMedicine" \ "name").headOption.map(_.text.toLowerCase())
+            .orNull
+          val activeMoiety =
+            (ingredients \\ "activeMoiety" \ "activeMoiety" \ "name").headOption.map(_.text.toLowerCase())
+            .orNull
+          val ingredientNames = (ingredients \ "name").map(_.text.toLowerCase()).toArray
+          Row(setId, genericMedicine, activeMoiety, ingredientNames)
         })
 
       ss.createDataFrame(xmls, schema)
-        .withColumn("set_id", substring_index(substring_index($"filename", "/", -1), ".", 1))
-        .drop("filename")
     }
 
     def _loadCSV(path: String)(implicit ss: SparkSession) = {
+
       ss.read
         .option("sep", "|")
         .option("mode", "DROPMALFORMED")
@@ -110,7 +120,10 @@ object Loaders extends LazyLogging {
     }
 
     Map(
-      "rxnorm" -> _loadCSV(inputs.rxnormMapping),
+      "rxnorm" -> _loadCSV(inputs.rxnormMapping)
+        .toDF("setId", "splVersion", "rxId", "rxString", "rxTTY")
+        .withColumn("setId", lower($"setId"))
+        .withColumn("rxString", lower($"rxString")),
       "prescription" -> _loadXML(inputs.prescriptionData)
     )
   }
@@ -130,15 +143,24 @@ object Dailymed extends LazyLogging {
     val ctMap = Loaders.loadDailymed(dailymedSec)
 
     val rxnorm = ctMap("rxnorm")
+      .orderBy($"setId")
+      .persist()
+
     val prescription = ctMap("prescription")
 
-    prescription.write
-      .json(commonSec.output + "/dailymed/prescriptions/")
+//    prescription.write
+//      .json(commonSec.output + "/dailymed/prescriptions/")
 
     rxnorm
-      .groupBy($"RXCUI".as("rx_id"))
-      .agg(collect_set(lower($"RXSTRING")).as("rx_synonyms"),
-           collect_set(lower($"SETID")).as("set_ids"))
+      .join(prescription, Seq("setId"), "left_outer")
+      .groupBy($"rxId")
+      .agg(
+        collect_set(lower($"rxString")).as("rxSynonyms"),
+        collect_set(lower($"setId")).as("setIds"),
+        collect_set($"genericMedicine").as("genericMedicine"),
+        collect_set($"activeMoiety").as("activeMoiety"),
+        array_distinct(flatten(collect_list($"ingredientSubstances"))).as("ingredientSubstances")
+      )
       .write
       .json(commonSec.output + "/dailymed/rxnorms/")
   }
