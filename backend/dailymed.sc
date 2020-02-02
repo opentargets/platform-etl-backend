@@ -97,12 +97,25 @@ object Loaders extends LazyLogging {
           val obj = XML.loadString(k._2)
           val setId = (obj \ "setId" \ "@root").text.toLowerCase()
           val ingredients = (obj \\ "ingredientSubstance")
-          val genericMedicine = (obj \\ "genericMedicine" \ "name").headOption.map(_.text.toLowerCase())
+          val genericMedicine = (obj \\ "genericMedicine" \ "name").headOption
+            .map(_.text
+              .trim()
+              .replace(",","")
+              .replace("  ", " ")
+              .toLowerCase())
             .orNull
           val activeMoiety =
-            (ingredients \\ "activeMoiety" \ "activeMoiety" \ "name").headOption.map(_.text.toLowerCase())
+            (ingredients \\ "activeMoiety" \ "activeMoiety" \ "name").headOption.map(_.text
+              .trim()
+              .replace(",","")
+              .replace("  ", " ")
+              .toLowerCase())
             .orNull
-          val ingredientNames = (ingredients \ "name").map(_.text.toLowerCase()).toArray
+          val ingredientNames = (ingredients \ "name").map(_.text
+            .trim()
+            .replace(",","")
+            .replace("  ", " ")
+            .toLowerCase()).toArray
           Row(setId, genericMedicine, activeMoiety, ingredientNames)
         })
 
