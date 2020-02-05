@@ -29,12 +29,6 @@ object Loaders extends LazyLogging {
     targets
   }
 
-  def loadExpressions(path: String)(implicit ss: SparkSession): DataFrame = {
-    logger.info("load expressions jsonl")
-    val expressions = ss.read.json(path)
-    expressions
-  }
-
   def loadDiseases(path: String)(implicit ss: SparkSession): DataFrame = {
     logger.info("load diseases jsonl")
     val diseaseList = ss.read.json(path)
@@ -185,7 +179,6 @@ object ClinicalTrials extends LazyLogging {
 //    val targets = Loaders.loadTargets(commonSec.inputs.target)
 //    val diseases = Loaders.loadDiseases(commonSec.inputs.disease)
     val drugs = Loaders.loadDrugs(commonSec.inputs.drug)
-
     val ctMap = Loaders.loadClinicalTrials(clinicalTrialsSec)
 
     val studies = ctMap("studies")
