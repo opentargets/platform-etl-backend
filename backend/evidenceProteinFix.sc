@@ -49,18 +49,7 @@ object EvidenceProteinFix extends LazyLogging {
       "targets" -> ss.read.json(common.inputs.target),
       "evidences" -> ss.read.json(evidenceProtSec.input)
     )
-
-    // // get all columns except foo.baz
-    //val structCols = df.select($"foo.*")
-    //    .columns
-    //    .filter(_!="baz")
-    //    .map(name => col("foo."+name))
-    //
-    //df.withColumn(
-    //    "foo",
-    //    struct((structCols:+myUDF($"foo.baz").as("baz")):_*)
-    //)
-
+    
     val proteins =
       buildLUT(dfs("targets"), "accession", "ids")
         .orderBy($"accession".asc)
