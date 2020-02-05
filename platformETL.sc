@@ -6,6 +6,8 @@ import $file.backend.target
 import target._
 import $file.backend.drug
 import drug._
+import $file.backend.cancerBiomarkers
+import cancerBiomarkers._
 import $file.backend.associations
 import associations._
 
@@ -56,6 +58,9 @@ object ETL extends LazyLogging {
       case "drug" =>
         logger.info("run step drug")
         Drug(otc)
+      case "cancerBiomarkers" =>
+        logger.info("run step cancerBiomarkers")
+        CancerBiomarkers(otc)
       case _ =>
         logger.error("Exit with error or ALL by defaul (?) ")
     }
@@ -66,6 +71,6 @@ object ETL extends LazyLogging {
 /**
   Read by default the conf file amm.application.conf and it generates all the indexes.
   step: disease, target, drug
-    */
-  @main
-  def main(step: String = ""): Unit = ETL(step)
+  */
+@main
+def main(step: String = ""): Unit = ETL(step)
