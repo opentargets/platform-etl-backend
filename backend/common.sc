@@ -30,10 +30,6 @@ object Configuration extends LazyLogging {
   implicit val dataSourceImp = Json.reads[DataSource]
   implicit val AssociationImp = Json.reads[AssociationsSection]
 
-  //browse_interventions.txt
-  //design_group_interventions.txt
-  //intervention_other_names.txt
-  //interventions.txt
   case class ClinicalTrials(
       studies: String,
       studyReferences: String,
@@ -47,21 +43,20 @@ object Configuration extends LazyLogging {
   )
   implicit val clinicalTrialsImp = Json.reads[ClinicalTrials]
 
-  //   evidenceProteinFix {
-  //    // inputEvidences = "evidences/*.json.gz"
-  //    inputEvidences = "evidences/chembl-2019-08-16.json.gz"
-  //    inputEvidencesOutputDirName = "evidences_protein_fix"
-  //  }
+  case class Dailymed(rxnormMapping: String, prescriptionData: String)
+  implicit val dailymedImp = Json.reads[Dailymed]
 
   case class EvidenceProteinFix(input: String, output: String)
   implicit val evidenceProteinFixImp = Json.reads[EvidenceProteinFix]
+
+  case class EvidenceGWASFix(input: String, output: String, studies: String)
+  implicit val evidenceGWASFixImp = Json.reads[EvidenceGWASFix]
 
   case class Inputs(
       target: String,
       disease: String,
       drug: String,
-      evidence: String,
-      clinicalTrials: ClinicalTrials
+      evidence: String
   )
   implicit val inputsImp = Json.reads[Inputs]
 
@@ -105,6 +100,22 @@ object Configuration extends LazyLogging {
     obj
   }
 
+  def loadClinicalTrials(config: Config): ClinicalTrials = {
+    logger.info("load common configuration")
+    val obj = loadObject[ClinicalTrials]("ot.clinicalTrials", config)
+    logger.debug(s"configuration properly case classed ${obj.toString}")
+
+    obj
+  }
+
+  def loadDailymed(config: Config): Dailymed = {
+    logger.info("load common configuration")
+    val obj = loadObject[Dailymed]("ot.dailymed", config)
+    logger.debug(s"configuration properly case classed ${obj.toString}")
+
+    obj
+  }
+
   def loadAssociationSection(config: Config): AssociationsSection = {
     logger.info("load configuration from file")
     val obj = loadObject[AssociationsSection]("ot.associations", config)
@@ -116,6 +127,14 @@ object Configuration extends LazyLogging {
   def loadEvidenceProteinFixSection(config: Config): EvidenceProteinFix = {
     logger.info("load configuration from file")
     val obj = loadObject[EvidenceProteinFix]("ot.evidenceProteinFix", config)
+    logger.debug(s"configuration properly case classed ${obj.toString}")
+
+    obj
+  }
+
+  def loadEvidenceGWASFixSection(config: Config): EvidenceGWASFix = {
+    logger.info("load configuration from file")
+    val obj = loadObject[EvidenceGWASFix]("ot.evidenceGWASFix", config)
     logger.debug(s"configuration properly case classed ${obj.toString}")
 
     obj
