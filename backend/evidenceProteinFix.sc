@@ -18,6 +18,15 @@ import org.apache.spark.sql.types._
 import com.typesafe.config.Config
 import org.apache.spark.storage.StorageLevel
 
+/** It takes all evidences and fix the problem of having same protein accession
+ * and multiple genes. The steps to fix it are
+ * 1. build the inversed lut for each protein accession the corresponding genes
+ * 2. if one evicence belonging to the multigene case is found then replace the
+ *    protein id by the gene id
+ *    and add to the unique fields the corresponding geneid in order to make unique
+ *    the evidence
+ * 3. write all back to jsonl gz but partitionby datasource
+ * */
 object EvidenceProteinFix extends LazyLogging {
   def buildLUT(genes: DataFrame, proteinColName: String, genesColName: String)(
       implicit ss: SparkSession): DataFrame = {
