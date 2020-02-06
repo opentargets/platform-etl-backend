@@ -14,8 +14,14 @@ import associations._
 import $file.backend.clinicalTrials
 import clinicalTrials._
 
+import $file.backend.dailymed
+import dailymed._
+
 import $file.backend.evidenceProteinFix
 import evidenceProteinFix._
+
+import $file.backend.evidenceGWASFix
+import evidenceGWASFix._
 
 import $file.backend.search
 import search._
@@ -29,10 +35,6 @@ import com.typesafe.scalalogging.LazyLogging
 object ETL extends LazyLogging {
   def apply(step: String) = {
     val otc = Configuration.load
-
-    //  val cfg = getConfig(conf)
-    //  val listInputFiles = getInputFiles(cfg, step)
-    //  val outputPathPrefix = cfg.getString("output-dir")
 
     implicit val spark = SparkSessionWrapper.session
 
@@ -49,6 +51,9 @@ object ETL extends LazyLogging {
       case "evidenceProteinFix" =>
         logger.info("run step evidenceProteinFix")
         EvidenceProteinFix(otc)
+      case "evidenceGWASFix" =>
+        logger.info("run step evidenceGWASFix")
+        EvidenceGWASFix(otc)
       case "disease" =>
         logger.info("run step disease")
         Disease(otc)
@@ -61,10 +66,12 @@ object ETL extends LazyLogging {
       case "cancerBiomarkers" =>
         logger.info("run step cancerBiomarkers")
         CancerBiomarkers(otc)
+      case "dailymed" =>
+        logger.info("run step dailymed")
+        Dailymed(otc)
       case _ =>
         logger.error("Exit with error or ALL by defaul (?) ")
     }
-
   }
 }
 

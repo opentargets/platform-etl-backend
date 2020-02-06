@@ -4,9 +4,9 @@ import $ivy.`ch.qos.logback:logback-classic:1.2.3`
 import $ivy.`com.typesafe.scala-logging::scala-logging:3.9.2`
 import $ivy.`com.typesafe:config:1.4.0`
 import $ivy.`com.github.fommil.netlib:all:1.1.2`
-import $ivy.`org.apache.spark::spark-core:2.4.3`
-import $ivy.`org.apache.spark::spark-mllib:2.4.3`
-import $ivy.`org.apache.spark::spark-sql:2.4.3`
+import $ivy.`org.apache.spark::spark-core:2.4.4`
+import $ivy.`org.apache.spark::spark-mllib:2.4.4`
+import $ivy.`org.apache.spark::spark-sql:2.4.4`
 import $ivy.`com.github.pathikrit::better-files:3.8.0`
 import $ivy.`sh.almond::ammonite-spark:0.7.0`
 import org.apache.spark.SparkConf
@@ -18,6 +18,15 @@ import org.apache.spark.sql.types._
 import com.typesafe.config.Config
 import org.apache.spark.storage.StorageLevel
 
+/** It takes all evidences and fix the problem of having same protein accession
+ * and multiple genes. The steps to fix it are
+ * 1. build the inversed lut for each protein accession the corresponding genes
+ * 2. if one evicence belonging to the multigene case is found then replace the
+ *    protein id by the gene id
+ *    and add to the unique fields the corresponding geneid in order to make unique
+ *    the evidence
+ * 3. write all back to jsonl gz but partitionby datasource
+ * */
 object EvidenceProteinFix extends LazyLogging {
   def buildLUT(genes: DataFrame, proteinColName: String, genesColName: String)(
       implicit ss: SparkSession): DataFrame = {
@@ -49,18 +58,7 @@ object EvidenceProteinFix extends LazyLogging {
       "targets" -> ss.read.json(common.inputs.target),
       "evidences" -> ss.read.json(evidenceProtSec.input)
     )
-
-    // // get all columns except foo.baz
-    //val structCols = df.select($"foo.*")
-    //    .columns
-    //    .filter(_!="baz")
-    //    .map(name => col("foo."+name))
-    //
-    //df.withColumn(
-    //    "foo",
-    //    struct((structCols:+myUDF($"foo.baz").as("baz")):_*)
-    //)
-
+    
     val proteins =
       buildLUT(dfs("targets"), "accession", "ids")
         .orderBy($"accession".asc)
