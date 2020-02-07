@@ -18,9 +18,6 @@ import dailymed._
 import $file.backend.evidenceProteinFix
 import evidenceProteinFix._
 
-import $file.backend.evidenceGWASFix
-import evidenceGWASFix._
-
 import $file.backend.search
 import search._
 import $ivy.`com.typesafe:config:1.4.0`
@@ -53,9 +50,6 @@ object ETL extends LazyLogging {
       case "evidenceProteinFix" =>
         logger.info("run step evidenceProteinFix")
         EvidenceProteinFix(otc)
-      case "evidenceGWASFix" =>
-        logger.info("run step evidenceGWASFix")
-        EvidenceGWASFix(otc)
       case "disease" =>
         logger.info("run step disease")
         Disease(otc)
