@@ -49,9 +49,6 @@ object Configuration extends LazyLogging {
   case class EvidenceProteinFix(input: String, output: String)
   implicit val evidenceProteinFixImp = Json.reads[EvidenceProteinFix]
 
-  case class EvidenceGWASFix(input: String, output: String, studies: String)
-  implicit val evidenceGWASFixImp = Json.reads[EvidenceGWASFix]
-
   case class Inputs(
       target: String,
       disease: String,
@@ -127,14 +124,6 @@ object Configuration extends LazyLogging {
   def loadEvidenceProteinFixSection(config: Config): EvidenceProteinFix = {
     logger.info("load configuration from file")
     val obj = loadObject[EvidenceProteinFix]("ot.evidenceProteinFix", config)
-    logger.debug(s"configuration properly case classed ${obj.toString}")
-
-    obj
-  }
-
-  def loadEvidenceGWASFixSection(config: Config): EvidenceGWASFix = {
-    logger.info("load configuration from file")
-    val obj = loadObject[EvidenceGWASFix]("ot.evidenceGWASFix", config)
     logger.debug(s"configuration properly case classed ${obj.toString}")
 
     obj
