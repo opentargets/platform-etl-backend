@@ -1,14 +1,6 @@
 import $file.common
 import common._
-import $ivy.`ch.qos.logback:logback-classic:1.2.3`
-import $ivy.`com.typesafe.scala-logging::scala-logging:3.9.2`
-import $ivy.`com.typesafe:config:1.4.0`
-import $ivy.`com.github.fommil.netlib:all:1.1.2`
-import $ivy.`org.apache.spark::spark-core:2.4.4`
-import $ivy.`org.apache.spark::spark-mllib:2.4.4`
-import $ivy.`org.apache.spark::spark-sql:2.4.4`
-import $ivy.`com.github.pathikrit::better-files:3.8.0`
-import $ivy.`sh.almond::ammonite-spark:0.7.0`
+
 import com.typesafe.config.Config
 import com.typesafe.scalalogging.LazyLogging
 import org.apache.spark.SparkConf
@@ -367,53 +359,6 @@ object Transformers {
         .join(drugCounts, Seq("drug_id"), "left_outer")
     }
 
-    def termAndRelevanceFromEvidencePairsByDrug: DataFrame = {
-      df.groupBy(col("drug_id"))
-        .agg(
-          slice(
-            sort_array(
-              collect_list(
-                struct(
-                  col("harmonic"),
-                  col("target_name"),
-                  col("target_symbol"),
-                  col("disease_name"),
-                  col("evidence_count").cast(FloatType).as("evidence_count"),
-                  col("tdrd_count").cast(FloatType).as("tdrd_count")
-                )
-              ),
-              false
-            ),
-            1,
-            25
-          ).as("scored_drugs"),
-          first(col("drug_count").cast(FloatType)).as("drug_count")
-        )
-        .withColumn(
-          "terms",
-          array_distinct(
-            flatten(
-              array(
-                col("scored_drugs.target_name"),
-                col("scored_drugs.target_symbol"),
-                col("scored_drugs.disease_name")
-              )
-            )
-          )
-        )
-        // TODO: DIVIDE BY TOTAL EVIDENCES FOR ALL DRUGS
-        .withColumn(
-          "field_factor",
-          expr("""
-                 |aggregate(scored_drugs.tdrd_count,
-                 | 0D,
-                 | (a, x) -> a + x
-                 |) / drug_count
-                 |""".stripMargin)
-        )
-        .select("drug_id", "terms", "field_factor")
-    }
-
     def termAndRelevanceFromEvidencePairsByDisease: DataFrame = {
       df.groupBy(col("disease_id"))
         .agg(
@@ -507,6 +452,11 @@ object Search extends LazyLogging {
       .orderBy(col("disease_id"))
       .persist(StorageLevel.DISK_ONLY)
 
+    // get diseases and compute ancestors and descendants
+    val targets = Transformers.processDiseases(inputDataFrame("target"))
+      .orderBy(col("target_id"))
+      .persist(StorageLevel.DISK_ONLY)
+
     // get associations just id and score
     val associationScores = inputDataFrame("association")
       .selectExpr(
@@ -534,9 +484,11 @@ object Search extends LazyLogging {
         mean(col("score")).as("mean_score"),
         (count(col("association_id")).cast(DoubleType) / lit(totalAssociationsWithDrugs.toDouble)).as("drug_relevance"))
 
-    val searchDrugs = inputDataFrame("drug").setIdAndSelectFromDrugs(associationsWithDrugs)
-//      inputDataFrame("evidence").aggreateEvidencesByTDDrug.termAndRelevanceFromEvidencePairsByDrug
-//    )
+    val searchDrugs = inputDataFrame("drug")
+      .setIdAndSelectFromDrugs(
+        associationsWithDrugs,
+        targets,
+        diseases)
 
     val evsAggregatedByTD = inputDataFrame("evidence").aggreateEvidencesByTD.persist
 

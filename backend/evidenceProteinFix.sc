@@ -1,14 +1,6 @@
 import $file.common
 import common._
-import $ivy.`ch.qos.logback:logback-classic:1.2.3`
-import $ivy.`com.typesafe.scala-logging::scala-logging:3.9.2`
-import $ivy.`com.typesafe:config:1.4.0`
-import $ivy.`com.github.fommil.netlib:all:1.1.2`
-import $ivy.`org.apache.spark::spark-core:2.4.4`
-import $ivy.`org.apache.spark::spark-mllib:2.4.4`
-import $ivy.`org.apache.spark::spark-sql:2.4.4`
-import $ivy.`com.github.pathikrit::better-files:3.8.0`
-import $ivy.`sh.almond::ammonite-spark:0.7.0`
+
 import org.apache.spark.SparkConf
 import com.typesafe.scalalogging.LazyLogging
 import org.apache.spark.sql.functions._
