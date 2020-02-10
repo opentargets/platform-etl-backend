@@ -1,13 +1,12 @@
 import $file.common
 import common._
-
 import $ivy.`ch.qos.logback:logback-classic:1.2.3`
 import $ivy.`com.typesafe.scala-logging::scala-logging:3.9.2`
 import $ivy.`com.typesafe:config:1.4.0`
 import $ivy.`com.github.fommil.netlib:all:1.1.2`
-import $ivy.`org.apache.spark::spark-core:2.4.3`
-import $ivy.`org.apache.spark::spark-mllib:2.4.3`
-import $ivy.`org.apache.spark::spark-sql:2.4.3`
+import $ivy.`org.apache.spark::spark-core:2.4.4`
+import $ivy.`org.apache.spark::spark-mllib:2.4.4`
+import $ivy.`org.apache.spark::spark-sql:2.4.4`
 import $ivy.`com.github.pathikrit::better-files:3.8.0`
 import $ivy.`sh.almond::ammonite-spark:0.7.0`
 import com.typesafe.config.Config
@@ -16,6 +15,7 @@ import org.apache.spark.SparkConf
 import org.apache.spark.sql._
 import org.apache.spark.sql.types._
 import org.apache.spark.sql.functions._
+import org.apache.spark.storage.StorageLevel
 
 object Transformers {
   val searchFields = Seq(
@@ -30,6 +30,50 @@ object Transformers {
     "terms",
     "multiplier"
   )
+
+  def processDiseases(efos: DataFrame): DataFrame = {
+    val efosDF = efos
+      .withColumn("disease_id", substring_index(col("code"), "/", -1))
+      .withColumn("ancestors", flatten(col("path_codes")))
+
+    // compute descendants
+    val descendants = efosDF
+      .where(size(col("ancestors")) > 0)
+      .withColumn("ancestor", explode(col("ancestors")))
+      // all diseases have an ancestor, at least itself
+      .groupBy("ancestor")
+      .agg(collect_set(col("disease_id")).as("descendants"))
+      .withColumnRenamed("ancestor", "disease_id")
+
+    val diseases = efos.join(descendants, Seq("disease_id"))
+    diseases
+  }
+
+  def processTargets(genes: DataFrame): DataFrame = {
+    val targets = genes
+      .withColumnRenamed("id", "target_id")
+    targets
+  }
+
+  def findAssociationsWithDrugs(evidence: DataFrame, efos: DataFrame): DataFrame = {
+    val ancestors = efos.select("disease_id", "ancestors")
+    evidence
+      .filter(col("drug.id").isNotNull)
+      .withColumn("drug_id", substring_index(col("drug_id"), "/", -1))
+      .selectExpr(
+        "drug_id",
+        "target.id as target_id",
+        "disease.id as disease_id"
+      )
+      .join(ancestors, Seq("disease_id"), "left_outer")
+      .withColumn("ancestor_id", explode(col("ancestors")))
+      .withColumn("association_id",
+        concat_ws("-", col("target_id"), col("ancestor_id")))
+      .groupBy(col("association_id"))
+      .agg(collect_set(col("drug_id")).as("drug_ids"),
+        first(col("target_id")).as("target_id"),
+        first(col("ancestor_id")).as("disease_id"))
+  }
 
   implicit class Implicits(val df: DataFrame) {
 
@@ -115,19 +159,52 @@ object Transformers {
         .selectExpr(searchFields: _*)
     }
 
-    def setIdAndSelectFromDrugs(evidences: DataFrame): DataFrame = {
-      // TODO include disease and target information into the terms field
+    def setIdAndSelectFromDrugs(associatedDrugs: DataFrame, targets: DataFrame, diseases: DataFrame): DataFrame = {
+      val tluts = targets
+        .withColumn("labels", concat(
+          col("symbol_synonyms"),
+          col("name_synonyms"),
+          array(col("approved_name")),
+          array(col("approved_symbol"))
+        ))
+        .select("target_id", "labels")
+        .join(associatedDrugs.withColumn("target_id", explode(col("target_ids"))),
+          Seq("target_id"), "inner")
+        .groupBy(col("drug_id"))
+        .agg(flatten(collect_list(col("labels"))).as("target_labels"))
 
-      df.withColumn("descriptions", col("mechanisms_of_action.description"))
+      val dluts = diseases
+        .withColumn("phenotype_labels",
+          expr("transform(phenotypes, f -> f.label)"))
+        .withColumn("labels", concat(
+          array(col("label")),
+          col("efo_synonyms"),
+          col("phenotype_labels")
+        ))
+        .select("disease_id", "labels")
+        .join(associatedDrugs.withColumn("disease_id", explode(col("disease_ids"))),
+          Seq("disease_id"), "inner")
+        .groupBy(col("drug_id"))
+        .agg(flatten(collect_list(col("labels"))).as("disease_labels"))
+
+      val drugEnrichedWithLabels = tluts.join(dluts, Seq("drug_id"), "full_outer")
+        .orderBy(col("drug_id"))
+
+      val drugs = df
+        .join(associatedDrugs, col("id") === col("drug_id"), "left_outer")
+        .na.fill(Map(
+          "target_ids" -> Array.empty[String],
+          "disease_ids" -> Array.empty[String],
+          "drug_relevance" -> lit(0.01D)
+        ))
+        .withColumn("descriptions", col("mechanisms_of_action.description"))
         .withColumn(
           "keywords",
-          flatten(
-            array(
-              col("synonyms"),
-              col("child_chembl_ids"),
-              col("trade_names"),
-              array(col("pref_name"), col("id"))
-            )
+          concat(
+            col("synonyms"),
+            col("child_chembl_ids"),
+            col("trade_names"),
+            array(col("pref_name"), col("id"))
           )
         )
         .withColumn(
@@ -154,12 +231,24 @@ object Transformers {
         .withColumn("category", array(col("type")))
         .withColumn("name", col("pref_name"))
         .withColumn("description", lit(null))
-        .join(evidences, col("id") === col("drug_id"), "left_outer")
+        .withColumn("multiplier", log1p(col("drug_relevance")) + lit(1.0D))
+
+        .join(broadcast(drugEnrichedWithLabels), Seq("drug_id"), "left_outer")
+        .na.fill(Map(
+          "target_labels" -> Array.empty[String],
+          "disease_labels" -> Array.empty[String]
+        ))
         .withColumn(
-          "multiplier",
-          when(col("field_factor").isNull, lit(0.01))
-            .otherwise(log1p(col("field_factor")) + lit(1.0))
+          "terms",
+          flatten(
+            concat(
+              col("disease_labels"),
+              col("target_labels")
+            )
+          )
         )
+
+      drugs
         .selectExpr(searchFields: _*)
     }
 
@@ -407,12 +496,47 @@ object Search extends LazyLogging {
       "disease" -> common.inputs.disease,
       "drug" -> common.inputs.drug,
       "evidence" -> common.inputs.evidence,
-      "target" -> common.inputs.target
+      "target" -> common.inputs.target,
+      "association" -> common.inputs.association
     )
 
     val inputDataFrame = SparkSessionWrapper.loader(mappedInputs)
 
-    val diseases = inputDataFrame("disease").withColumn("id", substring_index(col("code"), "/", -1))
+    // get diseases and compute ancestors and descendants
+    val diseases = Transformers.processDiseases(inputDataFrame("disease"))
+      .orderBy(col("disease_id"))
+      .persist(StorageLevel.DISK_ONLY)
+
+    // get associations just id and score
+    val associationScores = inputDataFrame("association")
+      .selectExpr(
+        "harmonic_sum.overall as score",
+        "id as association_id")
+      .orderBy(col("association_id"))
+      .persist(StorageLevel.DISK_ONLY)
+
+    // get all associations computed through evidences and indirect diseases too
+    val associationsWithDrugsFromEvidences =
+      Transformers.findAssociationsWithDrugs(inputDataFrame("evidence"), diseases)
+      .persist(StorageLevel.DISK_ONLY)
+
+    val totalAssociations = associationScores.count()
+    val totalAssociationsWithDrugs = associationsWithDrugsFromEvidences.count()
+
+    // associations with at least 1 drug and the overall score per association. It also contains
+    // collected drugs coming from evidences
+    val associationsWithDrugs = associationsWithDrugsFromEvidences
+      .join(associationScores, Seq("association_id"), "inner")
+      .withColumn("drug_id", explode(col("drug_ids")))
+      .groupBy(col("drug_id"))
+      .agg(collect_set(col("target_id")).as("target_ids"),
+        collect_set("disease_id").as("disease_ids"),
+        mean(col("score")).as("mean_score"),
+        (count(col("association_id")).cast(DoubleType) / lit(totalAssociationsWithDrugs.toDouble)).as("drug_relevance"))
+
+    val searchDrugs = inputDataFrame("drug").setIdAndSelectFromDrugs(associationsWithDrugs)
+//      inputDataFrame("evidence").aggreateEvidencesByTDDrug.termAndRelevanceFromEvidencePairsByDrug
+//    )
 
     val evsAggregatedByTD = inputDataFrame("evidence").aggreateEvidencesByTD.persist
 
@@ -421,10 +545,6 @@ object Search extends LazyLogging {
 
     val searchTargets = inputDataFrame("target")
       .setIdAndSelectFromTargets(evsAggregatedByTD.termAndRelevanceFromEvidencePairsByTarget)
-
-    val searchDrugs = inputDataFrame("drug").setIdAndSelectFromDrugs(
-      inputDataFrame("evidence").aggreateEvidencesByTDDrug.termAndRelevanceFromEvidencePairsByDrug
-    )
 
     searchTargets.write.mode(SaveMode.Overwrite).json(common.output + "/search_targets/")
     searchDiseases.write.mode(SaveMode.Overwrite).json(common.output + "/search_diseases/")
