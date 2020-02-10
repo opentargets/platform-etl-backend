@@ -22,10 +22,6 @@ import evidenceProteinFix._
 
 import $file.backend.search
 import search._
-import $ivy.`com.typesafe:config:1.4.0`
-import $ivy.`ch.qos.logback:logback-classic:1.2.3`
-import $ivy.`com.typesafe.scala-logging::scala-logging:3.9.2`
-import $ivy.`com.typesafe:config:1.4.0`
 
 import com.typesafe.scalalogging.LazyLogging
 
