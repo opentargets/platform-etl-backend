@@ -19,6 +19,16 @@ import com.typesafe.config.{Config, ConfigFactory, ConfigObject, ConfigRenderOpt
 
 import play.api.libs.json.{Json, Reads}
 
+object ColumnFunctions extends LazyLogging {
+  def flattenCat(colNames: String*): Column = {
+    val cols = colNames.mkString(",")
+    expr(
+      s"""array_distinct(
+        |flatten(filter(array($cols), x -> isnotnull(x))
+        |))""".stripMargin)
+  }
+}
+
 object Configuration extends LazyLogging {
   case class DataSource(id: String, weight: Double, dataType: String, propagate: Boolean)
   case class AssociationsSection(
