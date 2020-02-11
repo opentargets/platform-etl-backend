@@ -51,14 +51,23 @@ object DrugHelpers {
 
       val mechanismsOfAction =
         """
-          |struct(
+          |if(number_of_mechanisms_of_action > 0,struct(
           |  transform(mechanisms_of_action, m -> struct(m.description as mechanismOfAction,
           |    m.target_name as targetName,
           |    m.references as references,
           |    ifnull(array_distinct(
           |      transform(m.target_components, t -> t.ensembl)), array()) as targets)) as rows,
           |  array_distinct(transform(mechanisms_of_action, x -> x.action_type)) as uniqueActionTypes,
-          |  array_distinct(transform(mechanisms_of_action, x -> x.target_type)) as uniqueTargetTypes) as mechanismsOfAction
+          |  array_distinct(transform(mechanisms_of_action, x -> x.target_type)) as uniqueTargetTypes), null) as mechanismsOfAction
+          |""".stripMargin
+
+      val indications =
+        """
+          |if(number_of_indications > 0,struct(
+          |  transform(indications, m -> struct(m.efo_id as disease,
+          |    m.max_phase_for_indication as maxPhaseForIndication,
+          |    m.references as references)) as rows,
+          |  number_of_indications as count), null) as indications
           |""".stripMargin
 
       df.join(
@@ -80,7 +89,7 @@ object DrugHelpers {
             )
           )
         )
-        .selectExpr(selectExpression ++ Seq(mechanismsOfAction): _*)
+        .selectExpr(selectExpression ++ Seq(mechanismsOfAction, indications): _*)
     }
   }
 }
