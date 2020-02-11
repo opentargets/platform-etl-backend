@@ -1,6 +1,15 @@
 import $file.common
 import common._
 
+import $ivy.`ch.qos.logback:logback-classic:1.2.3`
+import $ivy.`com.typesafe.scala-logging::scala-logging:3.9.2`
+import $ivy.`com.typesafe:config:1.4.0`
+import $ivy.`com.github.fommil.netlib:all:1.1.2`
+import $ivy.`org.apache.spark::spark-core:2.4.3`
+import $ivy.`org.apache.spark::spark-mllib:2.4.3`
+import $ivy.`org.apache.spark::spark-sql:2.4.3`
+import $ivy.`com.github.pathikrit::better-files:3.8.0`
+import $ivy.`sh.almond::ammonite-spark:0.7.0`
 import org.apache.spark.SparkConf
 import com.typesafe.scalalogging.LazyLogging
 import org.apache.spark.sql.functions._
@@ -13,6 +22,39 @@ object CancerBiomarkersHelpers {
   implicit class AggregationHelpers(df: DataFrame)(implicit ss: SparkSession) {
     import Configuration._
     import ss.implicits._
+
+    def getBiomarkerIndex(dfTargetBio: DataFrame): DataFrame = {
+      val dfTargetsIds = dfTargetBio
+        .select(col("id"), col("cancerBiomarkersDetails.biomarker"))
+        .filter(col("cancerBiomarkersDetails.biomarker").isNotNull)
+        .withColumn("biomarkerId", explode(col("biomarker")))
+        .groupBy("biomarkerId")
+        .agg(collect_set("id").as("targets"))
+
+      val dfDiseasesIds = dfTargetBio
+        .withColumn(
+          "cancerBiomarkersDetails",
+          when(
+            size(col("cancerBiomarkersDetails")) > 0,
+            expr(
+              "transform(cancerBiomarkersDetails, bioRow -> named_struct('biomarkerId', bioRow.biomarker,'diseases', bioRow.diseases))"
+            )
+          )
+        )
+        .withColumn("details", explode(col("cancerBiomarkersDetails")))
+        .select("details")
+        .groupBy(col("details.biomarkerId"))
+        .agg(collect_set("details.diseases").as("diseasesNested"))
+        .withColumn("diseases", flatten(col("diseasesNested")))
+        .drop("diseasesNested")
+
+      val dfBiomarkers = dfTargetsIds
+        .join(dfDiseasesIds, Seq("biomarkerId"), "inner")
+        .withColumnRenamed("biomarkerId", "id")
+
+      dfBiomarkers
+
+    }
 
     def setIdAndCancerBiomarkers: DataFrame = {
       val selectExpressions = Seq(
@@ -75,9 +117,12 @@ object CancerBiomarkers extends LazyLogging {
     val mappedInputs = Map("target" -> common.inputs.target)
     val inputDataFrame = SparkSessionWrapper.loader(mappedInputs)
 
-    val cancerBioDF = inputDataFrame("target").setIdAndCancerBiomarkers
+    val targetBiomarkersDf = inputDataFrame("target").setIdAndCancerBiomarkers
 
-    SparkSessionWrapper.save(cancerBioDF, common.output + "/cancerBiomarkers")
+    val biomarkersDf = inputDataFrame("target").getBiomarkerIndex(targetBiomarkersDf)
+
+    SparkSessionWrapper.save(targetBiomarkersDf, common.output + "/target_cancerBiomarkers")
+    SparkSessionWrapper.save(biomarkersDf, common.output + "/cancerBiomarkers")
 
   }
 }
