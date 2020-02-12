@@ -23,7 +23,7 @@ object CancerBiomarkersHelpers {
 
       val dfBiomarkersInput = df.selectExpr(selectExpressions: _*).withColumnRenamed("id", "target")
 
-      val dfExtractInfo = (dfBiomarkersInput
+      val dfExtractInfo = dfBiomarkersInput
         .withColumn(
           "cancerBiomarkersDetails",
           when(
@@ -34,7 +34,7 @@ object CancerBiomarkersHelpers {
           )
         )
         .withColumn("details", explode(col("cancerBiomarkersDetails")))
-        .drop("cancerBiomarkersDetails"))
+        .drop("cancerBiomarkersDetails")
         .groupBy(
           col("details.individualbiomarker"),
           col("details.biomarkerId"),
@@ -87,7 +87,6 @@ object CancerBiomarkersHelpers {
 }
 
 // This is option/step cancerbiomarkers in the config file
-// GENE ID with a subset of cases.
 object CancerBiomarkers extends LazyLogging {
   def apply(config: Config)(implicit ss: SparkSession) = {
     import ss.implicits._
