@@ -14,58 +14,79 @@ object CancerBiomarkersHelpers {
     import Configuration._
     import ss.implicits._
 
-    def setIdAndCancerBiomarkers: DataFrame = {
+    def getBiomarkerTargetDiseaseDrugEntity: DataFrame = {
+
       val selectExpressions = Seq(
         "id",
         "cancerbiomarkers as cancerBiomarkers"
       )
 
-      val dfBiomarkers = df
-        .selectExpr(selectExpressions: _*)
-        .withColumn(
-          "hasCancerBiomarkers",
-          when(size(col("cancerBiomarkers")) > 0, true).otherwise(false)
-        )
-        .withColumn("cancerBiomarkerEntries", explode_outer(col("cancerBiomarkers.biomarker")))
-        .distinct
-        .groupBy("id", "hasCancerBiomarkers", "cancerBiomarkers")
-        .agg(
-          expr(
-            "case when cancerBiomarkers is null then 0 else count(*) end as cancerBiomarkerCount"
-          )
-        )
+      val dfBiomarkersInput = df.selectExpr(selectExpressions: _*).withColumnRenamed("id", "target")
+
+      val dfExtractInfo = dfBiomarkersInput
         .withColumn(
           "cancerBiomarkersDetails",
           when(
             size(col("cancerBiomarkers")) > 0,
             expr(
-              "transform(cancerBiomarkers, cb -> named_struct('biomarker', cb.biomarker,'drugName',  cb.drugfullname,'associationType',cb.association, 'evidenceLevel', cb.evidencelevel,'diseases', cb.diseases.id, 'sources_other', cb.references.other, 'sources_pubmed', cb.references.pubmed))"
+              "transform(cancerBiomarkers, bioRow -> named_struct('individualbiomarker',bioRow.individualbiomarker,'biomarkerId', bioRow.biomarker,'diseases', bioRow.diseases,'drugName',bioRow.drugfullname,'associationType',bioRow.association, 'evidenceLevel', bioRow.evidencelevel,'sources_other', bioRow.references.other, 'sources_pubmed', bioRow.references.pubmed))"
             )
-          ).otherwise(null)
+          )
         )
-        .drop("cancerBiomarkers")
-        .withColumn(
-          "diseaseCount",
-          when(
-            col("hasCancerBiomarkers") === true,
-            size(array_distinct(flatten(col("cancerBiomarkersDetails.diseases"))))
-          ).otherwise(0)
+        .withColumn("details", explode(col("cancerBiomarkersDetails")))
+        .drop("cancerBiomarkersDetails")
+        .groupBy(
+          col("details.individualbiomarker"),
+          col("details.biomarkerId"),
+          col("details.drugName"),
+          col("details.associationType"),
+          col("details.evidenceLevel"),
+          col("details.sources_pubmed"),
+          col("details.sources_other"),
+          col("target")
         )
-        .withColumn(
-          "drugCount",
-          when(
-            col("hasCancerBiomarkers") === true,
-            size(array_distinct(col("cancerBiomarkersDetails.drugName")))
-          ).otherwise(0)
+        .agg(collect_list("details.diseases").as("diseasesNested"))
+        .withColumn("diseases", flatten(col("diseasesNested")))
+        .drop("diseasesNested")
+        .withColumn("disease", explode(col("diseases.id")))
+
+      /** The field individualbiomarker contains a specific fields if the biomarker id is a composed id.
+		  It is important to idenfity the unique identifier id.
+		  Below the id is the proper identifier
+		**/
+      val biomarkerIdentifier =
+        """
+          |case
+          |  when (individualbiomarker = '' or individualbiomarker = null) then biomarkerId
+          |  else individualbiomarker
+          |end as id
+          |""".stripMargin
+
+      val selectExpressionBiomarkers =
+        Seq(
+          "individualbiomarker",
+          "biomarkerId",
+          "drugName",
+          "target",
+          "disease",
+          "evidenceLevel",
+          "associationType",
+          "sources_pubmed",
+          "sources_other"
         )
 
+      val dfBiomarkers =
+        dfExtractInfo
+          .selectExpr(selectExpressionBiomarkers :+ biomarkerIdentifier: _*)
+          .drop("biomarkerId", "individualbiomarker")
+
       dfBiomarkers
+
     }
   }
 }
 
 // This is option/step cancerbiomarkers in the config file
-// GENE ID with a subset of cases.
 object CancerBiomarkers extends LazyLogging {
   def apply(config: Config)(implicit ss: SparkSession) = {
     import ss.implicits._
@@ -75,9 +96,7 @@ object CancerBiomarkers extends LazyLogging {
     val mappedInputs = Map("target" -> common.inputs.target)
     val inputDataFrame = SparkSessionWrapper.loader(mappedInputs)
 
-    val cancerBioDF = inputDataFrame("target").setIdAndCancerBiomarkers
-
-    SparkSessionWrapper.save(cancerBioDF, common.output + "/cancerBiomarkers")
-
+    val cancerBiomakerDf = inputDataFrame("target").getBiomarkerTargetDiseaseDrugEntity
+    SparkSessionWrapper.save(cancerBiomakerDf, common.output + "/cancerBiomarkers")
   }
 }
