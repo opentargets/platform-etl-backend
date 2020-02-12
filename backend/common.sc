@@ -54,7 +54,8 @@ object Configuration extends LazyLogging {
       disease: String,
       drug: String,
       evidence: String,
-      association: String
+      association: String,
+      ddr: String
   )
   implicit val inputsImp = Json.reads[Inputs]
 
