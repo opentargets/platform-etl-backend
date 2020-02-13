@@ -56,7 +56,7 @@ object EvidenceProteinFix extends LazyLogging {
         .orderBy($"accession".asc)
 
     val evsPre = dfs("evidences")
-      .withColumn("dataset", substring_index(substring_index(input_file_name(), ".", 1), "/", -1))
+      .withColumn("dataset", col("sourceID"))
       .repartition(ss.sparkContext.defaultParallelism * 3)
       .persist(StorageLevel.DISK_ONLY)
 
