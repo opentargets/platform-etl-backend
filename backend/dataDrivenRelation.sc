@@ -17,6 +17,7 @@ object DataDrivenRelationsHelpers {
     def getDataDrivenRelationgEntity: Map[String, DataFrame] = {
       val selectExpressions = (
         Seq(
+          "id",
           "type as typeRelation",
           "subject.id as A",
           "object.id as B",
