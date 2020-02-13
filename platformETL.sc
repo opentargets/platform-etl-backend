@@ -8,6 +8,8 @@ import $file.backend.drug
 import drug._
 import $file.backend.cancerBiomarkers
 import cancerBiomarkers._
+import $file.backend.dataDrivenRelation
+import dataDrivenRelation._
 import $file.backend.associations
 import associations._
 
@@ -59,6 +61,9 @@ object ETL extends LazyLogging {
       case "dailymed" =>
         logger.info("run step dailymed")
         Dailymed(otc)
+      case "ddr" =>
+        logger.info("run step dataDrivenRelation")
+        DataDrivenRelation(otc)
       case _ =>
         logger.error("Exit with error or ALL by defaul (?) ")
     }
