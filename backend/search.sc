@@ -87,7 +87,7 @@ object Transformers {
         .join(diseases, Seq("disease_id"), "inner")
         .groupBy(col("target_id"))
         .agg(array_distinct(flatten(collect_list(col("disease_labels")))).as("disease_labels"),
-             count(col("id")).as("evs_count"))
+             count(col("association_id")).as("evs_count"))
         .withColumn("target_relevance", col("evs_count") / lit(associationCounts))
 
       val drugsByTarget = associatedDrugs
@@ -162,7 +162,7 @@ object Transformers {
         .join(targets, Seq("target_id"), "inner")
         .groupBy(col("disease_id"))
         .agg(array_distinct(flatten(collect_list(col("target_labels")))).as("target_labels"),
-             count(col("id")).as("evs_count"))
+             count(col("association_id")).as("evs_count"))
         .withColumn("disease_relevance", col("evs_count") / lit(associationCounts))
 
       val drugsByDisease = associatedDrugs
