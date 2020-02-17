@@ -325,6 +325,7 @@ object Search extends LazyLogging {
       .orderBy(col("target_id"))
       .persist(StorageLevel.DISK_ONLY)
 
+    logger.info("process drugs and persist")
     val drugs = Transformers
       .processDrugs(inputDataFrame("drug"))
       .orderBy(col("drug_id"))
@@ -343,19 +344,20 @@ object Search extends LazyLogging {
       .persist(StorageLevel.DISK_ONLY)
 
     val drLUT = drugs
+      .withColumn("descriptions", col("mechanisms_of_action.description"))
       .withColumn("drug_labels",
                   C.flattenCat(
-                    "symbol_synonyms",
-                    "name_synonyms",
-                    "array(approved_name)",
-                    "array(approved_symbol)"
+                    "synonyms",
+                    "trade_names",
+                    "array(pref_name)",
+                    "descriptions"
                   ))
       .select("drug_id", "drug_labels")
       .orderBy("drug_id")
       .persist(StorageLevel.DISK_ONLY)
 
     val tLUT = targets
-      .withColumn("labels",
+      .withColumn("target_labels",
                   C.flattenCat(
                     "symbol_synonyms",
                     "name_synonyms",
