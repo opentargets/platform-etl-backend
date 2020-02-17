@@ -177,7 +177,8 @@ object Transformers {
       val assocsWithLabels = assocsByDisease
         .join(drugsByDisease, Seq("disease_id"), "full_outer")
 
-      df.join(assocsWithLabels, Seq("disease_id"), "left_outer")
+      df.withColumn("phenotype_labels", expr("transform(phenotypes, f -> f.label)"))
+        .join(assocsWithLabels, Seq("disease_id"), "left_outer")
         .withColumn("target_labels",
                     when(col("target_labels").isNull, Array.empty[String])
                       .otherwise(col("target_labels")))
@@ -199,7 +200,8 @@ object Transformers {
         .withColumn("ngrams",
                     C.flattenCat(
                       "array(label)",
-                      "efo_synonyms"
+                      "efo_synonyms",
+                      "phenotype_labels"
                     ))
         .withColumn("terms",
                     C.flattenCat(
@@ -332,12 +334,11 @@ object Search extends LazyLogging {
       .persist(StorageLevel.DISK_ONLY)
 
     val dLUT = diseases
-      .withColumn("phenotype_labels", expr("transform(phenotypes, f -> f.label)"))
+//      .withColumn("phenotype_labels", expr("transform(phenotypes, f -> f.label)"))
       .withColumn("disease_labels",
                   C.flattenCat(
                     "array(label)",
-                    "efo_synonyms",
-                    "phenotype_labels"
+                    "efo_synonyms"
                   ))
       .select("disease_id", "disease_labels")
       .orderBy("disease_id")

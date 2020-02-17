@@ -26,6 +26,7 @@
   "settings": {
     "index": {
       "number_of_replicas": 0,
+      "number_of_shards": 4,
       "analysis": {
         "normalizer": {
           "custom": {
