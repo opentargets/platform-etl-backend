@@ -81,8 +81,41 @@ object Transformers {
     def setIdAndSelectFromTargets(associations: DataFrame,
                                   associatedDrugs: DataFrame,
                                   diseases: DataFrame,
-                                  drugs: DataFrame): DataFrame = {
-      df.withColumnRenamed("target_id", "id")
+                                  drugs: DataFrame,
+                                  associationCounts: Long): DataFrame = {
+
+      val assocsByTarget = associations
+        .join(diseases, Seq("disease_id"), "inner")
+        .groupBy(col("target_id"))
+        .agg(array_distinct(
+          flatten(
+            collect_list(col("disease_labels")))).as("disease_labels"),
+          count(col("id")).as("evs_count"))
+        .withColumn("target_relevance", col("evs_count") / lit(associationCounts))
+
+      val drugsByTarget = associatedDrugs
+        .join(drugs, Seq("drug_id"), "inner")
+        .groupBy(col("target_id"))
+        .agg(array_distinct(
+          flatten(
+            collect_list(col("drug_labels")))).as("drug_labels"))
+
+      /*
+        comute per target all labels from associated diseases and drugs through
+        associations
+       */
+      val assocsWithLabels = assocsByTarget
+        .join(drugsByTarget, Seq("target_id"), "full_outer")
+
+      df.join(assocsWithLabels, Seq("target_id"), "left_outer")
+        .na.fill(0.01D, Seq("target_relevance"))
+        .withColumn("disease_labels",
+          when(col("disease_labels").isNull, Array.empty[String])
+            .otherwise(col("disease_labels")))
+        .withColumn("drug_labels",
+          when(col("drug_labels").isNull, Array.empty[String])
+            .otherwise(col("drug_labels")))
+        .withColumnRenamed("target_id", "id")
         .withColumn(
           "keywords",
         C.flattenCat(
@@ -111,16 +144,17 @@ object Transformers {
             "array(approved_name)",
             "array(approved_symbol)"
           ))
+        .withColumn(
+          "terms",
+          C.flattenCat(
+            "disease_labels",
+            "drug_labels"
+          ))
         .withColumn("entity", lit("target"))
         .withColumn("category", array(col("biotype")))
         .withColumn("name", col("approved_symbol"))
         .withColumn("description", col("approved_name"))
-        .join(evidences, col("id") === col("target_id"), "left_outer")
-        .withColumn(
-          "multiplier",
-          when(col("field_factor").isNull, lit(0.01))
-            .otherwise(log1p(col("field_factor")) + lit(1.0))
-        )
+        .withColumn("multiplier", log1p(col("target_relevance")) + lit(1.0D))
         .selectExpr(searchFields: _*)
     }
 
@@ -155,33 +189,16 @@ object Transformers {
 
     def setIdAndSelectFromDrugs(associatedDrugs: DataFrame, targets: DataFrame, diseases: DataFrame): DataFrame = {
       val tluts = targets
-        .withColumn("labels",
-          C.flattenCat(
-            "symbol_synonyms",
-            "name_synonyms",
-            "array(approved_name)",
-            "array(approved_symbol)"
-          ))
-        .select("target_id", "labels")
         .join(associatedDrugs.withColumn("target_id", explode(col("target_ids"))),
           Seq("target_id"), "inner")
         .groupBy(col("drug_id"))
-        .agg(flatten(collect_list(col("labels"))).as("target_labels"))
+        .agg(flatten(collect_list(col("target_labels"))).as("target_labels"))
 
       val dluts = diseases
-        .withColumn("phenotype_labels",
-          expr("transform(phenotypes, f -> f.label)"))
-        .withColumn("labels",
-          C.flattenCat(
-            "array(label)",
-            "efo_synonyms",
-            "phenotype_labels"
-          ))
-        .select("disease_id", "labels")
         .join(associatedDrugs.withColumn("disease_id", explode(col("disease_ids"))),
           Seq("disease_id"), "inner")
         .groupBy(col("drug_id"))
-        .agg(flatten(collect_list(col("labels"))).as("disease_labels"))
+        .agg(flatten(collect_list(col("disease_labels"))).as("disease_labels"))
 
       val drugEnrichedWithLabels = tluts.join(dluts, Seq("drug_id"), "full_outer")
         .orderBy(col("drug_id"))
@@ -465,6 +482,43 @@ object Search extends LazyLogging {
       .orderBy(col("drug_id"))
       .persist(StorageLevel.DISK_ONLY)
 
+    val dLUT = diseases
+      .withColumn("phenotype_labels",
+        expr("transform(phenotypes, f -> f.label)"))
+      .withColumn("disease_labels",
+        C.flattenCat(
+          "array(label)",
+          "efo_synonyms",
+          "phenotype_labels"
+        ))
+      .select("disease_id", "disease_labels")
+      .orderBy("disease_id")
+      .persist(StorageLevel.DISK_ONLY)
+
+    val drLUT = drugs
+      .withColumn("drug_labels",
+        C.flattenCat(
+          "symbol_synonyms",
+          "name_synonyms",
+          "array(approved_name)",
+          "array(approved_symbol)"
+        ))
+      .select("drug_id", "drug_labels")
+      .orderBy("drug_id")
+      .persist(StorageLevel.DISK_ONLY)
+
+    val tLUT = targets
+      .withColumn("labels",
+        C.flattenCat(
+          "symbol_synonyms",
+          "name_synonyms",
+          "array(approved_name)",
+          "array(approved_symbol)"
+        ))
+      .select("target_id", "target_labels")
+      .orderBy("target_id")
+      .persist(StorageLevel.DISK_ONLY)
+
     val associationColumns = Seq(
       "association_id",
       "target_id",
@@ -493,6 +547,7 @@ object Search extends LazyLogging {
 
     val drugColumns = Seq(
       "association_id",
+      "drug_id",
       "drug_ids",
       "target_id",
       "disease_id",
@@ -520,7 +575,7 @@ object Search extends LazyLogging {
     logger.info("generate search objects for drug entity")
     val searchDrugs = drugs
       .withColumnRenamed("drug_id", "id")
-      .setIdAndSelectFromDrugs(associationsWithDrugs, targets, diseases)
+      .setIdAndSelectFromDrugs(associationsWithDrugs, tLUT, dLUT)
 
 //    val evsAggregatedByTD = inputDataFrame("evidence").aggreateEvidencesByTD.persist
 
@@ -529,7 +584,7 @@ object Search extends LazyLogging {
 //
     val searchTargets = targets
       .setIdAndSelectFromTargets(associationScores, associationsWithDrugsFromEvidencesWithScores,
-        diseases, drugs)
+        dLUT, drLUT, totalAssociations)
 
 //    searchDiseases.write.mode(SaveMode.Overwrite).json(common.output + "/search_diseases/")
     logger.info("save search drug entity")
