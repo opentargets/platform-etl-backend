@@ -146,7 +146,7 @@ object Transformers {
         .withColumn("category", array(col("biotype")))
         .withColumn("name", col("approved_symbol"))
         .withColumn("description", col("approved_name"))
-        .withColumn("multiplier", when(col("target_relevance"),
+        .withColumn("multiplier", when(col("target_relevance").isNotNull,
           log1p(col("target_relevance")) + lit(1.0D))
         .otherwise(0.01D))
         .selectExpr(searchFields: _*)
