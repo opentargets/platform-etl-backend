@@ -103,8 +103,6 @@ object Transformers {
         .join(drugsByTarget, Seq("target_id"), "full_outer")
 
       df.join(assocsWithLabels, Seq("target_id"), "left_outer")
-        .na
-        .fill(0.01D, Seq("target_relevance"))
         .withColumn("disease_labels",
                     when(col("disease_labels").isNull, Array.empty[String])
                       .otherwise(col("disease_labels")))
@@ -148,7 +146,9 @@ object Transformers {
         .withColumn("category", array(col("biotype")))
         .withColumn("name", col("approved_symbol"))
         .withColumn("description", col("approved_name"))
-        .withColumn("multiplier", log1p(col("target_relevance")) + lit(1.0D))
+        .withColumn("multiplier", when(col("target_relevance"),
+          log1p(col("target_relevance")) + lit(1.0D))
+        .otherwise(0.01D))
         .selectExpr(searchFields: _*)
     }
 
@@ -178,8 +178,6 @@ object Transformers {
         .join(drugsByDisease, Seq("disease_id"), "full_outer")
 
       df.join(assocsWithLabels, Seq("disease_id"), "left_outer")
-        .na
-        .fill(0.01D, Seq("disease_relevance"))
         .withColumn("target_labels",
                     when(col("target_labels").isNull, Array.empty[String])
                       .otherwise(col("target_labels")))
@@ -214,7 +212,9 @@ object Transformers {
         .withColumn("description",
                     when(length(col("definition")) === 0, lit(null))
                       .otherwise(col("definition")))
-        .withColumn("multiplier", log1p(col("disease_relevance")) + lit(1.0D))
+        .withColumn("multiplier", when(col("disease_relevance").isNotNull,
+          log1p(col("disease_relevance")) + lit(1.0D))
+          .otherwise(0.01D))
         .selectExpr(searchFields: _*)
     }
 
@@ -241,8 +241,6 @@ object Transformers {
 
       val drugs = df
         .join(associatedDrugs, col("id") === col("drug_id"), "left_outer")
-        .na
-        .fill(0.01D, Seq("drug_relevance"))
         .withColumn("target_ids",
                     when(col("target_ids").isNull, Array.empty[String])
                       .otherwise(col("target_ids")))
@@ -275,7 +273,9 @@ object Transformers {
         .withColumn("category", array(col("type")))
         .withColumn("name", col("pref_name"))
         .withColumn("description", lit(null))
-        .withColumn("multiplier", log1p(col("drug_relevance")) + lit(1.0D))
+        .withColumn("multiplier", when(col("drug_relevance").isNotNull,
+          log1p(col("drug_relevance")) + lit(1.0D))
+          .otherwise(0.01D))
         .join(broadcast(drugEnrichedWithLabels), Seq("drug_id"), "left_outer")
         .withColumn("target_labels",
                     when(col("target_labels").isNull, Array.empty[String])
