@@ -22,6 +22,8 @@ object Transformers {
     "prefixes",
     "ngrams",
     "terms",
+    "terms25",
+    "terms5",
     "multiplier"
   )
 
@@ -90,42 +92,35 @@ object Transformers {
                                   drugs: DataFrame,
                                   associationCounts: Long): DataFrame = {
 
-      /* computed just with indirect and counts */
-//      val assocsByTarget = associations
-//        .join(diseases, Seq("disease_id"), "inner")
-//        .groupBy(col("target_id"))
-//        .agg(array_distinct(flatten(collect_list(col("disease_labels")))).as("disease_labels"),
-//             count(col("association_id")).as("evs_count"))
-//        .withColumn("target_relevance", col("evs_count") / lit(associationCounts))
-
-      /* computed using indirect but top 50 and using scores */
-      //window = Window.partitionBy(df['user_id']).orderBy(df['score'].desc())
-      //
-      //df.select('*', rank().over(window).alias('rank'))
-      //  .filter(col('rank') <= 2)
-      //  .show()
-
-      val top50 = 50L
-      val window = Window.partitionBy(col("target_id")).orderBy(col("score").desc)
-      val assocsByTarget = associations
-        .withColumn("rank", rank().over(window))
-        .where(col("rank") <= top50)
-        .join(diseases, Seq("disease_id"), "inner")
-        .groupBy(col("target_id"))
-        .agg(array_distinct(flatten(collect_list(col("disease_labels")))).as("disease_labels"),
-          mean(col("score")).as("target_relevance"))
-
       val drugsByTarget = associatedDrugs
         .join(drugs, Seq("drug_id"), "inner")
-        .groupBy(col("target_id"))
+        .groupBy(col("association_id"))
         .agg(array_distinct(flatten(collect_list(col("drug_labels")))).as("drug_labels"))
+
 
       /*
         comute per target all labels from associated diseases and drugs through
         associations
        */
-      val assocsWithLabels = assocsByTarget
-        .join(drugsByTarget, Seq("target_id"), "full_outer")
+      val top50 = 50L
+      val top25 = 25L
+      val top5 = 5L
+      val window = Window.partitionBy(col("target_id")).orderBy(col("score").desc)
+      val assocsWithLabels = associations
+        .join(drugsByTarget, Seq("association_id"), "left_outer")
+        .withColumn("rank", rank().over(window))
+        .where(col("rank") <= top50)
+        .join(diseases, Seq("disease_id"), "inner")
+        .groupBy(col("target_id"))
+        .agg(
+          array_distinct(flatten(collect_list(col("disease_labels")))).as("disease_labels"),
+          array_distinct(flatten(collect_list(when (col("rank") <= top25, col("disease_labels"))))).as("disease_labels_25"),
+          array_distinct(flatten(collect_list(when(col("rank") <= top5, col("disease_labels"))))).as("disease_labels_5"),
+          array_distinct(flatten(collect_list(col("drug_labels")))).as("drug_labels"),
+          array_distinct(flatten(collect_list(when (col("rank") <= top25, col("drug_labels"))))).as("drug_labels_25"),
+          array_distinct(flatten(collect_list(when(col("rank") <= top5, col("drug_labels"))))).as("drug_labels_5"),
+          mean(col("score")).as("target_relevance")
+        )
 
       df.join(assocsWithLabels, Seq("target_id"), "left_outer")
         .withColumn("disease_labels",
@@ -134,6 +129,18 @@ object Transformers {
         .withColumn("drug_labels",
                     when(col("drug_labels").isNull, Array.empty[String])
                       .otherwise(col("drug_labels")))
+        .withColumn("disease_labels_5",
+                    when(col("disease_labels_5").isNull, Array.empty[String])
+                      .otherwise(col("disease_labels_5")))
+        .withColumn("drug_labels_5",
+                    when(col("drug_labels_5").isNull, Array.empty[String])
+                      .otherwise(col("drug_labels_5")))
+        .withColumn("disease_labels_25",
+                    when(col("disease_labels_25").isNull, Array.empty[String])
+                      .otherwise(col("disease_labels_25")))
+        .withColumn("drug_labels_25",
+                    when(col("drug_labels_25").isNull, Array.empty[String])
+                      .otherwise(col("drug_labels_25")))
         .withColumnRenamed("target_id", "id")
         .withColumn(
           "keywords",
@@ -167,6 +174,16 @@ object Transformers {
                       "disease_labels",
                       "drug_labels"
                     ))
+.withColumn("terms25",
+                    C.flattenCat(
+                      "disease_labels_25",
+                      "drug_labels_25"
+                    ))
+.withColumn("terms5",
+                    C.flattenCat(
+                      "disease_labels_5",
+                      "drug_labels_5"
+                    ))
         .withColumn("entity", lit("target"))
         .withColumn("category", array(col("biotype")))
         .withColumn("name", col("approved_symbol"))
@@ -183,35 +200,35 @@ object Transformers {
                                    drugs: DataFrame,
                                    associationCounts: Long): DataFrame = {
 
-//      val assocsByDisease = associations
-//        .join(targets, Seq("target_id"), "inner")
-//        .groupBy(col("disease_id"))
-//        .agg(array_distinct(flatten(collect_list(col("target_labels")))).as("target_labels"),
-//             count(col("association_id")).as("evs_count"))
-//        .withColumn("disease_relevance", col("evs_count") / lit(associationCounts))
-
-      val top50 = 50L
-      val window = Window.partitionBy(col("disease_id")).orderBy(col("score").desc)
-
-      val assocsByDisease = associations
-        .withColumn("rank", rank().over(window))
-        .where(col("rank") <= top50)
-        .join(targets, Seq("target_id"), "inner")
-        .groupBy(col("disease_id"))
-        .agg(array_distinct(flatten(collect_list(col("target_labels")))).as("target_labels"),
-          mean(col("score")).as("disease_relevance"))
-
       val drugsByDisease = associatedDrugs
         .join(drugs, Seq("drug_id"), "inner")
-        .groupBy(col("disease_id"))
+        .groupBy(col("association_id"))
         .agg(array_distinct(flatten(collect_list(col("drug_labels")))).as("drug_labels"))
+
+      val top50 = 50L
+      val top25 = 25L
+      val top5 = 5L
+      val window = Window.partitionBy(col("disease_id")).orderBy(col("score").desc)
 
       /*
         comute per target all labels from associated diseases and drugs through
         associations
        */
-      val assocsWithLabels = assocsByDisease
-        .join(drugsByDisease, Seq("disease_id"), "full_outer")
+      val assocsWithLabels = associations
+        .join(drugsByDisease.drop("disease_id", "target_id"), Seq("association_id"), "full_outer")
+        .withColumn("rank", rank().over(window))
+        .where(col("rank") <= top50)
+        .join(targets, Seq("target_id"), "inner")
+        .groupBy(col("disease_id"))
+        .agg(
+          array_distinct(flatten(collect_list(col("target_labels")))).as("target_labels"),
+          array_distinct(flatten(collect_list(col("drug_labels")))).as("drug_labels"),
+          array_distinct(flatten(collect_list(when(col("rank") <= top25,col("target_labels"))))).as("target_labels_25"),
+          array_distinct(flatten(collect_list(when(col("rank") <= top25,col("drug_labels"))))).as("drug_labels_25"),
+          array_distinct(flatten(collect_list(when(col("rank") <= top5,col("target_labels"))))).as("target_labels_5"),
+          array_distinct(flatten(collect_list(when(col("rank") <= top5,col("drug_labels"))))).as("drug_labels_5"),
+          mean(col("score")).as("disease_relevance"))
+
 
       df.withColumn("phenotype_labels", expr("transform(phenotypes, f -> f.label)"))
         .join(assocsWithLabels, Seq("disease_id"), "left_outer")
@@ -243,6 +260,16 @@ object Transformers {
                     C.flattenCat(
                       "target_labels",
                       "drug_labels"
+                    ))
+        .withColumn("terms25",
+                    C.flattenCat(
+                      "target_labels_25",
+                      "drug_labels_25"
+                    ))
+        .withColumn("terms5",
+                    C.flattenCat(
+                      "target_labels_5",
+                      "drug_labels_5"
                     ))
         .withColumn("entity", lit("disease"))
         .withColumn("category", col("therapeutic_labels"))
@@ -321,6 +348,8 @@ object Transformers {
         .withColumn("disease_labels",
                     when(col("disease_labels").isNull, Array.empty[String])
                       .otherwise(col("disease_labels")))
+        .withColumn("terms25", lit(Array.empty[String]))
+        .withColumn("terms5", lit(Array.empty[String]))
         .withColumn("terms",
                     C.flattenCat(
                       "disease_labels",
