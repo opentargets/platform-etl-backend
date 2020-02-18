@@ -168,7 +168,7 @@ object AssociationsLLRHelpers {
         .withColumn(
           "datasource_llrs",
           expr(
-            "map_from_arrays(flatten(transform(datasource_llrs, x -> map_keys(x))), flatten(transform(datasource_llr, x -> map_values(x))))"
+            "map_from_arrays(flatten(transform(datasource_llrs, x -> map_keys(x))), flatten(transform(datasource_llrs, x -> map_values(x))))"
           )
         )
         .withColumn(
