@@ -23,7 +23,7 @@ object ColumnFunctions extends LazyLogging {
   def flattenCat(colNames: String*): Column = {
     val cols = colNames.mkString(",")
     expr(
-      s"""array_distinct(
+      s"""filter(array_distinct(
         | transform(
         |   flatten(
         |     filter(array($cols),
@@ -32,7 +32,8 @@ object ColumnFunctions extends LazyLogging {
         |   ),
         |   s -> replace(trim(s), ',', '')
         | )
-        |)""".stripMargin)
+        |),
+        |t -> isnotnull(t))""".stripMargin)
   }
 }
 
