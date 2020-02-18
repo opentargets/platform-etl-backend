@@ -12,6 +12,8 @@ import $file.backend.dataDrivenRelation
 import dataDrivenRelation._
 import $file.backend.associations
 import associations._
+import $file.backend.associationsLLR
+import associationsLLR._
 
 import $file.backend.clinicalTrials
 import clinicalTrials._
@@ -40,6 +42,9 @@ object ETL extends LazyLogging {
       case "associations" =>
         logger.info("run step associations")
         Associations(otc)
+      case "associationsLLR" =>
+        logger.info("run step associations-llr")
+        AssociationsLLR(otc)
       case "clinicalTrials" =>
         logger.info("run step clinicaltrials")
         ClinicalTrials(otc)
