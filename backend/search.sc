@@ -6,6 +6,7 @@ import com.typesafe.config.Config
 import com.typesafe.scalalogging.LazyLogging
 import org.apache.spark.SparkConf
 import org.apache.spark.sql._
+import org.apache.spark.sql.expressions._
 import org.apache.spark.sql.types._
 import org.apache.spark.sql.functions._
 import org.apache.spark.storage.StorageLevel
@@ -56,6 +57,9 @@ object Transformers {
     drugDF
   }
 
+  /** NOTE finding drugs from associations are computed just using direct assocs
+   *  otherwise drugs are spread traversing all efo tree.
+    */
   def findAssociationsWithDrugs(evidence: DataFrame, efos: DataFrame): DataFrame = {
     val ancestors = efos.select("disease_id", "ancestors")
     evidence
@@ -66,13 +70,16 @@ object Transformers {
         "target.id as target_id",
         "disease.id as disease_id"
       )
-      .join(ancestors, Seq("disease_id"), "left_outer")
-      .withColumn("ancestor_id", explode(col("ancestors")))
-      .withColumn("association_id", concat_ws("-", col("target_id"), col("ancestor_id")))
+//      .join(ancestors, Seq("disease_id"), "left_outer")
+//      .withColumn("ancestor_id", explode(col("ancestors")))
+//      .withColumn("association_id", concat_ws("-", col("target_id"), col("ancestor_id")))
+      .withColumn("association_id",
+        concat_ws("-", col("target_id"), col("disease_id")))
       .groupBy(col("association_id"))
       .agg(collect_set(col("drug_id")).as("drug_ids"),
            first(col("target_id")).as("target_id"),
-           first(col("ancestor_id")).as("disease_id"))
+//           first(col("ancestor_id")).as("disease_id"))
+           first(col("disease_id")).as("disease_id"))
   }
 
   implicit class Implicits(val df: DataFrame) {
@@ -83,12 +90,30 @@ object Transformers {
                                   drugs: DataFrame,
                                   associationCounts: Long): DataFrame = {
 
+      /* computed just with indirect and counts */
+//      val assocsByTarget = associations
+//        .join(diseases, Seq("disease_id"), "inner")
+//        .groupBy(col("target_id"))
+//        .agg(array_distinct(flatten(collect_list(col("disease_labels")))).as("disease_labels"),
+//             count(col("association_id")).as("evs_count"))
+//        .withColumn("target_relevance", col("evs_count") / lit(associationCounts))
+
+      /* computed using indirect but top 50 and using scores */
+      //window = Window.partitionBy(df['user_id']).orderBy(df['score'].desc())
+      //
+      //df.select('*', rank().over(window).alias('rank'))
+      //  .filter(col('rank') <= 2)
+      //  .show()
+
+      val top50 = 50L
+      val window = Window.partitionBy(col("target_id")).orderBy(col("score").desc)
       val assocsByTarget = associations
+        .withColumn("rank", rank().over(window))
+        .where(col("rank") <= top50)
         .join(diseases, Seq("disease_id"), "inner")
         .groupBy(col("target_id"))
         .agg(array_distinct(flatten(collect_list(col("disease_labels")))).as("disease_labels"),
-             count(col("association_id")).as("evs_count"))
-        .withColumn("target_relevance", col("evs_count") / lit(associationCounts))
+          mean(col("score")).as("target_relevance"))
 
       val drugsByTarget = associatedDrugs
         .join(drugs, Seq("drug_id"), "inner")
@@ -158,12 +183,23 @@ object Transformers {
                                    drugs: DataFrame,
                                    associationCounts: Long): DataFrame = {
 
+//      val assocsByDisease = associations
+//        .join(targets, Seq("target_id"), "inner")
+//        .groupBy(col("disease_id"))
+//        .agg(array_distinct(flatten(collect_list(col("target_labels")))).as("target_labels"),
+//             count(col("association_id")).as("evs_count"))
+//        .withColumn("disease_relevance", col("evs_count") / lit(associationCounts))
+
+      val top50 = 50L
+      val window = Window.partitionBy(col("disease_id")).orderBy(col("score").desc)
+
       val assocsByDisease = associations
+        .withColumn("rank", rank().over(window))
+        .where(col("rank") <= top50)
         .join(targets, Seq("target_id"), "inner")
         .groupBy(col("disease_id"))
         .agg(array_distinct(flatten(collect_list(col("target_labels")))).as("target_labels"),
-             count(col("association_id")).as("evs_count"))
-        .withColumn("disease_relevance", col("evs_count") / lit(associationCounts))
+          mean(col("score")).as("disease_relevance"))
 
       val drugsByDisease = associatedDrugs
         .join(drugs, Seq("drug_id"), "inner")

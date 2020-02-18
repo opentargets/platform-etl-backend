@@ -24,8 +24,15 @@ object ColumnFunctions extends LazyLogging {
     val cols = colNames.mkString(",")
     expr(
       s"""array_distinct(
-        |flatten(filter(array($cols), x -> isnotnull(x))
-        |))""".stripMargin)
+        | transform(
+        |   flatten(
+        |     filter(array($cols),
+        |       x -> isnotnull(x)
+        |     )
+        |   ),
+        |   s -> replace(trim(s), ',', '')
+        | )
+        |)""".stripMargin)
   }
 }
 
