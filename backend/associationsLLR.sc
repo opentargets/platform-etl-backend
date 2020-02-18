@@ -123,8 +123,8 @@ object AssociationsLLRHelpers {
           $"dataType"
         )
         .agg(
-          first($"target").as("target"),
-          first($"disease").as("disease"),
+          first($"target_id").as("target"),
+          first($"disease_id").as("disease"),
           collect_list($"datasource_llr").as("datasource_llrs"),
           collect_list($"datasource_score").as("datasource_scores")
         )
