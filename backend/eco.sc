@@ -17,7 +17,7 @@ object Eco extends LazyLogging {
     val common = Configuration.loadCommon(config)
     val mappedInputs = Map("eco" -> common.inputs.eco)
     val inputDataFrame = SparkSessionWrapper.loader(mappedInputs)
-    val ecoDF = inputDataFrame("eco")
+    val ecoDF = inputDataFrame("eco").withColumn("id", substring_index(col("code"), "/", -1))
 
     SparkSessionWrapper.save(ecoDF, common.output + "/eco")
 
