@@ -4,6 +4,10 @@ import $file.backend.disease
 import disease._
 import $file.backend.target
 import target._
+import $file.backend.reactome
+import reactome._
+import $file.backend.eco
+import eco._
 import $file.backend.drug
 import drug._
 import $file.backend.cancerBiomarkers
@@ -57,6 +61,12 @@ object ETL extends LazyLogging {
       case "target" =>
         logger.info("run step target")
         Target(otc)
+      case "rea" =>
+        logger.info("run step target")
+        Reactome(otc)
+      case "eco" =>
+        logger.info("run step eco")
+        Eco(otc)
       case "drug" =>
         logger.info("run step drug")
         Drug(otc)
