@@ -11,10 +11,11 @@
           "match_mapping_type": "string",
           "mapping": {
             "type": "text",
+            "term_vector": "with_positions_offsets",
             "fields": {
               "raw": {
                 "type": "keyword",
-                "ignore_above": 256,
+                "ignore_above": 1024,
                 "normalizer": "custom"
               }
             }
@@ -26,6 +27,7 @@
   "settings": {
     "index": {
       "number_of_replicas": 0,
+      "number_of_shards": 5,
       "analysis": {
         "normalizer": {
           "custom": {

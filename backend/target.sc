@@ -21,6 +21,12 @@ object TargetHelpers {
         "approved_symbol as approvedSymbol",
         "biotype as bioType",
         "case when (hgnc_id = '') then null else hgnc_id end as hgncId",
+        "hallmarks as hallMarks",
+        "tractability",
+        "safety",
+        "chemicalprobes as chemicalProbes",
+        "ortholog",
+        "go",
         "name_synonyms as nameSynonyms",
         "symbol_synonyms as symbolSynonyms",
         "struct(chromosome, gene_start as start, gene_end as end, strand) as genomicLocation"
@@ -51,9 +57,9 @@ object Target extends LazyLogging {
     val mappedInputs = Map("target" -> common.inputs.target)
     val inputDataFrame = SparkSessionWrapper.loader(mappedInputs)
 
-    val diseaseDF = inputDataFrame("target").setIdAndSelectFromTargets
+    val targetDF = inputDataFrame("target").setIdAndSelectFromTargets
 
-    SparkSessionWrapper.save(diseaseDF, common.output + "/targets")
+    SparkSessionWrapper.save(targetDF, common.output + "/targets")
 
   }
 }
