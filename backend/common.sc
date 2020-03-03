@@ -22,18 +22,17 @@ import play.api.libs.json.{Json, Reads}
 object ColumnFunctions extends LazyLogging {
   def flattenCat(colNames: String*): Column = {
     val cols = colNames.mkString(",")
-    expr(
-      s"""filter(array_distinct(
-        | transform(
-        |   flatten(
-        |     filter(array($cols),
-        |       x -> isnotnull(x)
-        |     )
-        |   ),
-        |   s -> replace(trim(s), ',', '')
-        | )
-        |),
-        |t -> isnotnull(t))""".stripMargin)
+    expr(s"""filter(array_distinct(
+            | transform(
+            |   flatten(
+            |     filter(array($cols),
+            |       x -> isnotnull(x)
+            |     )
+            |   ),
+            |   s -> replace(trim(s), ',', '')
+            | )
+            |),
+            |t -> isnotnull(t))""".stripMargin)
   }
 }
 
@@ -73,7 +72,9 @@ object Configuration extends LazyLogging {
       drug: String,
       evidence: String,
       association: String,
-      ddr: String
+      ddr: String,
+      reactome: String,
+      eco: String
   )
   implicit val inputsImp = Json.reads[Inputs]
 
