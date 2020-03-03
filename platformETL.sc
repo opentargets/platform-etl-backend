@@ -4,6 +4,10 @@ import $file.backend.disease
 import disease._
 import $file.backend.target
 import target._
+import $file.backend.reactome
+import reactome._
+import $file.backend.eco
+import eco._
 import $file.backend.drug
 import drug._
 import $file.backend.cancerBiomarkers
@@ -12,6 +16,8 @@ import $file.backend.dataDrivenRelation
 import dataDrivenRelation._
 import $file.backend.associations
 import associations._
+import $file.backend.associationsLLR
+import associationsLLR._
 
 import $file.backend.clinicalTrials
 import clinicalTrials._
@@ -40,6 +46,9 @@ object ETL extends LazyLogging {
       case "associations" =>
         logger.info("run step associations")
         Associations(otc)
+      case "associationsLLR" =>
+        logger.info("run step associations-llr")
+        AssociationsLLR(otc)
       case "clinicalTrials" =>
         logger.info("run step clinicaltrials")
         ClinicalTrials(otc)
@@ -52,6 +61,12 @@ object ETL extends LazyLogging {
       case "target" =>
         logger.info("run step target")
         Target(otc)
+      case "rea" =>
+        logger.info("run step target")
+        Reactome(otc)
+      case "eco" =>
+        logger.info("run step eco")
+        Eco(otc)
       case "drug" =>
         logger.info("run step drug")
         Drug(otc)
