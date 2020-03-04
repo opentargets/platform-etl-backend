@@ -89,7 +89,81 @@ object DrugHelpers {
             )
           )
         )
-        .selectExpr(selectExpression ++ Seq(mechanismsOfAction, indications): _*)
+      /*
+
+    // TODO
+    AddFields(
+      Field("descriptions", StringType,
+        description = None,
+        resolve = ctx => {
+          /*
+          Small molecule drug with a maximum clinical trial phase of IV (4)
+          that was first approved in 1999 and has 14 approved or investigational
+          indications. It was withdrawn in
+          the United States in 2004 due to risk for heart attack and stroke.
+          Drug category: Approved, Investigational, Withdrawn
+
+          Antibody drug with a maximum clinical trial phase of IV (4)
+          that was first approved in 1999 and has 39 approved or investigational indications.
+          It was withdrawn in the European Union in 2010 due to increased risk of ischaemic
+          heart disease. This drug has a black box warning from the FDA.
+          Drug category: Approved, Investigational, Withdrawn, Black Box Warning
+
+          Small molecule drug with a maximum clinical trial phase of I (1) and has
+          8 investigational or approved indications.
+           */
+          val romanNumbers = Map(4 -> "IV", 3 -> "III", 2 -> "II", 1 -> "I").withDefaultValue("")
+
+          val mainNote = Some(s"${ctx.value.drugType.capitalize()} drug")
+          val maxPhase = ctx.value.maximumClinicalTrialPhase match {
+            case Some(p) =>
+              if (p == 0)
+                None
+              else
+                Some(s" with a maximum clinical trial phase of ${romanNumbers(p)} (${p.toString})")
+            case _ => None
+          }
+
+          val approvedYear = ctx.value.yearOfFirstApproval
+            .map(" that was first approved in " + _.toString)
+
+          // and has 39 approved or investigational indications
+          val indications = ctx.value.indications.map(in => {
+            in.count match {
+              case n if (n <= 4) =>
+                s" and is indicated for ${in.rows.init.map(_.disease)
+                } and "
+              case x =>
+                s" and has ${x.toString} approved or investigational indications"
+            }
+          })
+          val wdrawnNote = ctx.value.withdrawnNotice.map(wn => {
+            val year = wn.year.map(y => s" in ${y.toString}")
+            val countries = mkStringSemantical(wn.countries)
+            val reasons = wn.reasons.map(_.mkString(" due to ", ", ", ""))
+            List(Some("It was withdrawn"), countries, year, reasons)
+              .withFilter(_.isDefined).map(_.get).mkString
+          })
+          val blackBoxWarning = ctx.value.blackBoxWarning match {
+            case true => Some("<em>This drug has a black box warning from the FDA.</em>")
+            case _ => None
+          }
+
+          val isApproved = None
+          val isInvestigational = None
+          val isWithdrawn = None
+          val isBlackBoxWarning = None
+
+          List(mainNote, maxPhase, approvedYear, Some("."),
+            wdrawnNote, Some("."),
+            blackBoxWarning)
+            .withFilter(_.isDefined).map(_.get).mkString
+        }
+      )
+    )
+       */
+        .withColumn("description", expr(""))
+        .selectExpr(selectExpression ++ Seq(mechanismsOfAction, indications, "description"): _*)
     }
   }
 }
@@ -107,7 +181,8 @@ object Drug extends LazyLogging {
     )
     val inputDataFrame = SparkSessionWrapper.loader(mappedInputs)
 
-    val dfDrugIndex = inputDataFrame("drug").setIdAndSelectFromDrugs(inputDataFrame("evidence"))
+    val dfDrugIndex = inputDataFrame("drug")
+      .setIdAndSelectFromDrugs(inputDataFrame("evidence"))
 
     SparkSessionWrapper.save(dfDrugIndex, common.output + "/drugs")
 
