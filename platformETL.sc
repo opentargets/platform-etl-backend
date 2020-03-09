@@ -24,7 +24,8 @@ import clinicalTrials._
 
 import $file.backend.dailymed
 import dailymed._
-
+import $file.backend.evidenceDrug
+import evidenceDrug._
 import $file.backend.evidenceProteinFix
 import evidenceProteinFix._
 
@@ -52,6 +53,9 @@ object ETL extends LazyLogging {
       case "clinicalTrials" =>
         logger.info("run step clinicaltrials")
         ClinicalTrials(otc)
+      case "evidenceDrug" =>
+        logger.info("run step evidenceDrug")
+        EvidenceDrug(otc)
       case "evidenceProteinFix" =>
         logger.info("run step evidenceProteinFix")
         EvidenceProteinFix(otc)
