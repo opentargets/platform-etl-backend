@@ -8,6 +8,7 @@ import org.apache.spark.sql.functions.col
 import org.apache.spark.sql._
 import org.apache.spark.sql.types._
 import com.typesafe.config.Config
+import scala.collection.mutable.WrappedArray
 
 object DrugHelpers {
   implicit class AggregationHelpers(df: DataFrame)(implicit ss: SparkSession) {
@@ -21,6 +22,77 @@ object DrugHelpers {
     }
 
     def setIdAndSelectFromDrugs(evidences: DataFrame): DataFrame = {
+      def _generateDescriptionField(drugType: String,
+                                    maxPhase: Option[Int],
+                                    firstApproval: Option[Int],
+                                    indications: Seq[String],
+                                    withdrawnYear: Option[Int],
+                                    withdrawnCountries: Seq[String],
+                                    withdrawnReasons: Seq[String],
+                                    blackBoxWarning: Boolean) = {
+
+        val romanNumbers = Map[Int, String](
+          4 -> "IV",
+          3 -> "III",
+          2 -> "II",
+          1 -> "I",
+          0 -> "I").withDefaultValue("")
+
+        val mainNote = Some(s"${drugType.capitalize} drug")
+        val phase = maxPhase match {
+          case Some(p) =>
+              Some(s" with a maximum clinical trial phase of ${romanNumbers(p)} (${p.toString})")
+          case _ => None
+        }
+
+        val approvedYear = firstApproval
+          .map(y => s" that was first approved in $y")
+
+        // and has 39 approved or investigational indications
+        val indicationsSentence = indications.size match {
+          case 0 => None
+          case n if (n <= 4) =>
+            Some(s" and is indicated for ${Helpers.mkStringSemantic(indications)}")
+          case x =>
+            Some(s" and has $x approved or investigational indications")
+        }
+        val mainSentence =
+          Some(Seq(mainNote, phase, approvedYear, indicationsSentence, Some("."))
+            .withFilter(_.isDefined).map(_.get).mkString)
+
+        val year = withdrawnYear.map(y => s" in ${y.toString}")
+        val countries = Helpers.mkStringSemantic(withdrawnCountries, " in ")
+        val reasons = Helpers.mkStringSemantic(withdrawnReasons, " due to ")
+        val wdrawnNoteList = List(
+          Some("It was withdrawn"),
+          countries,
+          year,
+          reasons,
+          Some("."))
+
+        val wdrawnNote = wdrawnNoteList.filter(_.isDefined).size match {
+          case n if (n > 2) =>
+            Some(wdrawnNoteList.withFilter(_.isDefined).map(_.get).mkString)
+          case _ => None
+        }
+
+        val blackBoxWarningStr = blackBoxWarning match {
+          case true => Some("<em>This drug has a black box warning from the FDA.</em>")
+          case _ => None
+        }
+
+        val isApproved = None
+        val isInvestigational = None
+        val isWithdrawn = None
+        val isBlackBoxWarning = None
+
+        List(
+          mainSentence,
+          wdrawnNote,
+          blackBoxWarningStr
+        ).withFilter(_.isDefined).map(_.get).mkString
+      }
+
       def _getUniqTargetsAndDiseasesPerDrugId(evs: DataFrame): DataFrame = {
         evs
           .filter(col("sourceID") === "chembl")
@@ -44,9 +116,11 @@ object DrugHelpers {
         "max_clinical_trial_phase as maximumClinicalTrialPhase",
         "withdrawn_flag as hasBeenWithdrawn",
         "internal_compound as internalCompound",
+        "transform(indications, i -> i.efo_label) as _indication_labels",
         "struct(ifnull(linkedTargetsCount, 0) as count, ifnull(linkedTargets, array()) as rows) as linkedTargets",
         "struct(ifnull(linkedDiseasesCount,0) as count, ifnull(linkedDiseases,array()) as rows) as linkedDiseases",
-        "withdrawnNotice"
+        "withdrawnNotice",
+        "black_box_warning as blackBoxWarning"
       )
 
       val mechanismsOfAction =
@@ -70,6 +144,18 @@ object DrugHelpers {
           |  number_of_indications as count), null) as indications
           |""".stripMargin
 
+      val descriptionFn = udf(
+        (drugType: String,
+         maxPhase: Option[Int],
+         firstApproval: Option[Int],
+         indications: Seq[String],
+         withdrawnYear: Option[Int],
+         withdrawnCountries: Seq[String],
+         withdrawnReasons: Seq[String],
+         blackBoxWarning: Boolean) =>
+          _generateDescriptionField(drugType, maxPhase, firstApproval, indications,
+            withdrawnYear, withdrawnCountries, withdrawnReasons, blackBoxWarning))
+
       df.join(
           _getUniqTargetsAndDiseasesPerDrugId(evidences),
           col("id") === col("drug_id"),
@@ -89,81 +175,19 @@ object DrugHelpers {
             )
           )
         )
-      /*
+      // TODO HERE!
+        .selectExpr(selectExpression ++ Seq(mechanismsOfAction, indications): _*)
+        .withColumn("description",
+          descriptionFn($"drugType",
+            $"maximumClinicalTrialPhase",
+            $"yearOfFirstApproval",
+            $"_indication_labels",
+            $"withdrawnNotice.year",
+            $"withdrawnNotice.countries",
+            $"withdrawnNotice.classes",
+            $"blackBoxWarning"))
+        .drop("_indication_labels")
 
-    // TODO
-    AddFields(
-      Field("descriptions", StringType,
-        description = None,
-        resolve = ctx => {
-          /*
-          Small molecule drug with a maximum clinical trial phase of IV (4)
-          that was first approved in 1999 and has 14 approved or investigational
-          indications. It was withdrawn in
-          the United States in 2004 due to risk for heart attack and stroke.
-          Drug category: Approved, Investigational, Withdrawn
-
-          Antibody drug with a maximum clinical trial phase of IV (4)
-          that was first approved in 1999 and has 39 approved or investigational indications.
-          It was withdrawn in the European Union in 2010 due to increased risk of ischaemic
-          heart disease. This drug has a black box warning from the FDA.
-          Drug category: Approved, Investigational, Withdrawn, Black Box Warning
-
-          Small molecule drug with a maximum clinical trial phase of I (1) and has
-          8 investigational or approved indications.
-           */
-          val romanNumbers = Map(4 -> "IV", 3 -> "III", 2 -> "II", 1 -> "I").withDefaultValue("")
-
-          val mainNote = Some(s"${ctx.value.drugType.capitalize()} drug")
-          val maxPhase = ctx.value.maximumClinicalTrialPhase match {
-            case Some(p) =>
-              if (p == 0)
-                None
-              else
-                Some(s" with a maximum clinical trial phase of ${romanNumbers(p)} (${p.toString})")
-            case _ => None
-          }
-
-          val approvedYear = ctx.value.yearOfFirstApproval
-            .map(" that was first approved in " + _.toString)
-
-          // and has 39 approved or investigational indications
-          val indications = ctx.value.indications.map(in => {
-            in.count match {
-              case n if (n <= 4) =>
-                s" and is indicated for ${in.rows.init.map(_.disease)
-                } and "
-              case x =>
-                s" and has ${x.toString} approved or investigational indications"
-            }
-          })
-          val wdrawnNote = ctx.value.withdrawnNotice.map(wn => {
-            val year = wn.year.map(y => s" in ${y.toString}")
-            val countries = mkStringSemantical(wn.countries)
-            val reasons = wn.reasons.map(_.mkString(" due to ", ", ", ""))
-            List(Some("It was withdrawn"), countries, year, reasons)
-              .withFilter(_.isDefined).map(_.get).mkString
-          })
-          val blackBoxWarning = ctx.value.blackBoxWarning match {
-            case true => Some("<em>This drug has a black box warning from the FDA.</em>")
-            case _ => None
-          }
-
-          val isApproved = None
-          val isInvestigational = None
-          val isWithdrawn = None
-          val isBlackBoxWarning = None
-
-          List(mainNote, maxPhase, approvedYear, Some("."),
-            wdrawnNote, Some("."),
-            blackBoxWarning)
-            .withFilter(_.isDefined).map(_.get).mkString
-        }
-      )
-    )
-       */
-        .withColumn("description", expr(""))
-        .selectExpr(selectExpression ++ Seq(mechanismsOfAction, indications, "description"): _*)
     }
   }
 }
@@ -176,15 +200,13 @@ object Drug extends LazyLogging {
 
     val common = Configuration.loadCommon(config)
     val mappedInputs = Map(
-      "drug" -> common.inputs.drug,
-      "evidence" -> common.inputs.evidence
+      "drug" -> ss.read.json(common.inputs.drug),
+      "evidence" -> ss.read.parquet(common.inputs.evidence)
     )
-    val inputDataFrame = SparkSessionWrapper.loader(mappedInputs)
 
-    val dfDrugIndex = inputDataFrame("drug")
-      .setIdAndSelectFromDrugs(inputDataFrame("evidence"))
+    val dfDrugIndex = mappedInputs("drug")
+      .setIdAndSelectFromDrugs(mappedInputs("evidence"))
 
-    SparkSessionWrapper.save(dfDrugIndex, common.output + "/drugs")
-
+    dfDrugIndex.write.json(common.output + "/drugs")
   }
 }
