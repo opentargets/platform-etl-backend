@@ -52,7 +52,7 @@ object DrugHelpers {
         val indicationsSentence = indications.size match {
           case 0 => None
           case n if (n <= 4) =>
-            Some(s" and is indicated for ${Helpers.mkStringSemantic(indications)}")
+            Helpers.mkStringSemantic(indications, " and is indicated for ")
           case x =>
             Some(s" and has $x approved or investigational indications")
         }
@@ -146,15 +146,15 @@ object DrugHelpers {
 
       val descriptionFn = udf(
         (drugType: String,
-         maxPhase: Option[Int],
-         firstApproval: Option[Int],
+         maxPhase: Int,
+         firstApproval: Int,
          indications: Seq[String],
-         withdrawnYear: Option[Int],
+         withdrawnYear: Int,
          withdrawnCountries: Seq[String],
          withdrawnReasons: Seq[String],
          blackBoxWarning: Boolean) =>
-          _generateDescriptionField(drugType, maxPhase, firstApproval, indications,
-            withdrawnYear, withdrawnCountries, withdrawnReasons, blackBoxWarning))
+          _generateDescriptionField(drugType, Option(maxPhase), Option(firstApproval), indications,
+            Option(withdrawnYear), withdrawnCountries, withdrawnReasons, blackBoxWarning))
 
       df.join(
           _getUniqTargetsAndDiseasesPerDrugId(evidences),
@@ -181,10 +181,10 @@ object DrugHelpers {
           descriptionFn($"drugType",
             $"maximumClinicalTrialPhase",
             $"yearOfFirstApproval",
-            $"_indication_labels",
+            when($"_indication_labels".isNotNull, $"_indication_labels").otherwise(typedLit(Seq.empty[String])),
             $"withdrawnNotice.year",
-            $"withdrawnNotice.countries",
-            $"withdrawnNotice.classes",
+            when($"withdrawnNotice.countries".isNotNull, $"withdrawnNotice.countries").otherwise(typedLit(Seq.empty[String])),
+            when($"withdrawnNotice.classes".isNotNull, $"withdrawnNotice.classes").otherwise(typedLit(Seq.empty[String])),
             $"blackBoxWarning"))
         .drop("_indication_labels")
 
