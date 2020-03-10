@@ -64,7 +64,7 @@ object DrugHelpers {
         val countries = Helpers.mkStringSemantic(withdrawnCountries, " in ")
         val reasons = Helpers.mkStringSemantic(withdrawnReasons, " due to ")
         val wdrawnNoteList = List(
-          Some("It was withdrawn"),
+          Some(" It was withdrawn"),
           countries,
           year,
           reasons,
@@ -77,14 +77,9 @@ object DrugHelpers {
         }
 
         val blackBoxWarningStr = blackBoxWarning match {
-          case true => Some("<em>This drug has a black box warning from the FDA.</em>")
+          case true => Some(" This drug has a black box warning from the FDA.")
           case _ => None
         }
-
-        val isApproved = None
-        val isInvestigational = None
-        val isWithdrawn = None
-        val isBlackBoxWarning = None
 
         List(
           mainSentence,
