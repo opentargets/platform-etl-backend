@@ -25,10 +25,10 @@ object Helpers extends LazyLogging {
                        lastSep: String = " and "): Option[String] = {
     val strTokens = tokens.map(_.toString)
 
-    strTokens match {
-      case Nil => None
-      case x :: Nil => Some(x.mkString(start, sep, end))
-      case _ => Some((strTokens.init.mkString(start, sep, "") :+ lastSep :+ strTokens.last)
+    strTokens.size match {
+      case 0 => None
+      case 1 => Some(strTokens.mkString(start, sep, end))
+      case _ => Some((Seq(strTokens.init.mkString(start, sep, "")) :+ lastSep :+ strTokens.last)
         .mkString("", "", end))
     }
   }
