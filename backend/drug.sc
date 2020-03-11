@@ -25,11 +25,13 @@ object DrugHelpers {
       def _generateDescriptionField(drugType: String,
                                     maxPhase: Option[Int],
                                     firstApproval: Option[Int],
-                                    indications: Seq[String],
+                                    indicationPhases: Seq[Long],
+                                    indicationLabels: Seq[String],
                                     withdrawnYear: Option[Int],
                                     withdrawnCountries: Seq[String],
                                     withdrawnReasons: Seq[String],
-                                    blackBoxWarning: Boolean) = {
+                                    blackBoxWarning: Boolean,
+                                    minIndicationsToShow: Int = 2) = {
 
         val romanNumbers = Map[Int, String](
           4 -> "IV",
@@ -41,26 +43,41 @@ object DrugHelpers {
         val mainNote = Some(s"${drugType.capitalize} drug")
         val phase = maxPhase match {
           case Some(p) =>
-              Some(s" with a maximum clinical trial phase of ${romanNumbers(p)} (${p.toString})")
+              Some(s" with a maximum clinical trial phase of ${romanNumbers(p)}${if (indicationLabels.size > 1) " (across all indications)" else ""}")
           case _ => None
         }
 
         val approvedYear = firstApproval
           .map(y => s" that was first approved in $y")
 
-        // and has 39 approved or investigational indications
-        val indicationsSentence = indications.size match {
-          case 0 => None
-          case n if (n <= 4) =>
-            Helpers.mkStringSemantic(indications, " and is indicated for ")
-          case x =>
-            Some(s" and has $x approved or investigational indications")
+        val indications = (indicationPhases zip indicationLabels).distinct
+        val approvedIndications = indications.filter(_._1 == 4)
+        val investigationalIndicationsCount = indications.view.count(_._1 < 4)
+
+        val indicationsSentence = (approvedIndications.size, investigationalIndicationsCount) match {
+          case (0, 0) =>
+            None
+          case (n, 0) =>
+            if (n <= minIndicationsToShow)
+              Helpers.mkStringSemantic(approvedIndications.map(_._2), " and is indicated for ")
+            else
+              Some(s" and has $n approved indications")
+          case (0, m) =>
+            Some(s" and has $m investigational indication${if (m > 1) "s" else ""}")
+          case (n, m) =>
+            if (n <= minIndicationsToShow)
+              Helpers.mkStringSemantic(approvedIndications.map(_._2),
+                start = " and is indicated for ",
+                end = s" and has $m investigational indication${if (m > 1) "s" else ""}")
+            else
+              Some(s" and has $n approved and $m investigational indication${if (m > 1) "s" else ""}")
         }
+
         val mainSentence =
           Some(Seq(mainNote, phase, approvedYear, indicationsSentence, Some("."))
             .withFilter(_.isDefined).map(_.get).mkString)
 
-        val year = withdrawnYear.map(y => s" in ${y.toString}")
+        val year = withdrawnYear.map(y => s" initially in ${y.toString}")
         val countries = Helpers.mkStringSemantic(withdrawnCountries, " in ")
         val reasons = Helpers.mkStringSemantic(withdrawnReasons, " due to ")
         val wdrawnNoteList = List(
@@ -70,15 +87,16 @@ object DrugHelpers {
           reasons,
           Some("."))
 
-        val wdrawnNote = wdrawnNoteList.filter(_.isDefined).size match {
-          case n if (n > 2) =>
+        val wdrawnNote = wdrawnNoteList.count(_.isDefined) match {
+          case n if n > 2 =>
             Some(wdrawnNoteList.withFilter(_.isDefined).map(_.get).mkString)
           case _ => None
         }
 
-        val blackBoxWarningStr = blackBoxWarning match {
-          case true => Some(" This drug has a black box warning from the FDA.")
-          case _ => None
+        val blackBoxWarningStr = if (blackBoxWarning) {
+          Some(" This drug has a black box warning from the FDA.")
+        } else {
+          None
         }
 
         List(
@@ -111,6 +129,7 @@ object DrugHelpers {
         "max_clinical_trial_phase as maximumClinicalTrialPhase",
         "withdrawn_flag as hasBeenWithdrawn",
         "internal_compound as internalCompound",
+        "transform(indications, i -> i.max_phase_for_indication) as _indication_phases",
         "transform(indications, i -> i.efo_label) as _indication_labels",
         "struct(ifnull(linkedTargetsCount, 0) as count, ifnull(linkedTargets, array()) as rows) as linkedTargets",
         "struct(ifnull(linkedDiseasesCount,0) as count, ifnull(linkedDiseases,array()) as rows) as linkedDiseases",
@@ -143,13 +162,15 @@ object DrugHelpers {
         (drugType: String,
          maxPhase: Int,
          firstApproval: Int,
-         indications: Seq[String],
+         indicationPhases: Seq[Long],
+         indicationLabels: Seq[String],
          withdrawnYear: Int,
          withdrawnCountries: Seq[String],
          withdrawnReasons: Seq[String],
          blackBoxWarning: Boolean) =>
-          _generateDescriptionField(drugType, Option(maxPhase), Option(firstApproval), indications,
-            Option(withdrawnYear), withdrawnCountries, withdrawnReasons, blackBoxWarning))
+          _generateDescriptionField(drugType, Option(maxPhase),
+            if (firstApproval > 0) Some(firstApproval) else None, indicationPhases, indicationLabels,
+            if (withdrawnYear > 0) Some(withdrawnYear) else None, withdrawnCountries, withdrawnReasons, blackBoxWarning))
 
       df.join(
           _getUniqTargetsAndDiseasesPerDrugId(evidences),
@@ -170,18 +191,18 @@ object DrugHelpers {
             )
           )
         )
-      // TODO HERE!
         .selectExpr(selectExpression ++ Seq(mechanismsOfAction, indications): _*)
         .withColumn("description",
           descriptionFn($"drugType",
             $"maximumClinicalTrialPhase",
-            $"yearOfFirstApproval",
+            when($"yearOfFirstApproval".isNotNull, $"yearOfFirstApproval").otherwise(0),
+            when($"_indication_phases".isNotNull, $"_indication_phases").otherwise(typedLit(Seq.empty[Long])),
             when($"_indication_labels".isNotNull, $"_indication_labels").otherwise(typedLit(Seq.empty[String])),
-            $"withdrawnNotice.year",
+            when($"withdrawnNotice.year".isNotNull, $"withdrawnNotice.year").otherwise(0),
             when($"withdrawnNotice.countries".isNotNull, $"withdrawnNotice.countries").otherwise(typedLit(Seq.empty[String])),
             when($"withdrawnNotice.classes".isNotNull, $"withdrawnNotice.classes").otherwise(typedLit(Seq.empty[String])),
             $"blackBoxWarning"))
-        .drop("_indication_labels")
+        .drop("_indication_phases", "_indication_labels")
 
     }
   }
