@@ -43,7 +43,7 @@ object EvidenceDrugHelpers {
         .withColumn("disease_id", col("disease.id"))
         .withColumn("target_id", col("target.id"))
         .withColumn("drug_id", substring_index(col("drug.id"), "/", -1))
-        .join(efos, Seq("disease_id"), "inner")
+        .join(df, Seq("disease_id"), "inner")
         .withColumn("ancestor", explode(col("ancestors")))
 
       val associated = fds
