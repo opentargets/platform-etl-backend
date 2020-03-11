@@ -77,7 +77,7 @@ object DrugHelpers {
           Some(Seq(mainNote, phase, approvedYear, indicationsSentence, Some("."))
             .withFilter(_.isDefined).map(_.get).mkString)
 
-        val year = withdrawnYear.map(y => s" initially in ${y.toString}")
+        val year = withdrawnYear.map(y => s" ${if (withdrawnCountries.size > 1) "initially" else ""} in ${y.toString}")
         val countries = Helpers.mkStringSemantic(withdrawnCountries, " in ")
         val reasons = Helpers.mkStringSemantic(withdrawnReasons, " due to ")
         val wdrawnNoteList = List(
