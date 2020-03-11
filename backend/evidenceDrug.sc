@@ -62,7 +62,7 @@ object EvidenceDrugHelpers {
           col("drug_id"),
           col("evidence.drug2clinic.clinical_trial_phase.label").as("clinical_trial_phase"),
           col("evidence.drug2clinic.status").as("clinical_trial_status"),
-          col("target.target_name").as("target_name")
+          col("target_id").as("target")
         )
         .agg(
           collect_list(col("evidence.drug2clinic.urls")).as("_list_urls"),
