@@ -300,7 +300,7 @@ object AssociationsLLR extends LazyLogging {
       .withColumn("is_direct", lit(false))
 
     // write to jsonl both direct and indirect
-    directPairs.write.json(commonSec.output + "/direct/")
-    indirectPairs.write.json(commonSec.output + "/indirect/")
+    directPairs.write.json(commonSec.output + "/direct_llr/")
+    indirectPairs.write.json(commonSec.output + "/indirect_llr/")
   }
 }
