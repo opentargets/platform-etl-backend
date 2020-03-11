@@ -38,7 +38,15 @@ object EvidenceDrugHelpers {
 
     def generateEntries(dfEvidences: DataFrame): DataFrame = {
 
-      val associated = dfEvidences
+      val fds = dfEvidences
+        .where(col("private.datatype") === "known_drug")
+        .withColumn("disease_id", col("disease.id"))
+        .withColumn("target_id", col("target.id"))
+        .withColumn("drug_id", substring_index(col("drug.id"), "/", -1))
+        .join(efos, Seq("disease_id"), "inner")
+        .withColumn("ancestor", explode(col("ancestors")))
+
+      val associated = fds
         .groupBy(col("ancestor"), col("drug_id"))
         .agg(
           collect_set(col("disease_id")).as("associated_diseases"),
@@ -48,7 +56,7 @@ object EvidenceDrugHelpers {
         .withColumn("associated_diseases_count", size(col("associated_diseases")))
         .withColumnRenamed("ancestor", "disease_id")
 
-      val agg = dfEvidences
+      val agg = fds
         .groupBy(
           col("ancestor"),
           col("drug_id"),
