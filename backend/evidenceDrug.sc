@@ -79,7 +79,11 @@ object EvidenceDrugHelpers {
         .withColumn("ancestors_count", size(col("ancestors")))
         .withColumn("descendants_count", size(col("descendants")))
 
-      agg.join(broadcast(associated), Seq("disease_id", "drug_id"), "inner")
+      agg
+        .join(broadcast(associated), Seq("disease_id", "drug_id"), "inner")
+        .withColumnRenamed("disease_id", "disease")
+        .withColumnRenamed("drug_id", "drug")
+
     }
   }
 }
