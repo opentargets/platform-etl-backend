@@ -61,8 +61,8 @@ object ETL extends LazyLogging {
       case "target" =>
         logger.info("run step target")
         Target(otc)
-      case "rea" =>
-        logger.info("run step target")
+      case "reactome" =>
+        logger.info("run step reactome (rea)")
         Reactome(otc)
       case "eco" =>
         logger.info("run step eco")
