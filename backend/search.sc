@@ -442,10 +442,16 @@ object Search extends LazyLogging {
     )
     logger.info("subselect associations just id and score and persist")
     val associationScores = inputDataFrame("association")
+//      .selectExpr("harmonic_sum.overall as score",
+//                  "id as association_id",
+//                  "target.id as target_id",
+//                  "disease.id as disease_id")
+    // this needs to be addressed as the assocs llr does not create the correct structure to be
+    // compatible with the standard associations
       .selectExpr("harmonic_sum.overall as score",
-                  "id as association_id",
-                  "target.id as target_id",
-                  "disease.id as disease_id")
+        "id as association_id",
+        "target as target_id",
+        "disease as disease_id")
       .select(associationColumns.head, associationColumns.tail: _*)
       .persist(StorageLevel.DISK_ONLY)
 
