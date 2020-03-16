@@ -19,6 +19,21 @@ import com.typesafe.config.{Config, ConfigFactory, ConfigObject, ConfigRenderOpt
 
 import play.api.libs.json.{Json, Reads}
 
+object Helpers extends LazyLogging {
+  def mkStringSemantic[T](tokens: Seq[T],
+                       start: String = "", sep: String = ", ", end: String = "",
+                       lastSep: String = " and "): Option[String] = {
+    val strTokens = tokens.map(_.toString)
+
+    strTokens.size match {
+      case 0 => None
+      case 1 => Some(strTokens.mkString(start, sep, end))
+      case _ => Some((Seq(strTokens.init.mkString(start, sep, "")) :+ lastSep :+ strTokens.last)
+        .mkString("", "", end))
+    }
+  }
+}
+
 object ColumnFunctions extends LazyLogging {
   def flattenCat(colNames: String*): Column = {
     val cols = colNames.mkString(",")
