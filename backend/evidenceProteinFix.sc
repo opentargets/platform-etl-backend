@@ -11,17 +11,18 @@ import com.typesafe.config.Config
 import org.apache.spark.storage.StorageLevel
 
 /** It takes all evidences and fix the problem of having same protein accession
- * and multiple genes. The steps to fix it are
- * 1. build the inversed lut for each protein accession the corresponding genes
- * 2. if one evicence belonging to the multigene case is found then replace the
- *    protein id by the gene id
- *    and add to the unique fields the corresponding geneid in order to make unique
- *    the evidence
- * 3. write all back to jsonl gz but partitionby datasource
- * */
+  * and multiple genes. The steps to fix it are
+  * 1. build the inversed lut for each protein accession the corresponding genes
+  * 2. if one evicence belonging to the multigene case is found then replace the
+  *    protein id by the gene id
+  *    and add to the unique fields the corresponding geneid in order to make unique
+  *    the evidence
+  * 3. write all back to jsonl gz but partitionby datasource
+  * */
 object EvidenceProteinFix extends LazyLogging {
   def buildLUT(genes: DataFrame, proteinColName: String, genesColName: String)(
-      implicit ss: SparkSession): DataFrame = {
+      implicit ss: SparkSession
+  ): DataFrame = {
 
     import ss.implicits._
 
@@ -32,7 +33,8 @@ object EvidenceProteinFix extends LazyLogging {
     val genesPerProtein = genes
       .selectExpr(
         s"concat('${ENS_ID_ORG_PREFIX}', id) as _id",
-        s"transform(uniprot_accessions, x -> concat('${UNI_ID_ORG_PREFIX}', x)) as _accessions")
+        s"transform(uniprot_accessions, x -> concat('${UNI_ID_ORG_PREFIX}', x)) as _accessions"
+      )
       .withColumn(proteinColName, explode($"_accessions"))
       .groupBy(col(proteinColName))
       .agg(collect_set($"_id").as(genesColName))
@@ -47,10 +49,10 @@ object EvidenceProteinFix extends LazyLogging {
     val evidenceProtSec = Configuration.loadEvidenceProteinFixSection(config)
     val common = Configuration.loadCommon(config)
     val dfs = Map(
-      "targets" -> ss.read.json(common.inputs.target),
+      "targets" -> ss.read.json(common.inputs.target.path),
       "evidences" -> ss.read.json(evidenceProtSec.input)
     )
-    
+
     val proteins =
       buildLUT(dfs("targets"), "accession", "ids")
         .orderBy($"accession".asc)
@@ -65,9 +67,11 @@ object EvidenceProteinFix extends LazyLogging {
       .withColumn("ids", when($"ids".isNull, array($"target.id")).otherwise($"ids"))
       .withColumn("target_id", explode($"ids"))
       .withColumn("ids_count", size($"ids"))
-      .withColumn("target_id",
-                  when($"ids_count" > 1, $"target_id")
-                    .otherwise(lit(null)))
+      .withColumn(
+        "target_id",
+        when($"ids_count" > 1, $"target_id")
+          .otherwise(lit(null))
+      )
 
     // get all columns from target except the id subfield
     val targetCols =
@@ -85,9 +89,11 @@ object EvidenceProteinFix extends LazyLogging {
     val newUafCol = $"target_id".as("ensembl_id")
 
     val evss = evs
-      .withColumn("target",
-                  when($"ids_count" > 1, struct(targetCols :+ idCol: _*))
-                    .otherwise(struct(targetCols :+ origId: _*)))
+      .withColumn(
+        "target",
+        when($"ids_count" > 1, struct(targetCols :+ idCol: _*))
+          .otherwise(struct(targetCols :+ origId: _*))
+      )
       .withColumn("unique_association_fields", struct(uafCols :+ newUafCol: _*))
       .drop("target_id", "accesion", "ids", "ids_count")
 

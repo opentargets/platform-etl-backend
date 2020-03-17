@@ -56,7 +56,9 @@ object DataDrivenRelation extends LazyLogging {
     import DataDrivenRelationsHelpers._
 
     val common = Configuration.loadCommon(config)
-    val mappedInputs = Map("ddr" -> common.inputs.ddr)
+    val mappedInputs = Map(
+      "ddr" -> Map("format" -> common.inputs.ddr.format, "path" -> common.inputs.ddr.path)
+    )
     val inputDataFrame = SparkSessionWrapper.loader(mappedInputs)
 
     val dfOutputs = inputDataFrame("ddr").getDataDrivenRelationgEntity

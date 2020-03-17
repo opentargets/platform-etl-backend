@@ -16,12 +16,12 @@ object DiseaseHelpers {
 
     def setIdAndSelectFromDiseases: DataFrame = {
 
-      val getParents = udf(
-        (codes: Seq[Seq[String]]) =>
-          codes
-            .flatMap(path => if (path.size < 2) None else Some(path.reverse(1)))
-            .toSet
-            .toSeq)
+      val getParents = udf((codes: Seq[Seq[String]]) =>
+        codes
+          .flatMap(path => if (path.size < 2) None else Some(path.reverse(1)))
+          .toSet
+          .toSeq
+      )
       //codes.withFilter(_.size > 1).flatMap(_.reverse(1)).toSet)
 
       val dfPhenotypeId = df
@@ -126,7 +126,12 @@ object Disease extends LazyLogging {
     import DiseaseHelpers._
 
     val common = Configuration.loadCommon(config)
-    val mappedInputs = Map("disease" -> common.inputs.disease)
+    val mappedInputs = Map(
+      "disease" -> Map(
+        "format" -> common.inputs.disease.format,
+        "path" -> common.inputs.disease.path
+      )
+    )
     val inputDataFrame = SparkSessionWrapper.loader(mappedInputs)
 
     val diseaseDF = inputDataFrame("disease").setIdAndSelectFromDiseases
