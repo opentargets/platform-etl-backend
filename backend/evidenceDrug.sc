@@ -95,7 +95,16 @@ object EvidenceDrug extends LazyLogging {
     import EvidenceDrugHelpers._
 
     val common = Configuration.loadCommon(config)
-    val mappedInputs = Map("disease" -> common.inputs.disease, "evidence" -> common.inputs.evidence)
+    val mappedInputs = Map(
+      "disease" -> Map(
+        "format" -> common.inputs.disease.format,
+        "path" -> common.inputs.disease.path
+      ),
+      "evidence" -> Map(
+        "format" -> common.inputs.evidence.format,
+        "path" -> common.inputs.evidence.path
+      )
+    )
     val inputDataFrame = SparkSessionWrapper.loader(mappedInputs)
 
     val diseases = inputDataFrame("disease").getDiseaseAndDescendants

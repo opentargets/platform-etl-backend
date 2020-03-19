@@ -197,7 +197,8 @@ object AssociationHelpers {
 
       def maxHarmonicValue(vSize: Int, pExponent: Int, maxScore: Double): Double =
         (0 until vSize).foldLeft(0d)((acc: Double, n: Int) =>
-          acc + (maxScore / pow(1d + n, pExponent)))
+          acc + (maxScore / pow(1d + n, pExponent))
+        )
 
       val maxHS = maxHarmonicValue(maxVectorElementsDefault, pExponentDefault, 1.0)
       df.withColumn(
@@ -271,9 +272,9 @@ object Associations extends LazyLogging {
     val datasources = broadcast(associationsSec.dataSources.toDS().orderBy($"id".asc))
 
     //  val targets = Loaders.loadTargets(targetFilename)
-    val diseases = Loaders.loadDiseases(commonSec.inputs.disease)
+    val diseases = Loaders.loadDiseases(commonSec.inputs.disease.path)
     //  val expressions = Loaders.loadExpressions(expressionFilename)
-    val evidences = Loaders.loadEvidences(commonSec.inputs.evidence)
+    val evidences = Loaders.loadEvidences(commonSec.inputs.evidence.path)
 
     val directPairs = evidences
       .groupByDataSources(datasources, associationsSec)
