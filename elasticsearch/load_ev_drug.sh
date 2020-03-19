@@ -6,6 +6,6 @@ export INDEX_NAME="20.02_ev_drug"
 export TYPE_FIELD="ev_drug"
 export INPUT="../out/evidenceDrug"
 export ES="http://localhost:9200"
-export ID="id"
+
 
 ./load_jsons.sh
