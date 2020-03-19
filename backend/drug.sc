@@ -22,28 +22,29 @@ object DrugHelpers {
     }
 
     def setIdAndSelectFromDrugs(evidences: DataFrame): DataFrame = {
-      def _generateDescriptionField(drugType: String,
-                                    maxPhase: Option[Int],
-                                    firstApproval: Option[Int],
-                                    indicationPhases: Seq[Long],
-                                    indicationLabels: Seq[String],
-                                    withdrawnYear: Option[Int],
-                                    withdrawnCountries: Seq[String],
-                                    withdrawnReasons: Seq[String],
-                                    blackBoxWarning: Boolean,
-                                    minIndicationsToShow: Int = 2) = {
+      def _generateDescriptionField(
+          drugType: String,
+          maxPhase: Option[Int],
+          firstApproval: Option[Int],
+          indicationPhases: Seq[Long],
+          indicationLabels: Seq[String],
+          withdrawnYear: Option[Int],
+          withdrawnCountries: Seq[String],
+          withdrawnReasons: Seq[String],
+          blackBoxWarning: Boolean,
+          minIndicationsToShow: Int = 2
+      ) = {
 
-        val romanNumbers = Map[Int, String](
-          4 -> "IV",
-          3 -> "III",
-          2 -> "II",
-          1 -> "I",
-          0 -> "I").withDefaultValue("")
+        val romanNumbers = Map[Int, String](4 -> "IV", 3 -> "III", 2 -> "II", 1 -> "I", 0 -> "I")
+          .withDefaultValue("")
 
         val mainNote = Some(s"${drugType.capitalize} drug")
         val phase = maxPhase match {
           case Some(p) =>
-              Some(s" with a maximum clinical trial phase of ${romanNumbers(p)}${if (indicationLabels.size > 1) " (across all indications)" else ""}")
+            Some(
+              s" with a maximum clinical trial phase of ${romanNumbers(p)}${if (indicationLabels.size > 1) " (across all indications)"
+              else ""}"
+            )
           case _ => None
         }
 
@@ -54,38 +55,44 @@ object DrugHelpers {
         val approvedIndications = indications.filter(_._1 == 4)
         val investigationalIndicationsCount = indications.view.count(_._1 < 4)
 
-        val indicationsSentence = (approvedIndications.size, investigationalIndicationsCount) match {
-          case (0, 0) =>
-            None
-          case (n, 0) =>
-            if (n <= minIndicationsToShow)
-              Helpers.mkStringSemantic(approvedIndications.map(_._2), " and is indicated for ")
-            else
-              Some(s" and has $n approved indications")
-          case (0, m) =>
-            Some(s" and has $m investigational indication${if (m > 1) "s" else ""}")
-          case (n, m) =>
-            if (n <= minIndicationsToShow)
-              Helpers.mkStringSemantic(approvedIndications.map(_._2),
-                start = " and is indicated for ",
-                end = s" and has $m investigational indication${if (m > 1) "s" else ""}")
-            else
-              Some(s" and has $n approved and $m investigational indication${if (m > 1) "s" else ""}")
-        }
+        val indicationsSentence =
+          (approvedIndications.size, investigationalIndicationsCount) match {
+            case (0, 0) =>
+              None
+            case (n, 0) =>
+              if (n <= minIndicationsToShow)
+                Helpers.mkStringSemantic(approvedIndications.map(_._2), " and is indicated for ")
+              else
+                Some(s" and has $n approved indications")
+            case (0, m) =>
+              Some(s" and has $m investigational indication${if (m > 1) "s" else ""}")
+            case (n, m) =>
+              if (n <= minIndicationsToShow)
+                Helpers.mkStringSemantic(
+                  approvedIndications.map(_._2),
+                  start = " and is indicated for ",
+                  end = s" and has $m investigational indication${if (m > 1) "s" else ""}"
+                )
+              else
+                Some(
+                  s" and has $n approved and $m investigational indication${if (m > 1) "s" else ""}"
+                )
+          }
 
         val mainSentence =
-          Some(Seq(mainNote, phase, approvedYear, indicationsSentence, Some("."))
-            .withFilter(_.isDefined).map(_.get).mkString)
+          Some(
+            Seq(mainNote, phase, approvedYear, indicationsSentence, Some("."))
+              .withFilter(_.isDefined)
+              .map(_.get)
+              .mkString
+          )
 
-        val year = withdrawnYear.map(y => s" ${if (withdrawnCountries.size > 1) "initially" else ""} in ${y.toString}")
+        val year = withdrawnYear.map(y =>
+          s" ${if (withdrawnCountries.size > 1) "initially" else ""} in ${y.toString}"
+        )
         val countries = Helpers.mkStringSemantic(withdrawnCountries, " in ")
         val reasons = Helpers.mkStringSemantic(withdrawnReasons, " due to ")
-        val wdrawnNoteList = List(
-          Some(" It was withdrawn"),
-          countries,
-          year,
-          reasons,
-          Some("."))
+        val wdrawnNoteList = List(Some(" It was withdrawn"), countries, year, reasons, Some("."))
 
         val wdrawnNote = wdrawnNoteList.count(_.isDefined) match {
           case n if n > 2 =>
@@ -159,18 +166,29 @@ object DrugHelpers {
           |""".stripMargin
 
       val descriptionFn = udf(
-        (drugType: String,
-         maxPhase: Int,
-         firstApproval: Int,
-         indicationPhases: Seq[Long],
-         indicationLabels: Seq[String],
-         withdrawnYear: Int,
-         withdrawnCountries: Seq[String],
-         withdrawnReasons: Seq[String],
-         blackBoxWarning: Boolean) =>
-          _generateDescriptionField(drugType, Option(maxPhase),
-            if (firstApproval > 0) Some(firstApproval) else None, indicationPhases, indicationLabels,
-            if (withdrawnYear > 0) Some(withdrawnYear) else None, withdrawnCountries, withdrawnReasons, blackBoxWarning))
+        (
+            drugType: String,
+            maxPhase: Int,
+            firstApproval: Int,
+            indicationPhases: Seq[Long],
+            indicationLabels: Seq[String],
+            withdrawnYear: Int,
+            withdrawnCountries: Seq[String],
+            withdrawnReasons: Seq[String],
+            blackBoxWarning: Boolean
+        ) =>
+          _generateDescriptionField(
+            drugType,
+            Option(maxPhase),
+            if (firstApproval > 0) Some(firstApproval) else None,
+            indicationPhases,
+            indicationLabels,
+            if (withdrawnYear > 0) Some(withdrawnYear) else None,
+            withdrawnCountries,
+            withdrawnReasons,
+            blackBoxWarning
+          )
+      )
 
       df.join(
           _getUniqTargetsAndDiseasesPerDrugId(evidences),
@@ -192,16 +210,24 @@ object DrugHelpers {
           )
         )
         .selectExpr(selectExpression ++ Seq(mechanismsOfAction, indications): _*)
-        .withColumn("description",
-          descriptionFn($"drugType",
+        .withColumn(
+          "description",
+          descriptionFn(
+            $"drugType",
             $"maximumClinicalTrialPhase",
             when($"yearOfFirstApproval".isNotNull, $"yearOfFirstApproval").otherwise(0),
-            when($"_indication_phases".isNotNull, $"_indication_phases").otherwise(typedLit(Seq.empty[Long])),
-            when($"_indication_labels".isNotNull, $"_indication_labels").otherwise(typedLit(Seq.empty[String])),
+            when($"_indication_phases".isNotNull, $"_indication_phases")
+              .otherwise(typedLit(Seq.empty[Long])),
+            when($"_indication_labels".isNotNull, $"_indication_labels")
+              .otherwise(typedLit(Seq.empty[String])),
             when($"withdrawnNotice.year".isNotNull, $"withdrawnNotice.year").otherwise(0),
-            when($"withdrawnNotice.countries".isNotNull, $"withdrawnNotice.countries").otherwise(typedLit(Seq.empty[String])),
-            when($"withdrawnNotice.classes".isNotNull, $"withdrawnNotice.classes").otherwise(typedLit(Seq.empty[String])),
-            $"blackBoxWarning"))
+            when($"withdrawnNotice.countries".isNotNull, $"withdrawnNotice.countries")
+              .otherwise(typedLit(Seq.empty[String])),
+            when($"withdrawnNotice.classes".isNotNull, $"withdrawnNotice.classes")
+              .otherwise(typedLit(Seq.empty[String])),
+            $"blackBoxWarning"
+          )
+        )
         .drop("_indication_phases", "_indication_labels")
 
     }
@@ -216,12 +242,16 @@ object Drug extends LazyLogging {
 
     val common = Configuration.loadCommon(config)
     val mappedInputs = Map(
-      "drug" -> ss.read.json(common.inputs.drug),
-      "evidence" -> ss.read.parquet(common.inputs.evidence)
+      "drug" -> Map("format" -> common.inputs.drug.format, "path" -> common.inputs.drug.path),
+      "evidence" -> Map(
+        "format" -> common.inputs.evidence.format,
+        "path" -> common.inputs.evidence.path
+      )
     )
+    val inputDataFrame = SparkSessionWrapper.loader(mappedInputs)
 
-    val dfDrugIndex = mappedInputs("drug")
-      .setIdAndSelectFromDrugs(mappedInputs("evidence"))
+    val dfDrugIndex = inputDataFrame("drug")
+      .setIdAndSelectFromDrugs(inputDataFrame("evidence"))
 
     dfDrugIndex.write.json(common.output + "/drugs")
   }

@@ -15,7 +15,12 @@ object Reactome extends LazyLogging {
     import ss.implicits._
 
     val common = Configuration.loadCommon(config)
-    val mappedInputs = Map("reactome" -> common.inputs.reactome)
+    val mappedInputs = Map(
+      "reactome" -> Map(
+        "format" -> common.inputs.reactome.format,
+        "path" -> common.inputs.reactome.path
+      )
+    )
     val inputDataFrame = SparkSessionWrapper.loader(mappedInputs)
     val reactomeDF = inputDataFrame("reactome")
 

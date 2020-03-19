@@ -100,9 +100,10 @@ object AssociationsLLRHelpers {
         )
         .withColumn("C", col("uniq_reports_t") - col("A"))
         .withColumn("B", col("uniq_reports_d") - col("A"))
-        .withColumn("D",
-          col("uniq_reports") - col("uniq_reports_t") - col(
-            "uniq_reports_d") + col("A"))
+        .withColumn(
+          "D",
+          col("uniq_reports") - col("uniq_reports_t") - col("uniq_reports_d") + col("A")
+        )
         .withColumn("aterm", $"A" * (log($"A") - log($"A" + $"B")))
         .withColumn("cterm", $"C" * (log($"C") - log($"C" + $"D")))
         .withColumn("acterm", ($"A" + $"C") * (log($"A" + $"C") - log($"A" + $"B" + $"C" + $"D")))
@@ -207,7 +208,8 @@ object AssociationsLLRHelpers {
 
       def maxHarmonicValue(vSize: Int, pExponent: Int, maxScore: Double): Double =
         (0 until vSize).foldLeft(0d)((acc: Double, n: Int) =>
-          acc + (maxScore / pow(1d + n, pExponent)))
+          acc + (maxScore / pow(1d + n, pExponent))
+        )
 
       val maxHS = maxHarmonicValue(maxVectorElementsDefault, pExponentDefault, 1.0)
       df.withColumn(
@@ -281,9 +283,9 @@ object AssociationsLLR extends LazyLogging {
     val datasources = broadcast(associationsSec.dataSources.toDS().orderBy($"id".asc))
 
     //  val targets = Loaders.loadTargets(targetFilename)
-    val diseases = Loaders.loadDiseases(commonSec.inputs.disease)
+    val diseases = Loaders.loadDiseases(commonSec.inputs.disease.path)
     //  val expressions = Loaders.loadExpressions(expressionFilename)
-    val evidences = Loaders.loadEvidences(commonSec.inputs.evidence)
+    val evidences = Loaders.loadEvidences(commonSec.inputs.evidence.path)
 
     val directPairs = evidences
       .groupByDataSources(datasources, associationsSec)

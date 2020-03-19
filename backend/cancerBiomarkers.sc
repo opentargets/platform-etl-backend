@@ -93,7 +93,9 @@ object CancerBiomarkers extends LazyLogging {
     import CancerBiomarkersHelpers._
 
     val common = Configuration.loadCommon(config)
-    val mappedInputs = Map("target" -> common.inputs.target)
+    val mappedInputs = Map(
+      "target" -> Map("format" -> common.inputs.target.format, "path" -> common.inputs.target.path)
+    )
     val inputDataFrame = SparkSessionWrapper.loader(mappedInputs)
 
     val cancerBiomakerDf = inputDataFrame("target").getBiomarkerTargetDiseaseDrugEntity

@@ -20,16 +20,23 @@ import com.typesafe.config.{Config, ConfigFactory, ConfigObject, ConfigRenderOpt
 import play.api.libs.json.{Json, Reads}
 
 object Helpers extends LazyLogging {
-  def mkStringSemantic[T](tokens: Seq[T],
-                       start: String = "", sep: String = ", ", end: String = "",
-                       lastSep: String = " and "): Option[String] = {
+  def mkStringSemantic[T](
+      tokens: Seq[T],
+      start: String = "",
+      sep: String = ", ",
+      end: String = "",
+      lastSep: String = " and "
+  ): Option[String] = {
     val strTokens = tokens.map(_.toString)
 
     strTokens.size match {
       case 0 => None
       case 1 => Some(strTokens.mkString(start, sep, end))
-      case _ => Some((Seq(strTokens.init.mkString(start, sep, "")) :+ lastSep :+ strTokens.last)
-        .mkString("", "", end))
+      case _ =>
+        Some(
+          (Seq(strTokens.init.mkString(start, sep, "")) :+ lastSep :+ strTokens.last)
+            .mkString("", "", end)
+        )
     }
   }
 }
@@ -81,16 +88,18 @@ object Configuration extends LazyLogging {
   case class EvidenceProteinFix(input: String, output: String)
   implicit val evidenceProteinFixImp = Json.reads[EvidenceProteinFix]
 
+  case class InputInfo(format: String, path: String)
   case class Inputs(
-      target: String,
-      disease: String,
-      drug: String,
-      evidence: String,
-      association: String,
-      ddr: String,
-      reactome: String,
-      eco: String
+      target: InputInfo,
+      disease: InputInfo,
+      drug: InputInfo,
+      evidence: InputInfo,
+      association: InputInfo,
+      ddr: InputInfo,
+      reactome: InputInfo,
+      eco: InputInfo
   )
+  implicit val inputInfoImp = Json.reads[InputInfo]
   implicit val inputsImp = Json.reads[Inputs]
 
   case class Common(inputs: Inputs, output: String)
@@ -194,7 +203,7 @@ object SparkSessionWrapper extends LazyLogging {
    Reading is the first step in the pipeline
     */
   def loader(
-      inputFileConf: Map[String, String]
+      inputFileConf: Map[String, Map[String, String]]
   ): Map[String, DataFrame] = {
     logger.info("Load files into Hashmap Dataframe")
     for {
@@ -202,8 +211,8 @@ object SparkSessionWrapper extends LazyLogging {
     } yield (step_key -> loadFileToDF(step_filename))
   }
 
-  def loadFileToDF(path: String): DataFrame = {
-    val dataframe = session.read.json(path)
+  def loadFileToDF(pathInfo: Map[String, String]): DataFrame = {
+    val dataframe = session.read.format(pathInfo("format")).load(pathInfo("path"))
     dataframe
   }
 
