@@ -22,7 +22,7 @@ object TargetHelpers {
         "biotype as bioType",
         "case when (hgnc_id = '') then null else hgnc_id end as hgncId",
         "hallmarks as hallMarks",
-        "tractability",
+        "tractability as tractability_root",
         "safety",
         "chemicalprobes as chemicalProbes",
         "ortholog",
@@ -43,6 +43,29 @@ object TargetHelpers {
           |""".stripMargin
 
       df.selectExpr(selectExpressions :+ uniprotStructure: _*)
+        .withColumn(
+          "tractability",
+          when(
+            size(col("tractability_root.antibody.buckets")) > 0 and size(
+              col("tractability_root.smallmolecule.buckets")
+            ) < 1,
+            struct(col("tractability_root.antibody"), lit(null).alias("smallmolecule"))
+          ).when(
+              size(col("tractability_root.antibody.buckets")) < 1 and size(
+                col("tractability_root.smallmolecule.buckets")
+              ) > 0,
+              struct(lit(null).alias("antibody"), col("tractability_root.smallmolecule"))
+            )
+            .when(
+              size(col("tractability_root.antibody.buckets")) > 0 and size(
+                col("tractability_root.smallmolecule.buckets")
+              ) > 0,
+              col("tractability_root")
+            )
+            .otherwise(lit(null))
+        )
+        .drop("tractability_root")
+
     }
   }
 }
