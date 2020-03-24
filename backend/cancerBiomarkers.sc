@@ -29,7 +29,7 @@ object CancerBiomarkersHelpers {
           when(
             size(col("cancerBiomarkers")) > 0,
             expr(
-              "transform(cancerBiomarkers, bioRow -> named_struct('individualbiomarker',bioRow.individualbiomarker,'biomarkerId', bioRow.biomarker,'diseases', bioRow.diseases,'drugName',bioRow.drugfullname,'associationType',bioRow.association, 'evidenceLevel', bioRow.evidencelevel,'sources_other', bioRow.references.other, 'sources_pubmed', bioRow.references.pubmed))"
+              "transform(cancerBiomarkers, bioRow -> named_struct('individualbiomarker',bioRow.individualbiomarker,'biomarkerId', bioRow.biomarker,'diseases', bioRow.diseases,'drugName',bioRow.drugfullname,'associationType',bioRow.association, 'evidenceLevel', bioRow.evidencelevel,'sourcesOtherRoot', bioRow.references.other, 'sourcesPubmedRoot', bioRow.references.pubmed))"
             )
           )
         )
@@ -41,14 +41,27 @@ object CancerBiomarkersHelpers {
           col("details.drugName"),
           col("details.associationType"),
           col("details.evidenceLevel"),
-          col("details.sources_pubmed"),
-          col("details.sources_other"),
+          col("details.sourcesPubmedRoot"),
+          col("details.sourcesOtherRoot"),
           col("target")
         )
         .agg(collect_list("details.diseases").as("diseasesNested"))
         .withColumn("diseases", flatten(col("diseasesNested")))
         .drop("diseasesNested")
         .withColumn("disease", explode(col("diseases.id")))
+        .withColumn(
+          "sourcesPubmed",
+          when(
+            size(col("sourcesPubmedRoot")) > 0,
+            expr(
+              "transform(sourcesPubmedRoot, srcPub -> cast(srcPub.pmid AS LONG))"
+            )
+          )
+        )
+        .withColumn(
+          "sourcesOther",
+          when(size(col("sourcesOtherRoot")) > 0, col("sourcesOtherRoot"))
+        )
 
       /** The field individualbiomarker contains a specific fields if the biomarker id is a composed id.
 		  It is important to idenfity the unique identifier id.
@@ -71,8 +84,8 @@ object CancerBiomarkersHelpers {
           "disease",
           "evidenceLevel",
           "associationType",
-          "sources_pubmed",
-          "sources_other"
+          "sourcesPubmed",
+          "sourcesOther"
         )
 
       val dfBiomarkers =
@@ -99,6 +112,7 @@ object CancerBiomarkers extends LazyLogging {
     val inputDataFrame = SparkSessionWrapper.loader(mappedInputs)
 
     val cancerBiomakerDf = inputDataFrame("target").getBiomarkerTargetDiseaseDrugEntity
+
     SparkSessionWrapper.save(cancerBiomakerDf, common.output + "/cancerBiomarkers")
   }
 }
