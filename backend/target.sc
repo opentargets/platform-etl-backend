@@ -22,11 +22,11 @@ object TargetHelpers {
         "biotype as bioType",
         "case when (hgnc_id = '') then null else hgnc_id end as hgncId",
         "hallmarks as hallMarks",
-        "tractability as tractability_root",
+        "tractability as tractabilityRoot",
         "safety",
         "chemicalprobes as chemicalProbes",
         "ortholog",
-        "go",
+        "go as goRoot",
         "name_synonyms as nameSynonyms",
         "symbol_synonyms as symbolSynonyms",
         "struct(chromosome, gene_start as start, gene_end as end, strand) as genomicLocation"
@@ -42,30 +42,44 @@ object TargetHelpers {
           |end as proteinAnnotations
           |""".stripMargin
 
-      df.selectExpr(selectExpressions :+ uniprotStructure: _*)
+      val dfTractabilityInfo = df
+        .selectExpr(selectExpressions :+ uniprotStructure: _*)
         .withColumn(
           "tractability",
           when(
-            size(col("tractability_root.antibody.buckets")) > 0 and size(
-              col("tractability_root.smallmolecule.buckets")
+            size(col("tractabilityRoot.antibody.buckets")) > 0 and size(
+              col("tractabilityRoot.smallmolecule.buckets")
             ) < 1,
-            struct(col("tractability_root.antibody"), lit(null).alias("smallmolecule"))
+            struct(col("tractabilityRoot.antibody"), lit(null).alias("smallmolecule"))
           ).when(
-              size(col("tractability_root.antibody.buckets")) < 1 and size(
-                col("tractability_root.smallmolecule.buckets")
+              size(col("tractabilityRoot.antibody.buckets")) < 1 and size(
+                col("tractabilityRoot.smallmolecule.buckets")
               ) > 0,
-              struct(lit(null).alias("antibody"), col("tractability_root.smallmolecule"))
+              struct(lit(null).alias("antibody"), col("tractabilityRoot.smallmolecule"))
             )
             .when(
-              size(col("tractability_root.antibody.buckets")) > 0 and size(
-                col("tractability_root.smallmolecule.buckets")
+              size(col("tractabilityRoot.antibody.buckets")) > 0 and size(
+                col("tractabilityRoot.smallmolecule.buckets")
               ) > 0,
-              col("tractability_root")
+              col("tractabilityRoot")
             )
             .otherwise(lit(null))
         )
-        .drop("tractability_root")
+        .drop("tractabilityRoot")
 
+      val dfGoFixed = dfTractabilityInfo
+        .withColumn(
+          "go",
+          when(
+            size(col("goRoot")) > 0,
+            expr(
+              "transform(goRoot, goEntry -> named_struct('id',goEntry.id, 'value', transform(goRoot, v -> named_struct('evidence', replace(v.value.evidence,':','_'), 'project', v.value.project,'term', v.value.term))))"
+            )
+          )
+        )
+        .drop("goRoot")
+
+      dfGoFixed
     }
   }
 }
