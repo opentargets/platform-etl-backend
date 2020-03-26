@@ -11,6 +11,7 @@ import $ivy.`com.typesafe.play::play-json:2.8.1`
 import org.apache.spark.SparkConf
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.functions.col
+import org.apache.spark.sql.types._
 import org.apache.spark.sql._
 import com.typesafe.scalalogging.LazyLogging
 
@@ -175,6 +176,29 @@ object Configuration extends LazyLogging {
   }
 }
 
+/** EG. val newDF = ss.createDataFrame(df.rdd, renameAllCols(df.schema, renameFcn)) **/
+object DataFrameSchemaHelper extends LazyLogging {
+
+  def renameAllCols(schema: StructType, rename: String => String): StructType = {
+    def recurRename(schema: StructType): Seq[StructField] = schema.fields.map {
+      case StructField(name, dtype: StructType, nullable, meta) =>
+        StructField(rename(name), StructType(recurRename(dtype)), nullable, meta)
+      case StructField(name, dtype: ArrayType, nullable, meta)
+          if dtype.elementType.isInstanceOf[StructType] =>
+        StructField(
+          rename(name),
+          ArrayType(StructType(recurRename(dtype.elementType.asInstanceOf[StructType])), true),
+          nullable,
+          meta
+        )
+      case StructField(name, dtype, nullable, meta) =>
+        StructField(rename(name), dtype, nullable, meta)
+    }
+    StructType(recurRename(schema))
+  }
+
+}
+
 /**
   Spark common functions
   */
@@ -226,6 +250,18 @@ object SparkSessionWrapper extends LazyLogging {
     writer.save(path.toString)
     logger.info(s"Saved data to '$path'")
     df
+  }
+
+  // Replace the spaces from the schema fields with _
+  def replaceSpacesSchema(df: DataFrame): DataFrame = {
+
+    //replace all spaces with _
+    val renameFcn = (s: String) => s.replaceAll(" ", "_")
+
+    val newDF =
+      session.createDataFrame(df.rdd, DataFrameSchemaHelper.renameAllCols(df.schema, renameFcn))
+
+    newDF
   }
 
 }
