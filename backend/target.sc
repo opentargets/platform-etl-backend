@@ -72,6 +72,7 @@ object TargetHelpers {
         "chemicalprobes as chemicalProbes",
         "ortholog",
         "go as goRoot",
+        "reactome",
         "name_synonyms as nameSynonyms",
         "symbol_synonyms as symbolSynonyms",
         "struct(chromosome, gene_start as start, gene_end as end, strand) as genomicLocation"
@@ -142,9 +143,13 @@ object Target extends LazyLogging {
     val mappedInputs = Map(
       "target" -> Map("format" -> common.inputs.target.format, "path" -> common.inputs.target.path)
     )
+
     val inputDataFrame = SparkSessionWrapper.loader(mappedInputs)
 
-    val targetDF = inputDataFrame("target").setIdAndSelectFromTargets
+    // The gene index contains keys with spaces. This step creates a new Dataframe with the proper keys
+    val targetDFnewSchema = SparkSessionWrapper.replaceSpacesSchema(inputDataFrame("target"))
+
+    val targetDF = targetDFnewSchema.setIdAndSelectFromTargets
 
     SparkSessionWrapper.save(targetDF, common.output + "/targets")
 
