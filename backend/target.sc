@@ -14,6 +14,51 @@ object TargetHelpers {
     import Configuration._
     import ss.implicits._
 
+    // Manipulate safety info. Pubmed as long and unspecified_interaction_effects should be null in case of empty array.
+    def getSafetyInfo: DataFrame = {
+
+      df.withColumn(
+          "safetyTransf",
+          struct(
+            when(
+              size(col("safetyRoot.adverse_effects")) > 0,
+              expr(
+                "transform(safetyRoot.adverse_effects, sft -> named_struct('inhibition_effects', sft.inhibition_effects, 'unspecified_interaction_effects', if(size(sft.unspecified_interaction_effects) > 0, sft.unspecified_interaction_effects, null), 'organs_systems_affected', sft.organs_systems_affected, 'activation_effects', sft.activation_effects, 'references', transform(sft.references, v -> named_struct('pmid',cast(v.pmid AS LONG),'ref_label', v.ref_label, 'ref_link', v.ref_link))))"
+              )
+            ).alias("adverse_effects"),
+            when(
+              size(col("safetyRoot.safety_risk_info")) > 0,
+              expr(
+                "transform(safetyRoot.safety_risk_info, sft -> named_struct('organs_systems_affected', sft.organs_systems_affected, 'safety_liability', sft.safety_liability, 'references', transform(sft.references, v -> named_struct('pmid',cast(v.pmid AS LONG),'ref_label', v.ref_label, 'ref_link', v.ref_link))))"
+              )
+            ).alias("safety_risk_info")
+          )
+        )
+        .withColumn(
+          "safety",
+          when(
+            size(col("safetyTransf.adverse_effects")) > 0 and size(
+              col("safetyTransf.safety_risk_info")
+            ) < 1,
+            struct(col("safetyTransf.adverse_effects"), lit(null).alias("safety_risk_info"))
+          ).when(
+              size(col("safetyTransf.adverse_effects")) < 1 and size(
+                col("safetyTransf.safety_risk_info")
+              ) > 0,
+              struct(lit(null).alias("adverse_effects"), col("safetyTransf.safety_risk_info"))
+            )
+            .when(
+              size(col("safetyTransf.adverse_effects")) > 0 and size(
+                col("safetyTransf.safety_risk_info")
+              ) > 0,
+              col("safetyTransf")
+            )
+            .otherwise(lit(null))
+        )
+        .drop("safetyTransf", "safetyRoot")
+
+    }
+
     def setIdAndSelectFromTargets: DataFrame = {
       val selectExpressions = Seq(
         "id",
@@ -23,7 +68,7 @@ object TargetHelpers {
         "case when (hgnc_id = '') then null else hgnc_id end as hgncId",
         "hallmarks as hallMarks",
         "tractability as tractabilityRoot",
-        "safety",
+        "safety as safetyRoot",
         "chemicalprobes as chemicalProbes",
         "ortholog",
         "go as goRoot",
@@ -79,7 +124,10 @@ object TargetHelpers {
         )
         .drop("goRoot")
 
-      dfGoFixed
+      // Manipulate safety info. Pubmed as long and unspecified_interaction_effects should be null in case of empty array.
+      val dfSafetyInfo = dfGoFixed.getSafetyInfo
+
+      dfSafetyInfo
     }
   }
 }
