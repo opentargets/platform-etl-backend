@@ -50,7 +50,7 @@ object EvidenceDrugDirectHelpers {
 object EvidenceDrugDirect extends LazyLogging {
   def apply(config: Config)(implicit ss: SparkSession) = {
     import ss.implicits._
-    import EvidenceDrugHelpers._
+    import EvidenceDrugDirectHelpers._
 
     val common = Configuration.loadCommon(config)
     val mappedInputs = Map(
