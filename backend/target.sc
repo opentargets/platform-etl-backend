@@ -14,6 +14,34 @@ object TargetHelpers {
     import Configuration._
     import ss.implicits._
 
+    def getHallMarksInfo: DataFrame = {
+
+      df.withColumn(
+          "hallMarks",
+          struct(
+            when(
+              size(col("hallMarksRoot.attributes")) > 0,
+              expr(
+                "transform(hallMarksRoot.attributes, hm -> named_struct('pmid',cast(hm.pmid AS LONG),'attribute_name', hm.attribute_name, 'description', hm.description))"
+              )
+            ).alias("attributes"),
+            when(
+              size(col("hallMarksRoot.cancer_hallmarks")) > 0,
+              expr(
+                "transform(hallMarksRoot.cancer_hallmarks, hm -> named_struct('pmid',cast(hm.pmid AS LONG),'description', hm.description,'label', hm.label,'promote', hm.promote,'suppress', hm.suppress))"
+              )
+            ).alias("cancer_hallmarks"),
+            when(
+              size(col("hallMarksRoot.function_summary")) > 0,
+              expr(
+                "transform(hallMarksRoot.function_summary, hm -> named_struct('pmid',cast(hm.pmid AS LONG),'description', hm.description))"
+              )
+            ).alias("function_summary")
+          )
+        )
+        .drop("hallMarksRoot")
+    }
+
     // Manipulate safety info. Pubmed as long and unspecified_interaction_effects should be null in case of empty array.
     def getSafetyInfo: DataFrame = {
 
@@ -66,7 +94,7 @@ object TargetHelpers {
         "approved_symbol as approvedSymbol",
         "biotype as bioType",
         "case when (hgnc_id = '') then null else hgnc_id end as hgncId",
-        "hallmarks as hallMarks",
+        "hallmarks as hallMarksRoot",
         "tractability as tractabilityRoot",
         "safety as safetyRoot",
         "chemicalprobes as chemicalProbes",
@@ -125,8 +153,10 @@ object TargetHelpers {
         )
         .drop("goRoot")
 
+      val dfHallMarksInfo = dfGoFixed.getHallMarksInfo
+
       // Manipulate safety info. Pubmed as long and unspecified_interaction_effects should be null in case of empty array.
-      val dfSafetyInfo = dfGoFixed.getSafetyInfo
+      val dfSafetyInfo = dfHallMarksInfo.getSafetyInfo
 
       dfSafetyInfo
     }
