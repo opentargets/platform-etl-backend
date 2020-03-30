@@ -24,8 +24,8 @@ object EvidenceDrugDirectHelpers {
 
       val dfDirect = fds
         .groupBy(
-          col("disease_id"),
-          col("drug_id"),
+          col("disease_id").as("disease"),
+          col("drug_id").as("drug"),
           col("evidence.drug2clinic.clinical_trial_phase.label").as("clinical_trial_phase"),
           col("evidence.drug2clinic.status").as("clinical_trial_status"),
           col("target_id").as("target")
