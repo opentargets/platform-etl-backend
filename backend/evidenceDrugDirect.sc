@@ -9,7 +9,7 @@ import org.apache.spark.sql._
 import org.apache.spark.sql.types._
 import com.typesafe.config.Config
 
-object EvidenceDrugHelpers {
+object EvidenceDrugDirectHelpers {
   implicit class AggregationHelpers(df: DataFrame)(implicit ss: SparkSession) {
     import Configuration._
     import ss.implicits._
@@ -46,8 +46,8 @@ object EvidenceDrugHelpers {
   }
 }
 
-// This is option/step cancerbiomarkers in the config file
-object EvidenceDrug extends LazyLogging {
+
+object EvidenceDrugDirect extends LazyLogging {
   def apply(config: Config)(implicit ss: SparkSession) = {
     import ss.implicits._
     import EvidenceDrugHelpers._
@@ -63,6 +63,6 @@ object EvidenceDrug extends LazyLogging {
 
     val dfDirectInfo = inputDataFrame("evidence").generateEntries(inputDataFrame
 
-    SparkSessionWrapper.save(dfDirectInfo, common.output + "/evidenceDirect")
+    SparkSessionWrapper.save(dfDirectInfo, common.output + "/evidenceDrugDirect")
   }
 }
