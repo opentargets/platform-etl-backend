@@ -41,11 +41,10 @@ object EvidenceDrugDirectHelpers {
         .withColumn("list_urls", flatten(col("_list_urls")))
         .drop("_list_urls")
 
-       dfDirect
+      dfDirect
     }
   }
 }
-
 
 object EvidenceDrugDirect extends LazyLogging {
   def apply(config: Config)(implicit ss: SparkSession) = {
@@ -61,7 +60,7 @@ object EvidenceDrugDirect extends LazyLogging {
     )
     val inputDataFrame = SparkSessionWrapper.loader(mappedInputs)
 
-    val dfDirectInfo = inputDataFrame("evidence").generateEntries(inputDataFrame
+    val dfDirectInfo = inputDataFrame("evidence").generateEntries
 
     SparkSessionWrapper.save(dfDirectInfo, common.output + "/evidenceDrugDirect")
   }
