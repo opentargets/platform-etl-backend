@@ -143,15 +143,21 @@ object TargetHelpers {
 
       val dfGoFixed = dfTractabilityInfo
         .withColumn(
-          "go",
+          "goTransf",
           when(
             size(col("goRoot")) > 0,
             expr(
-              "transform(goRoot, goEntry -> named_struct('id',goEntry.id, 'value', transform(goRoot, v -> named_struct('evidence', replace(v.value.evidence,':','_'), 'project', v.value.project,'term', v.value.term))))"
+              "transform(goRoot, goEntry -> named_struct('id',goEntry.id, 'value_evidence', replace(goEntry.value.evidence,':','_'), 'value_project', goEntry.value.project, 'value_term', goEntry.value.term))"
             )
           )
         )
-        .drop("goRoot")
+        .withColumn(
+          "go",
+          expr(
+            "transform(goTransf, goItem -> named_struct('id',goItem.id, 'value', named_struct('evidence', goItem.value_evidence,'project', goItem.value_project,'term', goItem.value_term)))"
+          )
+        )
+        .drop("goRoot", "goTransf")
 
       val dfHallMarksInfo = dfGoFixed.getHallMarksInfo
 
