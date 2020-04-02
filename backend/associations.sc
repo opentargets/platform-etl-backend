@@ -220,21 +220,15 @@ object AssociationHelpers {
 }
 
 object Loaders extends LazyLogging {
-  def loadTargets(path: String)(implicit ss: SparkSession): DataFrame = {
+  def loadTargets(input: Configuration.InputInfo)(implicit ss: SparkSession): DataFrame = {
     logger.info("load targets jsonl")
-    val targets = ss.read.json(path)
+    val targets = ss.read.format(input.format).load(input.path)
     targets
   }
 
-  def loadExpressions(path: String)(implicit ss: SparkSession): DataFrame = {
-    logger.info("load expressions jsonl")
-    val expressions = ss.read.json(path)
-    expressions
-  }
-
-  def loadDiseases(path: String)(implicit ss: SparkSession): DataFrame = {
+  def loadDiseases(input: Configuration.InputInfo)(implicit ss: SparkSession): DataFrame = {
     logger.info("load diseases jsonl")
-    val diseaseList = ss.read.json(path)
+    val diseaseList = ss.read.format(input.format).load(input.path)
 
     // generate needed fields as ancestors
     val efos = diseaseList
@@ -254,9 +248,9 @@ object Loaders extends LazyLogging {
     diseases
   }
 
-  def loadEvidences(path: String)(implicit ss: SparkSession): DataFrame = {
+  def loadEvidences(input: Configuration.InputInfo)(implicit ss: SparkSession): DataFrame = {
     logger.info("load evidences jsonl")
-    val evidences = ss.read.json(path)
+    val evidences = ss.read.format(input.format).load(input.path)
     evidences
   }
 }
@@ -271,10 +265,10 @@ object Associations extends LazyLogging {
 
     val datasources = broadcast(associationsSec.dataSources.toDS().orderBy($"id".asc))
 
-    //  val targets = Loaders.loadTargets(targetFilename)
-    val diseases = Loaders.loadDiseases(commonSec.inputs.disease.path)
+    val targets = Loaders.loadTargets(commonSec.inputs.target)
+    val diseases = Loaders.loadDiseases(commonSec.inputs.disease)
     //  val expressions = Loaders.loadExpressions(expressionFilename)
-    val evidences = Loaders.loadEvidences(commonSec.inputs.evidence.path)
+    val evidences = Loaders.loadEvidences(commonSec.inputs.evidence)
 
     val directPairs = evidences
       .groupByDataSources(datasources, associationsSec)
