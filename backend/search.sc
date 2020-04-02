@@ -1,6 +1,8 @@
 import $file.common
+import $file.associationsLLR
 import common._
 import common.{ColumnFunctions => C}
+import associationsLLR._
 
 import com.typesafe.config.Config
 import com.typesafe.scalalogging.LazyLogging
@@ -451,6 +453,8 @@ object Search extends LazyLogging {
     import ss.implicits._
     import Transformers.Implicits
 
+    val llrAssoc = AssociationsLLR.compute(config)
+
     val common = Configuration.loadCommon(config)
 
     val mappedInputs = Map(
@@ -458,15 +462,17 @@ object Search extends LazyLogging {
         "format" -> common.inputs.disease.format,
         "path" -> common.inputs.disease.path
       ),
-      "drug" -> Map("format" -> common.inputs.drug.format, "path" -> common.inputs.drug.path),
+      "drug" -> Map(
+        "format" -> common.inputs.drug.format,
+        "path" -> common.inputs.drug.path
+      ),
       "evidence" -> Map(
         "format" -> common.inputs.evidence.format,
         "path" -> common.inputs.evidence.path
       ),
-      "target" -> Map("format" -> common.inputs.target.format, "path" -> common.inputs.target.path),
-      "association" -> Map(
-        "format" -> common.inputs.association.format,
-        "path" -> common.inputs.association.path
+      "target" -> Map(
+        "format" -> common.inputs.target.format,
+        "path" -> common.inputs.target.path
       )
     )
 
@@ -538,8 +544,8 @@ object Search extends LazyLogging {
       "disease_id",
       "score"
     )
-    logger.info("subselect associations just id and score and persist")
-    val associationScores = inputDataFrame("association")
+    logger.info("subselect indirect LLR associations just id and score and persist")
+    val associationScores = llrAssoc._2
     //      .selectExpr("harmonic_sum.overall as score",
     //                  "id as association_id",
     //                  "target.id as target_id",
