@@ -3,7 +3,7 @@
 export INDEX_SETTINGS="index_settings.json"
 export INDEX_NAME="20.02_drug"
 export TYPE_FIELD="drug"
-export INPUT="../out/drugs"
+export INPUT="../drugs"
 export ES="http://localhost:9200"
 export ID="id"
 

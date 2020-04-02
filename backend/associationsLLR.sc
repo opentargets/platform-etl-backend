@@ -231,21 +231,9 @@ object AssociationsLLRHelpers {
 }
 
 object Loaders extends LazyLogging {
-  def loadTargets(path: String)(implicit ss: SparkSession): DataFrame = {
-    logger.info("load targets jsonl")
-    val targets = ss.read.json(path)
-    targets
-  }
-
-  def loadExpressions(path: String)(implicit ss: SparkSession): DataFrame = {
-    logger.info("load expressions jsonl")
-    val expressions = ss.read.json(path)
-    expressions
-  }
-
-  def loadDiseases(path: String)(implicit ss: SparkSession): DataFrame = {
+  def loadDiseases(input: Configuration.InputInfo)(implicit ss: SparkSession): DataFrame = {
     logger.info("load diseases jsonl")
-    val diseaseList = ss.read.json(path)
+    val diseaseList = ss.read.format(input.format).load(input.path)
 
     // generate needed fields as ancestors
     val efos = diseaseList
@@ -265,15 +253,18 @@ object Loaders extends LazyLogging {
     diseases
   }
 
-  def loadEvidences(path: String)(implicit ss: SparkSession): DataFrame = {
+  def loadEvidences(input: Configuration.InputInfo)(implicit ss: SparkSession): DataFrame = {
     logger.info("load evidences jsonl")
-    val evidences = ss.read.json(path)
+    val evidences = ss.read.format(input.format).load(input.path)
     evidences
   }
 }
 
 object AssociationsLLR extends LazyLogging {
-  def apply(config: Config)(implicit ss: SparkSession) = {
+  /** compute direct and indirect LLR per datasource instead of harmonic method and
+   * returns (direct, indirect) datasets pair
+   */
+  def compute(config: Config)(implicit ss: SparkSession): (DataFrame, DataFrame) = {
     val associationsSec = Configuration.loadAssociationSection(config)
     val commonSec = Configuration.loadCommon(config)
 
@@ -282,10 +273,8 @@ object AssociationsLLR extends LazyLogging {
 
     val datasources = broadcast(associationsSec.dataSources.toDS().orderBy($"id".asc))
 
-    //  val targets = Loaders.loadTargets(targetFilename)
-    val diseases = Loaders.loadDiseases(commonSec.inputs.disease.path)
-    //  val expressions = Loaders.loadExpressions(expressionFilename)
-    val evidences = Loaders.loadEvidences(commonSec.inputs.evidence.path)
+    val diseases = Loaders.loadDiseases(commonSec.inputs.disease)
+    val evidences = Loaders.loadEvidences(commonSec.inputs.evidence)
 
     val directPairs = evidences
       .groupByDataSources(datasources, associationsSec)
@@ -301,8 +290,18 @@ object AssociationsLLR extends LazyLogging {
       .groupByPair
       .withColumn("is_direct", lit(false))
 
-    // write to jsonl both direct and indirect
-    directPairs.write.json(commonSec.output + "/direct_llr/")
-    indirectPairs.write.json(commonSec.output + "/indirect_llr/")
+    (directPairs, indirectPairs)
+  }
+  def apply(config: Config)(implicit ss: SparkSession) = {
+    compute(config) match {
+      case (direct, indirect) =>
+        val commonSec = Configuration.loadCommon(config)
+
+        // write to jsonl both direct and indirect
+        direct.write.json(commonSec.output + "/direct_llr/")
+        indirect.write.json(commonSec.output + "/indirect_llr/")
+
+      case _ => logger.error("Associations llr have to return both, direct and indirect computations")
+    }
   }
 }
