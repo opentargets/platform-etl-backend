@@ -100,6 +100,7 @@ object Configuration extends LazyLogging {
       reactome: InputInfo,
       eco: InputInfo
   )
+
   implicit val inputInfoImp = Json.reads[InputInfo]
   implicit val inputsImp = Json.reads[Inputs]
 
@@ -231,8 +232,8 @@ object SparkSessionWrapper extends LazyLogging {
   ): Map[String, DataFrame] = {
     logger.info("Load files into Hashmap Dataframe")
     for {
-      (step_key, step_filename) <- inputFileConf
-    } yield (step_key -> loadFileToDF(step_filename))
+      (stepKey, stepFilename) <- inputFileConf
+    } yield (stepKey -> loadFileToDF(stepFilename))
   }
 
   def loadFileToDF(pathInfo: Map[String, String]): DataFrame = {
