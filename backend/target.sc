@@ -53,38 +53,31 @@ object TargetHelpers {
               expr(
                 "transform(safetyRoot.adverse_effects, sft -> named_struct('inhibition_effects', sft.inhibition_effects, 'unspecified_interaction_effects', if(size(sft.unspecified_interaction_effects) > 0, sft.unspecified_interaction_effects, null), 'organs_systems_affected', sft.organs_systems_affected, 'activation_effects', sft.activation_effects, 'references', transform(sft.references, v -> named_struct('pmid',cast(v.pmid AS LONG),'ref_label', v.ref_label, 'ref_link', v.ref_link))))"
               )
-            ).alias("adverse_effects"),
+            ).otherwise(lit(null)).alias("adverse_effects"),
             when(
               size(col("safetyRoot.safety_risk_info")) > 0,
               expr(
                 "transform(safetyRoot.safety_risk_info, sft -> named_struct('organs_systems_affected', sft.organs_systems_affected, 'safety_liability', sft.safety_liability, 'references', transform(sft.references, v -> named_struct('pmid',cast(v.pmid AS LONG),'ref_label', v.ref_label, 'ref_link', v.ref_link))))"
               )
-            ).alias("safety_risk_info")
+            ).otherwise(lit(null)).alias("safety_risk_info"),
+            when(
+              size(col("safetyRoot.experimental_toxicity")) > 0,
+              expr(
+                "transform(safetyRoot.experimental_toxicity, sft -> named_struct('data_source', sft.data_source, 'data_source_reference_link', sft.data_source_reference_link, 'experiment_details', sft.experiment_details))"
+              )
+            ).otherwise(lit(null)).alias("experimental_toxicity")
           )
         )
         .withColumn(
           "safety",
           when(
-            size(col("safetyTransf.adverse_effects")) > 0 and size(
-              col("safetyTransf.safety_risk_info")
-            ) < 1,
-            struct(col("safetyTransf.adverse_effects"), lit(null).alias("safety_risk_info"))
-          ).when(
-              size(col("safetyTransf.adverse_effects")) < 1 and size(
-                col("safetyTransf.safety_risk_info")
-              ) > 0,
-              struct(lit(null).alias("adverse_effects"), col("safetyTransf.safety_risk_info"))
-            )
-            .when(
-              size(col("safetyTransf.adverse_effects")) > 0 and size(
-                col("safetyTransf.safety_risk_info")
-              ) > 0,
-              col("safetyTransf")
-            )
-            .otherwise(lit(null))
+            col("safetyTransf.adverse_effects").isNull and col("safetyTransf.safety_risk_info").isNull and col(
+              "safetyTransf.experimental_toxicity"
+            ).isNull,
+            null
+          ).otherwise(col("safetyTransf"))
         )
-        .drop("safetyTransf", "safetyRoot")
-
+        .drop("safetyRoot", "safetyTransf")
     }
 
     def setIdAndSelectFromTargets: DataFrame = {
@@ -119,27 +112,32 @@ object TargetHelpers {
       val dfTractabilityInfo = df
         .selectExpr(selectExpressions :+ uniprotStructure: _*)
         .withColumn(
+          "tractabilityTransf",
+          struct(
+            when(
+              size(col("tractabilityRoot.antibody.buckets")) > 0,
+              struct(col("tractabilityRoot.antibody"))
+            ).otherwise(lit(null)).alias("antibody"),
+            when(
+              size(col("tractabilityRoot.smallmolecule.buckets")) > 0,
+              struct(col("tractabilityRoot.smallmolecule"))
+            ).otherwise(lit(null)).alias("smallmolecule"),
+            when(
+              size(col("tractabilityRoot.other_modalities.buckets")) > 0,
+              struct(col("tractabilityRoot.other_modalities"))
+            ).otherwise(lit(null)).alias("other_modalities")
+          )
+        )
+        .withColumn(
           "tractability",
           when(
-            size(col("tractabilityRoot.antibody.buckets")) > 0 and size(
-              col("tractabilityRoot.smallmolecule.buckets")
-            ) < 1,
-            struct(col("tractabilityRoot.antibody"), lit(null).alias("smallmolecule"))
-          ).when(
-              size(col("tractabilityRoot.antibody.buckets")) < 1 and size(
-                col("tractabilityRoot.smallmolecule.buckets")
-              ) > 0,
-              struct(lit(null).alias("antibody"), col("tractabilityRoot.smallmolecule"))
-            )
-            .when(
-              size(col("tractabilityRoot.antibody.buckets")) > 0 and size(
-                col("tractabilityRoot.smallmolecule.buckets")
-              ) > 0,
-              col("tractabilityRoot")
-            )
-            .otherwise(lit(null))
+            col("tractabilityTransf.antibody").isNull and col("tractabilityTransf.smallmolecule").isNull and col(
+              "tractabilityTransf.other_modalities"
+            ).isNull,
+            null
+          ).otherwise(col("tractabilityTransf"))
         )
-        .drop("tractabilityRoot")
+        .drop("tractabilityRoot", "tractabilityTransf")
 
       val dfGoFixed = dfTractabilityInfo
         .withColumn(

@@ -20,7 +20,7 @@ object DataDrivenRelationsHelpers {
         "subject.id as A",
         "object.id as B",
         "scores.overlap as score",
-        "counts.shared_count as countAndB",
+        "counts.shared_count as countAAndB",
         "counts.union_count as countAOrB"
       )
 
