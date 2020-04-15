@@ -2,7 +2,8 @@
 
 #cat "$1" | elasticsearch_loader --es-host "http://localhost:9200" --index-settings-file "index_settings.json" --bulk-size 5000 --index targets --type target --id-field id json --json-lines -
 export INDEX_SETTINGS="index_settings.json"
-export INDEX_NAME="20.02_target"
+export RELEASE='20.04_'
+export INDEX_NAME="target"
 export TYPE_FIELD="target"
 export INPUT="../out/targets"
 export ES="http://localhost:9200"
