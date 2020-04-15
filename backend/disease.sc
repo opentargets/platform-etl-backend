@@ -48,14 +48,11 @@ object DiseaseHelpers {
           )
         )
         .withColumn("parents", getParents(col("path_codes")))
-        .withColumn("phenotypesCount", size(col("phenotypes")))
         .drop("paths", "private", "_private", "path")
         .withColumn(
           "phenotypes",
-          struct(
-            col("phenotypesCount").as("count"),
-            col("sourcePhenotypes").as("rows")
-          )
+          when(size(col("sourcePhenotypes")) > 0, struct(col("sourcePhenotypes").as("rows")))
+            .otherwise(lit(null))
         )
         //.withColumn("test",when(size(col("sourcePhenotypes")) > 0, extractIdPhenothypes(col("sourcePhenotypes"))).otherwise(col("sourcePhenotypes")))
         .withColumn("isTherapeuticArea", size(flatten(col("path_codes"))) === 1)
