@@ -3,6 +3,8 @@
 ./load_drugs.sh
 ./load_eco.sh
 ./load_reactome.sh
+./load_search.sh
 ./load_evidence_direct.sh
+./load_openfda_faers.sh
 ./load_disease_relation.sh
 ./load_target_relation.sh
