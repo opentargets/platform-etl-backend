@@ -8,6 +8,9 @@ echo $INPUT
 echo $INDEX_NAME
 echo $TYPE_FIELD
 echo $ID
+echo $RELEASE
+
+INDEX=$RELEASE$INDEX_NAME
 
 FILES="$(ls $INPUT/*.json)"
 for f in $FILES
@@ -15,10 +18,10 @@ do
   echo $f
   if [[ -n "$ID" ]]; then
     printf "The index will have %s \n" "$ID"
-    cat  $f | elasticsearch_loader --es-host $ES --index-settings-file $INDEX_SETTINGS --bulk-size 5000 --index $INDEX_NAME --type $TYPE_FIELD --id-field id json --json-lines - 
+    cat  $f | elasticsearch_loader --es-host $ES --index-settings-file $INDEX_SETTINGS --bulk-size 5000 --index $INDEX --type $TYPE_FIELD --id-field id json --json-lines - 
   else
     printf "The index wont have an ID \n"
-    cat  $f | elasticsearch_loader --es-host $ES --index-settings-file $INDEX_SETTINGS --bulk-size 5000 --index $INDEX_NAME --type $TYPE_FIELD json --json-lines -  
+    cat  $f | elasticsearch_loader --es-host $ES --index-settings-file $INDEX_SETTINGS --bulk-size 5000 --index $INDEX --type $TYPE_FIELD json --json-lines -  
   fi
 done
 
