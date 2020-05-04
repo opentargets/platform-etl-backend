@@ -1,6 +1,4 @@
-import $ivy.`com.github.pathikrit::better-files:3.8.0`
-import $file.common
-import common._
+package io.opentargets.etl.backend
 
 import org.apache.spark.SparkConf
 import com.typesafe.scalalogging.LazyLogging
@@ -159,15 +157,12 @@ object Disease extends LazyLogging {
       .map(_.toSeq)
       .flatten
 
-    generateTherapeticAreaFile(
-      therapeticAreaList,
-      common.output + "/diseases_staticfiles/therapeuticAreas.json"
-    )
+    generateTherapeticAreaFile(therapeticAreaList, common.output + "/diseases_staticfiles")
 
     val efoBasicInfoDF =
       diseaseDF.select("id", "name", "parents").withColumnRenamed("parents", "parentIds")
 
-    generateEFOfile(efoBasicInfoDF, common.output + "/diseases_staticfiles/efos.json")
+    generateEFOfile(efoBasicInfoDF, common.output + "/diseases_staticfiles")
 
   }
 }

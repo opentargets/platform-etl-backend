@@ -1,5 +1,4 @@
-import $file.common
-import common._
+package io.opentargets.etl.backend
 
 import org.apache.spark.SparkConf
 import com.typesafe.scalalogging.LazyLogging
