@@ -18,10 +18,6 @@ lazy val root = (project in file("."))
       )
     ),
     name := "io-opentargets-etl-backend",
-    // libraryDependencies += scalaTest % Test,
-
-    // resolvers += Resolver.mavenLocal,
-    // resolvers += Resolver.sonatypeRepo("releases"),
     resolvers ++= buildResolvers,
     libraryDependencies += scalaCheck,
     libraryDependencies ++= sparkDeps,
@@ -33,6 +29,7 @@ lazy val root = (project in file("."))
     libraryDependencies += playJson,
     testFrameworks += new TestFramework("minitest.runner.Framework"),
     assemblyMergeStrategy in assembly := {
+      case PathList("META-INF", xs @ _*)                => MergeStrategy.discard
       case PathList("org", "aopalliance", xs @ _*)      => MergeStrategy.last
       case PathList("javax", "inject", xs @ _*)         => MergeStrategy.last
       case PathList("javax", "servlet", xs @ _*)        => MergeStrategy.last
@@ -43,11 +40,15 @@ lazy val root = (project in file("."))
       case PathList("com", "codahale", xs @ _*)         => MergeStrategy.last
       case PathList("com", "yammer", xs @ _*)           => MergeStrategy.last
       case PathList("org", "slf4j", "impl", xs @ _*)    => MergeStrategy.last
-      case "about.html"                                 => MergeStrategy.rename
-      case "overview.html"                              => MergeStrategy.rename
-      case "plugin.properties"                          => MergeStrategy.last
-      case "log4j.properties"                           => MergeStrategy.last
-      case "git.properties"                             => MergeStrategy.last
+      case "module-info.class"                          => MergeStrategy.last
+      case "reference-overrides.conf"                   => MergeStrategy.concat
+      case "META-INF/services/org.apache.spark.sql.sources.DataSourceRegister" =>
+        MergeStrategy.concat
+      case "about.html"        => MergeStrategy.rename
+      case "overview.html"     => MergeStrategy.rename
+      case "plugin.properties" => MergeStrategy.last
+      case "log4j.properties"  => MergeStrategy.last
+      case "git.properties"    => MergeStrategy.last
       case x =>
         val oldStrategy = (assemblyMergeStrategy in assembly).value
         oldStrategy(x)

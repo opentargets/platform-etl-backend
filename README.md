@@ -71,6 +71,16 @@ This script generates the Disease-drug-phase-status-target... aggregation is ord
 to aggregate table for drugs and clinical trials. To run it just use `--help` to get the list of 
 command line parameters.
 
+
+
+### Create a fat JAR
+Simply run the following command:
+
+```bash
+sbt assembly
+```
+The jar will be generated under target/scala2.12.10/
+
 ### Scalafmt Installation
 
 A pre-commit hook to run [scalafmt](https://scalameta.org/scalafmt/) is recommended for 
