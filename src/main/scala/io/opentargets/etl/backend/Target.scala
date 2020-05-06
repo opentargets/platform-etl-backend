@@ -104,7 +104,12 @@ object TargetHelpers {
           |  when (uniprot_id = '' or uniprot_id = null) then null
           |  else struct(uniprot_id as id,
           |    uniprot_accessions as accessions,
-          |    uniprot_function as functions)
+          |    uniprot_function as functions,
+          |    uniprot_pathway as pathways,
+          |    uniprot_similarity as similarities,
+          |    uniprot_subcellular_location as subcellularLocations,
+          |    uniprot_subunit as subunits
+          |    )
           |end as proteinAnnotations
           |""".stripMargin
 
