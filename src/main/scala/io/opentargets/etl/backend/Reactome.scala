@@ -21,10 +21,10 @@ object Reactome extends LazyLogging {
         "path" -> common.inputs.reactome.path
       )
     )
-    val inputDataFrame = SparkHelpers.loader(mappedInputs)
+    val inputDataFrame = SparkHelpers.read(mappedInputs)
     val reactomeDF = inputDataFrame("reactome")
 
-    SparkHelpers.save(reactomeDF, common.output + "/reactome")
+    SparkHelpers.write(reactomeDF, common.output + "/reactome")
 
   }
 }

@@ -9,6 +9,7 @@ import org.apache.spark.sql.types._
 import com.typesafe.config.Config
 import better.files._
 import better.files.File._
+import io.opentargets.etl.backend.SparkHelpers.IOResourceConfig
 
 object DiseaseHelpers {
   implicit class AggregationHelpers(df: DataFrame)(implicit ss: SparkSession) {
@@ -17,6 +18,7 @@ object DiseaseHelpers {
 
     def setIdAndSelectFromDiseases: DataFrame = {
 
+      // TODO MKARMONA THIS SMELL
       val getParents = udf(
         (codes: Seq[Seq[String]]) =>
           codes
@@ -140,29 +142,36 @@ object Disease extends LazyLogging {
 
     val common = context.configuration.common
     val mappedInputs = Map(
-      "disease" -> Map(
-        "format" -> common.inputs.disease.format,
-        "path" -> common.inputs.disease.path
+      "disease" -> IOResourceConfig(
+        common.inputs.disease.format,
+        common.inputs.disease.path
       )
     )
-    val inputDataFrame = SparkHelpers.loader(mappedInputs)
+    val inputDataFrame = SparkHelpers.read(mappedInputs)
 
     val diseaseDF = inputDataFrame("disease").setIdAndSelectFromDiseases
 
-    SparkHelpers.save(diseaseDF, common.output + "/diseases")
+    val outputConfs = Map(
+      "disease" -> IOResourceConfig(
+        context.configuration.common.outputFormat,
+        context.configuration.common.output + s"/disease"
+      ))
+
+    SparkHelpers.write(outputConfs, Map("disease" -> diseaseDF))
 
     val therapeticAreaList = diseaseDF
       .filter(col("ontology.isTherapeuticArea") === true)
       .select("id")
-      .collect
-      .map(_.toSeq)
-      .flatten
+      .collect()
+      .flatMap(_.toSeq)
 
+    // TODO CINZIA THIS NEEDS TO WRITE TO CSV ONE COLUMN WITH NO HEADER
     generateTherapeticAreaFile(therapeticAreaList, common.output + "/diseases_staticfiles")
 
     val efoBasicInfoDF =
       diseaseDF.select("id", "name", "parents").withColumnRenamed("parents", "parentIds")
 
+    // TODO CINZIA THIS NEEDS TO WRITE TO CSV ONE COLUMN WITH NO HEADER
     generateEFOfile(efoBasicInfoDF, common.output + "/diseases_staticfiles")
 
   }
