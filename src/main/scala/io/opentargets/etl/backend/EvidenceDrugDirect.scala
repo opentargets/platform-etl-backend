@@ -58,10 +58,10 @@ object EvidenceDrugDirect extends LazyLogging {
         "path" -> common.inputs.evidence.path
       )
     )
-    val inputDataFrame = SparkHelpers.loader(mappedInputs)
+    val inputDataFrame = SparkHelpers.read(mappedInputs)
 
     val dfDirectInfo = inputDataFrame("evidence").generateEntries
 
-    SparkHelpers.save(dfDirectInfo, common.output + "/evidenceDrugDirect")
+    SparkHelpers.write(dfDirectInfo, common.output + "/evidenceDrugDirect")
   }
 }

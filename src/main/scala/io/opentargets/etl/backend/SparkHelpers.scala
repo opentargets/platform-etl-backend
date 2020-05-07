@@ -6,6 +6,10 @@ import org.apache.spark.sql.functions.expr
 import org.apache.spark.sql.types.{ArrayType, StructField, StructType}
 
 object SparkHelpers extends LazyLogging {
+  type IOResourceConfs = Map[String, IOResourceConfig]
+  type IOResources = Map[String, DataFrame]
+
+  case class IOResourceConfig(format: String, path: String)
 
   /**
     * generate a spark session given the arguments if sparkUri is None then try to get from env
@@ -63,26 +67,31 @@ object SparkHelpers extends LazyLogging {
    Es. inputsDataFrame {"disease", Dataframe} , {"target", Dataframe}
    Reading is the first step in the pipeline
     */
-  def loader(
-      inputFileConf: Map[String, Map[String, String]]
-  )(implicit session: SparkSession): Map[String, DataFrame] = {
+  def read(
+      inputFileConf: IOResourceConfs
+  )(implicit session: SparkSession): IOResources = {
     logger.info("Load files into Hashmap Dataframe")
     for {
-      (stepKey, stepFilename) <- inputFileConf
-    } yield stepKey -> loadFileToDF(stepFilename)
+      (key, formatAndPath) <- inputFileConf
+    } yield key -> loadFileToDF(formatAndPath)
   }
 
-  def loadFileToDF(pathInfo: Map[String, String])(implicit session: SparkSession): DataFrame =
-    session.read.format(pathInfo("format")).load(pathInfo("path"))
+  def loadFileToDF(pathInfo: IOResourceConfig)(implicit session: SparkSession): DataFrame =
+    session.read.format(pathInfo.format).load(pathInfo.path)
 
-  def save(
-      df: DataFrame,
-      path: String,
-      writerConfigurator: Option[WriterConfigurator] = None
-  ): DataFrame = {
-    writerConfigurator.getOrElse(defaultWriterConfigurator())(df.write).save(path)
-    logger.info(s"Saved data to '$path'")
-    df
+  def write(outputConfs: IOResourceConfs, outputs: IOResources)(
+      implicit session: SparkSession): IOResources = {
+    import session.implicits._
+
+    logger.info(s"Saved data to '${outputConfs.mkString(", ")}'")
+    val dfs = outputs.toSeq.sortBy(_._1) zip outputConfs.toSeq.sortBy(_._1)
+
+    dfs.foreach {
+      case (df, conf) =>
+        logger.debug(s"saving dataframe '${df._1}' into '${conf._2.path}'")
+        df._2.write.format(conf._2.format).save(conf._2.path)
+    }
+    outputs
   }
 
   // Replace the spaces from the schema fields with _

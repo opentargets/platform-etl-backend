@@ -145,18 +145,17 @@ object Disease extends LazyLogging {
         "path" -> common.inputs.disease.path
       )
     )
-    val inputDataFrame = SparkHelpers.loader(mappedInputs)
+    val inputDataFrame = SparkHelpers.read(mappedInputs)
 
     val diseaseDF = inputDataFrame("disease").setIdAndSelectFromDiseases
 
-    SparkHelpers.save(diseaseDF, common.output + "/diseases")
+    SparkHelpers.write(diseaseDF, common.output + "/diseases")
 
     val therapeticAreaList = diseaseDF
       .filter(col("ontology.isTherapeuticArea") === true)
       .select("id")
-      .collect
-      .map(_.toSeq)
-      .flatten
+      .collect()
+      .flatMap(_.toSeq)
 
     generateTherapeticAreaFile(therapeticAreaList, common.output + "/diseases_staticfiles")
 

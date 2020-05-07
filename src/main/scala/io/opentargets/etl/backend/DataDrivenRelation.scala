@@ -59,12 +59,12 @@ object DataDrivenRelation extends LazyLogging {
     val mappedInputs = Map(
       "ddr" -> Map("format" -> common.inputs.ddr.format, "path" -> common.inputs.ddr.path)
     )
-    val inputDataFrame = SparkHelpers.loader(mappedInputs)
+    val inputDataFrame = SparkHelpers.read(mappedInputs)
 
     val dfOutputs = inputDataFrame("ddr").getDataDrivenRelationgEntity
 
     dfOutputs.keys.foreach { index =>
-      SparkHelpers.save(dfOutputs(index), common.output + "/" + index)
+      SparkHelpers.write(dfOutputs(index), common.output + "/" + index)
     }
 
   }

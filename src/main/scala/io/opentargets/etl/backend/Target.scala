@@ -183,14 +183,14 @@ object Target extends LazyLogging {
       "target" -> Map("format" -> common.inputs.target.format, "path" -> common.inputs.target.path)
     )
 
-    val inputDataFrame = SparkHelpers.loader(mappedInputs)
+    val inputDataFrame = SparkHelpers.read(mappedInputs)
 
     // The gene index contains keys with spaces. This step creates a new Dataframe with the proper keys
     val targetDFnewSchema = SparkHelpers.replaceSpacesSchema(inputDataFrame("target"))
 
     val targetDF = targetDFnewSchema.setIdAndSelectFromTargets
 
-    SparkHelpers.save(targetDF, common.output + "/targets")
+    SparkHelpers.write(targetDF, common.output + "/targets")
 
   }
 }
