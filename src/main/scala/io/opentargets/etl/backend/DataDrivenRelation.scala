@@ -50,20 +50,21 @@ object DataDrivenRelationsHelpers {
 
 // This is option/step DataDrivenRelation in the config file
 object DataDrivenRelation extends LazyLogging {
-  def apply(config: Config)(implicit ss: SparkSession) = {
+  def apply()(implicit context: ETLSessionContext) = {
+    implicit val ss = context.sparkSession
     import ss.implicits._
     import DataDrivenRelationsHelpers._
 
-    val common = Configuration.loadCommon(config)
+    val common = context.configuration.common
     val mappedInputs = Map(
       "ddr" -> Map("format" -> common.inputs.ddr.format, "path" -> common.inputs.ddr.path)
     )
-    val inputDataFrame = SparkSessionWrapper.loader(mappedInputs)
+    val inputDataFrame = SparkHelpers.loader(mappedInputs)
 
     val dfOutputs = inputDataFrame("ddr").getDataDrivenRelationgEntity
 
     dfOutputs.keys.foreach { index =>
-      SparkSessionWrapper.save(dfOutputs(index), common.output + "/" + index)
+      SparkHelpers.save(dfOutputs(index), common.output + "/" + index)
     }
 
   }

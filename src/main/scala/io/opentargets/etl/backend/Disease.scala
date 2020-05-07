@@ -17,12 +17,12 @@ object DiseaseHelpers {
 
     def setIdAndSelectFromDiseases: DataFrame = {
 
-      val getParents = udf((codes: Seq[Seq[String]]) =>
-        codes
-          .flatMap(path => if (path.size < 2) None else Some(path.reverse(1)))
-          .toSet
-          .toSeq
-      )
+      val getParents = udf(
+        (codes: Seq[Seq[String]]) =>
+          codes
+            .flatMap(path => if (path.size < 2) None else Some(path.reverse(1)))
+            .toSet
+            .toSeq)
       //codes.withFilter(_.size > 1).flatMap(_.reverse(1)).toSet)
 
       val dfPhenotypeId = df
@@ -133,22 +133,23 @@ object Disease extends LazyLogging {
       .append(therapeticAreasList.mkString("[\"", "\",\"", "\"]"))
   }
 
-  def apply(config: Config)(implicit ss: SparkSession) = {
+  def apply()(implicit context: ETLSessionContext) = {
+    implicit val ss = context.sparkSession
     import ss.implicits._
     import DiseaseHelpers._
 
-    val common = Configuration.loadCommon(config)
+    val common = context.configuration.common
     val mappedInputs = Map(
       "disease" -> Map(
         "format" -> common.inputs.disease.format,
         "path" -> common.inputs.disease.path
       )
     )
-    val inputDataFrame = SparkSessionWrapper.loader(mappedInputs)
+    val inputDataFrame = SparkHelpers.loader(mappedInputs)
 
     val diseaseDF = inputDataFrame("disease").setIdAndSelectFromDiseases
 
-    SparkSessionWrapper.save(diseaseDF, common.output + "/diseases")
+    SparkHelpers.save(diseaseDF, common.output + "/diseases")
 
     val therapeticAreaList = diseaseDF
       .filter(col("ontology.isTherapeuticArea") === true)

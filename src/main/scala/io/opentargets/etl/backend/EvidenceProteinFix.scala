@@ -42,11 +42,12 @@ object EvidenceProteinFix extends LazyLogging {
     genesPerProtein
   }
 
-  def apply(config: Config)(implicit ss: SparkSession) = {
+  def apply()(implicit context: ETLSessionContext) = {
+    implicit val ss = context.sparkSession
     import ss.implicits._
 
-    val evidenceProtSec = Configuration.loadEvidenceProteinFixSection(config)
-    val common = Configuration.loadCommon(config)
+    val evidenceProtSec = context.configuration.evidenceProteinFix
+    val common = context.configuration.common
     val dfs = Map(
       "targets" -> ss.read.json(common.inputs.target.path),
       "evidences" -> ss.read.json(evidenceProtSec.input)

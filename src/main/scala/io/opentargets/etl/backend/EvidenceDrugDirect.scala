@@ -46,21 +46,22 @@ object EvidenceDrugDirectHelpers {
 }
 
 object EvidenceDrugDirect extends LazyLogging {
-  def apply(config: Config)(implicit ss: SparkSession) = {
+  def apply()(implicit context: ETLSessionContext) = {
+    implicit val ss = context.sparkSession
     import ss.implicits._
     import EvidenceDrugDirectHelpers._
 
-    val common = Configuration.loadCommon(config)
+    val common = context.configuration.common
     val mappedInputs = Map(
       "evidence" -> Map(
         "format" -> common.inputs.evidence.format,
         "path" -> common.inputs.evidence.path
       )
     )
-    val inputDataFrame = SparkSessionWrapper.loader(mappedInputs)
+    val inputDataFrame = SparkHelpers.loader(mappedInputs)
 
     val dfDirectInfo = inputDataFrame("evidence").generateEntries
 
-    SparkSessionWrapper.save(dfDirectInfo, common.output + "/evidenceDrugDirect")
+    SparkHelpers.save(dfDirectInfo, common.output + "/evidenceDrugDirect")
   }
 }

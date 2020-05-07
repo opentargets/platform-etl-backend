@@ -100,18 +100,19 @@ object CancerBiomarkersHelpers {
 
 // This is option/step cancerbiomarkers in the config file
 object CancerBiomarkers extends LazyLogging {
-  def apply(config: Config)(implicit ss: SparkSession) = {
+  def apply()(implicit context: ETLSessionContext) = {
+    implicit val ss = context.sparkSession
     import ss.implicits._
     import CancerBiomarkersHelpers._
 
-    val common = Configuration.loadCommon(config)
+    val common = context.configuration.common
     val mappedInputs = Map(
       "target" -> Map("format" -> common.inputs.target.format, "path" -> common.inputs.target.path)
     )
-    val inputDataFrame = SparkSessionWrapper.loader(mappedInputs)
+    val inputDataFrame = SparkHelpers.loader(mappedInputs)
 
     val cancerBiomakerDf = inputDataFrame("target").getBiomarkerTargetDiseaseDrugEntity
 
-    SparkSessionWrapper.save(cancerBiomakerDf, common.output + "/cancerBiomarkers")
+    SparkHelpers.save(cancerBiomakerDf, common.output + "/cancerBiomarkers")
   }
 }
