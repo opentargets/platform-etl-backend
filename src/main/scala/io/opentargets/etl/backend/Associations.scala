@@ -8,6 +8,7 @@ import better.files.Dsl._
 import better.files._
 import com.typesafe.config.{Config, ConfigFactory, ConfigObject, ConfigRenderOptions}
 import com.typesafe.scalalogging.{LazyLogging, Logger}
+import io.opentargets.etl.backend.SparkHelpers.IOResourceConfig
 
 import scala.math.pow
 
@@ -262,12 +263,26 @@ object Associations extends LazyLogging {
     import ss.implicits._
     import AssociationHelpers._
 
+    // TODO MKARMONA FINISH
     val datasources = broadcast(associationsSec.dataSources.toDS().orderBy($"id".asc))
 
-    val targets = Loaders.loadTargets(commonSec.inputs.target)
-    val diseases = Loaders.loadDiseases(commonSec.inputs.disease)
+    val mappedInputs = Map(
+      "evidences" -> IOResourceConfig(
+        commonSec.inputs.evidence.format,
+        commonSec.inputs.evidence.path
+      ),
+      "diseases" -> IOResourceConfig(
+        commonSec.inputs.disease.format,
+        commonSec.inputs.disease.path
+      )
+    )
+
+    val dfs = SparkHelpers.read(mappedInputs)
+
+    // val targets = Loaders.loadTargets(commonSec.inputs.target)
+    val diseases = dfs("diseases")
     //  val expressions = Loaders.loadExpressions(expressionFilename)
-    val evidences = Loaders.loadEvidences(commonSec.inputs.evidence)
+    val evidences = dfs("evidences")
 
     val directPairs = evidences
       .groupByDataSources(datasources, associationsSec)
@@ -283,8 +298,17 @@ object Associations extends LazyLogging {
       .groupByPair
       .withColumn("is_direct", lit(false))
 
-    // write to jsonl both direct and indirect
-    directPairs.write.json(commonSec.output + "/direct/")
-    indirectPairs.write.json(commonSec.output + "/indirect/")
+    val outputs = Seq("associations_direct", "associations_indirect")
+
+    val outputConfs = outputs
+      .map(
+        name =>
+          name -> IOResourceConfig(context.configuration.common.outputFormat,
+                                   context.configuration.common.output + s"/$name"))
+      .toMap
+
+    val outputDFs = (outputs zip Seq(directPairs, indirectPairs)).toMap
+
+    SparkHelpers.write(outputConfs, outputDFs)
   }
 }
