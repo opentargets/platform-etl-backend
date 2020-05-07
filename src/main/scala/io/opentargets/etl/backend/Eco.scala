@@ -18,11 +18,11 @@ object Eco extends LazyLogging {
     val mappedInputs = Map(
       "eco" -> Map("format" -> common.inputs.eco.format, "path" -> common.inputs.eco.path)
     )
-    val inputDataFrame = SparkHelpers.loader(mappedInputs)
+    val inputDataFrame = SparkHelpers.read(mappedInputs)
     val ecoDF = inputDataFrame("eco")
       .withColumn("id", substring_index(col("code"), "/", -1))
 
-    SparkHelpers.save(ecoDF, common.output + "/eco")
+    SparkHelpers.write(ecoDF, common.output + "/eco")
 
   }
 }
