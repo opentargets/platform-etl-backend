@@ -7,6 +7,7 @@ import org.apache.spark.sql.functions.col
 import org.apache.spark.sql._
 import org.apache.spark.sql.types._
 import com.typesafe.config.Config
+import io.opentargets.etl.backend.SparkHelpers.IOResourceConfig
 
 object EvidenceDrugHelpers {
   implicit class AggregationHelpers(df: DataFrame)(implicit ss: SparkSession) {
@@ -96,13 +97,13 @@ object EvidenceDrug extends LazyLogging {
 
     val common = context.configuration.common
     val mappedInputs = Map(
-      "disease" -> Map(
-        "format" -> common.inputs.disease.format,
-        "path" -> common.inputs.disease.path
+      "disease" -> IOResourceConfig(
+        common.inputs.disease.format,
+        common.inputs.disease.path
       ),
-      "evidence" -> Map(
-        "format" -> common.inputs.evidence.format,
-        "path" -> common.inputs.evidence.path
+      "evidence" -> IOResourceConfig(
+        common.inputs.evidence.format,
+        common.inputs.evidence.path
       )
     )
     val inputDataFrame = SparkHelpers.read(mappedInputs)
@@ -112,6 +113,12 @@ object EvidenceDrug extends LazyLogging {
 
     val dfEvidencesDrug = diseases.generateEntries(inputDataFrame("evidence"))
 
-    SparkHelpers.write(dfEvidencesDrug, common.output + "/evidenceDrug")
+    val outputConfs = Map(
+      "evidenceDrug" -> IOResourceConfig(
+        context.configuration.common.outputFormat,
+        context.configuration.common.output + "/evidenceDrug"
+      ))
+
+    SparkHelpers.write(outputConfs, Map("evidenceDrug" -> dfEvidencesDrug))
   }
 }
