@@ -10,17 +10,19 @@ import com.typesafe.config.Config
 
 // This is option/step eco in the config file
 object Eco extends LazyLogging {
-  def apply(config: Config)(implicit ss: SparkSession) = {
+  def apply()(implicit context: ETLSessionContext) = {
+    implicit val ss = context.sparkSession
     import ss.implicits._
 
-    val common = Configuration.loadCommon(config)
+    val common = context.configuration.common
     val mappedInputs = Map(
       "eco" -> Map("format" -> common.inputs.eco.format, "path" -> common.inputs.eco.path)
     )
-    val inputDataFrame = SparkSessionWrapper.loader(mappedInputs)
-    val ecoDF = inputDataFrame("eco").withColumn("id", substring_index(col("code"), "/", -1))
+    val inputDataFrame = SparkHelpers.loader(mappedInputs)
+    val ecoDF = inputDataFrame("eco")
+      .withColumn("id", substring_index(col("code"), "/", -1))
 
-    SparkSessionWrapper.save(ecoDF, common.output + "/eco")
+    SparkHelpers.save(ecoDF, common.output + "/eco")
 
   }
 }

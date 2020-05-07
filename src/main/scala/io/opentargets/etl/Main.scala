@@ -1,9 +1,8 @@
 package io.opentargets.etl
 
 import com.typesafe.scalalogging.LazyLogging
-import com.typesafe.config.{Config, ConfigFactory, ConfigObject, ConfigRenderOptions}
-import org.apache.spark.SparkConf
-import org.apache.spark.sql._
+
+import scala.util._
 import io.opentargets.etl.backend._
 
 object ETL extends LazyLogging {
@@ -17,80 +16,83 @@ object ETL extends LazyLogging {
     "eco",
     "drug",
     "cancerBiomarkers",
+    "associations",
     "search",
     "evidenceDrugDirect",
     "ddr"
   )
 
-  def applySingleStep(step: String, otc: Config)(implicit ss: SparkSession) = {
-    import ss.implicits._
-
+  def applySingleStep(step: String)(implicit context: ETLSessionContext) = {
     step match {
       case "search" =>
         logger.info("run step search")
-        Search(otc)
+        Search()
       case "associations" =>
         logger.info("run step associations")
-        Associations(otc)
+        Associations()
       case "associationsLLR" =>
         logger.info("run step associations-llr")
-        AssociationsLLR(otc)
+        AssociationsLLR()
       case "clinicalTrials" =>
         logger.info("run step clinicaltrials")
-        ClinicalTrials(otc)
+        ClinicalTrials()
       case "evidenceDrug" =>
         logger.info("run step evidenceDrug")
-        EvidenceDrug(otc)
+        EvidenceDrug()
       case "evidenceDrugDirect" =>
         logger.info("run step evidenceDrug")
-        EvidenceDrugDirect(otc)
+        EvidenceDrugDirect()
       case "evidenceProteinFix" =>
         logger.info("run step evidenceProteinFix")
-        EvidenceProteinFix(otc)
+        EvidenceProteinFix()
       case "disease" =>
         logger.info("run step disease")
-        Disease(otc)
+        Disease()
       case "target" =>
         logger.info("run step target")
-        Target(otc)
+        Target()
       case "reactome" =>
         logger.info("run step reactome (rea)")
-        Reactome(otc)
+        Reactome()
       case "eco" =>
         logger.info("run step eco")
-        Eco(otc)
+        Eco()
       case "drug" =>
         logger.info("run step drug")
-        Drug(otc)
+        Drug()
       case "cancerBiomarkers" =>
         logger.info("run step cancerBiomarkers")
-        CancerBiomarkers(otc)
+        CancerBiomarkers()
       case "dailymed" =>
         logger.info("run step dailymed")
-        Dailymed(otc)
+        Dailymed()
       case "ddr" =>
         logger.info("run step dataDrivenRelation")
-        DataDrivenRelation(otc)
+        DataDrivenRelation()
       case _ =>
         logger.error("Exit with error or ALL by defaul (?) ")
     }
   }
 
   def apply(step: String) = {
-    val otc = Configuration.load
-    implicit val ss = SparkSessionWrapper.session
 
-    step match {
-      case "all" =>
-        logger.info("=== Run ALL steps ===")
-        for (singleStep <- allSteps) {
-          ETL.applySingleStep(singleStep, otc)
+    ETLSessionContext() match {
+      case Right(otContext) =>
+        implicit val ctxt = otContext
+
+        step match {
+          case "all" =>
+            logger.info("=== Run ALL steps ===")
+            for (singleStep <- allSteps) {
+              ETL.applySingleStep(singleStep)
+            }
+          case _ =>
+            ETL.applySingleStep(step)
         }
-      case _ =>
-        ETL.applySingleStep(step, otc)
+
+      case Left(ex) => logger.error(ex.prettyPrint())
     }
   }
-
 }
 
 object Main {

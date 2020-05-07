@@ -173,23 +173,24 @@ object TargetHelpers {
 
 // This is option/step target in the config file
 object Target extends LazyLogging {
-  def apply(config: Config)(implicit ss: SparkSession) = {
+  def apply()(implicit context: ETLSessionContext) = {
+    implicit val ss = context.sparkSession
     import ss.implicits._
     import TargetHelpers._
 
-    val common = Configuration.loadCommon(config)
+    val common = context.configuration.common
     val mappedInputs = Map(
       "target" -> Map("format" -> common.inputs.target.format, "path" -> common.inputs.target.path)
     )
 
-    val inputDataFrame = SparkSessionWrapper.loader(mappedInputs)
+    val inputDataFrame = SparkHelpers.loader(mappedInputs)
 
     // The gene index contains keys with spaces. This step creates a new Dataframe with the proper keys
-    val targetDFnewSchema = SparkSessionWrapper.replaceSpacesSchema(inputDataFrame("target"))
+    val targetDFnewSchema = SparkHelpers.replaceSpacesSchema(inputDataFrame("target"))
 
     val targetDF = targetDFnewSchema.setIdAndSelectFromTargets
 
-    SparkSessionWrapper.save(targetDF, common.output + "/targets")
+    SparkHelpers.save(targetDF, common.output + "/targets")
 
   }
 }

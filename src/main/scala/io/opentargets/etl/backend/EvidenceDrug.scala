@@ -89,11 +89,12 @@ object EvidenceDrugHelpers {
 
 // This is option/step cancerbiomarkers in the config file
 object EvidenceDrug extends LazyLogging {
-  def apply(config: Config)(implicit ss: SparkSession) = {
+  def apply()(implicit context: ETLSessionContext) = {
+    implicit val ss = context.sparkSession
     import ss.implicits._
     import EvidenceDrugHelpers._
 
-    val common = Configuration.loadCommon(config)
+    val common = context.configuration.common
     val mappedInputs = Map(
       "disease" -> Map(
         "format" -> common.inputs.disease.format,
@@ -104,13 +105,13 @@ object EvidenceDrug extends LazyLogging {
         "path" -> common.inputs.evidence.path
       )
     )
-    val inputDataFrame = SparkSessionWrapper.loader(mappedInputs)
+    val inputDataFrame = SparkHelpers.loader(mappedInputs)
 
     val diseases = inputDataFrame("disease").getDiseaseAndDescendants
       .selectExpr("id as disease_id", "ancestors", "descendants")
 
     val dfEvidencesDrug = diseases.generateEntries(inputDataFrame("evidence"))
 
-    SparkSessionWrapper.save(dfEvidencesDrug, common.output + "/evidenceDrug")
+    SparkHelpers.save(dfEvidencesDrug, common.output + "/evidenceDrug")
   }
 }

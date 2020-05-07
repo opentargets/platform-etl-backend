@@ -108,7 +108,7 @@ object AssociationsLLRHelpers {
         .withColumn("cterm", $"C" * (log($"C") - log($"C" + $"D")))
         .withColumn("acterm", ($"A" + $"C") * (log($"A" + $"C") - log($"A" + $"B" + $"C" + $"D")))
         .withColumn("llr", $"aterm" + $"cterm" - $"acterm")
-        .where(col("llr").isNotNull and !(col("llr").isNaN))
+        .where(col("llr").isNotNull and !col("llr").isNaN)
         .join(datasources, $"sourceID" === datasources("id"), "left_outer")
         .na
         .fill(otc.defaultWeight, Seq("weight"))
@@ -208,8 +208,7 @@ object AssociationsLLRHelpers {
 
       def maxHarmonicValue(vSize: Int, pExponent: Int, maxScore: Double): Double =
         (0 until vSize).foldLeft(0d)((acc: Double, n: Int) =>
-          acc + (maxScore / pow(1d + n, pExponent))
-        )
+          acc + (maxScore / pow(1d + n, pExponent)))
 
       val maxHS = maxHarmonicValue(maxVectorElementsDefault, pExponentDefault, 1.0)
       df.withColumn(
@@ -230,7 +229,7 @@ object AssociationsLLRHelpers {
   }
 }
 
-// To integrate with Loader (Common.scala)
+// To integrate with Loader (Configuration.scala)
 object LoadersLLR extends LazyLogging {
   def loadDiseases(input: Configuration.InputInfo)(implicit ss: SparkSession): DataFrame = {
     logger.info("load diseases jsonl")
@@ -266,9 +265,11 @@ object AssociationsLLR extends LazyLogging {
   /** compute direct and indirect LLR per datasource instead of harmonic method and
     * returns (direct, indirect) datasets pair
     */
-  def compute(config: Config)(implicit ss: SparkSession): (DataFrame, DataFrame) = {
-    val associationsSec = Configuration.loadAssociationSection(config)
-    val commonSec = Configuration.loadCommon(config)
+  def compute()(implicit context: ETLSessionContext): (DataFrame, DataFrame) = {
+    implicit val ss = context.sparkSession
+
+    val associationsSec = context.configuration.associations
+    val commonSec = context.configuration.common
 
     import ss.implicits._
     import AssociationsLLRHelpers._
@@ -294,10 +295,10 @@ object AssociationsLLR extends LazyLogging {
 
     (directPairs, indirectPairs)
   }
-  def apply(config: Config)(implicit ss: SparkSession) = {
-    compute(config) match {
+  def apply()(implicit context: ETLSessionContext) = {
+    compute() match {
       case (direct, indirect) =>
-        val commonSec = Configuration.loadCommon(config)
+        val commonSec = context.configuration.common
 
         // write to jsonl both direct and indirect
         direct.write.json(commonSec.output + "/direct_llr/")

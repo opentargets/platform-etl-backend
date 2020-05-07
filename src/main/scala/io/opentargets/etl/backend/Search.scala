@@ -9,8 +9,7 @@ import org.apache.spark.sql.types._
 import org.apache.spark.sql.functions._
 import org.apache.spark.storage.StorageLevel
 
-import io.opentargets.etl.backend.{ColumnFunctions => C}
-//import common.{ColumnFunctions => C}
+import io.opentargets.etl.backend.{SparkHelpers => C}
 
 object Transformers {
   val searchFields = Seq(
@@ -448,13 +447,14 @@ object Transformers {
 }
 
 object Search extends LazyLogging {
-  def apply(config: Config)(implicit ss: SparkSession) = {
+  def apply()(implicit context: ETLSessionContext) = {
+    implicit val ss = context.sparkSession
     import ss.implicits._
     import Transformers.Implicits
 
-    val llrAssoc = AssociationsLLR.compute(config)
+    val llrAssoc = AssociationsLLR.compute()
 
-    val common = Configuration.loadCommon(config)
+    val common = context.configuration.common
 
     val mappedInputs = Map(
       "disease" -> Map(
@@ -475,7 +475,7 @@ object Search extends LazyLogging {
       )
     )
 
-    val inputDataFrame = SparkSessionWrapper.loader(mappedInputs)
+    val inputDataFrame = SparkHelpers.loader(mappedInputs)
 
     logger.info("process diseases and compute ancestors and descendants and persist")
     val diseases = Transformers

@@ -12,7 +12,7 @@ import com.typesafe.scalalogging.{LazyLogging, Logger}
 import scala.math.pow
 import scala.xml._
 
-// To integrate with Loader (Common.scala)
+// To integrate with Loader (Configuration.scala)
 object LoadersDailymed extends LazyLogging {
   def loadTargets(path: String)(implicit ss: SparkSession): DataFrame = {
     logger.info("load targets jsonl")
@@ -147,9 +147,10 @@ object LoadersDailymed extends LazyLogging {
 }
 
 object Dailymed extends LazyLogging {
-  def apply(config: Config)(implicit ss: SparkSession) = {
-    val commonSec = Configuration.loadCommon(config)
-    val dailymedSec = Configuration.loadDailymed(config)
+  def apply()(implicit context: ETLSessionContext) = {
+    implicit val ss = context.sparkSession
+    val commonSec = context.configuration.common
+    val dailymedSec = context.configuration.dailymed
 
     import ss.implicits._
 
