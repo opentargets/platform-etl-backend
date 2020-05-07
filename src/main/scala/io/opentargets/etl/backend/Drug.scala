@@ -280,7 +280,7 @@ object Drug extends LazyLogging {
         "path" -> common.inputs.evidence.path
       )
     )
-    val inputDataFrame = SparkHelpers.loader(mappedInputs)
+    val inputDataFrame = SparkHelpers.read(mappedInputs)
 
     val dfDrugIndex = inputDataFrame("drug")
       .setIdAndSelectFromDrugs(inputDataFrame("evidence"))
