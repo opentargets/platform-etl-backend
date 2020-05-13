@@ -3,9 +3,9 @@ import Dependencies._
 val buildResolvers = Seq(
   //    "Local Maven Repository"    at "file://"+Path.userHome.absolutePath+"/.m2/repository",
   //    "Maven repository"          at "http://download.java.net/maven/2/",
-  "Typesafe Repo" at "http://repo.typesafe.com/typesafe/releases/",
-  "Sonatype Snapshots" at "http://oss.sonatype.org/content/repositories/snapshots",
-  "Sonatype Releases" at "http://oss.sonatype.org/content/repositories/releases"
+  "Typesafe Repo" at "https://repo.typesafe.com/typesafe/releases/",
+  "Sonatype Snapshots" at "https://oss.sonatype.org/content/repositories/snapshots",
+  "Sonatype Releases" at "https://oss.sonatype.org/content/repositories/releases"
 )
 
 lazy val root = (project in file("."))
@@ -14,7 +14,7 @@ lazy val root = (project in file("."))
       List(
         organization := "io.opentargets",
         scalaVersion := "2.12.10",
-        version := "0.1.0"
+        version := "0.2.1"
       )
     ),
     name := "io-opentargets-etl-backend",

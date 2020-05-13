@@ -7,6 +7,7 @@ import org.apache.spark.sql.functions.col
 import org.apache.spark.sql._
 import org.apache.spark.sql.types._
 import com.typesafe.config.Config
+import io.opentargets.etl.backend.SparkHelpers.IOResourceConfig
 
 // This is option/step eco in the config file
 object Eco extends LazyLogging {
@@ -14,15 +15,26 @@ object Eco extends LazyLogging {
     implicit val ss = context.sparkSession
     import ss.implicits._
 
+    val dfName = "eco"
     val common = context.configuration.common
     val mappedInputs = Map(
-      "eco" -> Map("format" -> common.inputs.eco.format, "path" -> common.inputs.eco.path)
+      "eco" -> IOResourceConfig(common.inputs.eco.format, common.inputs.eco.path)
     )
-    val inputDataFrame = SparkHelpers.read(mappedInputs)
-    val ecoDF = inputDataFrame("eco")
+    val inputDataFrame = SparkHelpers.readFrom(mappedInputs)
+
+    val ecoDF = inputDataFrame(dfName)
       .withColumn("id", substring_index(col("code"), "/", -1))
 
-    SparkHelpers.write(ecoDF, common.output + "/eco")
+    val outputs = Seq(dfName)
+    // TODO THIS NEEDS MORE REFACTORING WORK AS IT CAN BE SIMPLIFIED
+    val outputConfs = outputs
+      .map(
+        name =>
+          name -> IOResourceConfig(context.configuration.common.outputFormat,
+                                   context.configuration.common.output + s"/$name"))
+      .toMap
 
+    val outputDFs = (outputs zip Seq(ecoDF)).toMap
+    SparkHelpers.writeTo(outputConfs, outputDFs)
   }
 }

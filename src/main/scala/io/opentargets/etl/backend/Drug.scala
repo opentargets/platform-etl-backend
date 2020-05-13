@@ -7,6 +7,8 @@ import org.apache.spark.sql.functions.col
 import org.apache.spark.sql._
 import org.apache.spark.sql.types._
 import com.typesafe.config.Config
+import io.opentargets.etl.backend.SparkHelpers.IOResourceConfig
+
 import scala.collection.mutable.WrappedArray
 
 object DrugHelpers {
@@ -274,17 +276,28 @@ object Drug extends LazyLogging {
 
     val common = context.configuration.common
     val mappedInputs = Map(
-      "drug" -> Map("format" -> common.inputs.drug.format, "path" -> common.inputs.drug.path),
-      "evidence" -> Map(
-        "format" -> common.inputs.evidence.format,
-        "path" -> common.inputs.evidence.path
+      "drug" -> IOResourceConfig(common.inputs.drug.format, common.inputs.drug.path),
+      "evidence" -> IOResourceConfig(
+        common.inputs.evidence.format,
+        common.inputs.evidence.path
       )
     )
-    val inputDataFrame = SparkHelpers.read(mappedInputs)
+    val inputDataFrame = SparkHelpers.readFrom(mappedInputs)
 
     val dfDrugIndex = inputDataFrame("drug")
       .setIdAndSelectFromDrugs(inputDataFrame("evidence"))
 
-    dfDrugIndex.write.json(common.output + "/drugs")
+    val outputs = Seq("drugs")
+
+    // TODO THIS NEEDS MORE REFACTORING WORK AS IT CAN BE SIMPLIFIED
+    val outputConfs = outputs
+      .map(
+        name =>
+          name -> IOResourceConfig(context.configuration.common.outputFormat,
+                                   context.configuration.common.output + s"/$name"))
+      .toMap
+
+    val outputDFs = (outputs zip Seq(dfDrugIndex)).toMap
+    SparkHelpers.writeTo(outputConfs, outputDFs)
   }
 }

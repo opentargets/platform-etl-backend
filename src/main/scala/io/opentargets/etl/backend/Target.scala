@@ -7,11 +7,22 @@ import org.apache.spark.sql.functions.col
 import org.apache.spark.sql._
 import org.apache.spark.sql.types._
 import com.typesafe.config.Config
+import io.opentargets.etl.backend.SparkHelpers.IOResourceConfig
 
 object TargetHelpers {
   implicit class AggregationHelpers(df: DataFrame)(implicit ss: SparkSession) {
     import Configuration._
     import ss.implicits._
+
+    def transformReactome: DataFrame = {
+      df.withColumn(
+        "reactome",
+        when($"reactome".isNotNull,
+             expr("""
+                    |transform(reactome, r -> r.id)
+                    |""".stripMargin))
+      )
+    }
 
     def getHallMarksInfo: DataFrame = {
 
@@ -161,10 +172,10 @@ object TargetHelpers {
         )
         .drop("goRoot", "goTransf")
 
-      val dfHallMarksInfo = dfGoFixed.getHallMarksInfo
+      val targetsDF = dfGoFixed.getHallMarksInfo.transformReactome
 
       // Manipulate safety info. Pubmed as long and unspecified_interaction_effects should be null in case of empty array.
-      val dfSafetyInfo = dfHallMarksInfo.getSafetyInfo
+      val dfSafetyInfo = targetsDF.getSafetyInfo
 
       dfSafetyInfo
     }
@@ -180,17 +191,30 @@ object Target extends LazyLogging {
 
     val common = context.configuration.common
     val mappedInputs = Map(
-      "target" -> Map("format" -> common.inputs.target.format, "path" -> common.inputs.target.path)
+      "target" -> IOResourceConfig(
+        common.inputs.target.format,
+        common.inputs.target.path
+      )
     )
 
-    val inputDataFrame = SparkHelpers.read(mappedInputs)
+    val inputDataFrame = SparkHelpers.readFrom(mappedInputs)
 
     // The gene index contains keys with spaces. This step creates a new Dataframe with the proper keys
     val targetDFnewSchema = SparkHelpers.replaceSpacesSchema(inputDataFrame("target"))
 
     val targetDF = targetDFnewSchema.setIdAndSelectFromTargets
 
-    SparkHelpers.write(targetDF, common.output + "/targets")
+    val outputs = Seq("targets")
 
+    // TODO THIS NEEDS MORE REFACTORING WORK AS IT CAN BE SIMPLIFIED
+    val outputConfs = outputs
+      .map(
+        name =>
+          name -> IOResourceConfig(context.configuration.common.outputFormat,
+                                   context.configuration.common.output + s"/$name"))
+      .toMap
+
+    val outputDFs = (outputs zip Seq(targetDF)).toMap
+    SparkHelpers.writeTo(outputConfs, outputDFs)
   }
 }

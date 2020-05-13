@@ -106,7 +106,7 @@ object EvidenceDrug extends LazyLogging {
         common.inputs.evidence.path
       )
     )
-    val inputDataFrame = SparkHelpers.read(mappedInputs)
+    val inputDataFrame = SparkHelpers.readFrom(mappedInputs)
 
     val diseases = inputDataFrame("disease").getDiseaseAndDescendants
       .selectExpr("id as disease_id", "ancestors", "descendants")
@@ -119,6 +119,6 @@ object EvidenceDrug extends LazyLogging {
         context.configuration.common.output + "/evidenceDrug"
       ))
 
-    SparkHelpers.write(outputConfs, Map("evidenceDrug" -> dfEvidencesDrug))
+    SparkHelpers.writeTo(outputConfs, Map("evidenceDrug" -> dfEvidencesDrug))
   }
 }

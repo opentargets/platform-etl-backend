@@ -7,6 +7,7 @@ import org.apache.spark.sql.functions.col
 import org.apache.spark.sql._
 import org.apache.spark.sql.types._
 import com.typesafe.config.Config
+import io.opentargets.etl.backend.SparkHelpers.IOResourceConfig
 
 // This is option/step reactome in the config file
 object Reactome extends LazyLogging {
@@ -14,17 +15,28 @@ object Reactome extends LazyLogging {
     implicit val ss = context.sparkSession
     import ss.implicits._
 
+    val dfName = "reactome"
     val common = context.configuration.common
     val mappedInputs = Map(
-      "reactome" -> Map(
-        "format" -> common.inputs.reactome.format,
-        "path" -> common.inputs.reactome.path
+      dfName -> IOResourceConfig(
+        common.inputs.reactome.format,
+        common.inputs.reactome.path
       )
     )
-    val inputDataFrame = SparkHelpers.read(mappedInputs)
-    val reactomeDF = inputDataFrame("reactome")
+    val inputDataFrame = SparkHelpers.readFrom(mappedInputs)
+    val reactomeDF = inputDataFrame(dfName)
 
-    SparkHelpers.write(reactomeDF, common.output + "/reactome")
+    val outputs = Seq(dfName)
 
+    // TODO THIS NEEDS MORE REFACTORING WORK AS IT CAN BE SIMPLIFIED
+    val outputConfs = outputs
+      .map(
+        name =>
+          name -> IOResourceConfig(context.configuration.common.outputFormat,
+                                   context.configuration.common.output + s"/$name"))
+      .toMap
+
+    val outputDFs = (outputs zip Seq(reactomeDF)).toMap
+    SparkHelpers.writeTo(outputConfs, outputDFs)
   }
 }

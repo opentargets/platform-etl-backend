@@ -257,7 +257,7 @@ object AssociationsLLR extends LazyLogging {
       )
     )
 
-    val dfs = SparkHelpers.read(mappedInputs)
+    val dfs = SparkHelpers.readFrom(mappedInputs)
     val diseases = dfs("diseases")
     val evidences = dfs("evidences")
 
@@ -294,7 +294,7 @@ object AssociationsLLR extends LazyLogging {
 
         val outputDFs = (outputs zip Seq(direct, indirect)).toMap
 
-        SparkHelpers.write(outputConfs, outputDFs)
+        SparkHelpers.writeTo(outputConfs, outputDFs)
 
       case _ =>
         logger.error("Associations llr have to return both, direct and indirect computations")
