@@ -36,6 +36,7 @@ object AssociationHelpers {
 
       // generate needed fields as descendants
       val lut = diseases
+        .withColumn("disease_id", substring_index(col("code"), "/", -1))
         .selectExpr("disease_id as did", "descendants", diseaseStruct)
         .withColumn("descendant", explode(col("descendants")))
         .drop("descendants")
