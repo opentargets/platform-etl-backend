@@ -258,7 +258,25 @@ object AssociationsLLR extends LazyLogging {
     )
 
     val dfs = SparkHelpers.readFrom(mappedInputs)
+
     val diseases = dfs("diseases")
+
+    // generate needed fields as ancestors
+    val efos = diseases
+      .withColumn("disease_id", substring_index(col("code"), "/", -1))
+      .withColumn("ancestors", flatten(col("path_codes")))
+
+    // compute descendants
+    val descendants = efos
+      .where(size(col("ancestors")) > 0)
+      .withColumn("ancestor", explode(col("ancestors")))
+      // all diseases have an ancestor, at least itself
+      .groupBy("ancestor")
+      .agg(collect_set(col("disease_id")).as("descendants"))
+      .withColumnRenamed("ancestor", "disease_id")
+
+    val computedDiseases = efos.join(descendants, Seq("disease_id"))
+
     val evidences = dfs("evidences")
 
     val directPairs = evidences
@@ -269,7 +287,7 @@ object AssociationsLLR extends LazyLogging {
 
     // compute indirect
     val indirectPairs = evidences
-      .computeOntologyExpansion(diseases, associationsSec)
+      .computeOntologyExpansion(computedDiseases, associationsSec)
       .groupByDataSources(datasources, associationsSec)
       .groupByDataTypes
       .groupByPair

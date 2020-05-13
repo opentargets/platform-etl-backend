@@ -36,7 +36,6 @@ object AssociationHelpers {
 
       // generate needed fields as descendants
       val lut = diseases
-        .withColumn("disease_id", substring_index(col("code"), "/", -1))
         .selectExpr("disease_id as did", "descendants", diseaseStruct)
         .withColumn("descendant", explode(col("descendants")))
         .drop("descendants")
@@ -269,6 +268,22 @@ object Associations extends LazyLogging {
     val diseases = dfs("diseases")
     val evidences = dfs("evidences")
 
+    // generate needed fields as ancestors
+    val efos = diseases
+      .withColumn("disease_id", substring_index(col("code"), "/", -1))
+      .withColumn("ancestors", flatten(col("path_codes")))
+
+    // compute descendants
+    val descendants = efos
+      .where(size(col("ancestors")) > 0)
+      .withColumn("ancestor", explode(col("ancestors")))
+      // all diseases have an ancestor, at least itself
+      .groupBy("ancestor")
+      .agg(collect_set(col("disease_id")).as("descendants"))
+      .withColumnRenamed("ancestor", "disease_id")
+
+    val computedDiseases = efos.join(descendants, Seq("disease_id"))
+
     val directPairs = evidences
       .groupByDataSources(datasources, associationsSec)
       .groupByDataTypes
@@ -277,7 +292,7 @@ object Associations extends LazyLogging {
 
     // compute indirect
     val indirectPairs = evidences
-      .computeOntologyExpansion(diseases, associationsSec)
+      .computeOntologyExpansion(computedDiseases, associationsSec)
       .groupByDataSources(datasources, associationsSec)
       .groupByDataTypes
       .groupByPair
