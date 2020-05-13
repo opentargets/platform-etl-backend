@@ -45,7 +45,7 @@ object Configuration extends LazyLogging {
       eco: InputInfo
   )
 
-  case class Common(inputs: Inputs, output: String, outputFormat: String)
+  case class Common(defaultSteps: Seq[String], inputs: Inputs, output: String, outputFormat: String)
   case class OTConfig(sparkUri: Option[String],
                       common: Common,
                       clinicalTrials: ClinicalTrials,
