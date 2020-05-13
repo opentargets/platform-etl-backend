@@ -1,4 +1,3 @@
 #!/bin/bash
-
-export JAVA_OPTS="-Xms512m -Xmx6g"
-java -jar -cp . -Dconfig.file=application.conf -Dlogback.configurationFile=application.xml -jar $*
+path=$(pwd)
+/usr/lib/jvm/java-8-openjdk-amd64/bin/java -Xms1G -Xmx6G -Xss1M -XX:+CMSClassUnloadingEnabled -Dlogback.configurationFile=application.xml -Dconfig.file=application.conf -classpath .:$*
