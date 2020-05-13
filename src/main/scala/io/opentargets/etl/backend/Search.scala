@@ -475,7 +475,7 @@ object Search extends LazyLogging {
       )
     )
 
-    val inputDataFrame = SparkHelpers.read(mappedInputs)
+    val inputDataFrame = SparkHelpers.readFrom(mappedInputs)
 
     logger.info("process diseases and compute ancestors and descendants and persist")
     val diseases = Transformers
@@ -631,6 +631,6 @@ object Search extends LazyLogging {
 
     val outputDFs = (outputs zip Seq(searchDiseases, searchTargets, searchDrugs)).toMap
 
-    SparkHelpers.write(outputConfs, outputDFs)
+    SparkHelpers.writeTo(outputConfs, outputDFs)
   }
 }

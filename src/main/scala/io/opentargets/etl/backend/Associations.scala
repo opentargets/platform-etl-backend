@@ -264,7 +264,7 @@ object Associations extends LazyLogging {
       )
     )
 
-    val dfs = SparkHelpers.read(mappedInputs)
+    val dfs = SparkHelpers.readFrom(mappedInputs)
     val diseases = dfs("diseases")
     val evidences = dfs("evidences")
 
@@ -293,6 +293,6 @@ object Associations extends LazyLogging {
 
     val outputDFs = (outputs zip Seq(directPairs, indirectPairs)).toMap
 
-    SparkHelpers.write(outputConfs, outputDFs)
+    SparkHelpers.writeTo(outputConfs, outputDFs)
   }
 }

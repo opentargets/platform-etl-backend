@@ -67,7 +67,7 @@ object SparkHelpers extends LazyLogging {
    Es. inputsDataFrame {"disease", Dataframe} , {"target", Dataframe}
    Reading is the first step in the pipeline
     */
-  def read(
+  def readFrom(
       inputFileConf: IOResourceConfs
   )(implicit session: SparkSession): IOResources = {
     logger.info("Load files into Hashmap Dataframe")
@@ -76,14 +76,15 @@ object SparkHelpers extends LazyLogging {
     } yield key -> loadFileToDF(formatAndPath)
   }
 
-  def loadFileToDF(pathInfo: IOResourceConfig)(implicit session: SparkSession): DataFrame =
+  def loadFileToDF(pathInfo: IOResourceConfig)(implicit session: SparkSession): DataFrame = {
+    logger.debug(s"load file ${pathInfo.path} with format ${pathInfo.format} to dataframe")
     session.read.format(pathInfo.format).load(pathInfo.path)
+  }
 
-  def write(outputConfs: IOResourceConfs, outputs: IOResources)(
+  def writeTo(outputConfs: IOResourceConfs, outputs: IOResources)(
       implicit session: SparkSession): IOResources = {
-    import session.implicits._
 
-    logger.info(s"Saved data to '${outputConfs.mkString(", ")}'")
+    logger.info(s"Saving data to '${outputConfs.mkString(", ")}'")
     val dfs = outputs.toSeq.sortBy(_._1) zip outputConfs.toSeq.sortBy(_._1)
 
     dfs.foreach {

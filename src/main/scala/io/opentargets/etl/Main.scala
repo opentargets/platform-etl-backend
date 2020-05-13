@@ -80,6 +80,8 @@ object ETL extends LazyLogging {
       case Right(otContext) =>
         implicit val ctxt = otContext
 
+        logger.debug(ctxt.configuration.toString)
+
         step match {
           case "all" =>
             logger.info("=== Run ALL steps ===")

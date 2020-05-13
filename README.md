@@ -122,7 +122,7 @@ common {
 }
 ```
 
-The same happens with logback configuration. You can add `-Dlogger.file=logback.xml` and
+The same happens with logback configuration. You can add `-Dlogback.configurationFile=logback.xml` and
 have a logback.xml hanging on your project root or run path. An exmaple log configuration
 file
 
@@ -145,6 +145,15 @@ file
         <appender-ref ref="STDOUT" />
     </root>
 </configuration>
+```
+
+and try to run one command as follows
+
+```bash
+export JAVA_OPTS="-Xms512m -Xmx6g"
+java -jar -cp . -Dconfig.file=application.conf -Dlogger.file=logback.xml \
+    -jar io-opentargets-etl-backend-assembly-0.1.0.jar \
+    disease
 ```
 
 ### Create a fat JAR
