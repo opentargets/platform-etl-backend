@@ -122,7 +122,7 @@ common {
 }
 ```
 
-The same happens with logback configuration. You can add `-Dlogback.configurationFile=logback.xml` and
+The same happens with logback configuration. You can add `-Dlogback.configurationFile=application.xml` and
 have a logback.xml hanging on your project root or run path. An exmaple log configuration
 file
 
@@ -130,28 +130,29 @@ file
 <configuration>
 
     <appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender">
-        <!-- encoders are assigned the type
-             ch.qos.logback.classic.encoder.PatternLayoutEncoder by default -->
         <encoder>
-            <!--pattern>%d{HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n</pattern-->
-            <pattern>%d{HH:mm:ss.SSS} [%thread] %-5level %logger - %msg%n</pattern>
+            <pattern>%level %logger{15} - %message%n%xException{10}</pattern>
         </encoder>
     </appender>
 
-    <logger name="io.opentargets" level="DEBUG"/>
-    <logger name="org.apache.spark" level="INFO"/>
-
-    <root level="${ot.logging.level:-WARN}">
+    <root level="WARN">
         <appender-ref ref="STDOUT" />
     </root>
+
+    <logger name="io.opentargets.etl" level="DEBUG"/>
+    <logger name="org.apache.spark" level="WARN"/>
+
 </configuration>
+
 ```
 
 and try to run one command as follows
 
 ```bash
 export JAVA_OPTS="-Xms512m -Xmx6g"
-java -jar -cp . -Dconfig.file=application.conf -Dlogger.file=logback.xml \
+java -jar -cp . \
+    -Dconfig.file=application.conf \
+    -Dlogback.configurationFile=application.xml \
     -jar io-opentargets-etl-backend-assembly-0.1.0.jar \
     disease
 ```
