@@ -218,41 +218,29 @@ object AssociationHelpers {
   }
 }
 
-object Loaders extends LazyLogging {
-  def loadTargets(input: Configuration.InputInfo)(implicit ss: SparkSession): DataFrame = {
-    logger.info("load targets jsonl")
-    val targets = ss.read.format(input.format).load(input.path)
-    targets
-  }
-
-  def loadDiseases(input: Configuration.InputInfo)(implicit ss: SparkSession): DataFrame = {
-    logger.info("load diseases jsonl")
-    val diseaseList = ss.read.format(input.format).load(input.path)
-
-    // generate needed fields as ancestors
-    val efos = diseaseList
-      .withColumn("disease_id", substring_index(col("code"), "/", -1))
-      .withColumn("ancestors", flatten(col("path_codes")))
-
-    // compute descendants
-    val descendants = efos
-      .where(size(col("ancestors")) > 0)
-      .withColumn("ancestor", explode(col("ancestors")))
-      // all diseases have an ancestor, at least itself
-      .groupBy("ancestor")
-      .agg(collect_set(col("disease_id")).as("descendants"))
-      .withColumnRenamed("ancestor", "disease_id")
-
-    val diseases = efos.join(descendants, Seq("disease_id"))
-    diseases
-  }
-
-  def loadEvidences(input: Configuration.InputInfo)(implicit ss: SparkSession): DataFrame = {
-    logger.info("load evidences jsonl")
-    val evidences = ss.read.format(input.format).load(input.path)
-    evidences
-  }
-}
+//object Loaders extends LazyLogging {
+//  def loadDiseases(input: Configuration.InputInfo)(implicit ss: SparkSession): DataFrame = {
+//    logger.info("load diseases jsonl")
+//    val diseaseList = ss.read.format(input.format).load(input.path)
+//
+//    // generate needed fields as ancestors
+//    val efos = diseaseList
+//      .withColumn("disease_id", substring_index(col("code"), "/", -1))
+//      .withColumn("ancestors", flatten(col("path_codes")))
+//
+//    // compute descendants
+//    val descendants = efos
+//      .where(size(col("ancestors")) > 0)
+//      .withColumn("ancestor", explode(col("ancestors")))
+//      // all diseases have an ancestor, at least itself
+//      .groupBy("ancestor")
+//      .agg(collect_set(col("disease_id")).as("descendants"))
+//      .withColumnRenamed("ancestor", "disease_id")
+//
+//    val diseases = efos.join(descendants, Seq("disease_id"))
+//    diseases
+//  }
+//}
 
 object Associations extends LazyLogging {
   def apply()(implicit context: ETLSessionContext) = {
@@ -263,7 +251,6 @@ object Associations extends LazyLogging {
     import ss.implicits._
     import AssociationHelpers._
 
-    // TODO MKARMONA FINISH
     val datasources = broadcast(associationsSec.dataSources.toDS().orderBy($"id".asc))
 
     val mappedInputs = Map(
@@ -278,10 +265,7 @@ object Associations extends LazyLogging {
     )
 
     val dfs = SparkHelpers.read(mappedInputs)
-
-    // val targets = Loaders.loadTargets(commonSec.inputs.target)
     val diseases = dfs("diseases")
-    //  val expressions = Loaders.loadExpressions(expressionFilename)
     val evidences = dfs("evidences")
 
     val directPairs = evidences
