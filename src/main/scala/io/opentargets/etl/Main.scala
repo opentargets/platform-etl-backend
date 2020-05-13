@@ -6,21 +6,6 @@ import scala.util._
 import io.opentargets.etl.backend._
 
 object ETL extends LazyLogging {
-  //To add when config is filled
-  // "dailymed","associationsLLR","associations"
-  // "clinicalTrials",
-  val allSteps: Vector[String] = Vector(
-    "disease",
-    "target",
-    "reactome",
-    "eco",
-    "drug",
-    "cancerBiomarkers",
-    "associations",
-    "search",
-    "evidenceDrugDirect",
-    "ddr"
-  )
 
   def applySingleStep(step: String)(implicit context: ETLSessionContext) = {
     step match {
@@ -74,7 +59,7 @@ object ETL extends LazyLogging {
     }
   }
 
-  def apply(step: String) = {
+  def apply(steps: Seq[String]) = {
 
     ETLSessionContext() match {
       case Right(otContext) =>
@@ -82,13 +67,14 @@ object ETL extends LazyLogging {
 
         logger.debug(ctxt.configuration.toString)
 
-        step match {
-          case "all" =>
-            logger.info("=== Run ALL steps ===")
-            for (singleStep <- allSteps) {
-              ETL.applySingleStep(singleStep)
-            }
-          case _ =>
+        val etlSteps =
+          if (steps.isEmpty) otContext.configuration.common.defaultSteps
+          else steps
+
+        logger.info(s"configured steps: ${etlSteps.toString}")
+        etlSteps.foreach {
+          case step =>
+            logger.debug(s"step to run: '${step}'")
             ETL.applySingleStep(step)
         }
 
@@ -99,7 +85,6 @@ object ETL extends LazyLogging {
 
 object Main {
   def main(args: Array[String]): Unit = {
-    val step = if (args.length == 0) "all" else args(0)
-    ETL(step)
+    ETL(args)
   }
 }
