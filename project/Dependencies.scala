@@ -17,16 +17,13 @@ object Dependencies {
 
   lazy val configDeps = Seq(
     "org.yaml" % "snakeyaml" % "1.21",
-    "com.github.pureconfig" %% "pureconfig" % "0.12.2",
-    "com.github.pureconfig" %% "pureconfig-enumeratum" % "0.8.0"
+    "com.github.pureconfig" %% "pureconfig" % "0.12.3"
   )
 
   lazy val loggingDeps = Seq(
     "ch.qos.logback" % "logback-classic" % "1.2.3",
     "com.typesafe.scala-logging" %% "scala-logging" % "3.9.2"
   )
-
-  lazy val playJson = "com.typesafe.play" %% "play-json" % "2.8.1"
 
   lazy val scalaCheck = "org.scalacheck" %% "scalacheck" % "1.14.0"
 

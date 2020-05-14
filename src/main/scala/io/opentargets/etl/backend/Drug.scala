@@ -7,9 +7,44 @@ import org.apache.spark.sql.functions.col
 import org.apache.spark.sql._
 import org.apache.spark.sql.types._
 import com.typesafe.config.Config
+import io.opentargets.etl.backend.SparkHelpers.IOResourceConfig
+
 import scala.collection.mutable.WrappedArray
 
 object DrugHelpers {
+
+  /**
+    * take a list of tokens and join them like a proper english sentence with items in it. As
+    * an example ["miguel", "cinzia", "jarrod"] -> "miguel, cinzia and jarrod" and all the
+    * the causistic you could find in it.
+    * @param tokens list of tokens
+    * @param start prefix string to use
+    * @param sep the separator to use but not with the last two elements
+    * @param end the suffix to put
+    * @param lastSep the last separator as " and "
+    * @tparam T it is converted to string
+    * @return the unique string with all information concatenated
+    */
+  def mkStringSemantic[T](
+      tokens: Seq[T],
+      start: String = "",
+      sep: String = ", ",
+      end: String = "",
+      lastSep: String = " and "
+  ): Option[String] = {
+    val strTokens = tokens.map(_.toString)
+
+    strTokens.size match {
+      case 0 => None
+      case 1 => Some(strTokens.mkString(start, sep, end))
+      case _ =>
+        Some(
+          (Seq(strTokens.init.mkString(start, sep, "")) :+ lastSep :+ strTokens.last)
+            .mkString("", "", end)
+        )
+    }
+  }
+
   implicit class AggregationHelpers(df: DataFrame)(implicit ss: SparkSession) {
     import Configuration._
     import ss.implicits._
@@ -60,14 +95,14 @@ object DrugHelpers {
               None
             case (n, 0) =>
               if (n <= minIndicationsToShow)
-                Helpers.mkStringSemantic(approvedIndications.map(_._2), " and is indicated for ")
+                mkStringSemantic(approvedIndications.map(_._2), " and is indicated for ")
               else
                 Some(s" and has $n approved indications")
             case (0, m) =>
               Some(s" and has $m investigational indication${if (m > 1) "s" else ""}")
             case (n, m) =>
               if (n <= minIndicationsToShow)
-                Helpers.mkStringSemantic(
+                mkStringSemantic(
                   approvedIndications.map(_._2),
                   start = " and is indicated for ",
                   end = s" and has $m investigational indication${if (m > 1) "s" else ""}"
@@ -87,10 +122,9 @@ object DrugHelpers {
           )
 
         val year = withdrawnYear.map(y =>
-          s" ${if (withdrawnCountries.size > 1) "initially" else ""} in ${y.toString}"
-        )
-        val countries = Helpers.mkStringSemantic(withdrawnCountries, " in ")
-        val reasons = Helpers.mkStringSemantic(withdrawnReasons, " due to ")
+          s" ${if (withdrawnCountries.size > 1) "initially" else ""} in ${y.toString}")
+        val countries = mkStringSemantic(withdrawnCountries, " in ")
+        val reasons = mkStringSemantic(withdrawnReasons, " due to ")
         val wdrawnNoteList = List(Some(" It was withdrawn"), countries, year, reasons, Some("."))
 
         val wdrawnNote = wdrawnNoteList.count(_.isDefined) match {
@@ -186,7 +220,7 @@ object DrugHelpers {
             withdrawnCountries,
             withdrawnReasons,
             blackBoxWarning
-          )
+        )
       )
 
       df.join(
@@ -235,23 +269,35 @@ object DrugHelpers {
 
 // This is option/step drug in the config file
 object Drug extends LazyLogging {
-  def apply(config: Config)(implicit ss: SparkSession) = {
+  def apply()(implicit context: ETLSessionContext) = {
+    implicit val ss = context.sparkSession
     import ss.implicits._
     import DrugHelpers._
 
-    val common = Configuration.loadCommon(config)
+    val common = context.configuration.common
     val mappedInputs = Map(
-      "drug" -> Map("format" -> common.inputs.drug.format, "path" -> common.inputs.drug.path),
-      "evidence" -> Map(
-        "format" -> common.inputs.evidence.format,
-        "path" -> common.inputs.evidence.path
+      "drug" -> IOResourceConfig(common.inputs.drug.format, common.inputs.drug.path),
+      "evidence" -> IOResourceConfig(
+        common.inputs.evidence.format,
+        common.inputs.evidence.path
       )
     )
-    val inputDataFrame = SparkSessionWrapper.loader(mappedInputs)
+    val inputDataFrame = SparkHelpers.readFrom(mappedInputs)
 
     val dfDrugIndex = inputDataFrame("drug")
       .setIdAndSelectFromDrugs(inputDataFrame("evidence"))
 
-    dfDrugIndex.write.json(common.output + "/drugs")
+    val outputs = Seq("drugs")
+
+    // TODO THIS NEEDS MORE REFACTORING WORK AS IT CAN BE SIMPLIFIED
+    val outputConfs = outputs
+      .map(
+        name =>
+          name -> IOResourceConfig(context.configuration.common.outputFormat,
+                                   context.configuration.common.output + s"/$name"))
+      .toMap
+
+    val outputDFs = (outputs zip Seq(dfDrugIndex)).toMap
+    SparkHelpers.writeTo(outputConfs, outputDFs)
   }
 }

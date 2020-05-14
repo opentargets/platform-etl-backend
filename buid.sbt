@@ -3,9 +3,9 @@ import Dependencies._
 val buildResolvers = Seq(
   //    "Local Maven Repository"    at "file://"+Path.userHome.absolutePath+"/.m2/repository",
   //    "Maven repository"          at "http://download.java.net/maven/2/",
-  "Typesafe Repo" at "http://repo.typesafe.com/typesafe/releases/",
-  "Sonatype Snapshots" at "http://oss.sonatype.org/content/repositories/snapshots",
-  "Sonatype Releases" at "http://oss.sonatype.org/content/repositories/releases"
+  "Typesafe Repo" at "https://repo.typesafe.com/typesafe/releases/",
+  "Sonatype Snapshots" at "https://oss.sonatype.org/content/repositories/snapshots",
+  "Sonatype Releases" at "https://oss.sonatype.org/content/repositories/releases"
 )
 
 lazy val root = (project in file("."))
@@ -13,11 +13,11 @@ lazy val root = (project in file("."))
     inThisBuild(
       List(
         organization := "io.opentargets",
-        scalaVersion := "2.12.10",
-        version := "0.1.0"
+        scalaVersion := "2.12.10"
       )
     ),
     name := "io-opentargets-etl-backend",
+    version := "0.2.4",
     resolvers ++= buildResolvers,
     libraryDependencies += scalaCheck,
     libraryDependencies ++= sparkDeps,
@@ -26,7 +26,7 @@ lazy val root = (project in file("."))
     libraryDependencies ++= aoyi,
     libraryDependencies += betterFiles,
     libraryDependencies += typeSafeConfig,
-    libraryDependencies += playJson,
+    libraryDependencies ++= configDeps,
     testFrameworks += new TestFramework("minitest.runner.Framework"),
     assemblyMergeStrategy in assembly := {
       case PathList("META-INF", xs @ _*)                => MergeStrategy.discard

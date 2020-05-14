@@ -2,15 +2,14 @@ package io.opentargets.etl.backend
 
 import com.typesafe.config.Config
 import com.typesafe.scalalogging.LazyLogging
+import io.opentargets.etl.backend.SparkHelpers.IOResourceConfig
 import org.apache.spark.SparkConf
 import org.apache.spark.sql._
 import org.apache.spark.sql.expressions._
 import org.apache.spark.sql.types._
 import org.apache.spark.sql.functions._
 import org.apache.spark.storage.StorageLevel
-
-import io.opentargets.etl.backend.{ColumnFunctions => C}
-//import common.{ColumnFunctions => C}
+import io.opentargets.etl.backend.{SparkHelpers => C}
 
 object Transformers {
   val searchFields = Seq(
@@ -448,34 +447,35 @@ object Transformers {
 }
 
 object Search extends LazyLogging {
-  def apply(config: Config)(implicit ss: SparkSession) = {
+  def apply()(implicit context: ETLSessionContext) = {
+    implicit val ss = context.sparkSession
     import ss.implicits._
     import Transformers.Implicits
 
-    val llrAssoc = AssociationsLLR.compute(config)
+    val llrAssoc = AssociationsLLR.compute()
 
-    val common = Configuration.loadCommon(config)
+    val common = context.configuration.common
 
     val mappedInputs = Map(
-      "disease" -> Map(
-        "format" -> common.inputs.disease.format,
-        "path" -> common.inputs.disease.path
+      "disease" -> IOResourceConfig(
+        common.inputs.disease.format,
+        common.inputs.disease.path
       ),
-      "drug" -> Map(
-        "format" -> common.inputs.drug.format,
-        "path" -> common.inputs.drug.path
+      "drug" -> IOResourceConfig(
+        common.inputs.drug.format,
+        common.inputs.drug.path
       ),
-      "evidence" -> Map(
-        "format" -> common.inputs.evidence.format,
-        "path" -> common.inputs.evidence.path
+      "evidence" -> IOResourceConfig(
+        common.inputs.evidence.format,
+        common.inputs.evidence.path
       ),
-      "target" -> Map(
-        "format" -> common.inputs.target.format,
-        "path" -> common.inputs.target.path
+      "target" -> IOResourceConfig(
+        common.inputs.target.format,
+        common.inputs.target.path
       )
     )
 
-    val inputDataFrame = SparkSessionWrapper.loader(mappedInputs)
+    val inputDataFrame = SparkHelpers.readFrom(mappedInputs)
 
     logger.info("process diseases and compute ancestors and descendants and persist")
     val diseases = Transformers
@@ -620,13 +620,17 @@ object Search extends LazyLogging {
       .withColumnRenamed("drug_id", "id")
       .setIdAndSelectFromDrugs(associationsWithDrugs, tLUT, dLUT)
 
-    logger.info("save search disease entity")
-    searchDiseases.write.mode(SaveMode.Overwrite).json(common.output + "/search_diseases/")
+    val outputs = Seq("search_diseases", "search_targets", "search_drugs")
 
-    logger.info("save search target entity")
-    searchTargets.write.mode(SaveMode.Overwrite).json(common.output + "/search_targets/")
+    val outputConfs = outputs
+      .map(
+        name =>
+          name -> IOResourceConfig(context.configuration.common.outputFormat,
+                                   context.configuration.common.output + s"/$name"))
+      .toMap
 
-    logger.info("save search drug entity")
-    searchDrugs.write.mode(SaveMode.Overwrite).json(common.output + "/search_drugs/")
+    val outputDFs = (outputs zip Seq(searchDiseases, searchTargets, searchDrugs)).toMap
+
+    SparkHelpers.writeTo(outputConfs, outputDFs)
   }
 }

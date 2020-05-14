@@ -12,4 +12,4 @@
 /output/
 /tmp
 /scratch
-/resources/amm.application.conf
+/deprecated/resources/amm.application.conf
