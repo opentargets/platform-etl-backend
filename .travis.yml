@@ -1,0 +1,21 @@
+language: scala
+dist: xenial
+  - 2.12.10
+jdk:
+  - openjdk8
+script:
+  - sbt ++$TRAVIS_SCALA_VERSION clean compile
+  - sbt ++$TRAVIS_SCALA_VERSION coverage test coverageReport
+  - sbt ++$TRAVIS_SCALA_VERSION assembly
+deploy:
+  provider: releases
+  api_key:
+    secure: ""
+  file_glob: true
+  file:
+    - "target/scala-2.11/io-opentargets-etl-backend-assembly-*"
+  on:
+    repo: opentargets/platform-etl-backend
+  skip_cleanup: true
+after_success:
+  - bash <(curl -s https://codecov.io/bash)
