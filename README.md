@@ -16,44 +16,6 @@ OpenTargets ETL pipeline to process Pipeline output in order to obtain a new API
 7. Evidence index dump from OpenTargets ES
 8. Expression index dump from OpenTargets ES
 
-
-### Run platformETL.sc
-```sh
-# to compute the dataset
-In order to run the script the user must provide a config file called "amm.application.conf"
-An example is avaible under
-resources/amm.application.conf.example
-
-export JAVA_OPTS="-Xms512m -Xmx<mostofthememingigslike100G> \
-    -Dconfig.file=resources/application.conf \
-    -Dlogback.configurationFile=resources/logback.xml"
-
-The command below will build the disease, target and drug indexes using the config file under resources/amm.application.conf
-
-time amm platformETL.sc  
-
-The parameters conf and step (disease,target,drug) can be use to customise the index to build
-Eg.
-time amm platformETL.sc
-time amm platformETL.sc -step disease
-time amm platformETL.sc -step target
-
-```
-
-
-### Run the scala script: platformDataBackend.sc
-
-```sh
-export JAVA_OPTS="-Xms512m -Xmx<mostofthememingigslike100G>"
-# to compute the dataset
-time amm platformDataBackend.sc \
-    --drugFilename 19.06_drug-data.json \
-    --targetFilename 19.06_gene-data.json \
-    --diseaseFilename 19.06_efo-data.json \
-    --evidenceFilename 19.06_evidence-data.json \
-    --outputPathPrefix out/
-```
-
 ### Generate the indices dump from ES7
 
 You will need to either connect to a machine containing the ES or forward the ssh port from it
@@ -64,12 +26,6 @@ elasticdump --input=http://localhost:9200/<indexyouneed> \
     --limit 10000 \
     --sourceOnly
 ```
-
-## platformEvidenceDrugAggregation.sc
-
-This script generates the Disease-drug-phase-status-target... aggregation is order to obtain a ready 
-to aggregate table for drugs and clinical trials. To run it just use `--help` to get the list of 
-command line parameters.
 
 ### Load with custom configuration
 
@@ -84,42 +40,42 @@ If you want to customise local spark run without any submit in your local machin
 spark-uri = "local[*]"
 common {
   output = "etl/latest"
-  output = ${?OT_ETL_OUTPUT}
   inputs {
     target {
       format = "parquet"
-      path = "luts/gene_parquet"
+      path = "luts/gene_parquet/"
     }
     disease  {
-      format ="parquet"
-      path = "luts/efo_parquet"
+      format = "parquet"
+      path = "luts/efo_parquet/"
     }
     drug  {
-      format ="parquet"
-      path = "luts/drug_parquet"
+      format = "parquet"
+      path = "luts/drug_parquet/"
     }
     evidence  {
-      format ="parquet"
-      path = "luts/evidence_parquet"
+      format = "parquet"
+      path = "luts/evidence_parquet/"
     }
     associations  {
-      format ="parquet"
-      path = "luts/association_parquet"
+      format = "parquet"
+      path = "luts/association_parquet/"
     }
     ddr  {
-      format ="parquet"
-      path = "luts/relation_parquet"
+      format = "parquet"
+      path = "luts/relation_parquet/"
     }
     reactome {
-      format ="parquet"
-      path = "luts/rea_parquet"
+      format = "parquet"
+      path = "luts/rea_parquet/"
     }
     eco  {
-      format ="parquet"
-      path = "luts/eco_parquet"
+      format = "parquet"
+      path = "luts/eco_parquet/"
     }
   }
 }
+
 ```
 
 The same happens with logback configuration. You can add `-Dlogback.configurationFile=application.xml` and
@@ -143,18 +99,16 @@ file
     <logger name="org.apache.spark" level="WARN"/>
 
 </configuration>
-
 ```
 
 and try to run one command as follows
 
 ```bash
-export JAVA_OPTS="-Xms512m -Xmx6g"
-java -jar -cp . \
-    -Dconfig.file=application.conf \
+java -server -Xms1G -Xmx6G -Xss1M -XX:+CMSClassUnloadingEnabled \
     -Dlogback.configurationFile=application.xml \
-    -jar io-opentargets-etl-backend-assembly-0.1.0.jar \
-    disease
+    -Dconfig.file=./application.conf \
+    -classpath . \
+    -jar io-opentargets-etl-backend-assembly-0.1.0.jar [step1 [step2 [...]]]
 ```
 
 ### Create a fat JAR
@@ -163,7 +117,7 @@ Simply run the following command:
 ```bash
 sbt assembly
 ```
-The jar will be generated under target/scala2.12.10/
+The jar will be generated under target/scala-2.12.10/
 
 ### Scalafmt Installation
 
