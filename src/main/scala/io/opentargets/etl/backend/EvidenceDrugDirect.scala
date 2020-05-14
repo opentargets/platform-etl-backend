@@ -7,6 +7,7 @@ import org.apache.spark.sql.functions.col
 import org.apache.spark.sql._
 import org.apache.spark.sql.types._
 import com.typesafe.config.Config
+import io.opentargets.etl.backend.SparkHelpers.IOResourceConfig
 
 object EvidenceDrugDirectHelpers {
   implicit class AggregationHelpers(df: DataFrame)(implicit ss: SparkSession) {
@@ -46,21 +47,33 @@ object EvidenceDrugDirectHelpers {
 }
 
 object EvidenceDrugDirect extends LazyLogging {
-  def apply(config: Config)(implicit ss: SparkSession) = {
+  def apply()(implicit context: ETLSessionContext) = {
+    implicit val ss = context.sparkSession
     import ss.implicits._
     import EvidenceDrugDirectHelpers._
 
-    val common = Configuration.loadCommon(config)
+    val common = context.configuration.common
     val mappedInputs = Map(
-      "evidence" -> Map(
-        "format" -> common.inputs.evidence.format,
-        "path" -> common.inputs.evidence.path
+      "evidence" -> IOResourceConfig(
+        common.inputs.evidence.format,
+        common.inputs.evidence.path
       )
     )
-    val inputDataFrame = SparkSessionWrapper.loader(mappedInputs)
+    val inputDataFrame = SparkHelpers.readFrom(mappedInputs)
 
     val dfDirectInfo = inputDataFrame("evidence").generateEntries
 
-    SparkSessionWrapper.save(dfDirectInfo, common.output + "/evidenceDrugDirect")
+    val outputs = Seq("evidenceDrugDirect")
+
+    // TODO THIS NEEDS MORE REFACTORING WORK AS IT CAN BE SIMPLIFIED
+    val outputConfs = outputs
+      .map(
+        name =>
+          name -> IOResourceConfig(context.configuration.common.outputFormat,
+                                   context.configuration.common.output + s"/$name"))
+      .toMap
+
+    val outputDFs = (outputs zip Seq(dfDirectInfo)).toMap
+    SparkHelpers.writeTo(outputConfs, outputDFs)
   }
 }

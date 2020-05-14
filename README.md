@@ -71,7 +71,91 @@ This script generates the Disease-drug-phase-status-target... aggregation is ord
 to aggregate table for drugs and clinical trials. To run it just use `--help` to get the list of 
 command line parameters.
 
+### Load with custom configuration
 
+Add to your run either commandline or sbt task Intellij IDEA `-Dconfig.file=application.conf` and it
+will load the configuration from your `./` path or project root. Missing fields will be resolved
+with `reference.conf`.
+
+If you want to customise local spark run without any submit in your local machine. Example of
+`application.conf`.
+
+```conf
+spark-uri = "local[*]"
+common {
+  output = "etl/latest"
+  output = ${?OT_ETL_OUTPUT}
+  inputs {
+    target {
+      format = "parquet"
+      path = "luts/gene_parquet"
+    }
+    disease  {
+      format ="parquet"
+      path = "luts/efo_parquet"
+    }
+    drug  {
+      format ="parquet"
+      path = "luts/drug_parquet"
+    }
+    evidence  {
+      format ="parquet"
+      path = "luts/evidence_parquet"
+    }
+    associations  {
+      format ="parquet"
+      path = "luts/association_parquet"
+    }
+    ddr  {
+      format ="parquet"
+      path = "luts/relation_parquet"
+    }
+    reactome {
+      format ="parquet"
+      path = "luts/rea_parquet"
+    }
+    eco  {
+      format ="parquet"
+      path = "luts/eco_parquet"
+    }
+  }
+}
+```
+
+The same happens with logback configuration. You can add `-Dlogback.configurationFile=application.xml` and
+have a logback.xml hanging on your project root or run path. An exmaple log configuration
+file
+
+```xml
+<configuration>
+
+    <appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder>
+            <pattern>%level %logger{15} - %message%n%xException{10}</pattern>
+        </encoder>
+    </appender>
+
+    <root level="WARN">
+        <appender-ref ref="STDOUT" />
+    </root>
+
+    <logger name="io.opentargets.etl" level="DEBUG"/>
+    <logger name="org.apache.spark" level="WARN"/>
+
+</configuration>
+
+```
+
+and try to run one command as follows
+
+```bash
+export JAVA_OPTS="-Xms512m -Xmx6g"
+java -jar -cp . \
+    -Dconfig.file=application.conf \
+    -Dlogback.configurationFile=application.xml \
+    -jar io-opentargets-etl-backend-assembly-0.1.0.jar \
+    disease
+```
 
 ### Create a fat JAR
 Simply run the following command:

@@ -7,6 +7,7 @@ import org.apache.spark.sql.functions.col
 import org.apache.spark.sql._
 import org.apache.spark.sql.types._
 import com.typesafe.config.Config
+import io.opentargets.etl.backend.SparkHelpers.IOResourceConfig
 
 object DataDrivenRelationsHelpers {
   implicit class AggregationHelpers(df: DataFrame)(implicit ss: SparkSession) {
@@ -50,21 +51,27 @@ object DataDrivenRelationsHelpers {
 
 // This is option/step DataDrivenRelation in the config file
 object DataDrivenRelation extends LazyLogging {
-  def apply(config: Config)(implicit ss: SparkSession) = {
+  def apply()(implicit context: ETLSessionContext) = {
+    implicit val ss = context.sparkSession
     import ss.implicits._
     import DataDrivenRelationsHelpers._
 
-    val common = Configuration.loadCommon(config)
+    val common = context.configuration.common
     val mappedInputs = Map(
-      "ddr" -> Map("format" -> common.inputs.ddr.format, "path" -> common.inputs.ddr.path)
+      "ddr" -> IOResourceConfig(common.inputs.ddr.format, common.inputs.ddr.path)
     )
-    val inputDataFrame = SparkSessionWrapper.loader(mappedInputs)
+    val inputDataFrame = SparkHelpers.readFrom(mappedInputs)
 
     val dfOutputs = inputDataFrame("ddr").getDataDrivenRelationgEntity
 
-    dfOutputs.keys.foreach { index =>
-      SparkSessionWrapper.save(dfOutputs(index), common.output + "/" + index)
+    // TODO THIS NEEDS MORE REFACTORING WORK AS IT CAN BE SIMPLIFIED
+    val outputs = dfOutputs.map {
+      case (dfName, df) =>
+        val name = IOResourceConfig(context.configuration.common.outputFormat,
+                                    context.configuration.common.output + s"/$dfName")
+        (dfName -> name, dfName -> df)
     }
-
+    val unzipped = outputs.unzip
+    SparkHelpers.writeTo(unzipped._1.toMap, unzipped._2.toMap)
   }
 }

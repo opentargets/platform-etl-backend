@@ -7,6 +7,7 @@ import org.apache.spark.sql.functions.col
 import org.apache.spark.sql._
 import org.apache.spark.sql.types._
 import com.typesafe.config.Config
+import io.opentargets.etl.backend.SparkHelpers.IOResourceConfig
 
 object EvidenceDrugHelpers {
   implicit class AggregationHelpers(df: DataFrame)(implicit ss: SparkSession) {
@@ -89,28 +90,35 @@ object EvidenceDrugHelpers {
 
 // This is option/step cancerbiomarkers in the config file
 object EvidenceDrug extends LazyLogging {
-  def apply(config: Config)(implicit ss: SparkSession) = {
+  def apply()(implicit context: ETLSessionContext) = {
+    implicit val ss = context.sparkSession
     import ss.implicits._
     import EvidenceDrugHelpers._
 
-    val common = Configuration.loadCommon(config)
+    val common = context.configuration.common
     val mappedInputs = Map(
-      "disease" -> Map(
-        "format" -> common.inputs.disease.format,
-        "path" -> common.inputs.disease.path
+      "disease" -> IOResourceConfig(
+        common.inputs.disease.format,
+        common.inputs.disease.path
       ),
-      "evidence" -> Map(
-        "format" -> common.inputs.evidence.format,
-        "path" -> common.inputs.evidence.path
+      "evidence" -> IOResourceConfig(
+        common.inputs.evidence.format,
+        common.inputs.evidence.path
       )
     )
-    val inputDataFrame = SparkSessionWrapper.loader(mappedInputs)
+    val inputDataFrame = SparkHelpers.readFrom(mappedInputs)
 
     val diseases = inputDataFrame("disease").getDiseaseAndDescendants
       .selectExpr("id as disease_id", "ancestors", "descendants")
 
     val dfEvidencesDrug = diseases.generateEntries(inputDataFrame("evidence"))
 
-    SparkSessionWrapper.save(dfEvidencesDrug, common.output + "/evidenceDrug")
+    val outputConfs = Map(
+      "evidenceDrug" -> IOResourceConfig(
+        context.configuration.common.outputFormat,
+        context.configuration.common.output + "/evidenceDrug"
+      ))
+
+    SparkHelpers.writeTo(outputConfs, Map("evidenceDrug" -> dfEvidencesDrug))
   }
 }

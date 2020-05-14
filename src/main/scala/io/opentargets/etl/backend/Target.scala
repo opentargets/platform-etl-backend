@@ -7,11 +7,22 @@ import org.apache.spark.sql.functions.col
 import org.apache.spark.sql._
 import org.apache.spark.sql.types._
 import com.typesafe.config.Config
+import io.opentargets.etl.backend.SparkHelpers.IOResourceConfig
 
 object TargetHelpers {
   implicit class AggregationHelpers(df: DataFrame)(implicit ss: SparkSession) {
     import Configuration._
     import ss.implicits._
+
+    def transformReactome: DataFrame = {
+      df.withColumn(
+        "reactome",
+        when($"reactome".isNotNull,
+             expr("""
+                    |transform(reactome, r -> r.id)
+                    |""".stripMargin))
+      )
+    }
 
     def getHallMarksInfo: DataFrame = {
 
@@ -104,7 +115,12 @@ object TargetHelpers {
           |  when (uniprot_id = '' or uniprot_id = null) then null
           |  else struct(uniprot_id as id,
           |    uniprot_accessions as accessions,
-          |    uniprot_function as functions)
+          |    uniprot_function as functions,
+          |    uniprot_pathway as pathways,
+          |    uniprot_similarity as similarities,
+          |    uniprot_subcellular_location as subcellularLocations,
+          |    uniprot_subunit as subunits
+          |    )
           |end as proteinAnnotations
           |""".stripMargin
 
@@ -156,10 +172,10 @@ object TargetHelpers {
         )
         .drop("goRoot", "goTransf")
 
-      val dfHallMarksInfo = dfGoFixed.getHallMarksInfo
+      val targetsDF = dfGoFixed.getHallMarksInfo.transformReactome
 
       // Manipulate safety info. Pubmed as long and unspecified_interaction_effects should be null in case of empty array.
-      val dfSafetyInfo = dfHallMarksInfo.getSafetyInfo
+      val dfSafetyInfo = targetsDF.getSafetyInfo
 
       dfSafetyInfo
     }
@@ -168,23 +184,37 @@ object TargetHelpers {
 
 // This is option/step target in the config file
 object Target extends LazyLogging {
-  def apply(config: Config)(implicit ss: SparkSession) = {
+  def apply()(implicit context: ETLSessionContext) = {
+    implicit val ss = context.sparkSession
     import ss.implicits._
     import TargetHelpers._
 
-    val common = Configuration.loadCommon(config)
+    val common = context.configuration.common
     val mappedInputs = Map(
-      "target" -> Map("format" -> common.inputs.target.format, "path" -> common.inputs.target.path)
+      "target" -> IOResourceConfig(
+        common.inputs.target.format,
+        common.inputs.target.path
+      )
     )
 
-    val inputDataFrame = SparkSessionWrapper.loader(mappedInputs)
+    val inputDataFrame = SparkHelpers.readFrom(mappedInputs)
 
     // The gene index contains keys with spaces. This step creates a new Dataframe with the proper keys
-    val targetDFnewSchema = SparkSessionWrapper.replaceSpacesSchema(inputDataFrame("target"))
+    val targetDFnewSchema = SparkHelpers.replaceSpacesSchema(inputDataFrame("target"))
 
     val targetDF = targetDFnewSchema.setIdAndSelectFromTargets
 
-    SparkSessionWrapper.save(targetDF, common.output + "/targets")
+    val outputs = Seq("targets")
 
+    // TODO THIS NEEDS MORE REFACTORING WORK AS IT CAN BE SIMPLIFIED
+    val outputConfs = outputs
+      .map(
+        name =>
+          name -> IOResourceConfig(context.configuration.common.outputFormat,
+                                   context.configuration.common.output + s"/$name"))
+      .toMap
+
+    val outputDFs = (outputs zip Seq(targetDF)).toMap
+    SparkHelpers.writeTo(outputConfs, outputDFs)
   }
 }

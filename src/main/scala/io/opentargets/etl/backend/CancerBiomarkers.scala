@@ -7,6 +7,7 @@ import org.apache.spark.sql.functions.col
 import org.apache.spark.sql._
 import org.apache.spark.sql.types._
 import com.typesafe.config.Config
+import io.opentargets.etl.backend.SparkHelpers.IOResourceConfig
 
 object CancerBiomarkersHelpers {
   implicit class AggregationHelpers(df: DataFrame)(implicit ss: SparkSession) {
@@ -100,18 +101,30 @@ object CancerBiomarkersHelpers {
 
 // This is option/step cancerbiomarkers in the config file
 object CancerBiomarkers extends LazyLogging {
-  def apply(config: Config)(implicit ss: SparkSession) = {
+  def apply()(implicit context: ETLSessionContext) = {
+    implicit val ss = context.sparkSession
     import ss.implicits._
     import CancerBiomarkersHelpers._
 
-    val common = Configuration.loadCommon(config)
+    val common = context.configuration.common
     val mappedInputs = Map(
-      "target" -> Map("format" -> common.inputs.target.format, "path" -> common.inputs.target.path)
+      "target" -> IOResourceConfig(common.inputs.target.format, common.inputs.target.path)
     )
-    val inputDataFrame = SparkSessionWrapper.loader(mappedInputs)
+    val inputDataFrame = SparkHelpers.readFrom(mappedInputs)
 
     val cancerBiomakerDf = inputDataFrame("target").getBiomarkerTargetDiseaseDrugEntity
 
-    SparkSessionWrapper.save(cancerBiomakerDf, common.output + "/cancerBiomarkers")
+    val outputs = Seq("cancerBiomarkers")
+
+    // TODO THIS NEEDS MORE REFACTORING WORK AS IT CAN BE SIMPLIFIED
+    val outputConfs = outputs
+      .map(
+        name =>
+          name -> IOResourceConfig(context.configuration.common.outputFormat,
+                                   context.configuration.common.output + s"/$name"))
+      .toMap
+
+    val outputDFs = (outputs zip Seq(cancerBiomakerDf)).toMap
+    SparkHelpers.writeTo(outputConfs, outputDFs)
   }
 }
