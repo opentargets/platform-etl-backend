@@ -119,6 +119,40 @@ sbt assembly
 ```
 The jar will be generated under target/scala-2.12.10/
 
+### Create cluster and launch
+
+Here how to create a cluster using `gcloud` tool
+
+```sh
+gcloud beta dataproc clusters create \
+    etl-cluster \
+    --image-version=1.5-debian10 \
+    --properties=yarn:yarn.nodemanager.vmem-check-enabled=false,spark:spark.debug.maxToStringFields=1024,spark:spark.master=yarn,yarn:yarn.scheduler.capacity.resource-calculator=org.apache.hadoop.yarn.util.resource.DominantResourceCalculator \
+    --master-machine-type=n1-highmem-16 \
+    --master-boot-disk-size=500 \
+    --num-secondary-workers=0 \
+    --worker-machine-type=n1-standard-16 \
+    --num-workers=2 \
+    --worker-boot-disk-size=500 \
+    --zone=europe-west1-d \
+    --project=open-targets-eu-dev \
+    --region=europe-west1 \
+    --initialization-action-timeout=20m \
+    --max-idle=30m
+```
+
+And to submit the job (the jar can also by specified from a gs://...
+
+```sh
+gcloud dataproc jobs submit spark \
+    --cluster=etl-cluster \
+    --project=open-targets-eu-dev \
+    --region=europe-west1 \
+    --async \
+    --properties=spark:spark.yarn.appMasterEnv.OT_ETL_OUTPUT=gs://ot-snapshots/etl/etl-test \
+    --jar=gs://ot-snapshots/etl/jars/io-opentargets-etl-backend-assembly-0.2.5.jar
+```
+
 ### Scalafmt Installation
 
 A pre-commit hook to run [scalafmt](https://scalameta.org/scalafmt/) is recommended for 
