@@ -145,12 +145,21 @@ And to submit the job (the jar can also by specified from a gs://...
 
 ```sh
 gcloud dataproc jobs submit spark \
-    --cluster=etl-cluster \
-    --project=open-targets-eu-dev \
-    --region=europe-west1 \
-    --async \
-    --properties=spark:spark.yarn.appMasterEnv.OT_ETL_OUTPUT=gs://ot-snapshots/etl/etl-test \
-    --jar=gs://ot-snapshots/etl/jars/io-opentargets-etl-backend-assembly-0.2.5.jar
+           --cluster=etl-cluster \
+           --project=open-targets-eu-dev \
+           --region=europe-west1 \
+           --async \
+           --files=mk-latest.conf \
+           --properties=spark.executor.extraJavaOptions=-Dconfig.file=mk-latest.conf,spark.driver.extraJavaOptions=-Dconfig.file=mk-latest.conf \
+           --jar=gs://ot-snapshots/etl/jars/io-opentargets-etl-backend-assembly-0.2.5.jar -- disease
+```
+
+where `mk-latest.conf` is
+
+```conf
+common {
+  output = "gs://ot-snapshots/etl/mk-latest"
+}
 ```
 
 ### Scalafmt Installation
