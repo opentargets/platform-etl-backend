@@ -16,4 +16,5 @@ deploy:
   on:
     repo: opentargets/platform-etl-backend
     branch: cm_travis_test
+	tags: true
   skip_cleanup: 'true'
