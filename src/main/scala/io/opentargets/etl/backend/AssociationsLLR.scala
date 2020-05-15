@@ -304,10 +304,8 @@ object AssociationsLLR extends LazyLogging {
         val outputs = Seq("associations_llr_direct", "associations_llr_indirect")
 
         val outputConfs = outputs
-          .map(
-            name =>
-              name -> IOResourceConfig(context.configuration.common.outputFormat,
-                                       context.configuration.common.output + s"/$name"))
+          .map(name =>
+            name -> IOResourceConfig(commonSec.outputFormat, commonSec.output + s"/$name"))
           .toMap
 
         val outputDFs = (outputs zip Seq(direct, indirect)).toMap

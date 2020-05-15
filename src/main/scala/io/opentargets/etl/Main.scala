@@ -54,8 +54,6 @@ object ETL extends LazyLogging {
       case "ddr" =>
         logger.info("run step dataDrivenRelation")
         DataDrivenRelation()
-      case _ =>
-        logger.error("Exit with error or ALL by defaul (?) ")
     }
   }
 
@@ -71,8 +69,13 @@ object ETL extends LazyLogging {
           if (steps.isEmpty) otContext.configuration.common.defaultSteps
           else steps
 
-        logger.info(s"configured steps: ${etlSteps.toString}")
-        etlSteps.foreach {
+        val unknownSteps = etlSteps.toSet diff otContext.configuration.common.defaultSteps.toSet
+        val knownSteps = etlSteps.toSet intersect otContext.configuration.common.defaultSteps.toSet
+
+        logger.info(s"valid steps to execute: ${knownSteps.toString}")
+        logger.warn(s"invalid steps to skip: ${unknownSteps.toString}")
+
+        knownSteps.foreach {
           case step =>
             logger.debug(s"step to run: '${step}'")
             ETL.applySingleStep(step)

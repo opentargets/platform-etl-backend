@@ -32,22 +32,12 @@ object Dependencies {
 
   lazy val scalaLoggingDep = "ch.qos.logback" % "logback-classic" % "1.2.3"
 
-  lazy val sparkDepsProvided = Seq(
-    "com.github.fommil.netlib" % "all" % "1.1.2" pomOnly (),
-    "org.apache.spark" %% "spark-core" % "2.4.5" % "provided",
-    "org.apache.spark" %% "spark-sql" % "2.4.5" % "provided",
-    "org.apache.spark" %% "spark-graphx" % "2.4.5" % "provided",
-    "org.apache.spark" %% "spark-mllib" % "2.4.5" % "provided",
-    "com.databricks" %% "spark-xml" % "0.8.0"
-  )
-
   lazy val sparkDeps = Seq(
     "com.github.fommil.netlib" % "all" % "1.1.2" pomOnly (),
     "org.apache.spark" %% "spark-core" % "2.4.5",
     "org.apache.spark" %% "spark-sql" % "2.4.5",
     "org.apache.spark" %% "spark-graphx" % "2.4.5",
-    "org.apache.spark" %% "spark-mllib" % "2.4.5",
-    "com.databricks" %% "spark-xml" % "0.8.0"
+    "org.apache.spark" %% "spark-mllib" % "2.4.5"
   )
 
   lazy val testingDeps = Seq(

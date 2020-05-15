@@ -5,8 +5,6 @@ import com.typesafe.config.ConfigFactory
 import pureconfig._
 import pureconfig.generic.auto._
 
-import scala.util.Try
-
 object Configuration extends LazyLogging {
   lazy val config = load
 
