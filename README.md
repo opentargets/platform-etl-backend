@@ -1,6 +1,3 @@
-[![Build Status](https://travis-ci.com/opentargets/
-platform-etl-backend.svg?branch=master)](https://travis-ci.com/opentargets/platform-elt-backend)
-
 # Open Targets Post-Pipeline ETL process
 
 OpenTargets ETL pipeline to process Pipeline output in order to obtain a new API shaped entities. For the file 
