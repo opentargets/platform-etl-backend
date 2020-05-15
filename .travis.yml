@@ -17,6 +17,7 @@ deploy:
   on:
     repo: opentargets/platform-etl-backend
     tags: true
+    all_branches: false
   skip_cleanup: true
 after_success:
   - bash <(curl -s https://codecov.io/bash)
