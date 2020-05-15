@@ -15,6 +15,5 @@ deploy:
   file: target/scala-2.12/io-*
   on:
     repo: opentargets/platform-etl-backend
-    branch: cm_travis_test
-	tags: true
+    tags: true
   skip_cleanup: 'true'
