@@ -19,8 +19,11 @@ object EvidenceDrugDirectHelpers {
       val fds = df
         .where(col("private.datatype") === "known_drug")
         .withColumn("disease_id", col("disease.id"))
+        .withColumn("label", col("disease.efo_info.label"))
         .withColumn("target_id", col("target.id"))
+        .withColumn("approvedSymbol", col("target.gene_info.symbol"))
         .withColumn("drug_id", substring_index(col("drug.id"), "/", -1))
+        .withColumn("prefName", col("drug.molecule_name"))
 
       val dfDirect = fds
         .groupBy(
@@ -67,10 +70,12 @@ object EvidenceDrugDirect extends LazyLogging {
 
     // TODO THIS NEEDS MORE REFACTORING WORK AS IT CAN BE SIMPLIFIED
     val outputConfs = outputs
-      .map(
-        name =>
-          name -> IOResourceConfig(context.configuration.common.outputFormat,
-                                   context.configuration.common.output + s"/$name"))
+      .map(name =>
+        name -> IOResourceConfig(
+          context.configuration.common.outputFormat,
+          context.configuration.common.output + s"/$name"
+        )
+      )
       .toMap
 
     val outputDFs = (outputs zip Seq(dfDirectInfo)).toMap
