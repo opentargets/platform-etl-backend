@@ -129,7 +129,7 @@ Here how to create a cluster using `gcloud` tool
 gcloud beta dataproc clusters create \
     etl-cluster \
     --image-version=1.5-debian10 \
-    --properties=yarn.nodemanager.vmem-check-enabled=false,spark.debug.maxToStringFields=1024,spark.master=yarn \
+    --properties=yarn:yarn.nodemanager.vmem-check-enabled=false,spark:spark.debug.maxToStringFields=1024,spark:spark.master=yarn \
     --master-machine-type=n1-highmem-16 \
     --master-boot-disk-size=500 \
     --num-secondary-workers=0 \
