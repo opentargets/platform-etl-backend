@@ -10,12 +10,13 @@ script:
 deploy:
   provider: releases
   api_key:
-    secure: ""
+    secure: "buB3/Fe4PwccwA3BsLTV87Qq2QRwKMLM/zliTCDpGeWbG1M4YOP5o05OcWIWuhtoLT2l1PMdfJ2vxmLNMVNaPz1p6eBOGaIO1tHgCSIPvXXlt77GNQk1ss3SXV0JQizhoXPCV7S2crGFBxISe/R9F0fxFqknOUWUYI8+uSwg82oIc6ATgWvFFn8xs3TT/dnQpKV7r8IpVHXJtW/oQumhfvJ59//wUanaQeqC4IpDbouYjvpYd7wiar1CWT2tBOaQYjDegESZXq5ttRkU3Tn5tztMg9L4JbmlUKxKGrzQe2Qz6iqprEx5g/S7R0jFfSdAkAJbU9muBicxnxk1k/xTqA6ZrQXduUbvKzskG4fse8tRy8qEc/Pr0WnAXpF1a0KSRy+5brdIXcejNm/7WhY2DEVu/gW0Da3KNrqJU4CPC6xzpniX2KRs94sCBRKItFcB+ZfMyNeNzTvucqOwkaQnyG6EGBMvgPM0Z4jRyuo4pmm9Ea69W+k57215CwB8DYW8W1o1PUO4bP9TFKOFjAaW+r2QX0C+PyFci20GhhlfM6YGt2DX+ShrvFMluDHiIK8wabakGEkzy+N6wri8qYuKFyJdFO1lZdXPmIdWKp/mToBAFSTowR0lyxyVk9032V5MW6ObT26KHGP+ebIZiqXwwJJb3SiJq8hRqGsc+nYq+Qg="
   file_glob: true
   file:
     - "target/scala-2.11/io-opentargets-etl-backend-assembly-*"
   on:
     repo: opentargets/platform-etl-backend
+    branch: cm_travis_test
   skip_cleanup: true
 after_success:
   - bash <(curl -s https://codecov.io/bash)
