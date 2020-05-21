@@ -17,6 +17,7 @@ OpenTargets ETL pipeline to process Pipeline output in order to obtain a new API
 6. Disease index dump from OpenTargets ES
 7. Evidence index dump from OpenTargets ES
 8. Expression index dump from OpenTargets ES
+9. Generate MousePhenotypes dump from OperTargets ES
 
 ### Generate the indices dump from ES7
 
@@ -28,6 +29,12 @@ elasticdump --input=http://localhost:9200/<indexyouneed> \
     --limit 10000 \
     --sourceOnly
 ```
+
+Generate MousePhenotypes input file
+```sh
+cat 20.04_gene-data.json | jq -r '{"id":.id,"phenotypes": [.mouse_phenotypes[]?] }|@json' > mousephenotype.json
+```
+Copy the file in google storage or specific path
 
 ### Load with custom configuration
 
@@ -75,7 +82,19 @@ common {
       format = "parquet"
       path = "luts/eco_parquet/"
     }
-  }
+    expression {
+      format = "parquet"
+      path = "luts/expression_parquet/"
+    }
+    tep {
+      format ="json"
+      path = "gs://open-targets-data-releases/20.04/input/annotation-files/tep-2020-05-20.json"
+    }
+    mousephenotypes {
+      format ="json"
+      path = "gs://ot-snapshots/jsonl/20.04/20.04_mousephenotypes.json"
+   }
+ }
 }
 
 ```

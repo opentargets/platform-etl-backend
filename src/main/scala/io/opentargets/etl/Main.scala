@@ -30,12 +30,18 @@ object ETL extends LazyLogging {
       case "evidenceProteinFix" =>
         logger.info("run step evidenceProteinFix")
         EvidenceProteinFix()
+      case "expression" =>
+        logger.info("run step expression")
+        Expression()
       case "disease" =>
         logger.info("run step disease")
         Disease()
       case "target" =>
         logger.info("run step target")
         Target()
+      case "mousePhenotypes" =>
+        logger.info("run step mousephenotypes")
+        MousePhenotypes()
       case "reactome" =>
         logger.info("run step reactome (rea)")
         Reactome()

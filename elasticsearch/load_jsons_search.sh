@@ -12,18 +12,30 @@ echo $RELEASE
 
 INDEX=$RELEASE$INDEX_NAME
 
-FILES="$(ls $INPUT/*.json)"
+#Check if the input is from gs bucket then it will strem the input file
+echo $INPUT | grep gs://
+
+if [ $? -eq 0 ]; then
+  FILES="$(gsutil list $INPUT/*.json)"
+  cmd="gsutil cp"
+  trail="-"
+else
+  FILES="$(ls $INPUT/*.json)"
+  cmd="cat"
+  trail =""
+fi
+
 INDEXSETTING=1
 printf "The index wont have an ID \n"
 for f in $FILES
 do
   if [ $INDEXSETTING -eq 1 ]; then
     echo $f
-	cat  $f | elasticsearch_loader --es-host $ES --index-settings-file $INDEX_SETTINGS --bulk-size 5000 --index $INDEX --type $TYPE_FIELD json --json-lines -  
+	`$cmd $f $trail | elasticsearch_loader --with-retry --es-host $ES --index-settings-file $INDEX_SETTINGS  --index $INDEX --type $TYPE_FIELD json --json-lines -  `
 	INDEXSETTING=0
   else	  	
     echo $f
-    cat  $f | elasticsearch_loader --es-host $ES --bulk-size 5000 --index $INDEX --type $TYPE_FIELD json --json-lines -  
+    `$cmd $f $trail | elasticsearch_loader --with-retry --es-host $ES --index $INDEX --type $TYPE_FIELD json --json-lines - `
   fi
 done
 

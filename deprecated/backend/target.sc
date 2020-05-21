@@ -91,7 +91,6 @@ object TargetHelpers {
         "tractability as tractabilityRoot",
         "safety as safetyRoot",
         "chemicalprobes as chemicalProbes",
-        "ortholog",
         "go as goRoot",
         "reactome",
         "name_synonyms as nameSynonyms",
