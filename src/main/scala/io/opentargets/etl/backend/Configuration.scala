@@ -40,7 +40,10 @@ object Configuration extends LazyLogging {
       associations: InputInfo,
       ddr: InputInfo,
       reactome: InputInfo,
-      eco: InputInfo
+      eco: InputInfo,
+      expression: InputInfo,
+      tep: InputInfo,
+      mousephenotypes: InputInfo
   )
 
   case class Common(defaultSteps: Seq[String], inputs: Inputs, output: String, outputFormat: String)

@@ -2,6 +2,8 @@
 ./load_diseases.sh
 ./load_drugs.sh
 ./load_eco.sh
+./load_expression.sh
+./load_mp.sh
 ./load_cancerbiomarker.sh
 ./load_reactome.sh
 ./load_search.sh
