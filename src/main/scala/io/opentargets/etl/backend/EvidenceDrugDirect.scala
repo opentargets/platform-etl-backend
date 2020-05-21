@@ -31,7 +31,10 @@ object EvidenceDrugDirectHelpers {
           col("drug_id").as("drug"),
           col("evidence.drug2clinic.clinical_trial_phase.label").as("clinical_trial_phase"),
           col("evidence.drug2clinic.status").as("clinical_trial_status"),
-          col("target_id").as("target")
+          col("target_id").as("target"),
+          col("prefName"),
+          col("label"),
+          col("approvedSymbol")
         )
         .agg(
           collect_list(col("evidence.drug2clinic.urls")).as("_list_urls"),

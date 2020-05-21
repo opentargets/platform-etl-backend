@@ -14,6 +14,21 @@ object TargetHelpers {
     import Configuration._
     import ss.implicits._
 
+    def addTEPInfo(tepDF: DataFrame): DataFrame = {
+
+      tepDF
+        .withColumnRenamed("Ensembl_id", "id")
+        .withColumnRenamed("OT_Target_name", "tepName")
+        .withColumnRenamed("URI", "tepURI")
+        .join(df, Seq("id"), "right")
+        .withColumn(
+          "tep",
+          when(col("tepURI").isNotNull, struct(col("tepURI").as("uri"), col("tepName").as("name")))
+        )
+        .drop("tepURI", "tepName")
+
+    }
+
     def transformReactome: DataFrame = {
       df.withColumn(
         "reactome",
@@ -101,7 +116,6 @@ object TargetHelpers {
         "tractability as tractabilityRoot",
         "safety as safetyRoot",
         "chemicalprobes as chemicalProbes",
-        "ortholog",
         "go as goRoot",
         "reactome",
         "name_synonyms as nameSynonyms",
@@ -194,6 +208,10 @@ object Target extends LazyLogging {
       "target" -> IOResourceConfig(
         common.inputs.target.format,
         common.inputs.target.path
+      ),
+      "tep" -> IOResourceConfig(
+        common.inputs.tep.format,
+        common.inputs.tep.path
       )
     )
 
@@ -201,8 +219,9 @@ object Target extends LazyLogging {
 
     // The gene index contains keys with spaces. This step creates a new Dataframe with the proper keys
     val targetDFnewSchema = SparkHelpers.replaceSpacesSchema(inputDataFrame("target"))
+    val tepDFnewSchema = SparkHelpers.replaceSpacesSchema(inputDataFrame("tep"))
 
-    val targetDF = targetDFnewSchema.setIdAndSelectFromTargets
+    val targetDF = targetDFnewSchema.setIdAndSelectFromTargets.addTEPInfo(tepDFnewSchema)
 
     val outputs = Seq("targets")
 

@@ -5,7 +5,8 @@ export INDEX_SETTINGS="index_settings.json"
 export RELEASE='20.04_'
 export INDEX_NAME="disease"
 export TYPE_FIELD="disease"
-export INPUT="../out/diseases"
+#export INPUT="../out/diseases"
+export INPUT="gs://ot-snapshots/etl/latest/disease"
 export ES="http://localhost:9200"
 export ID="id"
 
