@@ -19,12 +19,12 @@ object DiseaseHelpers {
     def setIdAndSelectFromDiseases: DataFrame = {
 
       // TODO MKARMONA THIS SMELL
-      val getParents = udf(
-        (codes: Seq[Seq[String]]) =>
-          codes
-            .flatMap(path => if (path.size < 2) None else Some(path.reverse(1)))
-            .toSet
-            .toSeq)
+      val getParents = udf((codes: Seq[Seq[String]]) =>
+        codes
+          .flatMap(path => if (path.size < 2) None else Some(path.reverse(1)))
+          .toSet
+          .toSeq
+      )
       //codes.withFilter(_.size > 1).flatMap(_.reverse(1)).toSet)
 
       val dfPhenotypeId = df
@@ -122,19 +122,6 @@ object DiseaseHelpers {
 
 object Disease extends LazyLogging {
 
-  def generateEFOfile(efoBasicInfoDF: DataFrame, outputFilename: String) {
-
-    val efoFile: File = File(outputFilename)
-      .createIfNotExists(createParents = true)
-      .append(efoBasicInfoDF.toJSON.collect.mkString("[", ",", "]"))
-  }
-
-  def generateTherapeticAreaFile(therapeticAreasList: Array[Any], outputFilename: String) {
-    val therapeuticAreaFile: File = File(outputFilename)
-      .createIfNotExists(createParents = true)
-      .append(therapeticAreasList.mkString("[\"", "\",\"", "\"]"))
-  }
-
   def apply()(implicit context: ETLSessionContext) = {
     implicit val ss = context.sparkSession
     import ss.implicits._
@@ -155,24 +142,27 @@ object Disease extends LazyLogging {
       "disease" -> IOResourceConfig(
         context.configuration.common.outputFormat,
         context.configuration.common.output + s"/disease"
-      ))
+      )
+    )
 
     SparkHelpers.writeTo(outputConfs, Map("disease" -> diseaseDF))
 
     val therapeticAreaList = diseaseDF
       .filter(col("ontology.isTherapeuticArea") === true)
       .select("id")
-      .collect()
-      .flatMap(_.toSeq)
 
-    // TODO CINZIA THIS NEEDS TO WRITE TO CSV ONE COLUMN WITH NO HEADER
-    generateTherapeticAreaFile(therapeticAreaList, common.output + "/diseases_staticfiles")
+    therapeticAreaList
+      .coalesce(1)
+      .write
+      .option("header", "false")
+      .csv(common.output + "/diseases_static_therapeuticarea")
 
     val efoBasicInfoDF =
       diseaseDF.select("id", "name", "parents").withColumnRenamed("parents", "parentIds")
 
-    // TODO CINZIA THIS NEEDS TO WRITE TO CSV ONE COLUMN WITH NO HEADER
-    generateEFOfile(efoBasicInfoDF, common.output + "/diseases_staticfiles")
-
+    efoBasicInfoDF
+      .coalesce(1)
+      .write
+      .json(common.output + "/diseases_static_efos")
   }
 }
