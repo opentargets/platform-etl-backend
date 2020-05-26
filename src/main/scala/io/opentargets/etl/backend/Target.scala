@@ -32,10 +32,12 @@ object TargetHelpers {
     def transformReactome: DataFrame = {
       df.withColumn(
         "reactome",
-        when($"reactome".isNotNull,
-             expr("""
-                    |transform(reactome, r -> r.id)
-                    |""".stripMargin))
+        when(
+          $"reactome".isNotNull,
+          expr("""
+                 |transform(reactome, r -> r.id)
+                 |""".stripMargin)
+        )
       )
     }
 
@@ -133,7 +135,8 @@ object TargetHelpers {
           |    uniprot_pathway as pathways,
           |    uniprot_similarity as similarities,
           |    uniprot_subcellular_location as subcellularLocations,
-          |    uniprot_subunit as subunits
+          |    uniprot_subunit as subunits,
+          |    protein_classification.chembl as classes
           |    )
           |end as proteinAnnotations
           |""".stripMargin
@@ -227,10 +230,12 @@ object Target extends LazyLogging {
 
     // TODO THIS NEEDS MORE REFACTORING WORK AS IT CAN BE SIMPLIFIED
     val outputConfs = outputs
-      .map(
-        name =>
-          name -> IOResourceConfig(context.configuration.common.outputFormat,
-                                   context.configuration.common.output + s"/$name"))
+      .map(name =>
+        name -> IOResourceConfig(
+          context.configuration.common.outputFormat,
+          context.configuration.common.output + s"/$name"
+        )
+      )
       .toMap
 
     val outputDFs = (outputs zip Seq(targetDF)).toMap
