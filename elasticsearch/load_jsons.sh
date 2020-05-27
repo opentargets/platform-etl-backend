@@ -25,16 +25,18 @@ else
   trail=""
 fi
 
+echo create index "$ES/$INDEX" with settings file $INDEX_SETTINGS
+curl -XPUT -H 'Content-Type: application/json' --data @$INDEX_SETTINGS $ES/$INDEX
+
 for f in $FILES
   do
     echo $f
     if [[ -n "$ID" ]]; then
        printf "The index will have %s \n" "$ID"
-      `$cmd $f $trail | elasticsearch_loader --with-retry --es-host $ES --index-settings-file $INDEX_SETTINGS --bulk-size 5000 --index $INDEX --type $TYPE_FIELD --id-field id json --json-lines - `
+      $cmd $f $trail | elasticsearch_loader --with-retry --es-host $ES --bulk-size 5000 --index $INDEX --id-field id json --json-lines -
     else
        printf "The index wont have an ID \n"
-       echo $cmd
-      `$cmd  $f $trail | elasticsearch_loader --with-retry --es-host $ES --index-settings-file $INDEX_SETTINGS --bulk-size 5000 --index $INDEX --type $TYPE_FIELD json --json-lines - `
+      $cmd "$f" $trail | elasticsearch_loader --with-retry --es-host $ES --bulk-size 5000 --index "$INDEX" json --json-lines -
     fi
 done
 
