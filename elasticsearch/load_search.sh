@@ -11,18 +11,18 @@ export INDEX_NAME="search_target"
 #export INPUT="../out/search_targets"
 export INPUT="gs://ot-snapshots/etl/latest/search_targets"
 
-./load_jsons_search.sh
+./load_jsons.sh
 
 
 export INDEX_NAME="search_drug"
 #export INPUT="../out/search_drugs"
 export INPUT="gs://ot-snapshots/etl/latest/search_drugs"
 
-./load_jsons_search.sh
+./load_jsons.sh
 
 
 export INDEX_NAME="search_disease"
 #export INPUT="../out/search_diseases"
 export INPUT="gs://ot-snapshots/etl/latest/search_diseases"
 
-./load_jsons_search.sh
+./load_jsons.sh
