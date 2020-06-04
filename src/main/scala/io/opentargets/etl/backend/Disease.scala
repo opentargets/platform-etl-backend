@@ -111,8 +111,7 @@ object DiseaseHelpers {
 }
 
 object Disease extends LazyLogging {
-
-  def apply()(implicit context: ETLSessionContext) = {
+  def compute()(implicit context: ETLSessionContext): DataFrame = {
     implicit val ss = context.sparkSession
     import ss.implicits._
     import DiseaseHelpers._
@@ -128,10 +127,24 @@ object Disease extends LazyLogging {
 
     val diseaseDF = inputDataFrame("disease").setIdAndSelectFromDiseases
 
+    diseaseDF
+  }
+
+  def apply()(implicit context: ETLSessionContext) = {
+    implicit val ss = context.sparkSession
+    import ss.implicits._
+    import DiseaseHelpers._
+
+    val common = context.configuration.common
+
+    logger.info("transform disease dataset")
+    val diseaseDF = compute()
+
+    logger.info(s"write to ${context.configuration.common.output}/disease")
     val outputConfs = Map(
       "disease" -> IOResourceConfig(
         context.configuration.common.outputFormat,
-        context.configuration.common.output + s"/disease"
+        s"${context.configuration.common.output}/disease"
       )
     )
 
