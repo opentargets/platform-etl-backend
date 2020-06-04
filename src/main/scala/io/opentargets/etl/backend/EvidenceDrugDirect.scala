@@ -15,13 +15,13 @@ object EvidenceDrugDirectHelpers {
     import ss.implicits._
 
     def generateEntries: DataFrame = {
-
       val fds = df
         .where(col("private.datatype") === "known_drug")
         .withColumn("disease_id", col("disease.id"))
         .withColumn("label", col("disease.efo_info.label"))
         .withColumn("target_id", col("target.id"))
         .withColumn("approvedSymbol", col("target.gene_info.symbol"))
+        .withColumn("approvedName", col("target.gene_info.name"))
         .withColumn("drug_id", substring_index(col("drug.id"), "/", -1))
         .withColumn("prefName", col("drug.molecule_name"))
 
@@ -39,6 +39,10 @@ object EvidenceDrugDirectHelpers {
         .agg(
           collect_list(col("evidence.drug2clinic.urls")).as("_list_urls"),
           count(col("evidence.drug2clinic.urls")).as("list_urls_counts"),
+          first(col("prefName")).as("prefName"),
+          first(col("label")).as("label"),
+          first(col("approvedSymbol")).as("approvedSymbol"),
+          first(col("approvedName")).as("approvedName"),
           first(col("drug.molecule_type")).as("drug_type"),
           first(col("evidence.target2drug.mechanism_of_action")).as("mechanism_of_action"),
           first(col("target.activity")).as("activity"),
@@ -67,7 +71,14 @@ object EvidenceDrugDirect extends LazyLogging {
     )
     val inputDataFrame = SparkHelpers.readFrom(mappedInputs)
 
-    val dfDirectInfo = inputDataFrame("evidence").generateEntries
+    logger.info("compute directly aggregated references per disease, drug, ...")
+    val dfDirectInfo = inputDataFrame("evidence")
+      .generateEntries
+
+    val diseases = Disease.compute().select("id", "descendants")
+    logger.info("annotate each entry with the descendant list per disease")
+    val dfDirectInfoAnnotated = dfDirectInfo
+      .join(diseases, $"id" === $"disease")
 
     val outputs = Seq("evidenceDrugDirect")
 
