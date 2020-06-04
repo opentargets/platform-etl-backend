@@ -75,10 +75,12 @@ object EvidenceDrugDirect extends LazyLogging {
     val dfDirectInfo = inputDataFrame("evidence")
       .generateEntries
 
-    val diseases = Disease.compute().select("id", "descendants")
-    logger.info("annotate each entry with the descendant list per disease")
+    val diseases = Disease.compute()
+      .selectExpr("id as disease",
+        "concat(array(id), descendants) as diseases")
+    logger.info("annotate each entry with the descendant list (including itself) per disease")
     val dfDirectInfoAnnotated = dfDirectInfo
-      .join(diseases, $"id" === $"disease")
+      .join(diseases, Seq("disease"))
 
     val outputs = Seq("evidenceDrugDirect")
 
@@ -92,7 +94,7 @@ object EvidenceDrugDirect extends LazyLogging {
       )
       .toMap
 
-    val outputDFs = (outputs zip Seq(dfDirectInfo)).toMap
+    val outputDFs = (outputs zip Seq(dfDirectInfoAnnotated)).toMap
     SparkHelpers.writeTo(outputConfs, outputDFs)
   }
 }
