@@ -79,7 +79,7 @@ object DiseaseHelpers {
       val descendants = efosSummary
         .where(size(col("ancestors")) > 0)
         .withColumn("ancestor",
-          explode(concat(col("id"), col("ancestors"))))
+          explode(concat(array(col("id")), col("ancestors"))))
         .groupBy("ancestor")
         .agg(collect_set(col("id")).as("descendants"))
         .withColumnRenamed("ancestor", "id")
