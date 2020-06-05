@@ -78,11 +78,16 @@ object DiseaseHelpers {
 
       val descendants = efosSummary
         .where(size(col("ancestors")) > 0)
-        .withColumn("ancestor", explode(col("ancestors")))
-        // all diseases have an ancestor, at least itself
+        .withColumn("ancestor",
+          explode(concat(col("id"), col("ancestors"))))
         .groupBy("ancestor")
         .agg(collect_set(col("id")).as("descendants"))
         .withColumnRenamed("ancestor", "id")
+        .withColumn("descendants",
+          array_except(
+            col("descendants"),
+            array(col("id"))
+          ))
 
       val efos = efosSummary
         .join(descendants, Seq("id"), "left")

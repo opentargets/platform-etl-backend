@@ -73,9 +73,8 @@ object EvidenceDrugDirect extends LazyLogging {
       .generateEntries
 
     val diseases = Disease.compute()
-      .selectExpr("id as disease",
-        "concat(array(id), descendants) as diseases")
-    logger.info("annotate each entry with the descendant list (including itself) per disease")
+      .selectExpr("id as disease", "descendants")
+    logger.info("annotate each entry with the descendant list per disease")
     val dfDirectInfoAnnotated = dfDirectInfo
       .join(diseases, Seq("disease"))
 
