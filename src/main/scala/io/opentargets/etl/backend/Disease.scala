@@ -17,15 +17,12 @@ object DiseaseHelpers {
     import ss.implicits._
 
     def setIdAndSelectFromDiseases: DataFrame = {
-
-      // TODO MKARMONA THIS SMELL
       val getParents = udf((codes: Seq[Seq[String]]) =>
         codes
-          .flatMap(path => if (path.size < 2) None else Some(path.reverse(1)))
-          .toSet
-          .toSeq
+          .flatMap{
+            path => if (path.size < 2) None else Some(path.reverse.slice(1, 2))
+          }.distinct
       )
-      //codes.withFilter(_.size > 1).flatMap(_.reverse(1)).toSet)
 
       val dfPhenotypeId = df
         .drop("type")
@@ -38,8 +35,6 @@ object DiseaseHelpers {
             )
           )
         )
-
-      //import ss.implicits._
 
       val efosSummary = dfPhenotypeId
         .withColumn("id", substring_index(col("code"), "/", -1))
@@ -57,7 +52,6 @@ object DiseaseHelpers {
           when(size(col("sourcePhenotypes")) > 0, struct(col("sourcePhenotypes").as("rows")))
             .otherwise(lit(null))
         )
-        //.withColumn("test",when(size(col("sourcePhenotypes")) > 0, extractIdPhenothypes(col("sourcePhenotypes"))).otherwise(col("sourcePhenotypes")))
         .withColumn("isTherapeuticArea", size(flatten(col("path_codes"))) === 1)
         .as("isTherapeuticArea")
         .withColumn("leaf", size(col("children")) === 0)
@@ -79,23 +73,24 @@ object DiseaseHelpers {
         // Change the value of children from array struct to array of code.
         .withColumn(
           "children",
-          expr("transform(children, child -> child.code)")
+          array_distinct(expr("transform(children, child -> child.code)"))
         )
 
       val descendants = efosSummary
         .where(size(col("ancestors")) > 0)
-        .withColumn("ancestor", explode(col("ancestors")))
-        // all diseases have an ancestor, at least itself
+        .withColumn("ancestor",
+          explode(concat(array(col("id")), col("ancestors"))))
         .groupBy("ancestor")
         .agg(collect_set(col("id")).as("descendants"))
         .withColumnRenamed("ancestor", "id")
+        .withColumn("descendants",
+          array_except(
+            col("descendants"),
+            array(col("id"))
+          ))
 
       val efos = efosSummary
         .join(descendants, Seq("id"), "left")
-        .withColumn(
-          "is_id_included_descendent",
-          array_contains(col("descendants"), col("id"))
-        )
 
       val efosRenamed = efos
         .withColumnRenamed("label", "name")
@@ -121,8 +116,7 @@ object DiseaseHelpers {
 }
 
 object Disease extends LazyLogging {
-
-  def apply()(implicit context: ETLSessionContext) = {
+  def compute()(implicit context: ETLSessionContext): DataFrame = {
     implicit val ss = context.sparkSession
     import ss.implicits._
     import DiseaseHelpers._
@@ -138,10 +132,24 @@ object Disease extends LazyLogging {
 
     val diseaseDF = inputDataFrame("disease").setIdAndSelectFromDiseases
 
+    diseaseDF
+  }
+
+  def apply()(implicit context: ETLSessionContext) = {
+    implicit val ss = context.sparkSession
+    import ss.implicits._
+    import DiseaseHelpers._
+
+    val common = context.configuration.common
+
+    logger.info("transform disease dataset")
+    val diseaseDF = compute()
+
+    logger.info(s"write to ${context.configuration.common.output}/disease")
     val outputConfs = Map(
       "disease" -> IOResourceConfig(
         context.configuration.common.outputFormat,
-        context.configuration.common.output + s"/disease"
+        s"${context.configuration.common.output}/disease"
       )
     )
 
