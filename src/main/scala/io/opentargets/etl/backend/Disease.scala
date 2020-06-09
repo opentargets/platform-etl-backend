@@ -20,7 +20,7 @@ object DiseaseHelpers {
       val getParents = udf((codes: Seq[Seq[String]]) =>
         codes
           .flatMap{
-            path => if (path.size < 2) None else Some(path.reverse.slice(1, 2))
+            path => if (path.size < 2) None else Some(path.reverse.slice(1, 2).head)
           }.distinct
       )
 
