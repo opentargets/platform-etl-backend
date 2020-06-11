@@ -28,6 +28,7 @@
     "index": {
       "number_of_replicas": 0,
       "number_of_shards": 5,
+      "max_ngram_diff": 20,
       "analysis": {
         "normalizer": {
           "custom": {
@@ -38,7 +39,7 @@
         },
         "filter": {
           "autocomplete_filter": {
-            "type": "edge_ngram",
+            "type": "ngram",
             "min_gram": 1,
             "max_gram": 20,
             "token_chars": [
