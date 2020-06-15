@@ -11,3 +11,4 @@
 ./load_openfda_faers.sh
 ./load_disease_relation.sh
 ./load_target_relation.sh
+./load_otars.sh
