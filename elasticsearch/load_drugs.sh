@@ -4,8 +4,8 @@ export INDEX_SETTINGS="index_settings.json"
 export RELEASE='20.04_'
 export INDEX_NAME="drug"
 export TYPE_FIELD="drug"
-#export INPUT="../out/drugs"
-export INPUT="gs://ot-snapshots/etl/latest/drugs"
+export INPUT="../out/drugs"
+#export INPUT="gs://ot-snapshots/etl/latest/drugs"
 export ES="http://localhost:9200"
 export ID="id"
 

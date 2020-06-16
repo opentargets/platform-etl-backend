@@ -2,9 +2,9 @@
 
 export INDEX_SETTINGS="index_settings.json"
 export RELEASE='20.04_'
-export INDEX_NAME="mp"
-export TYPE_FIELD="mp"
-export INPUT="../luts/mp"
+export INDEX_NAME="mouse_phenotypes"
+export TYPE_FIELD="mouse_phenotypes"
+export INPUT="../out/mouse_phenotypes"
 export ES="http://localhost:9200"
 export ID="id"
 
