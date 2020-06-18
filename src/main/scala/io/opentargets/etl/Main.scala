@@ -60,6 +60,9 @@ object ETL extends LazyLogging {
       case "ddr" =>
         logger.info("run step dataDrivenRelation")
         DataDrivenRelation()
+      case "association" =>
+        logger.info("run step association")
+        Association()
     }
   }
 
