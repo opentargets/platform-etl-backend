@@ -1,0 +1,233 @@
+package io.opentargets.etl.backend
+
+import org.apache.spark.SparkConf
+import org.apache.spark.sql._
+import org.apache.spark.sql.types._
+import org.apache.spark.sql.functions._
+import better.files.Dsl._
+import better.files._
+import com.typesafe.config.{Config, ConfigFactory, ConfigObject, ConfigRenderOptions}
+import com.typesafe.scalalogging.{LazyLogging, Logger}
+import io.opentargets.etl.backend.SparkHelpers.IOResourceConfig
+import org.apache.spark.sql.expressions._
+
+import scala.math.pow
+
+object AssociationHelpers {
+  def harmonic(vectorColName: String,
+               maxVectorSize: Int = 100,
+               maxComponentScore: Double = 1d,
+               pExponent: Int = 2): Column = {
+    def maxHarmonicValue(vSize: Int, exp: Int, maxScore: Double): Double =
+      (0 until vSize).foldLeft(0d)((acc: Double, n: Int) =>
+        acc + (maxScore / pow(1d + n, exp)))
+
+    val maxHS = maxHarmonicValue(maxVectorSize, pExponent, maxComponentScore)
+    expr(s"""
+            |aggregate(
+            | zip_with(
+            |   $vectorColName,
+            |   sequence(1, size($vectorColName)),
+            |   (e, i) -> (e / pow(i,2))
+            | ),
+            | 0D,
+            | (a, el) -> a + el
+            |) / $maxHS
+            |""".stripMargin
+    )
+  }
+
+  implicit class AggregationHelpers(df: DataFrame)(implicit ss: SparkSession) {
+    import Configuration._
+    import ss.implicits._
+
+    def computeOntologyExpansion(diseases: DataFrame, otc: AssociationsSection): DataFrame = {
+      val diseaseStruct =
+        """
+          |named_struct(
+          | 'id', disease_id,
+          | 'efo_info', named_struct(
+          |   'efo_id', code,
+          |   'label', label,
+          |   'path', path_codes,
+          |   'therapeutic_area', named_struct(
+          |     'codes', therapeutic_codes,
+          |     'labels', therapeutic_labels
+          |   )
+          | )
+          |) as disease
+          |""".stripMargin
+
+      // generate needed fields as descendants
+      val lut = diseases
+        .selectExpr("disease_id as did", "descendants", diseaseStruct)
+        .withColumn("descendant", explode(col("descendants")))
+        .drop("descendants")
+        .orderBy(col("descendant"))
+
+      // map datasource list to a dataset
+      val datasources = broadcast(otc.dataSources.toDS().orderBy($"id".asc))
+
+      /*
+       ontology propagation happens just when datasource is not one of the banned ones
+       by configuration file application.conf when the known datasource is specified
+       */
+      val dfWithLut = df
+        .withColumn("disease_id", expr("disease.id"))
+        .drop("disease")
+        .join(
+          broadcast(datasources.selectExpr("id as dsID", "propagate").orderBy("dsID")),
+          col("dsID") === col("sourceID"),
+          "left_outer"
+        )
+        .na
+        .fill(otc.defaultPropagate, Seq("propagate"))
+        .drop("dsID")
+        .persist()
+
+      val dfProp = dfWithLut
+        .where(col("propagate") === true)
+        .join(broadcast(lut), col("disease_id") === col("descendant"), "inner")
+
+      val dfNoProp = dfWithLut
+        .where(col("propagate") === false)
+        .join(broadcast(lut.orderBy(col("did"))), col("disease_id") === col("did"), "inner")
+
+      dfProp
+        .unionByName(dfNoProp)
+        .drop("disease_id", "descendant")
+        .withColumnRenamed("did", "disease_id")
+    }
+
+    def groupByDataSources(
+        datasources: Dataset[DataSource],
+        otc: AssociationsSection
+    ): DataFrame = {
+      val outputCols = Seq(
+        "datatype_id",
+        "datasource_id",
+        "target_id",
+        "disease_id",
+        "A", "B", "C", "D",
+        "aterm", "cterm", "acterm",
+        "datasource_evidence_count",
+        "datasource_evidence_sum",
+        "datasource_score_harmonic",
+        "datasource_score_llr",
+        "datasource_score_llr_norm"
+      )
+
+      val wds = Window.partitionBy(col("datatype_id"), col("datasource_id"))
+      val wt = Window.partitionBy(col("datatype_id"), col("datasource_id"), col("target_id"))
+      val wd = Window.partitionBy(col("datatype_id"), col("datasource_id"), col("disease_id"))
+      val wtd = Window.partitionBy(col("datatype_id"), col("datasource_id"), col("target_id"), col("disease_id"))
+
+      val datasourceAssocs = df.withColumn("ds_count", count("evidence_id").over(wds))
+        .withColumn("ds_sum", sum("evidence_score").over(wds))
+        .withColumn("ds_t_sum", sum(col("evidence_score")).over(wt))
+        .withColumn("ds_d_sum", sum(col("evidence_score")).over(wd))
+        .withColumn("ds_td_sum", sum(col("evidence_score")).over(wtd))
+        .withColumn("ds_td_count", count(col("evidence_id")).over(wtd))
+        .groupBy($"datatype_id", $"datasource_id", $"disease_id", $"target_id")
+        .agg(
+          first(col("ds_td_sum")).as("A"),
+          first(col("ds_t_sum")).as("uniq_reports_t"),
+          first(col("ds_d_sum")).as("uniq_reports_d"),
+          first(col("ds_sum")).as("datasource_evidence_sum"),
+          first(col("ds_count")).as("datasource_evidence_count"),
+          first(col("ds_td_count")).as("A_count"),
+          slice(
+            sort_array(
+              collect_list(col("evidence_score")),
+              false
+            ), 1, 100
+          ).as("datasource_td_score_v")
+        )
+        .withColumn("datasource_score_harmonic", harmonic("datasource_td_score_v"))
+        .withColumn("C", col("uniq_reports_t") - col("A"))
+        .withColumn("B", col("uniq_reports_d") - col("A"))
+        .withColumn(
+          "D",
+          col("datasource_evidence_sum") - col("uniq_reports_t") - col("uniq_reports_d") + col("A")
+        )
+        .withColumn("aterm", $"A" * (log($"A") - log($"A" + $"B")))
+        .withColumn("cterm", $"C" * (log($"C") - log($"C" + $"D")))
+        .withColumn("acterm", ($"A" + $"C") * (log($"A" + $"C") - log($"A" + $"B" + $"C" + $"D")))
+        .withColumn("llr", $"aterm" + $"cterm" - $"acterm")
+        .withColumn("datasource_score_llr",
+          when(col("llr").isNotNull and !col("llr").isNaN, $"llr")
+            .otherwise(lit(0d)))
+        .withColumn("datasource_score_llr_max", max(col("datasource_score_llr")).over(wds))
+        .withColumn("datasource_score_llr_norm", $"datasource_score_llr" / $"datasource_score_llr_max")
+
+//        .join(datasources, $"sourceID" === datasources("id"), "left_outer")
+//        .na
+//        .fill(otc.defaultWeight, Seq("weight"))
+//        .withColumn("_score", $"llr" * $"weight")
+//        .withColumn("datasource_llr", expr("map(sourceID, llr)"))
+//        .withColumn("datasource_score", expr("map(sourceID, _score)"))
+
+      datasourceAssocs
+        .select(outputCols.head, outputCols.tail:_*)
+    }
+  }
+}
+
+object Association extends LazyLogging {
+
+  def computeDirectPerDS()(implicit context: ETLSessionContext): DataFrame = {
+    implicit val ss = context.sparkSession
+
+    val associationsSec = context.configuration.associations
+    val commonSec = context.configuration.common
+
+    import ss.implicits._
+    import AssociationsLLRHelpers._
+
+    val datasources = broadcast(associationsSec.dataSources.toDS().orderBy($"id".asc))
+
+    val mappedInputs = Map(
+      "evidences" -> IOResourceConfig(
+        commonSec.inputs.evidence.format,
+        commonSec.inputs.evidence.path
+      )
+    )
+
+    val dfs = SparkHelpers.readFrom(mappedInputs)
+//
+//    // compute diseases from the ETL disease step
+//    val diseases = Disease.compute()
+//
+    val evidenceColumns = Seq(
+      "disease.id as disease_id",
+      "target.id as target_id",
+      "scores.association_score as evidence_score",
+      "datatype as datatype_id",
+      "sourceID as datasource_id",
+      "id as evidence_id"
+    )
+
+    val evidenceSet = dfs("evidences").selectExpr(evidenceColumns:_*)
+
+    val associationsPerDatasource = evidenceSet.groupByDataSources(datasources, associationsSec)
+
+    associationsPerDatasource
+  }
+  def apply()(implicit context: ETLSessionContext) = {
+    val directAssociationsPerDS = computeDirectPerDS()
+
+    implicit val ss = context.sparkSession
+    val commonSec = context.configuration.common
+
+    val outputs = Seq("associations_per_datasource_direct")
+
+    val outputConfs = outputs
+      .map(name =>
+        name -> IOResourceConfig(commonSec.outputFormat, commonSec.output + s"/$name"))
+      .toMap
+
+    val outputDFs = (outputs zip Seq(directAssociationsPerDS)).toMap
+
+    SparkHelpers.writeTo(outputConfs, outputDFs)
+  }
+}
