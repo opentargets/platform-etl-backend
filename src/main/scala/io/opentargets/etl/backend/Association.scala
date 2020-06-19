@@ -37,65 +37,51 @@ object AssociationHelpers {
     )
   }
 
-  implicit class AggregationHelpers(df: DataFrame)(implicit ss: SparkSession) {
+  implicit class Helpers(df: DataFrame)(implicit ss: SparkSession) {
     import Configuration._
     import ss.implicits._
 
     def computeOntologyExpansion(diseases: DataFrame, otc: AssociationsSection): DataFrame = {
-      val diseaseStruct =
-        """
-          |named_struct(
-          | 'id', disease_id,
-          | 'efo_info', named_struct(
-          |   'efo_id', code,
-          |   'label', label,
-          |   'path', path_codes,
-          |   'therapeutic_area', named_struct(
-          |     'codes', therapeutic_codes,
-          |     'labels', therapeutic_labels
-          |   )
-          | )
-          |) as disease
-          |""".stripMargin
-
       // generate needed fields as descendants
+      val diseaseCols = Seq(
+        "id as did",
+        "ancestors"
+      )
       val lut = diseases
-        .selectExpr("disease_id as did", "descendants", diseaseStruct)
-        .withColumn("descendant", explode(col("descendants")))
-        .drop("descendants")
-        .orderBy(col("descendant"))
+        .selectExpr(diseaseCols:_*)
+        .withColumn("ancestor", explode(concat(array($"did"), $"ancestors")))
+        .drop("ancestors")
+        .orderBy($"ancestor")
 
       // map datasource list to a dataset
-      val datasources = broadcast(otc.dataSources.toDS().orderBy($"id".asc))
+      val datasources = broadcast(otc.dataSources.toDS()
+        .selectExpr("id as datasource_id", "propagate")
+        .orderBy($"datasource_id".asc)
+      )
 
       /*
        ontology propagation happens just when datasource is not one of the banned ones
        by configuration file application.conf when the known datasource is specified
        */
       val dfWithLut = df
-        .withColumn("disease_id", expr("disease.id"))
-        .drop("disease")
-        .join(
-          broadcast(datasources.selectExpr("id as dsID", "propagate").orderBy("dsID")),
-          col("dsID") === col("sourceID"),
+        .join(datasources, Seq("datasource_id"),
           "left_outer"
         )
         .na
         .fill(otc.defaultPropagate, Seq("propagate"))
-        .drop("dsID")
-        .persist()
+        // .persist()
 
       val dfProp = dfWithLut
         .where(col("propagate") === true)
-        .join(broadcast(lut), col("disease_id") === col("descendant"), "inner")
+        .join(broadcast(lut), $"disease_id" === $"ancestor", "inner")
 
       val dfNoProp = dfWithLut
         .where(col("propagate") === false)
-        .join(broadcast(lut.orderBy(col("did"))), col("disease_id") === col("did"), "inner")
+        .join(broadcast(lut.orderBy($"did")), $"disease_id" === $"did", "inner")
 
       dfProp
         .unionByName(dfNoProp)
-        .drop("disease_id", "descendant")
+        .drop("disease_id", "ancestor")
         .withColumnRenamed("did", "disease_id")
     }
 
@@ -175,14 +161,14 @@ object AssociationHelpers {
 
 object Association extends LazyLogging {
 
-  def computeDirectPerDS()(implicit context: ETLSessionContext): DataFrame = {
+  def computeAssociationsPerDS()(implicit context: ETLSessionContext): Map[String, DataFrame] = {
     implicit val ss = context.sparkSession
 
     val associationsSec = context.configuration.associations
     val commonSec = context.configuration.common
 
     import ss.implicits._
-    import AssociationsLLRHelpers._
+    import AssociationHelpers._
 
     val datasources = broadcast(associationsSec.dataSources.toDS().orderBy($"id".asc))
 
@@ -194,15 +180,12 @@ object Association extends LazyLogging {
     )
 
     val dfs = SparkHelpers.readFrom(mappedInputs)
-//
-//    // compute diseases from the ETL disease step
-//    val diseases = Disease.compute()
-//
+
     val evidenceColumns = Seq(
       "disease.id as disease_id",
       "target.id as target_id",
       "scores.association_score as evidence_score",
-      "datatype as datatype_id",
+      "`type` as datatype_id",
       "sourceID as datasource_id",
       "id as evidence_id"
     )
@@ -211,23 +194,30 @@ object Association extends LazyLogging {
 
     val associationsPerDatasource = evidenceSet.groupByDataSources(datasources, associationsSec)
 
-    associationsPerDatasource
+    // compute diseases from the ETL disease step
+    val diseases = Disease.compute()
+    val indAssociationsPerDatasource = evidenceSet
+      .computeOntologyExpansion(diseases, associationsSec)
+      .groupByDataSources(datasources, associationsSec)
+
+    Map(
+      "associations_per_datasource_direct" -> associationsPerDatasource,
+      "associations_per_datasource_indirect" -> indAssociationsPerDatasource
+    )
   }
   def apply()(implicit context: ETLSessionContext) = {
-    val directAssociationsPerDS = computeDirectPerDS()
+    val associationsPerDS = computeAssociationsPerDS()
 
     implicit val ss = context.sparkSession
     val commonSec = context.configuration.common
 
-    val outputs = Seq("associations_per_datasource_direct")
+    val outputs = associationsPerDS.keys
 
     val outputConfs = outputs
       .map(name =>
         name -> IOResourceConfig(commonSec.outputFormat, commonSec.output + s"/$name"))
       .toMap
 
-    val outputDFs = (outputs zip Seq(directAssociationsPerDS)).toMap
-
-    SparkHelpers.writeTo(outputConfs, outputDFs)
+    SparkHelpers.writeTo(outputConfs, associationsPerDS)
   }
 }
