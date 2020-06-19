@@ -64,6 +64,7 @@ object ETL extends LazyLogging {
         logger.info("run step association")
         Association()
     }
+    logger.info(s"finished to run step ($step)")
   }
 
   def apply(steps: Seq[String]) = {

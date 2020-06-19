@@ -201,8 +201,10 @@ object Association extends LazyLogging {
       .groupByDataSources(datasources, associationsSec)
 
     Map(
-      "associations_per_datasource_direct" -> associationsPerDatasource,
+      "associations_per_datasource_direct" -> associationsPerDatasource
+        .repartitionByRange($"datasource_id"),
       "associations_per_datasource_indirect" -> indAssociationsPerDatasource
+        .repartitionByRange($"datasource_id")
     )
   }
   def apply()(implicit context: ETLSessionContext) = {
