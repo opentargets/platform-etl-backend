@@ -85,13 +85,13 @@ object SparkHelpers extends LazyLogging {
       implicit session: SparkSession): IOResources = {
 
     logger.info(s"Saving data to '${outputConfs.mkString(", ")}'")
-    val dfs = outputs.toSeq.sortBy(_._1) zip outputConfs.toSeq.sortBy(_._1)
 
-    dfs.foreach {
-      case (df, conf) =>
-        logger.debug(s"saving dataframe '${df._1}' into '${conf._2.path}'")
-        df._2.write.format(conf._2.format).save(conf._2.path)
+    outputConfs foreach {
+      case (n, c) =>
+        logger.debug(s"saving dataframe '$n' into '${c.path}'")
+        outputs(n).write.format(c.format).save(c.path)
     }
+
     outputs
   }
 
