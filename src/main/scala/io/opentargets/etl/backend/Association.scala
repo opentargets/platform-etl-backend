@@ -50,9 +50,6 @@ object AssociationHelpers {
       val lut = diseases
         .selectExpr(diseaseCols:_*)
 
-      val lutNoAncestors = diseases
-        .selectExpr(diseaseCols:_*)
-
       // map datasource list to a dataset
       val datasources = broadcast(otc.dataSources.toDS()
         .selectExpr("id as datasource_id", "propagate")
@@ -72,25 +69,17 @@ object AssociationHelpers {
         .repartitionByRange($"disease_id".asc)
         .persist()
 
-      val dfProp = dfWithLut
-        .where(col("propagate") === true)
+      val fullExpanded = dfWithLut
         .join(broadcast(lut.orderBy($"did".asc)), $"disease_id" === $"did", "inner")
-        .withColumn("ancestor", explode(concat(array($"did"), $"ancestors")))
-        .drop("disease_id", "did", "ancestors")
+        .withColumn("_ancestors",
+          when($"propagate" === true, concat(array($"did"), $"ancestors"))
+            .otherwise(array($"did")))
+        .withColumn("ancestor", explode($"_ancestors"))
+        .drop("disease_id", "did", "ancestors", "_ancestors")
         .withColumnRenamed("ancestor", "disease_id")
+        .repartitionByRange($"disease_id".asc)
 
-      val dfNoProp = dfWithLut
-        .where(col("propagate") === false)
-        .join(broadcast(lutNoAncestors.orderBy($"did".asc)), $"disease_id" === $"did", "inner")
-        .drop("disease_id", "ancestors")
-        .withColumnRenamed("did", "disease_id")
-
-      val fullExpanded = dfProp
-        .unionByName(dfNoProp)
-        .persist()
-
-      df.unpersist()
-      fullExpanded
+      fullExpanded.persist()
     }
 
     def groupByDataTypes(otc: AssociationsSection): DataFrame = {
