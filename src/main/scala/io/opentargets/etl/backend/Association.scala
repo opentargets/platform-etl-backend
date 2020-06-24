@@ -209,39 +209,12 @@ object AssociationHelpers {
 
 object Association extends LazyLogging {
 
-  def computeAssociationsPerDT(assocsPerDS: DataFrame) (implicit context: ETLSessionContext): Map[String, DataFrame] = {
+  def computeDirectAssociations()(implicit context: ETLSessionContext): Map[String, DataFrame] = {
     implicit val ss = context.sparkSession
-
-    val associationsSec = context.configuration.associations
-    val commonSec = context.configuration.common
-
-    import ss.implicits._
-    import AssociationHelpers._
-    // compute diseases from the ETL disease step
-    val diseases = Disease.compute()
-    val assocsDirect = assocsPerDS
-      .groupByDataTypes(associationsSec)
-
-    val assocsIndirect = assocsPerDS
-      .computeOntologyExpansion(diseases, associationsSec)
-      .groupByDataTypes(associationsSec)
-
-    Map(
-      "associations_per_datatype_direct" -> assocsDirect,
-      "associations_per_datatype_indirect" -> assocsIndirect
-    )
-  }
-
-  def computeAssociationsPerDS()(implicit context: ETLSessionContext): (String, DataFrame) = {
-    implicit val ss = context.sparkSession
-
-    val associationsSec = context.configuration.associations
-    val commonSec = context.configuration.common
-
     import ss.implicits._
     import AssociationHelpers._
 
-    val datasources = broadcast(associationsSec.dataSources.toDS().orderBy($"id".asc))
+    val commonSec = context.configuration.common
 
     val mappedInputs = Map(
       "evidences" -> IOResourceConfig(
@@ -249,7 +222,6 @@ object Association extends LazyLogging {
         commonSec.inputs.evidence.path
       )
     )
-
     val dfs = SparkHelpers.readFrom(mappedInputs)
 
     val evidenceColumns = Seq(
@@ -265,21 +237,97 @@ object Association extends LazyLogging {
       .selectExpr(evidenceColumns:_*)
       .where($"evidence_score" > 0D)
 
-    val associationsPerDatasource = evidenceSet
-      .groupByDataSources(datasources, associationsSec)
+    val associationsPerDS = computeAssociationsPerDS(evidenceSet)
+    val associationsOverall = computeAssociationsAllDS(associationsPerDS)
 
-    ("associations_per_datasource_direct" ->
-      associationsPerDatasource.repartitionByRange($"datasource_id"))
+    Map(
+      "associations_per_datasource_direct" -> associationsPerDS,
+      "associations_overall_direct" -> associationsOverall
+    )
+
+  }
+
+  def computeIndirectAssociations()(implicit context: ETLSessionContext): Map[String, DataFrame] = {
+    implicit val ss = context.sparkSession
+    import ss.implicits._
+    import AssociationHelpers._
+
+    val commonSec = context.configuration.common
+    val associationsSec = context.configuration.associations
+
+    val mappedInputs = Map(
+      "evidences" -> IOResourceConfig(
+        commonSec.inputs.evidence.format,
+        commonSec.inputs.evidence.path
+      )
+    )
+    val dfs = SparkHelpers.readFrom(mappedInputs)
+
+    val evidenceColumns = Seq(
+      "disease.id as disease_id",
+      "target.id as target_id",
+      "scores.association_score as evidence_score",
+      "`type` as datatype_id",
+      "sourceID as datasource_id",
+      "id as evidence_id"
+    )
+
+    val diseases = Disease.compute()
+
+    val evidenceSet = dfs("evidences")
+      .selectExpr(evidenceColumns:_*)
+      .where($"evidence_score" > 0D)
+      .computeOntologyExpansion(diseases, associationsSec)
+
+    // associations_per_datasource_direct
+    // associations_overall_direct
+    val associationsPerDS = computeAssociationsPerDS(evidenceSet)
+    val associationsOverall = computeAssociationsAllDS(associationsPerDS)
+
+    Map(
+      "associations_per_datasource_indirect" -> associationsPerDS,
+      "associations_overall_indirect" -> associationsOverall
+    )
+  }
+
+  def computeAssociationsAllDS(assocsPerDS: DataFrame)(implicit context: ETLSessionContext): DataFrame = {
+    implicit val ss = context.sparkSession
+
+    val associationsSec = context.configuration.associations
+    val commonSec = context.configuration.common
+
+    import ss.implicits._
+    import AssociationHelpers._
+    // compute diseases from the ETL disease step
+    val diseases = Disease.compute()
+
+    assocsPerDS.groupByDataTypes(associationsSec)
+  }
+
+  def computeAssociationsPerDS(evidences: DataFrame)(implicit context: ETLSessionContext): DataFrame = {
+    implicit val ss = context.sparkSession
+
+    val associationsSec = context.configuration.associations
+    val commonSec = context.configuration.common
+
+    import ss.implicits._
+    import AssociationHelpers._
+
+    val datasources = broadcast(associationsSec.dataSources.toDS().orderBy($"id".asc))
+
+    evidences
+      .groupByDataSources(datasources, associationsSec)
+      .repartitionByRange($"disease_id")
   }
 
   def apply()(implicit context: ETLSessionContext) = {
     implicit val ss = context.sparkSession
     val commonSec = context.configuration.common
 
-    val associationsPerDS = Map(computeAssociationsPerDS())
+    val directs = computeDirectAssociations()
+    val indirects = computeIndirectAssociations()
 
-    val associationsPerDT = computeAssociationsPerDT(associationsPerDS.head._2)
-    val outputDFs = associationsPerDS ++ associationsPerDT
+    val outputDFs = directs ++ indirects
 
     val outputs = outputDFs.keys map (name =>
       name -> IOResourceConfig(commonSec.outputFormat, commonSec.output + s"/$name"))
