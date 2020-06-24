@@ -49,8 +49,6 @@ object AssociationHelpers {
       )
       val lut = diseases
         .selectExpr(diseaseCols:_*)
-        .withColumn("ancestor", explode(concat(array($"did"), $"ancestors")))
-        .drop("ancestors")
 
       val lutNoAncestors = diseases
         .selectExpr(diseaseCols:_*)
@@ -71,20 +69,28 @@ object AssociationHelpers {
         )
         .na
         .fill(otc.defaultPropagate, Seq("propagate"))
+        .repartitionByRange($"disease_id".asc)
+        .persist()
 
       val dfProp = dfWithLut
         .where(col("propagate") === true)
-        .join(broadcast(lut.orderBy($"ancestor".asc)), $"disease_id" === $"ancestor", "inner")
-        .drop("disease_id", "ancestor")
+        .join(broadcast(lut.orderBy($"did".asc)), $"disease_id" === $"did", "inner")
+        .withColumn("ancestor", explode(concat(array($"did"), $"ancestors")))
+        .drop("disease_id", "did", "ancestors")
+        .withColumnRenamed("ancestor", "disease_id")
 
       val dfNoProp = dfWithLut
         .where(col("propagate") === false)
         .join(broadcast(lutNoAncestors.orderBy($"did".asc)), $"disease_id" === $"did", "inner")
         .drop("disease_id", "ancestors")
-
-      dfProp
-        .unionByName(dfNoProp)
         .withColumnRenamed("did", "disease_id")
+
+      val fullExpanded = dfProp
+        .unionByName(dfNoProp)
+        .persist()
+
+      df.unpersist()
+      fullExpanded
     }
 
     def groupByDataTypes(otc: AssociationsSection): DataFrame = {
