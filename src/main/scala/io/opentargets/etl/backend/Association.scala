@@ -67,7 +67,6 @@ object AssociationHelpers {
         .na
         .fill(otc.defaultPropagate, Seq("propagate"))
         .repartitionByRange($"disease_id".asc)
-        .persist()
 
       val fullExpanded = dfWithLut
         .join(broadcast(lut.orderBy($"did".asc)), $"disease_id" === $"did", "inner")
@@ -77,9 +76,8 @@ object AssociationHelpers {
         .withColumn("ancestor", explode($"_ancestors"))
         .drop("disease_id", "did", "ancestors", "_ancestors")
         .withColumnRenamed("ancestor", "disease_id")
-        .repartitionByRange($"disease_id".asc)
 
-      fullExpanded.persist()
+      fullExpanded
     }
 
     def groupByDataTypes(otc: AssociationsSection): DataFrame = {
@@ -231,8 +229,10 @@ object Association extends LazyLogging {
     val evidenceSet = dfs("evidences")
       .selectExpr(evidenceColumns:_*)
       .where($"evidence_score" > 0D)
+      .repartitionByRange($"disease_id".asc)
+      .persist()
 
-    val associationsPerDS = computeAssociationsPerDS(evidenceSet)
+    val associationsPerDS = computeAssociationsPerDS(evidenceSet).persist()
     val associationsOverall = computeAssociationsAllDS(associationsPerDS)
 
     Map(
@@ -273,10 +273,10 @@ object Association extends LazyLogging {
       .selectExpr(evidenceColumns:_*)
       .where($"evidence_score" > 0D)
       .computeOntologyExpansion(diseases, associationsSec)
+      .repartitionByRange($"disease_id".asc)
+      .persist()
 
-    // associations_per_datasource_direct
-    // associations_overall_direct
-    val associationsPerDS = computeAssociationsPerDS(evidenceSet)
+    val associationsPerDS = computeAssociationsPerDS(evidenceSet).persist()
     val associationsOverall = computeAssociationsAllDS(associationsPerDS)
 
     Map(
