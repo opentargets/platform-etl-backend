@@ -202,47 +202,7 @@ object AssociationHelpers {
 
 object Association extends LazyLogging {
 
-  def computeDirectAssociations()(implicit context: ETLSessionContext): Map[String, DataFrame] = {
-    implicit val ss = context.sparkSession
-    import ss.implicits._
-    import AssociationHelpers._
-
-    val commonSec = context.configuration.common
-
-    val mappedInputs = Map(
-      "evidences" -> IOResourceConfig(
-        commonSec.inputs.evidence.format,
-        commonSec.inputs.evidence.path
-      )
-    )
-    val dfs = SparkHelpers.readFrom(mappedInputs)
-
-    val evidenceColumns = Seq(
-      "disease.id as disease_id",
-      "target.id as target_id",
-      "scores.association_score as evidence_score",
-      "`type` as datatype_id",
-      "sourceID as datasource_id",
-      "id as evidence_id"
-    )
-
-    val evidenceSet = dfs("evidences")
-      .selectExpr(evidenceColumns:_*)
-      .where($"evidence_score" > 0D)
-      .repartitionByRange($"disease_id".asc)
-      .persist()
-
-    val associationsPerDS = computeAssociationsPerDS(evidenceSet).persist()
-    val associationsOverall = computeAssociationsAllDS(associationsPerDS)
-
-    Map(
-      "associations_per_datasource_direct" -> associationsPerDS,
-      "associations_overall_direct" -> associationsOverall
-    )
-
-  }
-
-  def computeIndirectAssociations()(implicit context: ETLSessionContext): Map[String, DataFrame] = {
+  def prepareEvidences(expandOntology: Boolean = false)(implicit context: ETLSessionContext): DataFrame = {
     implicit val ss = context.sparkSession
     import ss.implicits._
     import AssociationHelpers._
@@ -267,15 +227,44 @@ object Association extends LazyLogging {
       "id as evidence_id"
     )
 
-    val diseases = Disease.compute()
+    if (expandOntology) {
+      val diseases = Disease.compute()
 
-    val evidenceSet = dfs("evidences")
-      .selectExpr(evidenceColumns:_*)
-      .where($"evidence_score" > 0D)
-      .computeOntologyExpansion(diseases, associationsSec)
-      .repartitionByRange($"disease_id".asc)
-      .persist()
+      dfs("evidences")
+        .selectExpr(evidenceColumns:_*)
+        .where($"evidence_score" > 0D)
+        .computeOntologyExpansion(diseases, associationsSec)
+        .repartitionByRange($"disease_id".asc)
 
+    } else {
+      dfs("evidences")
+        .selectExpr(evidenceColumns:_*)
+        .where($"evidence_score" > 0D)
+        .repartitionByRange($"disease_id".asc)
+    }
+
+  }
+
+  def computeDirectAssociations()(implicit context: ETLSessionContext): Map[String, DataFrame] = {
+    implicit val ss = context.sparkSession
+    import ss.implicits._
+
+    val evidenceSet = prepareEvidences().persist()
+    val associationsPerDS = computeAssociationsPerDS(evidenceSet).persist()
+    val associationsOverall = computeAssociationsAllDS(associationsPerDS)
+
+    Map(
+      "associations_per_datasource_direct" -> associationsPerDS,
+      "associations_overall_direct" -> associationsOverall
+    )
+
+  }
+
+  def computeIndirectAssociations()(implicit context: ETLSessionContext): Map[String, DataFrame] = {
+    implicit val ss = context.sparkSession
+    import ss.implicits._
+
+    val evidenceSet = prepareEvidences(true).persist()
     val associationsPerDS = computeAssociationsPerDS(evidenceSet).persist()
     val associationsOverall = computeAssociationsAllDS(associationsPerDS)
 
@@ -293,8 +282,6 @@ object Association extends LazyLogging {
 
     import ss.implicits._
     import AssociationHelpers._
-    // compute diseases from the ETL disease step
-    val diseases = Disease.compute()
 
     assocsPerDS.groupByDataTypes(associationsSec)
   }

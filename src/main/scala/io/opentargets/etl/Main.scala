@@ -63,6 +63,9 @@ object ETL extends LazyLogging {
       case "association" =>
         logger.info("run step association")
         Association()
+      case "connections" =>
+        logger.info("run step connections")
+        Connections()
     }
     logger.info(s"finished to run step ($step)")
   }
