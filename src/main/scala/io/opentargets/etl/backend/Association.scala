@@ -4,6 +4,7 @@ import org.apache.spark.SparkConf
 import org.apache.spark.sql._
 import org.apache.spark.sql.types._
 import org.apache.spark.sql.functions._
+import org.apache.spark.sql.functions.{pow => powCol}
 import better.files.Dsl._
 import better.files._
 import com.typesafe.config.{Config, ConfigFactory, ConfigObject, ConfigRenderOptions}
@@ -78,6 +79,55 @@ object AssociationHelpers {
         .withColumnRenamed("ancestor", "disease_id")
 
       fullExpanded
+    }
+
+    def harmonicOver(pairColNames: Seq[String], scoreColNames: Seq[String], otc: AssociationsSection): DataFrame = {
+      // prepare weighted column names
+      val scoreColNamesW = scoreColNames.map(_ + "_w")
+      val scoreColNamesWR = scoreColNamesW.map(_ + "_k")
+
+      // obtain weights per datasource table
+      val datasourceWeights = broadcast(otc.dataSources.toDS()).toDF
+        .withColumnRenamed("id", "datasource_id")
+        .select("datasource_id", "weight")
+        .orderBy($"datasource_id".asc)
+
+      val dtAssocs = df
+        .join(datasourceWeights, Seq("datasource_id"), "left_outer")
+        // fill null for weight to default weight in case we have new datasources
+        .na
+        .fill(otc.defaultWeight, Seq("weight"))
+
+      // weight each of the scores
+      val wDFs = (scoreColNames zip scoreColNamesW).foldLeft(dtAssocs)((b, pair) =>
+        b.withColumn(pair._2, col(pair._1) * $"weight")
+      )
+
+      // rank them
+      //"row_number() over(partition by target, disease order by score desc) rank"
+
+      val rankedScores = (scoreColNamesW zip scoreColNamesWR).foldLeft(wDFs)((b, pair) => {
+        val w = Window
+          .partitionBy(pairColNames.map(col(_)):_*)
+
+
+
+        b.withColumn(pair._2, row_number() over(w.orderBy(col(pair._1).desc)))
+          .withColumn(pair._1 + "_hs_dx", col(pair._1) / powCol(col(pair._2), 2D) )
+          .withColumn(pair._1 + "_hs", sum(col(pair._1 + "_hs_dx")).over(w))
+          .withColumn(pair._1 + "_st", struct(col("datasource_id"), col(pair._1 + "_hs")))
+      })
+
+      val aggs = (scoreColNames zip scoreColNamesW) flatMap {
+        case (s, wS) => Seq(
+          first(col(wS + "_hs")).as(s + "_hs"),
+          collect_list(col(wS + "_st")).as(s + "_dts")
+        )
+      }
+
+      rankedScores.groupBy(pairColNames.map(col(_)):_*)
+        .agg(aggs.head, aggs.tail:_*)
+
     }
 
     def groupByDataTypes(otc: AssociationsSection): DataFrame = {
@@ -283,7 +333,16 @@ object Association extends LazyLogging {
     import ss.implicits._
     import AssociationHelpers._
 
-    assocsPerDS.groupByDataTypes(associationsSec)
+    // assocsPerDS.groupByDataTypes(associationsSec)
+    assocsPerDS.harmonicOver(
+      Seq("disease_id", "target_id"),
+      Seq("datasource_score_llr_norm", "datasource_score_harmonic"),
+      associationsSec
+    )
+      .withColumnRenamed("datasource_score_llr_norm_hs", "overall_hs_score_from_llr")
+      .withColumnRenamed("datasource_score_llr_norm_dts", "dts_hs_score_from_llr")
+      .withColumnRenamed("datasource_score_harmonic_hs", "overall_hs_score_from_harmonic")
+      .withColumnRenamed("datasource_score_harmonic_dts", "dts_hs_score_from_harmonic")
   }
 
   def computeAssociationsPerDS(evidences: DataFrame)(implicit context: ETLSessionContext): DataFrame = {
