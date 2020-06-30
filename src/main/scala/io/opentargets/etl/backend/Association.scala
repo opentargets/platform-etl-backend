@@ -15,13 +15,27 @@ import org.apache.spark.sql.expressions._
 import scala.math.pow
 
 object AssociationHelpers {
+  def maxHarmonicValue(vSize: Int, exp: Int, maxScore: Double): Double =
+    (0 until vSize).foldLeft(0d)((acc: Double, n: Int) =>
+      acc + (maxScore / pow(1d + n, exp)))
+
+  def maxHarmonicValueExpr(vsizeCol: String): Column =
+    expr(s"""
+            |aggregate(
+            | zip_with(
+            |   array_repeat(1.0, $vsizeCol),
+            |   sequence(1, size($vsizeCol)),
+            |   (e, i) -> (e / pow(i,2))
+            | ),
+            | 0D,
+            | (a, el) -> a + el
+            |)
+            |""".stripMargin)
+
   def harmonic(vectorColName: String,
                maxVectorSize: Int = 100,
                maxComponentScore: Double = 1d,
                pExponent: Int = 2): Column = {
-    def maxHarmonicValue(vSize: Int, exp: Int, maxScore: Double): Double =
-      (0 until vSize).foldLeft(0d)((acc: Double, n: Int) =>
-        acc + (maxScore / pow(1d + n, exp)))
 
     val maxHS = maxHarmonicValue(maxVectorSize, pExponent, maxComponentScore)
     expr(s"""
@@ -81,30 +95,37 @@ object AssociationHelpers {
       fullExpanded
     }
 
-    def harmonicOver(pairColNames: Seq[String], scoreColNames: Seq[String], otc: AssociationsSection): DataFrame = {
+    def harmonicOver(pairColNames: Seq[String], scoreColNames: Seq[String],
+                     otc: Option[AssociationsSection],
+                     keepScoreVector: Boolean = true): DataFrame = {
       // prepare weighted column names
       val scoreColNamesW = scoreColNames.map(_ + "_w")
       val scoreColNamesWR = scoreColNamesW.map(_ + "_k")
 
       // obtain weights per datasource table
-      val datasourceWeights = broadcast(otc.dataSources.toDS()).toDF
+      val datasourceWeights = otc.map(otcDS => broadcast(otcDS.dataSources.toDS()).toDF
         .withColumnRenamed("id", "datasource_id")
         .select("datasource_id", "weight")
-        .orderBy($"datasource_id".asc)
+        .orderBy($"datasource_id".asc))
 
-      val dtAssocs = df
-        .join(datasourceWeights, Seq("datasource_id"), "left_outer")
-        // fill null for weight to default weight in case we have new datasources
-        .na
-        .fill(otc.defaultWeight, Seq("weight"))
+      val dtAssocs = datasourceWeights match {
+        case Some(ws) =>
+          df
+            .join(ws, Seq("datasource_id"), "left_outer")
+            // fill null for weight to default weight in case we have new datasources
+            .na
+            .fill(otc.get.defaultWeight, Seq("weight"))
+        case None =>
+          df.withColumn("weight", lit(1D))
+      }
+
+
 
       // weight each of the scores
       val wDFs = (scoreColNames zip scoreColNamesW).foldLeft(dtAssocs)((b, pair) =>
         b.withColumn(pair._2, col(pair._1) * $"weight")
       )
 
-      // rank them
-      //"row_number() over(partition by target, disease order by score desc) rank"
 
       val rankedScores = (scoreColNamesW zip scoreColNamesWR).foldLeft(wDFs)((b, pair) => {
         val w = Window
@@ -114,73 +135,29 @@ object AssociationHelpers {
 
         b.withColumn(pair._2, row_number() over(w.orderBy(col(pair._1).desc)))
           .withColumn(pair._1 + "_hs_dx", col(pair._1) / powCol(col(pair._2), 2D) )
-          .withColumn(pair._1 + "_hs", sum(col(pair._1 + "_hs_dx")).over(w))
+          .withColumn(pair._1 + "_hs_t", sum(col(pair._1 + "_hs_dx")).over(w))
+          .withColumn(pair._1 + "_n", count(col(pair._1 + "_hs_dx")).over(w))
+          .withColumn(pair._1 + "_hs", col(pair._1 + "_hs_t") / maxHarmonicValueExpr(pair._1 + "_n"))
           .withColumn(pair._1 + "_st", struct(col("datasource_id"), col(pair._1 + "_hs")))
+          .drop(pair._2, pair._1 + "_hs_t", pair._1 + "_n")
       })
 
-      val aggs = (scoreColNames zip scoreColNamesW) flatMap {
-        case (s, wS) => Seq(
-          first(col(wS + "_hs")).as(s + "_hs"),
-          collect_list(col(wS + "_st")).as(s + "_dts")
-        )
+      val aggScores = (scoreColNames zip scoreColNamesW).foldLeft(rankedScores) {
+        case (b, (s, wS)) =>
+          val w = Window
+            .partitionBy(pairColNames.map(col(_)):_*)
+
+          val r = if (keepScoreVector) {
+            b.withColumn(s + "_dts", collect_list(col(wS + "_st")).over(w))
+          } else {
+            b
+          }
+
+          r.withColumnRenamed(wS + "_hs", s + "_hs")
+            .drop(wS + "_st")
       }
 
-      rankedScores.groupBy(pairColNames.map(col(_)):_*)
-        .agg(aggs.head, aggs.tail:_*)
-
-    }
-
-    def groupByDataTypes(otc: AssociationsSection): DataFrame = {
-      val outputCols = Seq(
-        "target_id",
-        "disease_id",
-        "overall_hs_score_from_harmonic",
-        "overall_hs_score_from_llr"
-//        "datasource_evidence_count",
-//        "datasource_evidence_sum",
-//        "datasource_score_harmonic",
-//        "datasource_score_llr",
-//        "datasource_score_llr_norm"
-      )
-
-      // obtain weights per datasource table
-      val datasourceWeights = broadcast(otc.dataSources.toDS()).toDF
-        .withColumnRenamed("id", "datasource_id")
-        .select("datasource_id", "weight")
-        .orderBy($"datasource_id".asc)
-
-      val dtAssocs = df
-        .join(datasourceWeights, Seq("datasource_id"), "left_outer")
-        // fill null for weight to default weight in case we have new datasources
-        .na
-        .fill(otc.defaultWeight, Seq("weight"))
-        .withColumn("datasource_score_llr_norm_w", $"datasource_score_llr_norm" * $"weight")
-        .withColumn("datasource_score_harmonic_w", $"datasource_score_harmonic" * $"weight")
-
-//      val wdth = Window.partitionBy($"disease_id", $"target_id").orderBy($"overall_hs_score_from_harmonic".desc_nulls_last)
-//      val wdtl = Window.partitionBy($"disease_id", $"target_id").orderBy($"overall_hs_score_from_llr".desc_nulls_last)
-      val dtAssocsDirect = dtAssocs
-        .groupBy($"disease_id", $"target_id")
-        .agg(
-          slice(
-            sort_array(
-              collect_list(col("datasource_score_harmonic_w")),
-              false
-            ), 1, 100
-          ).as("datasource_score_harmonic_v"),
-          slice(
-            sort_array(
-              collect_list(col("datasource_score_llr_norm_w")),
-              false
-            ), 1, 100
-          ).as("datasource_score_llr_norm_v")
-        )
-        .withColumn("overall_hs_score_from_harmonic",
-          harmonic("datasource_score_harmonic_v"))
-        .withColumn("overall_hs_score_from_llr",
-          harmonic("datasource_score_llr_norm_v"))
-
-      dtAssocsDirect.select(outputCols.head, outputCols.tail:_*)
+      aggScores.drop("weight")
     }
 
     def groupByDataSources(
@@ -201,33 +178,20 @@ object AssociationHelpers {
         "datasource_score_llr_norm"
       )
 
-      val wds = Window.partitionBy(col("datatype_id"), col("datasource_id"))
-      val wt = Window.partitionBy(col("datatype_id"), col("datasource_id"), col("target_id"))
-      val wd = Window.partitionBy(col("datatype_id"), col("datasource_id"), col("disease_id"))
-      val wtd = Window.partitionBy(col("datatype_id"), col("datasource_id"), col("target_id"), col("disease_id"))
+      val wds = Window.partitionBy(col("datasource_id"))
+      val wt = Window.partitionBy(col("datasource_id"), col("target_id"))
+      val wd = Window.partitionBy(col("datasource_id"), col("disease_id"))
+      val wtd = Window.partitionBy(col("datasource_id"), col("target_id"), col("disease_id"))
 
-      val datasourceAssocs = df.withColumn("ds_count", count("evidence_id").over(wds))
-        .withColumn("ds_sum", sum("evidence_score").over(wds))
-        .withColumn("ds_t_sum", sum(col("evidence_score")).over(wt))
-        .withColumn("ds_d_sum", sum(col("evidence_score")).over(wd))
-        .withColumn("ds_td_sum", sum(col("evidence_score")).over(wtd))
-        .withColumn("ds_td_count", count(col("evidence_id")).over(wtd))
-        .groupBy($"datatype_id", $"datasource_id", $"disease_id", $"target_id")
-        .agg(
-          first(col("ds_td_sum")).as("A"),
-          first(col("ds_t_sum")).as("uniq_reports_t"),
-          first(col("ds_d_sum")).as("uniq_reports_d"),
-          first(col("ds_sum")).as("datasource_evidence_sum"),
-          first(col("ds_count")).as("datasource_evidence_count"),
-          first(col("ds_td_count")).as("A_count"),
-          slice(
-            sort_array(
-              collect_list(col("evidence_score")),
-              false
-            ), 1, 100
-          ).as("datasource_td_score_v")
-        )
-        .withColumn("datasource_score_harmonic", harmonic("datasource_td_score_v"))
+      val datasourceAssocs = df
+        .harmonicOver(Seq("datasource_id", "disease_id", "target_id"), Seq("evidence_score"), None, false)
+        .withColumnRenamed("evidence_score_hs", "datasource_score_harmonic")
+        .withColumn("datasource_evidence_count", count("evidence_id").over(wds))
+        .withColumn("datasource_evidence_sum", sum("evidence_score").over(wds))
+        .withColumn("uniq_reports_t", sum(col("evidence_score")).over(wt))
+        .withColumn("uniq_reports_d", sum(col("evidence_score")).over(wd))
+        .withColumn("A", sum(col("evidence_score")).over(wtd))
+        .withColumn("A_count", count(col("evidence_id")).over(wtd))
         .withColumn("C", col("uniq_reports_t") - col("A"))
         .withColumn("B", col("uniq_reports_d") - col("A"))
         .withColumn(
@@ -243,6 +207,13 @@ object AssociationHelpers {
             .otherwise(lit(0d)))
         .withColumn("datasource_score_llr_max", max(col("datasource_score_llr")).over(wds))
         .withColumn("datasource_score_llr_norm", $"datasource_score_llr" / $"datasource_score_llr_max")
+          .drop("datasource_score_llr_max",
+            "uniq_reports_t",
+            "uniq_reports_d",
+            "A_count",
+            "llr",
+            "datasource_score_llr"
+          )
 
       datasourceAssocs
         .select(outputCols.head, outputCols.tail:_*)
@@ -333,11 +304,10 @@ object Association extends LazyLogging {
     import ss.implicits._
     import AssociationHelpers._
 
-    // assocsPerDS.groupByDataTypes(associationsSec)
     assocsPerDS.harmonicOver(
       Seq("disease_id", "target_id"),
       Seq("datasource_score_llr_norm", "datasource_score_harmonic"),
-      associationsSec
+      Some(associationsSec)
     )
       .withColumnRenamed("datasource_score_llr_norm_hs", "overall_hs_score_from_llr")
       .withColumnRenamed("datasource_score_llr_norm_dts", "dts_hs_score_from_llr")
