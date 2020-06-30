@@ -32,26 +32,6 @@ object AssociationHelpers {
             |)
             |""".stripMargin)
 
-  def harmonic(vectorColName: String,
-               maxVectorSize: Int = 100,
-               maxComponentScore: Double = 1d,
-               pExponent: Int = 2): Column = {
-
-    val maxHS = maxHarmonicValue(maxVectorSize, pExponent, maxComponentScore)
-    expr(s"""
-            |aggregate(
-            | zip_with(
-            |   $vectorColName,
-            |   sequence(1, size($vectorColName)),
-            |   (e, i) -> (e / pow(i,2))
-            | ),
-            | 0D,
-            | (a, el) -> a + el
-            |) / $maxHS
-            |""".stripMargin
-    )
-  }
-
   implicit class Helpers(df: DataFrame)(implicit ss: SparkSession) {
     import Configuration._
     import ss.implicits._
@@ -95,12 +75,18 @@ object AssociationHelpers {
       fullExpanded
     }
 
+    def llrOver(pairColNames: Seq[String], scoreColNames: Seq[String],
+                otc: Option[AssociationsSection],
+                keepScoreVector: Boolean = true): DataFrame = {
+
+      ???
+    }
+
     def harmonicOver(pairColNames: Seq[String], scoreColNames: Seq[String],
                      otc: Option[AssociationsSection],
                      keepScoreVector: Boolean = true): DataFrame = {
       // prepare weighted column names
-      val scoreColNamesW = scoreColNames.map(_ + "_w")
-      val scoreColNamesWR = scoreColNamesW.map(_ + "_k")
+      val scoreColNamesR = scoreColNames.map(_ + "_k")
 
       // obtain weights per datasource table
       val datasourceWeights = otc.map(otcDS => broadcast(otcDS.dataSources.toDS()).toDF
@@ -119,42 +105,31 @@ object AssociationHelpers {
           df.withColumn("weight", lit(1D))
       }
 
-
-
-      // weight each of the scores
-      val wDFs = (scoreColNames zip scoreColNamesW).foldLeft(dtAssocs)((b, pair) =>
-        b.withColumn(pair._2, col(pair._1) * $"weight")
-      )
-
-
-      val rankedScores = (scoreColNamesW zip scoreColNamesWR).foldLeft(wDFs)((b, pair) => {
+      val rankedScores = (scoreColNames zip scoreColNamesR).foldLeft(dtAssocs)((b, pair) => {
         val w = Window
           .partitionBy(pairColNames.map(col(_)):_*)
 
-
-
         b.withColumn(pair._2, row_number() over(w.orderBy(col(pair._1).desc)))
-          .withColumn(pair._1 + "_hs_dx", col(pair._1) / powCol(col(pair._2), 2D) )
-          .withColumn(pair._1 + "_hs_t", sum(col(pair._1 + "_hs_dx")).over(w))
-          .withColumn(pair._1 + "_n", count(col(pair._1 + "_hs_dx")).over(w))
-          .withColumn(pair._1 + "_hs", col(pair._1 + "_hs_t") / maxHarmonicValueExpr(pair._1 + "_n"))
-          .withColumn(pair._1 + "_st", struct(col("datasource_id"), col(pair._1 + "_hs")))
-          .drop(pair._2, pair._1 + "_hs_t", pair._1 + "_n")
+          .withColumn(pair._1 + "_hs_dx", col(pair._1) / (powCol(col(pair._2), 2D) * maxHarmonicValue(10000, 2, 1D)))
+          .withColumn(pair._1 + "_hs_t",
+            sum(col(pair._1 + "_hs_dx")).over(w) )
+          .withColumn(pair._1 + "_hs", col(pair._1 + "_hs_t") * col("weight"))
+          .withColumn(pair._1 + "_st", struct(col("datasource_id"), col("weight"), col(pair._1 + "_hs_t").as(pair._1 + "_hs_raw")))
+          .drop(pair._2)
       })
 
-      val aggScores = (scoreColNames zip scoreColNamesW).foldLeft(rankedScores) {
-        case (b, (s, wS)) =>
+      val aggScores = scoreColNames.foldLeft(rankedScores) {
+        case (b, s) =>
           val w = Window
             .partitionBy(pairColNames.map(col(_)):_*)
 
           val r = if (keepScoreVector) {
-            b.withColumn(s + "_dts", collect_list(col(wS + "_st")).over(w))
+            b.withColumn(s + "_dts", collect_set(col(s + "_st")).over(w))
           } else {
             b
           }
 
-          r.withColumnRenamed(wS + "_hs", s + "_hs")
-            .drop(wS + "_st")
+          r.drop(s + "_st")
       }
 
       aggScores.drop("weight")
@@ -164,20 +139,6 @@ object AssociationHelpers {
         datasources: Dataset[DataSource],
         otc: AssociationsSection
     ): DataFrame = {
-      val outputCols = Seq(
-        "datatype_id",
-        "datasource_id",
-        "target_id",
-        "disease_id",
-        "A", "B", "C", "D",
-        "aterm", "cterm", "acterm",
-        "datasource_evidence_count",
-        "datasource_evidence_sum",
-        "datasource_score_harmonic",
-        "datasource_score_llr",
-        "datasource_score_llr_norm"
-      )
-
       val wds = Window.partitionBy(col("datasource_id"))
       val wt = Window.partitionBy(col("datasource_id"), col("target_id"))
       val wd = Window.partitionBy(col("datasource_id"), col("disease_id"))
@@ -216,7 +177,6 @@ object AssociationHelpers {
           )
 
       datasourceAssocs
-        .select(outputCols.head, outputCols.tail:_*)
     }
   }
 }
@@ -301,6 +261,14 @@ object Association extends LazyLogging {
     val associationsSec = context.configuration.associations
     val commonSec = context.configuration.common
 
+    val cols = Seq(
+      "disease_id",
+      "target_id",
+      "overall_hs_score_from_llr",
+      "dts_hs_score_from_llr",
+      "overall_hs_score_from_harmonic",
+      "dts_hs_score_from_harmonic"
+    )
     import ss.implicits._
     import AssociationHelpers._
 
@@ -313,6 +281,8 @@ object Association extends LazyLogging {
       .withColumnRenamed("datasource_score_llr_norm_dts", "dts_hs_score_from_llr")
       .withColumnRenamed("datasource_score_harmonic_hs", "overall_hs_score_from_harmonic")
       .withColumnRenamed("datasource_score_harmonic_dts", "dts_hs_score_from_harmonic")
+      .selectExpr(cols:_*)
+      .dropDuplicates("disease_id", "target_id")
   }
 
   def computeAssociationsPerDS(evidences: DataFrame)(implicit context: ETLSessionContext): DataFrame = {
