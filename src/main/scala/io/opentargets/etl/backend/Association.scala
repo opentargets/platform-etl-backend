@@ -272,10 +272,12 @@ object Association extends LazyLogging {
     import ss.implicits._
     import AssociationHelpers._
 
-    assocsPerDS.harmonicOver(
-      Seq("disease_id", "target_id"),
-      Seq("datasource_score_llr_norm", "datasource_score_harmonic"),
-      Some(associationsSec)
+    assocsPerDS
+      .dropDuplicates("datasource_id", "disease_id", "target_id")
+      .harmonicOver(
+        Seq("disease_id", "target_id"),
+        Seq("datasource_score_llr_norm", "datasource_score_harmonic"),
+        Some(associationsSec)
     )
       .withColumnRenamed("datasource_score_llr_norm_hs", "overall_hs_score_from_llr")
       .withColumnRenamed("datasource_score_llr_norm_dts", "dts_hs_score_from_llr")
