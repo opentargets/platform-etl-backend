@@ -14,7 +14,7 @@ import org.apache.spark.sql.expressions._
 
 import scala.math.pow
 
-object AssociationHelpers {
+object AssociationHelpers extends LazyLogging {
   def maxHarmonicValue(vSize: Int, exp: Int, maxScore: Double): Double =
     (0 until vSize).foldLeft(0d)((acc: Double, n: Int) =>
       acc + (maxScore / pow(1d + n, exp)))
@@ -75,18 +75,10 @@ object AssociationHelpers {
       fullExpanded
     }
 
-    def llrOver(pairColNames: Seq[String], scoreColNames: Seq[String],
-                otc: Option[AssociationsSection],
-                keepScoreVector: Boolean = true): DataFrame = {
-
-      ???
-    }
-
-    def harmonicOver(pairColNames: Seq[String], scoreColNames: Seq[String],
-                     otc: Option[AssociationsSection],
-                     keepScoreVector: Boolean = true): DataFrame = {
-      // prepare weighted column names
-      val scoreColNamesR = scoreColNames.map(_ + "_k")
+    def llrOver(setA: Set[String], setB: Set[String], scoreColNames: Seq[String],
+                idName: String,
+                otc: Option[AssociationsSection]): DataFrame = {
+      require((setA intersect setB) nonEmpty, logger.error("intersection column sets must be non empty"))
 
       // obtain weights per datasource table
       val datasourceWeights = otc.map(otcDS => broadcast(otcDS.dataSources.toDS()).toDF
@@ -105,34 +97,110 @@ object AssociationHelpers {
           df.withColumn("weight", lit(1D))
       }
 
-      val rankedScores = (scoreColNames zip scoreColNamesR).foldLeft(dtAssocs)((b, pair) => {
+      val rankedScores = scoreColNames.foldLeft(dtAssocs)((b, name) => {
+        val AintB = setA intersect setB
+        val AunB = setA union setB
+
+        //      val wds = Window.partitionBy(col("datasource_id"))
+        //      val wt = Window.partitionBy(col("datasource_id"), col("target_id"))
+        //      val wd = Window.partitionBy(col("datasource_id"), col("disease_id"))
+        //      val wtd = Window.partitionBy(col("datasource_id"), col("target_id"), col("disease_id"))
+
+        val Pall = Window.partitionBy(AintB.map(col(_)).toList:_*)
+        val PA = Window.partitionBy(setA.map(col(_)).toList:_*)
+        val PB = Window.partitionBy(setB.map(col(_)).toList:_*)
+        val PAB = Window.partitionBy(AunB.map(col(_)).toList:_*)
+
+        val bb = b
+          .withColumn(idName + "_t_sum", sum("evidence_score").over(Pall))
+          .withColumn(idName + "_t_uniq_reports_A", sum(col("evidence_score")).over(PA))
+          .withColumn(idName + "_t_uniq_reports_B", sum(col("evidence_score")).over(PB))
+          .withColumn("uniq_reports_d", sum(col("evidence_score")).over(wd))
+          .withColumn("A", sum(col("evidence_score")).over(wtd))
+          .withColumn("A_count", count(col("evidence_id")).over(wtd))
+          .withColumn("C", col("uniq_reports_t") - col("A"))
+          .withColumn("B", col("uniq_reports_d") - col("A"))
+          .withColumn(
+            "D",
+            col("datasource_evidence_sum") - col("uniq_reports_t") - col("uniq_reports_d") + col("A")
+          )
+          .withColumn("aterm", $"A" * (log($"A") - log($"A" + $"B")))
+          .withColumn("cterm", $"C" * (log($"C") - log($"C" + $"D")))
+          .withColumn("acterm", ($"A" + $"C") * (log($"A" + $"C") - log($"A" + $"B" + $"C" + $"D")))
+          .withColumn("llr", $"aterm" + $"cterm" - $"acterm")
+          .withColumn("datasource_score_llr",
+            when(col("llr").isNotNull and !col("llr").isNaN, $"llr")
+              .otherwise(lit(0d)))
+          .withColumn("datasource_score_llr_max", max(col("datasource_score_llr")).over(wds))
+          .withColumn("datasource_score_llr_norm", $"datasource_score_llr" / $"datasource_score_llr_max")
+          .drop("datasource_score_llr_max",
+            "uniq_reports_t",
+            "uniq_reports_d",
+            "A_count",
+            "llr",
+            "datasource_score_llr"
+          )
+          .withColumn(name + "_ths_k", row_number() over(w.orderBy(col(name).desc)))
+          .withColumn(name + "_ths_dx", col(name) / (powCol(col(name + "_ths_k"), 2D) * maxHarmonicValue(10000, 2, 1D)))
+          .withColumn(name + "_ths_t",
+            sum(col(name + "_ths_dx")).over(w) )
+          .withColumn(name + "_hs", col(name + "_ths_t") * col("weight"))
+
+        // remove temporal cols
+        val droppedCols = bb.columns.filter(_.startsWith(idName + "_t_"))
+        bb.drop(droppedCols:_*)
+      })
+
+      rankedScores.drop("weight")
+    }
+
+    def harmonicOver(pairColNames: Seq[String], scoreColNames: Seq[String],
+                     otc: Option[AssociationsSection],
+                     keepScoreVector: Boolean = true): DataFrame = {
+      // obtain weights per datasource table
+      val datasourceWeights = otc.map(otcDS => broadcast(otcDS.dataSources.toDS()).toDF
+        .withColumnRenamed("id", "datasource_id")
+        .select("datasource_id", "weight")
+        .orderBy($"datasource_id".asc))
+
+      val dtAssocs = datasourceWeights match {
+        case Some(ws) =>
+          df
+            .join(ws, Seq("datasource_id"), "left_outer")
+            // fill null for weight to default weight in case we have new datasources
+            .na
+            .fill(otc.get.defaultWeight, Seq("weight"))
+        case None =>
+          df.withColumn("weight", lit(1D))
+      }
+
+      val rankedScores = scoreColNames.foldLeft(dtAssocs)((b, name) => {
+
         val w = Window
           .partitionBy(pairColNames.map(col(_)):_*)
 
-        b.withColumn(pair._2, row_number() over(w.orderBy(col(pair._1).desc)))
-          .withColumn(pair._1 + "_hs_dx", col(pair._1) / (powCol(col(pair._2), 2D) * maxHarmonicValue(10000, 2, 1D)))
-          .withColumn(pair._1 + "_hs_t",
-            sum(col(pair._1 + "_hs_dx")).over(w) )
-          .withColumn(pair._1 + "_hs", col(pair._1 + "_hs_t") * col("weight"))
-          .withColumn(pair._1 + "_st", struct(col("datasource_id"), col("weight"), col(pair._1 + "_hs_t").as(pair._1 + "_hs_raw")))
-          .drop(pair._2)
+        val bb = b.withColumn(name + "_ths_k", row_number() over(w.orderBy(col(name).desc)))
+          .withColumn(name + "_ths_dx", col(name) / (powCol(col(name + "_ths_k"), 2D) * maxHarmonicValue(10000, 2, 1D)))
+          .withColumn(name + "_ths_t",
+            sum(col(name + "_ths_dx")).over(w) )
+          .withColumn(name + "_hs", col(name + "_ths_t") * col("weight"))
+
+        val r = if (keepScoreVector) {
+          bb.withColumn(name + "_ths_st",
+            struct(col("datasource_id"),
+              col("weight"),
+              col(name + "_ths_t").as(name + "_ths_raw")))
+            .withColumn(name + "_dts", collect_set(col(name + "_ths_st")).over(w))
+        } else {
+          bb
+        }
+
+        // remove temporal cols
+        val droppedCols = r.columns.filter(_.startsWith(name + "_ths"))
+        r.drop(droppedCols:_*)
       })
 
-      val aggScores = scoreColNames.foldLeft(rankedScores) {
-        case (b, s) =>
-          val w = Window
-            .partitionBy(pairColNames.map(col(_)):_*)
-
-          val r = if (keepScoreVector) {
-            b.withColumn(s + "_dts", collect_set(col(s + "_st")).over(w))
-          } else {
-            b
-          }
-
-          r.drop(s + "_st")
-      }
-
-      aggScores.drop("weight")
+      rankedScores.drop("weight")
     }
 
     def groupByDataSources(
@@ -215,13 +283,15 @@ object Association extends LazyLogging {
         .selectExpr(evidenceColumns:_*)
         .where($"evidence_score" > 0D)
         .computeOntologyExpansion(diseases, associationsSec)
-        .repartitionByRange($"disease_id".asc)
+        .repartitionByRange($"datasource".asc, $"disease_id".asc)
+        .sortWithinPartitions($"datasource".asc, $"disease_id".asc)
 
     } else {
       dfs("evidences")
         .selectExpr(evidenceColumns:_*)
         .where($"evidence_score" > 0D)
-        .repartitionByRange($"disease_id".asc)
+        .repartitionByRange($"datasource".asc, $"disease_id".asc)
+        .sortWithinPartitions($"datasource".asc, $"disease_id".asc)
     }
 
   }
@@ -273,7 +343,6 @@ object Association extends LazyLogging {
     import AssociationHelpers._
 
     assocsPerDS
-      .dropDuplicates("datasource_id", "disease_id", "target_id")
       .harmonicOver(
         Seq("disease_id", "target_id"),
         Seq("datasource_score_llr_norm", "datasource_score_harmonic"),
@@ -300,7 +369,9 @@ object Association extends LazyLogging {
 
     evidences
       .groupByDataSources(datasources, associationsSec)
-      .repartitionByRange($"disease_id")
+      .dropDuplicates("datasource_id", "disease_id", "target_id")
+      .repartitionByRange($"disease_id".asc)
+      .sortWithinPartitions($"disease_id".asc)
   }
 
   def apply()(implicit context: ETLSessionContext) = {
