@@ -188,7 +188,7 @@ object AssociationHelpers extends LazyLogging {
           bb.withColumn(name + "_ths_st",
             struct(col("datasource_id"),
               col("weight"),
-              col(name + "_ths_t").as(name + "_ths_raw")))
+              col(name + "_ths_t").as(name + "_raw")))
             .withColumn(name + "_dts", collect_set(col(name + "_ths_st")).over(w))
         } else {
           bb
