@@ -251,15 +251,15 @@ object Association extends LazyLogging {
         .selectExpr(evidenceColumns:_*)
         .where($"evidence_score" > 0D)
         .computeOntologyExpansion(diseases, associationsSec)
-        .repartitionByRange($"datasource".asc, $"disease_id".asc)
-        .sortWithinPartitions($"datasource".asc, $"disease_id".asc)
+        .repartitionByRange($"datasource_id".asc, $"disease_id".asc)
+        .sortWithinPartitions($"datasource_id".asc, $"disease_id".asc)
 
     } else {
       dfs("evidences")
         .selectExpr(evidenceColumns:_*)
         .where($"evidence_score" > 0D)
-        .repartitionByRange($"datasource".asc, $"disease_id".asc)
-        .sortWithinPartitions($"datasource".asc, $"disease_id".asc)
+        .repartitionByRange($"datasource_id".asc, $"disease_id".asc)
+        .sortWithinPartitions($"datasource_id".asc, $"disease_id".asc)
     }
 
   }
@@ -313,11 +313,11 @@ object Association extends LazyLogging {
     assocsPerDS
       .harmonicOver(
         Seq("disease_id", "target_id"),
-        Seq("datasource_score_llr_norm", "datasource_score_harmonic"),
+        Seq("datasource_score_llr", "datasource_score_harmonic"),
         Some(associationsSec)
     )
-      .withColumnRenamed("datasource_score_llr_norm_hs", "overall_hs_score_from_llr")
-      .withColumnRenamed("datasource_score_llr_norm_dts", "dts_hs_score_from_llr")
+      .withColumnRenamed("datasource_score_llr_hs", "overall_hs_score_from_llr")
+      .withColumnRenamed("datasource_score_llr_dts", "dts_hs_score_from_llr")
       .withColumnRenamed("datasource_score_harmonic_hs", "overall_hs_score_from_harmonic")
       .withColumnRenamed("datasource_score_harmonic_dts", "dts_hs_score_from_harmonic")
       .selectExpr(cols:_*)
