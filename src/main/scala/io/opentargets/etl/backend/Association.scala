@@ -76,7 +76,6 @@ object AssociationHelpers extends LazyLogging {
     }
 
     def llrOver(setA: Set[String], setB: Set[String], scoreColNames: Seq[String],
-                idName: String,
                 prefixOutput: String,
                 otc: Option[AssociationsSection]): DataFrame = {
       require((setA intersect setB) nonEmpty, logger.error("intersection column sets must be non empty"))
@@ -118,8 +117,7 @@ object AssociationHelpers extends LazyLogging {
 
         val bb = b
           .withColumn(prefixOutput + "_t_sum", col(name) * col("weight"))
-          .withColumn(prefixOutput + "_count", count(idName).over(Pall))
-          .withColumn(prefixOutput + "_sum", sum(prefixOutput + "_t_sum").over(Pall))
+          .withColumn(prefixOutput + "_t_sum_w", sum(prefixOutput + "_t_sum").over(Pall))
           .withColumn(prefixOutput + "_t_uniq_reports_A", sum(prefixOutput + "_t_sum").over(PA))
           .withColumn(prefixOutput + "_t_uniq_reports_B", sum(prefixOutput + "_t_sum").over(PB))
           .withColumn(A, sum(prefixOutput + "_t_sum").over(PAB))
@@ -127,7 +125,7 @@ object AssociationHelpers extends LazyLogging {
           .withColumn(B, col(prefixOutput + "_t_uniq_reports_A") - cA)
           .withColumn(
             D,
-            col(prefixOutput + "_sum") -
+            col(prefixOutput + "_t_sum_w") -
               col(prefixOutput + "_t_uniq_reports_B") -
               col(prefixOutput + "_t_uniq_reports_A") +
               cA
@@ -210,7 +208,7 @@ object AssociationHelpers extends LazyLogging {
         .harmonicOver(Seq("datasource_id", "disease_id", "target_id"), Seq("evidence_score"), None, false)
         .withColumnRenamed("evidence_score_hs", "datasource_score_harmonic")
         .llrOver(Set("datasource_id", "disease_id"), Set("datasource_id", "target_id"),
-          Seq("evidence_score"), "evidence_id", "datasource_score", None)
+          Seq("evidence_score"), "datasource_score", None)
 
       datasourceAssocs
     }
@@ -333,13 +331,19 @@ object Association extends LazyLogging {
     import ss.implicits._
     import AssociationHelpers._
 
+    val cols = Seq(
+      "datasource_id",
+      "disease_id",
+      "target_id",
+      "datasource_score_harmonic",
+      "datasource_score_llr"
+    )
     val datasources = broadcast(associationsSec.dataSources.toDS().orderBy($"id".asc))
 
     evidences
       .groupByDataSources(datasources, associationsSec)
       .dropDuplicates("datasource_id", "disease_id", "target_id")
       .repartitionByRange($"disease_id".asc)
-      .sortWithinPartitions($"disease_id".asc)
   }
 
   def apply()(implicit context: ETLSessionContext) = {
