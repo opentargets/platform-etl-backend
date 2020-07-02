@@ -77,6 +77,7 @@ object AssociationHelpers extends LazyLogging {
 
     def llrOver(setA: Set[String], setB: Set[String], scoreColNames: Seq[String],
                 idName: String,
+                prefixOutput: String,
                 otc: Option[AssociationsSection]): DataFrame = {
       require((setA intersect setB) nonEmpty, logger.error("intersection column sets must be non empty"))
 
@@ -101,53 +102,51 @@ object AssociationHelpers extends LazyLogging {
         val AintB = setA intersect setB
         val AunB = setA union setB
 
-        //      val wds = Window.partitionBy(col("datasource_id"))
-        //      val wt = Window.partitionBy(col("datasource_id"), col("target_id"))
-        //      val wd = Window.partitionBy(col("datasource_id"), col("disease_id"))
-        //      val wtd = Window.partitionBy(col("datasource_id"), col("target_id"), col("disease_id"))
-
         val Pall = Window.partitionBy(AintB.map(col(_)).toList:_*)
         val PA = Window.partitionBy(setA.map(col(_)).toList:_*)
         val PB = Window.partitionBy(setB.map(col(_)).toList:_*)
         val PAB = Window.partitionBy(AunB.map(col(_)).toList:_*)
 
+        val A = prefixOutput + "_t_A"
+        val B = prefixOutput + "_t_B"
+        val C = prefixOutput + "_t_C"
+        val D = prefixOutput + "_t_D"
+        val cA = col(A)
+        val cB = col(B)
+        val cC = col(C)
+        val cD = col(D)
+
         val bb = b
-          .withColumn(idName + "_t_sum", sum("evidence_score").over(Pall))
-          .withColumn(idName + "_t_uniq_reports_A", sum(col("evidence_score")).over(PA))
-          .withColumn(idName + "_t_uniq_reports_B", sum(col("evidence_score")).over(PB))
-          .withColumn("uniq_reports_d", sum(col("evidence_score")).over(wd))
-          .withColumn("A", sum(col("evidence_score")).over(wtd))
-          .withColumn("A_count", count(col("evidence_id")).over(wtd))
-          .withColumn("C", col("uniq_reports_t") - col("A"))
-          .withColumn("B", col("uniq_reports_d") - col("A"))
+          .withColumn(prefixOutput + "_t_sum", col(name) * col("weight"))
+          .withColumn(prefixOutput + "_count", count(idName).over(Pall))
+          .withColumn(prefixOutput + "_sum", sum(prefixOutput + "_t_sum").over(Pall))
+          .withColumn(prefixOutput + "_t_uniq_reports_A", sum(prefixOutput + "_t_sum").over(PA))
+          .withColumn(prefixOutput + "_t_uniq_reports_B", sum(prefixOutput + "_t_sum").over(PB))
+          .withColumn(A, sum(prefixOutput + "_t_sum").over(PAB))
+          .withColumn(C, col(prefixOutput + "_t_uniq_reports_B") - cA)
+          .withColumn(B, col(prefixOutput + "_t_uniq_reports_A") - cA)
           .withColumn(
-            "D",
-            col("datasource_evidence_sum") - col("uniq_reports_t") - col("uniq_reports_d") + col("A")
+            D,
+            col(prefixOutput + "_sum") -
+              col(prefixOutput + "_t_uniq_reports_B") -
+              col(prefixOutput + "_t_uniq_reports_A") +
+              cA
           )
-          .withColumn("aterm", $"A" * (log($"A") - log($"A" + $"B")))
-          .withColumn("cterm", $"C" * (log($"C") - log($"C" + $"D")))
-          .withColumn("acterm", ($"A" + $"C") * (log($"A" + $"C") - log($"A" + $"B" + $"C" + $"D")))
-          .withColumn("llr", $"aterm" + $"cterm" - $"acterm")
-          .withColumn("datasource_score_llr",
-            when(col("llr").isNotNull and !col("llr").isNaN, $"llr")
-              .otherwise(lit(0d)))
-          .withColumn("datasource_score_llr_max", max(col("datasource_score_llr")).over(wds))
-          .withColumn("datasource_score_llr_norm", $"datasource_score_llr" / $"datasource_score_llr_max")
-          .drop("datasource_score_llr_max",
-            "uniq_reports_t",
-            "uniq_reports_d",
-            "A_count",
-            "llr",
-            "datasource_score_llr"
-          )
-          .withColumn(name + "_ths_k", row_number() over(w.orderBy(col(name).desc)))
-          .withColumn(name + "_ths_dx", col(name) / (powCol(col(name + "_ths_k"), 2D) * maxHarmonicValue(10000, 2, 1D)))
-          .withColumn(name + "_ths_t",
-            sum(col(name + "_ths_dx")).over(w) )
-          .withColumn(name + "_hs", col(name + "_ths_t") * col("weight"))
+          .withColumn(prefixOutput + "_t_aterm", cA * (log(cA) - log(cA + cB)))
+          .withColumn(prefixOutput + "_t_cterm", cC * (log(cC) - log(cC + cD)))
+          .withColumn(prefixOutput + "_t_acterm",
+            (cA + cC) * (log(cA + cC) - log(cA + cB + cC + cD)))
+          .withColumn(prefixOutput + "_t_llr",
+            col(prefixOutput + "_t_aterm") + col(prefixOutput + "_t_cterm") - col(prefixOutput + "_t_acterm"))
+          .withColumn(prefixOutput + "_t_llr_raw",
+            when(col(prefixOutput + "_t_llr").isNotNull and !col(prefixOutput + "_t_llr").isNaN,
+              prefixOutput + "_t_llr").otherwise(lit(0d)))
+          .withColumn(prefixOutput + "_t_llr_raw_max", max(col(prefixOutput + "_t_llr_raw")).over(PAB))
+          .withColumn(prefixOutput + "_llr",
+            col(prefixOutput + "_t_llr_raw") / col(prefixOutput + "_t_llr_raw_max"))
 
         // remove temporal cols
-        val droppedCols = bb.columns.filter(_.startsWith(idName + "_t_"))
+        val droppedCols = bb.columns.filter(_.startsWith(prefixOutput + "_t_"))
         bb.drop(droppedCols:_*)
       })
 
@@ -207,42 +206,11 @@ object AssociationHelpers extends LazyLogging {
         datasources: Dataset[DataSource],
         otc: AssociationsSection
     ): DataFrame = {
-      val wds = Window.partitionBy(col("datasource_id"))
-      val wt = Window.partitionBy(col("datasource_id"), col("target_id"))
-      val wd = Window.partitionBy(col("datasource_id"), col("disease_id"))
-      val wtd = Window.partitionBy(col("datasource_id"), col("target_id"), col("disease_id"))
-
       val datasourceAssocs = df
         .harmonicOver(Seq("datasource_id", "disease_id", "target_id"), Seq("evidence_score"), None, false)
         .withColumnRenamed("evidence_score_hs", "datasource_score_harmonic")
-        .withColumn("datasource_evidence_count", count("evidence_id").over(wds))
-        .withColumn("datasource_evidence_sum", sum("evidence_score").over(wds))
-        .withColumn("uniq_reports_t", sum(col("evidence_score")).over(wt))
-        .withColumn("uniq_reports_d", sum(col("evidence_score")).over(wd))
-        .withColumn("A", sum(col("evidence_score")).over(wtd))
-        .withColumn("A_count", count(col("evidence_id")).over(wtd))
-        .withColumn("C", col("uniq_reports_t") - col("A"))
-        .withColumn("B", col("uniq_reports_d") - col("A"))
-        .withColumn(
-          "D",
-          col("datasource_evidence_sum") - col("uniq_reports_t") - col("uniq_reports_d") + col("A")
-        )
-        .withColumn("aterm", $"A" * (log($"A") - log($"A" + $"B")))
-        .withColumn("cterm", $"C" * (log($"C") - log($"C" + $"D")))
-        .withColumn("acterm", ($"A" + $"C") * (log($"A" + $"C") - log($"A" + $"B" + $"C" + $"D")))
-        .withColumn("llr", $"aterm" + $"cterm" - $"acterm")
-        .withColumn("datasource_score_llr",
-          when(col("llr").isNotNull and !col("llr").isNaN, $"llr")
-            .otherwise(lit(0d)))
-        .withColumn("datasource_score_llr_max", max(col("datasource_score_llr")).over(wds))
-        .withColumn("datasource_score_llr_norm", $"datasource_score_llr" / $"datasource_score_llr_max")
-          .drop("datasource_score_llr_max",
-            "uniq_reports_t",
-            "uniq_reports_d",
-            "A_count",
-            "llr",
-            "datasource_score_llr"
-          )
+        .llrOver(Set("datasource_id", "disease_id"), Set("datasource_id", "target_id"),
+          Seq("evidence_score"), "evidence_id", "datasource_score", None)
 
       datasourceAssocs
     }
