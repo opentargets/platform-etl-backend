@@ -98,53 +98,57 @@ object AssociationHelpers extends LazyLogging {
       }
 
       val rankedScores = scoreColNames.foldLeft(dtAssocs)((b, name) => {
-        val AintB = setA intersect setB
-        val AunB = setA union setB
+        val AintB = (setA intersect setB).map(col(_)).toSeq
+        val AunB = (setA union setB).map(col(_)).toSeq
+        val sA = setA.map(col(_)).toSeq
+        val sB = setB.map(col(_)).toSeq
 
-        val Pall = Window.partitionBy(AintB.map(col(_)).toList:_*)
-        val PA = Window.partitionBy(setA.map(col(_)).toList:_*)
-        val PB = Window.partitionBy(setB.map(col(_)).toList:_*)
-        val PAB = Window.partitionBy(AunB.map(col(_)).toList:_*)
+        val Pall = Window.partitionBy(AintB:_*)
+        val PA = Window.partitionBy(sA:_*)
+        val PB = Window.partitionBy(sB:_*)
+        val PAB = Window.partitionBy(AunB:_*)
 
-        val A = prefixOutput + "_t_A"
-        val B = prefixOutput + "_t_B"
-        val C = prefixOutput + "_t_C"
-        val D = prefixOutput + "_t_D"
+        val tName = prefixOutput + s"_${name}_t"
+
+        val A = tName + "_t_A"
+        val B = tName + "_t_B"
+        val C = tName + "_t_C"
+        val D = tName + "_t_D"
         val cA = col(A)
         val cB = col(B)
         val cC = col(C)
         val cD = col(D)
 
         val bb = b
-          .withColumn(prefixOutput + "_t_sum", col(name) * col("weight"))
-          .withColumn(prefixOutput + "_t_sum_w", sum(prefixOutput + "_t_sum").over(Pall))
-          .withColumn(prefixOutput + "_t_uniq_reports_A", sum(prefixOutput + "_t_sum").over(PA))
-          .withColumn(prefixOutput + "_t_uniq_reports_B", sum(prefixOutput + "_t_sum").over(PB))
-          .withColumn(A, sum(prefixOutput + "_t_sum").over(PAB))
-          .withColumn(C, col(prefixOutput + "_t_uniq_reports_B") - cA)
-          .withColumn(B, col(prefixOutput + "_t_uniq_reports_A") - cA)
+          .withColumn(tName + "_t_sum", col(name) * col("weight"))
+          .withColumn(tName + "_t_sum_w", sum(tName + "_t_sum").over(Pall))
+          .withColumn(tName + "_t_uniq_reports_A", sum(tName + "_t_sum").over(PA))
+          .withColumn(tName + "_t_uniq_reports_B", sum(tName + "_t_sum").over(PB))
+          .withColumn(A, sum(tName + "_t_sum").over(PAB))
+          .withColumn(C, col(tName + "_t_uniq_reports_B") - cA)
+          .withColumn(B, col(tName + "_t_uniq_reports_A") - cA)
           .withColumn(
             D,
-            col(prefixOutput + "_t_sum_w") -
-              col(prefixOutput + "_t_uniq_reports_B") -
-              col(prefixOutput + "_t_uniq_reports_A") +
+            col(tName + "_t_sum_w") -
+              col(tName + "_t_uniq_reports_B") -
+              col(tName + "_t_uniq_reports_A") +
               cA
           )
-          .withColumn(prefixOutput + "_t_aterm", cA * (log(cA) - log(cA + cB)))
-          .withColumn(prefixOutput + "_t_cterm", cC * (log(cC) - log(cC + cD)))
-          .withColumn(prefixOutput + "_t_acterm",
+          .withColumn(tName + "_t_aterm", cA * (log(cA) - log(cA + cB)))
+          .withColumn(tName + "_t_cterm", cC * (log(cC) - log(cC + cD)))
+          .withColumn(tName + "_t_acterm",
             (cA + cC) * (log(cA + cC) - log(cA + cB + cC + cD)))
-          .withColumn(prefixOutput + "_t_llr",
-            col(prefixOutput + "_t_aterm") + col(prefixOutput + "_t_cterm") - col(prefixOutput + "_t_acterm"))
-          .withColumn(prefixOutput + "_t_llr_raw",
-            when(col(prefixOutput + "_t_llr").isNotNull and !col(prefixOutput + "_t_llr").isNaN,
-              prefixOutput + "_t_llr").otherwise(lit(0d)))
-          .withColumn(prefixOutput + "_t_llr_raw_max", max(col(prefixOutput + "_t_llr_raw")).over(PAB))
-          .withColumn(prefixOutput + "_llr",
-            col(prefixOutput + "_t_llr_raw") / col(prefixOutput + "_t_llr_raw_max"))
+          .withColumn(tName + "_t_llr",
+            col(tName + "_t_aterm") + col(tName + "_t_cterm") - col(tName + "_t_acterm"))
+          .withColumn(tName + "_t_llr_raw",
+            when(col(tName + "_t_llr").isNotNull and !col(tName + "_t_llr").isNaN,
+              tName + "_t_llr").otherwise(lit(0d)))
+          .withColumn(tName + "_t_llr_raw_max", max(col(tName + "_t_llr_raw")).over(PAB))
+          .withColumn(prefixOutput + s"${name}_score",
+            col(tName + "_t_llr_raw") / col(tName + "_t_llr_raw_max"))
 
         // remove temporal cols
-        val droppedCols = bb.columns.filter(_.startsWith(prefixOutput + "_t_"))
+        val droppedCols = bb.columns.filter(_.startsWith(tName))
         bb.drop(droppedCols:_*)
       })
 
@@ -152,6 +156,7 @@ object AssociationHelpers extends LazyLogging {
     }
 
     def harmonicOver(pairColNames: Seq[String], scoreColNames: Seq[String],
+                     prefixOutput: String,
                      otc: Option[AssociationsSection],
                      keepScoreVector: Boolean = true): DataFrame = {
       // obtain weights per datasource table
@@ -173,44 +178,53 @@ object AssociationHelpers extends LazyLogging {
 
       val rankedScores = scoreColNames.foldLeft(dtAssocs)((b, name) => {
 
+        val tName = prefixOutput + s"_${name}_t"
+
         val w = Window
           .partitionBy(pairColNames.map(col(_)):_*)
 
-        val bb = b.withColumn(name + "_ths_k", row_number() over(w.orderBy(col(name).desc)))
-          .withColumn(name + "_ths_dx", col(name) / (powCol(col(name + "_ths_k"), 2D) * maxHarmonicValue(10000, 2, 1D)))
-          .withColumn(name + "_ths_t",
-            sum(col(name + "_ths_dx")).over(w) )
-          .withColumn(name + "_hs", col(name + "_ths_t") * col("weight"))
+        val bb = b.withColumn(tName + "_ths_k", row_number() over(w.orderBy(col(name).desc)))
+          .withColumn(tName + "_ths_dx", col(name) / (powCol(col(tName + "_ths_k"), 2D) * maxHarmonicValue(10000, 2, 1D)))
+          .withColumn(tName + "_ths_t",
+            sum(col(tName + "_ths_dx")).over(w) )
+          .withColumn(prefixOutput + $"${name}_score", col(tName + "_ths_t") * col("weight"))
 
         val r = if (keepScoreVector) {
-          bb.withColumn(name + "_ths_st",
+          bb.withColumn(tName + "_ths_st",
             struct(col("datasource_id"),
               col("weight"),
-              col(name + "_ths_t").as(name + "_raw")))
-            .withColumn(name + "_dts", collect_set(col(name + "_ths_st")).over(w))
+              col(tName + "_ths_t").as(prefixOutput + $"${name}_score_raw")))
+            .withColumn(prefixOutput + $"${name}_dts", collect_set(col(tName + "_ths_st")).over(w))
         } else {
           bb
         }
 
         // remove temporal cols
-        val droppedCols = r.columns.filter(_.startsWith(name + "_ths"))
+        val droppedCols = r.columns.filter(_.startsWith(tName))
         r.drop(droppedCols:_*)
       })
 
       rankedScores.drop("weight")
     }
 
-    def groupByDataSources(
-        datasources: Dataset[DataSource],
-        otc: AssociationsSection
-    ): DataFrame = {
+    def groupByDataSources: DataFrame = {
+
+      val cols = Seq(
+        "datasource_id",
+        "disease_id",
+        "target_id",
+        "datasource_hs_evidence_score_score as datasource_harmonic",
+        "datasource_llr_evidence_score_score as datasource_llr"
+      )
+
       val datasourceAssocs = df
-        .harmonicOver(Seq("datasource_id", "disease_id", "target_id"), Seq("evidence_score"), None, false)
-        .withColumnRenamed("evidence_score_hs", "datasource_score_harmonic")
+        .harmonicOver(Seq("datasource_id", "disease_id", "target_id"), Seq("evidence_score"), "datasource_hs_", None, false)
         .llrOver(Set("datasource_id", "disease_id"), Set("datasource_id", "target_id"),
-          Seq("evidence_score"), "datasource_score", None)
+          Seq("evidence_score"), "datasource_llr_", None)
 
       datasourceAssocs
+        .selectExpr(cols:_*)
+        .dropDuplicates("datasource_id", "disease_id", "target_id")
     }
   }
 }
@@ -300,10 +314,10 @@ object Association extends LazyLogging {
     val cols = Seq(
       "disease_id",
       "target_id",
-      "overall_hs_score_from_llr",
-      "dts_hs_score_from_llr",
-      "overall_hs_score_from_harmonic",
-      "dts_hs_score_from_harmonic"
+      "overall_hs_datasource_harmonic_score as overall_score_harmonic",
+      "overall_hs_datasource_harmonic_dts as overall_score_harmonic_dts",
+      "overall_hs_datasource_llr_score as overall_score_llr",
+      "overall_hs_datasource_llr_dts as overall_score_llr_dts"
     )
     import ss.implicits._
     import AssociationHelpers._
@@ -311,13 +325,10 @@ object Association extends LazyLogging {
     assocsPerDS
       .harmonicOver(
         Seq("disease_id", "target_id"),
-        Seq("datasource_score_llr", "datasource_score_harmonic"),
-        Some(associationsSec)
+        Seq("datasource_llr", "datasource_harmonic"),
+        "overall_hs_",
+        Some(associationsSec), true
     )
-      .withColumnRenamed("datasource_score_llr_hs", "overall_hs_score_from_llr")
-      .withColumnRenamed("datasource_score_llr_dts", "dts_hs_score_from_llr")
-      .withColumnRenamed("datasource_score_harmonic_hs", "overall_hs_score_from_harmonic")
-      .withColumnRenamed("datasource_score_harmonic_dts", "dts_hs_score_from_harmonic")
       .selectExpr(cols:_*)
       .dropDuplicates("disease_id", "target_id")
   }
@@ -325,24 +336,11 @@ object Association extends LazyLogging {
   def computeAssociationsPerDS(evidences: DataFrame)(implicit context: ETLSessionContext): DataFrame = {
     implicit val ss = context.sparkSession
 
-    val associationsSec = context.configuration.associations
-    val commonSec = context.configuration.common
-
     import ss.implicits._
     import AssociationHelpers._
 
-    val cols = Seq(
-      "datasource_id",
-      "disease_id",
-      "target_id",
-      "datasource_score_harmonic",
-      "datasource_score_llr"
-    )
-    val datasources = broadcast(associationsSec.dataSources.toDS().orderBy($"id".asc))
-
     evidences
-      .groupByDataSources(datasources, associationsSec)
-      .dropDuplicates("datasource_id", "disease_id", "target_id")
+      .groupByDataSources
       .repartitionByRange($"disease_id".asc)
   }
 
