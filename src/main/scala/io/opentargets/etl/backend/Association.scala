@@ -143,7 +143,7 @@ object AssociationHelpers extends LazyLogging {
           .withColumn(tName + "_t_llr_raw",
             when(col(tName + "_t_llr").isNotNull and !col(tName + "_t_llr").isNaN,
               tName + "_t_llr").otherwise(lit(0d)))
-          .withColumn(tName + "_t_llr_raw_max", max(col(tName + "_t_llr_raw")).over(PAB))
+          .withColumn(tName + "_t_llr_raw_max", max(col(tName + "_t_llr_raw")).over(Pall))
           .withColumn(prefixOutput + s"${name}_score",
             col(tName + "_t_llr_raw") / col(tName + "_t_llr_raw_max"))
 
