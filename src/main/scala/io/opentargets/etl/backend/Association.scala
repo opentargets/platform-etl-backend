@@ -98,10 +98,10 @@ object AssociationHelpers extends LazyLogging {
       }
 
       val rankedScores = scoreColNames.foldLeft(dtAssocs)((b, name) => {
-        val AintB = (setA intersect setB).map(col(_)).toSeq
-        val AunB = (setA union setB).map(col(_)).toSeq
-        val sA = setA.map(col(_)).toSeq
-        val sB = setB.map(col(_)).toSeq
+        val AintB = (setA intersect setB).map(col).toSeq
+        val AunB = (setA union setB).map(col).toSeq
+        val sA = setA.map(col).toSeq
+        val sB = setB.map(col).toSeq
 
         val Pall = Window.partitionBy(AintB:_*)
         val PA = Window.partitionBy(sA:_*)
@@ -142,8 +142,8 @@ object AssociationHelpers extends LazyLogging {
             col(tName + "_t_aterm") + col(tName + "_t_cterm") - col(tName + "_t_acterm"))
           .withColumn(tName + "_t_llr_raw",
             when(col(tName + "_t_llr").isNotNull and !col(tName + "_t_llr").isNaN,
-              tName + "_t_llr").otherwise(lit(0d)))
-          .withColumn(tName + "_t_llr_raw_max", max(col(tName + "_t_llr_raw")).over(Pall))
+              col(tName + "_t_llr")).otherwise(lit(0d)))
+          .withColumn(tName + "_t_llr_raw_max", max(tName + "_t_llr_raw").over(Pall))
           .withColumn(prefixOutput + s"${name}_score",
             col(tName + "_t_llr_raw") / col(tName + "_t_llr_raw_max"))
 
@@ -181,7 +181,7 @@ object AssociationHelpers extends LazyLogging {
         val tName = prefixOutput + s"_${name}_t"
 
         val w = Window
-          .partitionBy(pairColNames.map(col(_)):_*)
+          .partitionBy(pairColNames.map(col):_*)
 
         val bb = b.withColumn(tName + "_ths_k", row_number() over(w.orderBy(col(name).desc)))
           .withColumn(tName + "_ths_dx", col(name) / (powCol(col(tName + "_ths_k"), 2D) * maxHarmonicValue(10000, 2, 1D)))
