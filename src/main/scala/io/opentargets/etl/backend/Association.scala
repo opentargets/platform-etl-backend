@@ -158,7 +158,7 @@ object AssociationHelpers extends LazyLogging {
     def harmonicOver(pairColNames: Seq[String], scoreColNames: Seq[String],
                      prefixOutput: String,
                      otc: Option[AssociationsSection],
-                     keepScoreVector: Boolean = true): DataFrame = {
+                     keepScoreOverColumn: Option[String]): DataFrame = {
       // obtain weights per datasource table
       val datasourceWeights = otc.map(otcDS => broadcast(otcDS.dataSources.toDS()).toDF
         .withColumnRenamed("id", "datasource_id")
@@ -189,15 +189,13 @@ object AssociationHelpers extends LazyLogging {
             sum(col(tName + "_ths_dx")).over(w) )
           .withColumn(prefixOutput + $"${name}_score", col(tName + "_ths_t") * col("weight"))
 
-        val r = if (keepScoreVector) {
-          bb.withColumn(tName + "_ths_st",
-            struct(col("datasource_id"),
+        val r = keepScoreOverColumn.foldLeft(bb)((b, colName) => {
+          b.withColumn(tName + "_ths_st",
+            struct(col(colName),
               col("weight"),
               col(tName + "_ths_t").as(prefixOutput + $"${name}_score_raw")))
             .withColumn(prefixOutput + $"${name}_dts", collect_set(col(tName + "_ths_st")).over(w))
-        } else {
-          bb
-        }
+        })
 
         // remove temporal cols
         val droppedCols = r.columns.filter(_.startsWith(tName))
@@ -207,24 +205,39 @@ object AssociationHelpers extends LazyLogging {
       rankedScores.drop("weight")
     }
 
-    def groupByDataSources: DataFrame = {
+    def groupByDataSources(diseases: DataFrame, targets: DataFrame): DataFrame = {
 
       val cols = Seq(
+        "datatype_id",
         "datasource_id",
         "disease_id",
         "target_id",
         "datasource_hs_evidence_score_score as datasource_harmonic",
-        "datasource_llr_evidence_score_score as datasource_llr"
+        "datatype_hs_evidence_score_score as datatype_harmonic"
+//         "datasource_llr_evidence_score_score as datasource_llr"
       )
 
+      val ddf = broadcast(diseases.selectExpr(
+          "id as disease_id",
+          "name as disease_label")
+        .orderBy(col("disease_id")))
+
+      val tdf = broadcast(targets.selectExpr(
+          "id as target_id",
+          "approvedName as target_name",
+          "approvedSymbol as target_symbol")
+        .orderBy(col("target_id")))
+
       val datasourceAssocs = df
-        .harmonicOver(Seq("datasource_id", "disease_id", "target_id"), Seq("evidence_score"), "datasource_hs_", None, false)
-        .llrOver(Set("datasource_id", "disease_id"), Set("datasource_id", "target_id"),
-          Seq("evidence_score"), "datasource_llr_", None)
+        .harmonicOver(Seq("datasource_id", "disease_id", "target_id"), Seq("evidence_score"), "datasource_hs_", None, None)
+        .harmonicOver(Seq("datatype_id", "disease_id", "target_id"), Seq("evidence_score"), "datatype_hs_", None, None)
+//         .llrOver(Set("datasource_id", "disease_id"), Set("datasource_id", "target_id"), Seq("evidence_score"), "datasource_llr_", None)
 
       datasourceAssocs
         .selectExpr(cols:_*)
         .dropDuplicates("datasource_id", "disease_id", "target_id")
+        .join(ddf, Seq("disease_id"), "left_outer")
+        .join(tdf, Seq("target_id"), "left_outer")
     }
   }
 }
@@ -314,21 +327,41 @@ object Association extends LazyLogging {
     val cols = Seq(
       "disease_id",
       "target_id",
-      "overall_hs_datasource_harmonic_score as overall_score_harmonic",
-      "overall_hs_datasource_harmonic_dts as overall_score_harmonic_dts",
-      "overall_hs_datasource_llr_score as overall_score_llr",
-      "overall_hs_datasource_llr_dts as overall_score_llr_dts"
+      "disease_label",
+      "target_name",
+      "target_symbol",
+      "overall_hs_datasource_harmonic_score as overall_ds_score_harmonic",
+      "overall_hs_datasource_harmonic_dts as overall_ds_score_harmonic_dts",
+      "overall_hs_datatype_harmonic_score as overall_dt_score_harmonic",
+      "overall_hs_datatype_harmonic_dts as overall_dt_score_harmonic_dts",
+      "overall_hs_datatype_datasource_harmonic_score as overall_dtds_score_harmonic",
+      "overall_hs_datatype_datasource_harmonic_dts as overall_dtds_score_harmonic_dts"
     )
     import ss.implicits._
     import AssociationHelpers._
 
     assocsPerDS
       .harmonicOver(
+        Seq("datatype_id", "disease_id", "target_id"),
+        Seq("datasource_harmonic"),
+        "datatype_hs_",
+        None, None)
+      .withColumnRenamed("datatype_hs_datasource_harmonic_score", "datatype_datasource_harmonic")
+      .harmonicOver(
         Seq("disease_id", "target_id"),
-        Seq("datasource_llr", "datasource_harmonic"),
+        Seq("datasource_harmonic"),
         "overall_hs_",
-        Some(associationsSec), true
-    )
+        Some(associationsSec), Some("datasource_id"))
+      .harmonicOver(
+        Seq("disease_id", "target_id"),
+        Seq("datatype_harmonic"),
+        "overall_hs_",
+        Some(associationsSec), Some("datatype_id"))
+      .harmonicOver(
+        Seq("disease_id", "target_id"),
+        Seq("datatype_datasource_harmonic"),
+        "overall_hs_",
+        Some(associationsSec), Some("datatype_id"))
       .selectExpr(cols:_*)
       .dropDuplicates("disease_id", "target_id")
   }
@@ -339,8 +372,11 @@ object Association extends LazyLogging {
     import ss.implicits._
     import AssociationHelpers._
 
+    val diseases = Disease.compute()
+    val targets = Target.compute()
+
     evidences
-      .groupByDataSources
+      .groupByDataSources(diseases, targets)
       .repartitionByRange($"disease_id".asc)
   }
 
