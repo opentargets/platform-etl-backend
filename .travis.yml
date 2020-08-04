@@ -1,5 +1,5 @@
-language: scala
 dist: xenial
+language: scala
   - 2.12.10
 jdk:
   - openjdk8

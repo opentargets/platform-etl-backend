@@ -60,7 +60,14 @@ object ETL extends LazyLogging {
       case "ddr" =>
         logger.info("run step dataDrivenRelation")
         DataDrivenRelation()
+      case "association" =>
+        logger.info("run step association")
+        Association()
+      case "connections" =>
+        logger.info("run step connections")
+        Connections()
     }
+    logger.info(s"finished to run step ($step)")
   }
 
   def apply(steps: Seq[String]) = {
