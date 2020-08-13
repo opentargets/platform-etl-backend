@@ -31,7 +31,20 @@ object Configuration extends LazyLogging {
 
   case class EvidenceProteinFix(input: String, output: String)
 
-  case class InputInfo(format: String, path: String)
+  case class InputInfo(
+      format: String,
+      path: String,
+      delimiter: Option[String],
+      header: Option[Boolean]
+  )
+
+  case class InputInfoOTNetwork(
+      ensemblprotein: InputInfo,
+      rnacentral: InputInfo,
+      humanmapping: InputInfo,
+      interactions: InputInfo
+  )
+
   case class Inputs(
       target: InputInfo,
       disease: InputInfo,
@@ -43,16 +56,19 @@ object Configuration extends LazyLogging {
       eco: InputInfo,
       expression: InputInfo,
       tep: InputInfo,
-      mousephenotypes: InputInfo
+      mousephenotypes: InputInfo,
+      otnetworks: InputInfoOTNetwork
   )
 
   case class Common(defaultSteps: Seq[String], inputs: Inputs, output: String, outputFormat: String)
-  case class OTConfig(sparkUri: Option[String],
-                      common: Common,
-                      clinicalTrials: ClinicalTrials,
-                      dailymed: Dailymed,
-                      evidenceProteinFix: EvidenceProteinFix,
-                      associations: AssociationsSection)
+  case class OTConfig(
+      sparkUri: Option[String],
+      common: Common,
+      clinicalTrials: ClinicalTrials,
+      dailymed: Dailymed,
+      evidenceProteinFix: EvidenceProteinFix,
+      associations: AssociationsSection
+  )
 
   def load: ConfigReader.Result[OTConfig] = {
     logger.info("load configuration from file")

@@ -9,7 +9,12 @@ object SparkHelpers extends LazyLogging {
   type IOResourceConfs = Map[String, IOResourceConfig]
   type IOResources = Map[String, DataFrame]
 
-  case class IOResourceConfig(format: String, path: String)
+  case class IOResourceConfig(
+      format: String,
+      path: String,
+      delimiter: Option[String] = None,
+      header: Option[Boolean] = None
+  )
 
   /**
     * generate a spark session given the arguments if sparkUri is None then try to get from env
@@ -64,8 +69,8 @@ object SparkHelpers extends LazyLogging {
     (writer: DataFrameWriter[Row]) => writer.format("json").mode("overwrite")
 
   /** It creates an hashmap of dataframes.
-   Es. inputsDataFrame {"disease", Dataframe} , {"target", Dataframe}
-   Reading is the first step in the pipeline
+    *   Es. inputsDataFrame {"disease", Dataframe} , {"target", Dataframe}
+    *   Reading is the first step in the pipeline
     */
   def readFrom(
       inputFileConf: IOResourceConfs
@@ -78,11 +83,21 @@ object SparkHelpers extends LazyLogging {
 
   def loadFileToDF(pathInfo: IOResourceConfig)(implicit session: SparkSession): DataFrame = {
     logger.debug(s"load file ${pathInfo.path} with format ${pathInfo.format} to dataframe")
-    session.read.format(pathInfo.format).load(pathInfo.path)
+    if (pathInfo.format.contains("sv")) {
+      logger.debug("some ice")
+      session.read
+        .format("csv")
+        .option("header", pathInfo.header.get)
+        .option("delimiter", pathInfo.delimiter.get)
+        .load(pathInfo.path)
+    } else {
+      session.read.format(pathInfo.format).load(pathInfo.path)
+    }
   }
 
-  def writeTo(outputConfs: IOResourceConfs, outputs: IOResources)(
-      implicit session: SparkSession): IOResources = {
+  def writeTo(outputConfs: IOResourceConfs, outputs: IOResources)(implicit
+      session: SparkSession
+  ): IOResources = {
 
     logger.info(s"Saving data to '${outputConfs.mkString(", ")}'")
 
@@ -108,21 +123,24 @@ object SparkHelpers extends LazyLogging {
   }
 
   def renameAllCols(schema: StructType, rename: String => String): StructType = {
-    def recurRename(schema: StructType): Seq[StructField] = schema.fields.map {
-      case StructField(name, dtype: StructType, nullable, meta) =>
-        StructField(rename(name), StructType(recurRename(dtype)), nullable, meta)
-      case StructField(name, dtype: ArrayType, nullable, meta)
-          if dtype.elementType.isInstanceOf[StructType] =>
-        StructField(
-          rename(name),
-          ArrayType(StructType(recurRename(dtype.elementType.asInstanceOf[StructType])),
-                    containsNull = true),
-          nullable,
-          meta
-        )
-      case StructField(name, dtype, nullable, meta) =>
-        StructField(rename(name), dtype, nullable, meta)
-    }
+    def recurRename(schema: StructType): Seq[StructField] =
+      schema.fields.map {
+        case StructField(name, dtype: StructType, nullable, meta) =>
+          StructField(rename(name), StructType(recurRename(dtype)), nullable, meta)
+        case StructField(name, dtype: ArrayType, nullable, meta)
+            if dtype.elementType.isInstanceOf[StructType] =>
+          StructField(
+            rename(name),
+            ArrayType(
+              StructType(recurRename(dtype.elementType.asInstanceOf[StructType])),
+              containsNull = true
+            ),
+            nullable,
+            meta
+          )
+        case StructField(name, dtype, nullable, meta) =>
+          StructField(rename(name), dtype, nullable, meta)
+      }
     StructType(recurRename(schema))
   }
 }
