@@ -176,6 +176,10 @@ object OTNetworks extends LazyLogging {
 
     val otnetworksDF = compute()
 
+    // TODO CINZIA WRITE IT DOWN TO A JSONLINES OUTPUT TO SHARE WITH DATA TEAM
+    val doubleNullDF = otnetworksDF.where(col("intATargetID").isNull and col("intBTargetID").isNull)
+
+    // TODO CINZIA check this if getting right data exploded!
     val mappingUniqueInteraction = otnetworksDF
       .groupBy(
         "intATargetID",
@@ -187,7 +191,8 @@ object OTNetworks extends LazyLogging {
       ).agg(
       collect_set(col("intA_sourceID")).as("intA_sourceIDs"),
       collect_set(col("intB_sourceID")).as("intB_sourceIDs")
-    )
+    ).withColumn("intBTargetIDs", when(col("intBTargetID").isNull, array(explode(col("intBTargetIDs"))))
+      .otherwise(col("intBTargetIDs")))
       
     val outputs = Seq("otnetworks")
     // TODO THIS NEEDS MORE REFACTORING WORK AS IT CAN BE SIMPLIFIED
