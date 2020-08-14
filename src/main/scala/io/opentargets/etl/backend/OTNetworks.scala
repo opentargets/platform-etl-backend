@@ -182,10 +182,10 @@ object OTNetworks extends LazyLogging {
         "intBTarget",
         "intABiologicalRole",
         "intBBiologicalRole",
-        "interactionResources"
+        "interactionResources",
+        "interactionScore"
       )
-      .agg(collect_set(col("interactionScore")).as("interactionScores"))
-
+      
     val outputs = Seq("otnetworks")
     // TODO THIS NEEDS MORE REFACTORING WORK AS IT CAN BE SIMPLIFIED
     val outputConfs = outputs
