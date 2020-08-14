@@ -96,7 +96,7 @@ object OTNetworksHelpers {
           split(col("intA_sourceID"), "_").getItem(0) === mappingInfo("mapped_id"),
           "left"
         )
-        .withColumnRenamed("gene_id", "intATarget")
+        .withColumnRenamed("gene_id", "intATargetID")
 
       val mappingDF = mappingLeftDF
         .join(
@@ -104,13 +104,13 @@ object OTNetworksHelpers {
           split(col("intB_sourceID"), "_").getItem(0) === col("mapping.mapped_id"),
           "left"
         )
-        .withColumnRenamed("gene_id", "intBTarget")
-        .select(
-          "intATarget",
+        .withColumnRenamed("gene_id", "intBTargetID")
+        .selectExpr(
+          "intATargetID",
           "intA_sourceID",
           "intA_source",
           "speciesA",
-          "intBTarget",
+          "intBTargetID",
           "intB_sourceID",
           "intB_source",
           "speciesB",
@@ -177,14 +177,17 @@ object OTNetworks extends LazyLogging {
     val otnetworksDF = compute()
 
     val mappingUniqueInteraction = otnetworksDF
-      .select(
-        "intATarget",
-        "intBTarget",
+      .groupBy(
+        "intATargetID",
+        "intBTargetID",
         "intABiologicalRole",
         "intBBiologicalRole",
         "interactionResources",
         "interactionScore"
-      ).distinct()
+      ).agg(
+      collect_set(col("intA_sourceID")).as("intA_sourceIDs"),
+      collect_set(col("intB_sourceID")).as("intB_sourceIDs")
+    )
       
     val outputs = Seq("otnetworks")
     // TODO THIS NEEDS MORE REFACTORING WORK AS IT CAN BE SIMPLIFIED
