@@ -67,7 +67,7 @@ object OTNetworksHelpers {
         .withColumn("intABiologicalRole", col("interactorA.biological_role"))
         .withColumn("intBBiologicalRole", col("interactorB.biological_role"))
         .withColumn("evidences", explode(col("interaction.evidence")))
-        .select(
+        .selectExpr(
           "intA_sourceID",
           "intA_source",
           "speciesA",
@@ -77,7 +77,7 @@ object OTNetworksHelpers {
           "interactionResources",
           "interactionScore",
           "causalInteraction",
-          "evidences",
+          "evidences.*",
           "intABiologicalRole",
           "intBBiologicalRole"
         )
@@ -130,7 +130,7 @@ object OTNetworksHelpers {
 // This is option/step otnetwork in the config file
 object OTNetworks extends LazyLogging {
 
-  def compute()(implicit context: ETLSessionContext): DataFrame = {
+  def compute()(implicit context: ETLSessionContext): Map[String, DataFrame] = {
     implicit val ss = context.sparkSession
     import ss.implicits._
     import OTNetworksHelpers._
@@ -167,20 +167,11 @@ object OTNetworks extends LazyLogging {
 
     val interactionDF = inputDataFrame("interactions").generateInteractions(mappingDF)
 
-    interactionDF
-  }
-
-  def apply()(implicit context: ETLSessionContext) = {
-    implicit val ss = context.sparkSession
-    import ss.implicits._
-
-    val otnetworksDF = compute()
-
     // TODO CINZIA WRITE IT DOWN TO A JSONLINES OUTPUT TO SHARE WITH DATA TEAM
-    val doubleNullDF = otnetworksDF.where(col("intATargetID").isNull and col("intBTargetID").isNull)
+    val doubleNullDF = interactionDF.where(col("intATargetID").isNull and col("intBTargetID").isNull)
 
     // TODO CINZIA check this if getting right data exploded!
-    val mappingUniqueInteraction = otnetworksDF
+    val mappingUniqueInteraction = interactionDF
       .groupBy(
         "intATargetID",
         "intBTargetID",
@@ -193,10 +184,21 @@ object OTNetworks extends LazyLogging {
       collect_set(col("intB_sourceID")).as("intB_sourceIDs")
     ).withColumn("intBTargetIDs", when(col("intBTargetID").isNull, array(explode(col("intBTargetIDs"))))
       .otherwise(col("intBTargetIDs")))
-      
-    val outputs = Seq("otnetworks")
+
+    Map(
+      "otnetworks_interactions" -> mappingUniqueInteraction,
+      "otnetworks_evidences" -> interactionDF
+    )
+  }
+
+  def apply()(implicit context: ETLSessionContext) = {
+    implicit val ss = context.sparkSession
+    import ss.implicits._
+
+    val otnetworksDF = compute()
+
     // TODO THIS NEEDS MORE REFACTORING WORK AS IT CAN BE SIMPLIFIED
-    val outputConfs = outputs
+    val outputConfs = otnetworksDF.keys
       .map(name =>
         name -> IOResourceConfig(
           context.configuration.common.outputFormat,
@@ -205,7 +207,6 @@ object OTNetworks extends LazyLogging {
       )
       .toMap
 
-    val outputDFs = (outputs zip Seq(otnetworksDF)).toMap
-    SparkHelpers.writeTo(outputConfs, outputDFs)
+    SparkHelpers.writeTo(outputConfs, otnetworksDF)
   }
 }
