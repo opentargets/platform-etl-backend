@@ -177,14 +177,14 @@ object OTNetworks extends LazyLogging {
     val otnetworksDF = compute()
 
     val mappingUniqueInteraction = otnetworksDF
-      .groupBy(
+      .select(
         "intATarget",
         "intBTarget",
         "intABiologicalRole",
         "intBBiologicalRole",
         "interactionResources",
         "interactionScore"
-      )
+      ).distinct()
       
     val outputs = Seq("otnetworks")
     // TODO THIS NEEDS MORE REFACTORING WORK AS IT CAN BE SIMPLIFIED
