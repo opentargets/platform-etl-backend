@@ -13,16 +13,14 @@ lazy val root = (project in file("."))
     inThisBuild(
       List(
         organization := "io.opentargets",
-        scalaVersion := "2.12.10"
+        scalaVersion := "2.12.12"
       )
     ),
     name := "io-opentargets-etl-backend",
-    version := "0.3.5",
+    version := "0.4.0",
     resolvers ++= buildResolvers,
     libraryDependencies += scalaCheck,
     libraryDependencies ++= sparkDeps,
-    libraryDependencies += scalaLoggingDep,
-    libraryDependencies += scalaLogging,
     libraryDependencies ++= aoyi,
     libraryDependencies += betterFiles,
     libraryDependencies += typeSafeConfig,
