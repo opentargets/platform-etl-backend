@@ -9,7 +9,7 @@ import org.apache.spark.sql.types._
 import com.typesafe.config.Config
 import io.opentargets.etl.backend.SparkHelpers.IOResourceConfig
 
-object OTNetworksHelpers {
+object NetworksHelpers {
   implicit class AggregationHelpers(df: DataFrame)(implicit ss: SparkSession) {
     import Configuration._
     import ss.implicits._
@@ -128,34 +128,34 @@ object OTNetworksHelpers {
 }
 
 // This is option/step otnetwork in the config file
-object OTNetworks extends LazyLogging {
+object Networks extends LazyLogging {
 
   def compute()(implicit context: ETLSessionContext): Map[String, DataFrame] = {
     implicit val ss = context.sparkSession
     import ss.implicits._
-    import OTNetworksHelpers._
+    import NetworksHelpers._
 
     val common = context.configuration.common
     val mappedInputs = Map(
       "ensemblProtein" -> IOResourceConfig(
-        common.inputs.otnetworks.ensemblprotein.format,
-        common.inputs.otnetworks.ensemblprotein.path
+        common.inputs.networks.ensemblprotein.format,
+        common.inputs.networks.ensemblprotein.path
       ),
       "rnacentral" -> IOResourceConfig(
-        common.inputs.otnetworks.rnacentral.format,
-        common.inputs.otnetworks.rnacentral.path,
-        common.inputs.otnetworks.rnacentral.delimiter,
-        common.inputs.otnetworks.rnacentral.header
+        common.inputs.networks.rnacentral.format,
+        common.inputs.networks.rnacentral.path,
+        common.inputs.networks.rnacentral.delimiter,
+        common.inputs.networks.rnacentral.header
       ),
       "humanmapping" -> IOResourceConfig(
-        common.inputs.otnetworks.humanmapping.format,
-        common.inputs.otnetworks.humanmapping.path,
-        common.inputs.otnetworks.humanmapping.delimiter,
-        common.inputs.otnetworks.humanmapping.header
+        common.inputs.networks.humanmapping.format,
+        common.inputs.networks.humanmapping.path,
+        common.inputs.networks.humanmapping.delimiter,
+        common.inputs.networks.humanmapping.header
       ),
       "interactions" -> IOResourceConfig(
-        common.inputs.otnetworks.interactions.format,
-        common.inputs.otnetworks.interactions.path
+        common.inputs.networks.interactions.format,
+        common.inputs.networks.interactions.path
       )
     )
 
