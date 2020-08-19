@@ -51,8 +51,8 @@ object ETL extends LazyLogging {
       case "drug" =>
         logger.info("run step drug")
         Drug()
-      case "otnetworks" =>
-        logger.info("run step otnetworks")
+      case "networks" =>
+        logger.info("run step networks")
         Networks()
       case "cancerBiomarkers" =>
         logger.info("run step cancerBiomarkers")
