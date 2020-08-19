@@ -1,12 +1,9 @@
 import Dependencies._
 
 val buildResolvers = Seq(
-  //    "Local Maven Repository"    at "file://"+Path.userHome.absolutePath+"/.m2/repository",
-  //    "Maven repository"          at "http://download.java.net/maven/2/",
   "Typesafe Repo" at "https://repo.typesafe.com/typesafe/releases/",
   "Sonatype Snapshots" at "https://oss.sonatype.org/content/repositories/snapshots",
-  "Sonatype Releases" at "https://oss.sonatype.org/content/repositories/releases"
-)
+  "Sonatype Releases" at "https://oss.sonatype.org/content/repositories/releases")
 
 lazy val root = (project in file("."))
   .settings(
@@ -23,6 +20,7 @@ lazy val root = (project in file("."))
     libraryDependencies ++= sparkDeps,
     libraryDependencies ++= aoyi,
     libraryDependencies += betterFiles,
+    libraryDependencies ++= loggingDeps,
     libraryDependencies += typeSafeConfig,
     libraryDependencies ++= configDeps,
     testFrameworks += new TestFramework("minitest.runner.Framework"),
