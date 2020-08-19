@@ -38,7 +38,7 @@ object Configuration extends LazyLogging {
       header: Option[Boolean]
   )
 
-  case class InputInfoOTNetwork(
+  case class NetworksSection(
       ensemblprotein: InputInfo,
       rnacentral: InputInfo,
       humanmapping: InputInfo,
@@ -57,7 +57,7 @@ object Configuration extends LazyLogging {
       expression: InputInfo,
       tep: InputInfo,
       mousephenotypes: InputInfo,
-      otnetworks: InputInfoOTNetwork
+      networks: NetworksSection
   )
 
   case class Common(defaultSteps: Seq[String], inputs: Inputs, output: String, outputFormat: String)
