@@ -201,8 +201,8 @@ object Networks extends LazyLogging {
     Map(
       "interactionEvidences" -> interactionEvidences,
       "interactions" -> aggInteractionDF,
-      "interactionAUnmatch" -> aggInteractionDF.getAUnmatch,
-      "interactionBUnmatch" -> aggInteractionDF.getBUnmatch
+      "interactionAUnmatch" -> interactionEvidences.getAUnmatch,
+      "interactionBUnmatch" -> interactionEvidences.getBUnmatch
     )
   }
 
