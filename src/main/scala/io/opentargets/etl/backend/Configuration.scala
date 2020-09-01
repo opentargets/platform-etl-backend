@@ -31,20 +31,15 @@ object Configuration extends LazyLogging {
 
   case class EvidenceProteinFix(input: String, output: String)
 
-  case class InputInfo(
-      format: String,
-      path: String,
-      delimiter: Option[String],
-      header: Option[Boolean]
-  )
-
   case class NetworksSection(
-      ensemblprotein: InputInfo,
-      rnacentral: InputInfo,
-      humanmapping: InputInfo,
-      interactions: InputInfo
-  )
+       rnacentral: InputInfo,
+       humanmapping: InputInfo,
+       interactions: InputInfo
+   )
 
+
+
+  case class InputInfo(format: String, path: String)
   case class Inputs(
       target: InputInfo,
       disease: InputInfo,
