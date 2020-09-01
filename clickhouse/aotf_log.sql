@@ -22,3 +22,15 @@ create table if not exists ot.aotf_indirect_log(
     target_name String,
     target_symbol String
 ) engine = Log;
+
+create database if not exists ot;
+create table if not exists ot.associations_otf_log(
+    row_id String,
+    left_id String,
+    right_id String,
+    left_data Nullable(String),
+    right_data Nullable(String),
+    datasource_id String,
+    datatype_id String,
+    row_score Float64
+) engine = Log;
