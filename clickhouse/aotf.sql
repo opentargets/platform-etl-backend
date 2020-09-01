@@ -81,13 +81,13 @@ as select
     B_data 
 from (select 
         row_id,
-        left_id as A,
-        right_id as B,
+        A_id as A,
+        B_id as B,
         datatype_id,
         datasource_id,
         row_score,
-        left_data as A_data,
-        right_data as B_data
+        A_data as A_search,
+        B_data as B_search
     from ot.associations_otf_log);
 
 create table if not exists ot.associations_otf_right
@@ -101,15 +101,15 @@ as select
     datatype_id,
     datasource_id,
     row_score,
-    A_data,
-    B_data
+    A_search,
+    B_search
 from (select 
         row_id,
-        left_id as B,
-        right_id as A,
+        A_id as B,
+        B_id as A,
         datatype_id,
         datasource_id,
         row_score,
-        left_data as B_data,
-        right_data as A_data
+        A_data as B_search,
+        B_data as A_search
     from ot.associations_otf_log);

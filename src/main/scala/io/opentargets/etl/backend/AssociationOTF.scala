@@ -43,7 +43,6 @@ object AssociationOTF extends LazyLogging {
       "unique_association_fields.*"
     )
 
-
     Map("evidences_aotf" -> dfs("evidences")
       .selectExpr(evidenceColumns:_*)
       .where($"row_score" > 0D)
