@@ -33,9 +33,9 @@ object AssociationOTF extends LazyLogging {
 
     val evidenceColumns = Seq(
       "id as row_id",
-      "disease.id as A",
+      "disease.id as A_id",
       "concat(disease.id, ' ',disease.name) as A_data",
-      "target.id as B",
+      "target.id as B_id",
       "concat(target.id, ' ', target.gene_info.name, ' ', target.gene_info.symbol) as B_data",
       "sourceID as datasource_id",
       "`type` as datatype_id",
