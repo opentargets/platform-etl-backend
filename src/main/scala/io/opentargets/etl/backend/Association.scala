@@ -274,7 +274,7 @@ object Association extends LazyLogging {
 
       dfs("evidences")
         .selectExpr(evidenceColumns:_*)
-        .where($"evidence_score" > 0D)
+//        .where($"evidence_score" > 0D)
         .computeOntologyExpansion(diseases, associationsSec)
         .repartitionByRange($"datasource_id".asc, $"disease_id".asc)
         .sortWithinPartitions($"datasource_id".asc, $"disease_id".asc)
@@ -282,7 +282,7 @@ object Association extends LazyLogging {
     } else {
       dfs("evidences")
         .selectExpr(evidenceColumns:_*)
-        .where($"evidence_score" > 0D)
+//        .where($"evidence_score" > 0D)
         .repartitionByRange($"datasource_id".asc, $"disease_id".asc)
         .sortWithinPartitions($"datasource_id".asc, $"disease_id".asc)
     }
