@@ -45,7 +45,6 @@ object AssociationOTF extends LazyLogging {
 
     Map("evidences_aotf" -> dfs("evidences")
       .selectExpr(evidenceColumns:_*)
-      .where($"row_score" > 0D)
       .repartition()
     )
   }
