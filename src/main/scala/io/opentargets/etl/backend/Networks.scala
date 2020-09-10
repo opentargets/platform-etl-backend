@@ -35,8 +35,10 @@ object NetworksHelpers {
 
       val mappingInfoDF = targets
         .join(humanMappingDF, Seq("id"), "left")
-        .withColumn("mapped_id", array_union(col("proteins"), col("mapping_list")))
-        .select("id", "mapping_list")
+        .withColumn("mapped_id_list", array_union(col("proteins"), col("mapping_list")))
+        .withColumn("mapped_id", explode(col("mapped_id_list")))
+        .select("id", "mapped_id")
+        .distinct
         .withColumnRenamed("id", "gene_id")
       mappingInfoDF
 
@@ -82,18 +84,14 @@ object NetworksHelpers {
         )
 
       val mappingLeftDF = intactInfoDF
-        .join(mappingInfo, expr("array_contains(mapping_list, split(intA, '_')[0] )"), "left")
+        .join(mappingInfo,split(col("intA"), '_')[0]  === col("mapped_id"), "left")
         .withColumn("targetA", when(col("gene_id").isNull, col("intA")).otherwise(col("gene_id")))
         .drop("gene_id", "mapping_list")
 
       val mappingDF = mappingLeftDF
-        .join(
-          mappingInfo.alias("mapping"),
-          expr("array_contains(mapping_list, split(intB, '_')[0] )"),
-          "left"
-        )
+        .join(mappingInfo.alias("mapping"),split(col("intB"), '_')[0]  === col("mapped_id"), "left")
         .withColumn("targetB", when(col("gene_id").isNull, col("intB")).otherwise(col("gene_id")))
-        .drop("gene_id", "mapping_list")
+        .drop("gene_id", "mapped_id")
 
       mappingDF
     }
@@ -200,9 +198,9 @@ object Networks extends LazyLogging {
     // TODO CINZIA WRITE IT DOWN TO A JSONLINES OUTPUT TO SHARE WITH DATA TEAM
     Map(
       "interactionEvidences" -> interactionEvidences,
-      "interactions" -> aggInteractionDF,
-      "interactionAUnmatch" -> interactionEvidences.getAUnmatch,
-      "interactionBUnmatch" -> interactionEvidences.getBUnmatch
+      "interactions" -> aggInteractionDF
+    //  "interactionAUnmatch" -> interactionEvidences.getAUnmatch,
+    //  "interactionBUnmatch" -> interactionEvidences.getBUnmatch
     )
   }
 
