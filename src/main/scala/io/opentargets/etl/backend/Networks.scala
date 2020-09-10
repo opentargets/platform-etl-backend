@@ -84,12 +84,12 @@ object NetworksHelpers {
         )
 
       val mappingLeftDF = intactInfoDF
-        .join(mappingInfo,split(col("intA"), '_')[0]  === col("mapped_id"), "left")
+        .join(mappingInfo,split(col("intA"), "_").getItem(0) === col("mapped_id"), "left")
         .withColumn("targetA", when(col("gene_id").isNull, col("intA")).otherwise(col("gene_id")))
-        .drop("gene_id", "mapping_list")
+        .drop("gene_id", "mapping_id")
 
       val mappingDF = mappingLeftDF
-        .join(mappingInfo.alias("mapping"),split(col("intB"), '_')[0]  === col("mapped_id"), "left")
+        .join(mappingInfo.alias("mapping"),split(col("intB"), "_").getItem(0)  === col("mapped_id"), "left")
         .withColumn("targetB", when(col("gene_id").isNull, col("intB")).otherwise(col("gene_id")))
         .drop("gene_id", "mapped_id")
 
