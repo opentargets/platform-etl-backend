@@ -91,7 +91,7 @@ object NetworksHelpers {
       val mappingDF = mappingLeftDF
         .join(mappingInfo.alias("mapping"),split(col("intB"), "_").getItem(0)  === col("mapped_id"), "left")
         .withColumn("targetB", when(col("gene_id").isNull, col("intB")).otherwise(col("gene_id")))
-        .drop("gene_id", "mapped_id")
+        .drop("gene_id", "mapping.mapped_id")
 
       mappingDF
     }
