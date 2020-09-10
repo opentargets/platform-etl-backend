@@ -36,11 +36,15 @@ object NetworksHelpers {
       val mappingInfoDF = targets
         .join(humanMappingDF, Seq("id"), "left")
         .withColumn("mapped_id_list", array_union(col("proteins"), col("mapping_list")))
-        .withColumn("mapped_id", explode(col("mapped_id_list")))
         .select("id", "mapped_id")
         .distinct
         .withColumnRenamed("id", "gene_id")
-      mappingInfoDF
+
+      val mappingInfoExplodeDF = mappingInfoDF.withColumn("mapped_id", explode(col("mapped_id_list")))
+
+      mappingInfoExplodeDF.printSchema
+
+      mappingInfoExplodeDF
 
     }
 
@@ -88,11 +92,14 @@ object NetworksHelpers {
         .withColumn("targetA", when(col("gene_id").isNull, col("intA")).otherwise(col("gene_id")))
         .drop("gene_id", "mapping_id")
 
+      mappingLeftDF.printSchema
+
       val mappingDF = mappingLeftDF
         .join(mappingInfo.alias("mapping"),split(col("intB"), "_").getItem(0)  === col("mapped_id"), "left")
         .withColumn("targetB", when(col("gene_id").isNull, col("intB")).otherwise(col("gene_id")))
         .drop("gene_id", "mapping.mapped_id")
 
+      mappingDF.printSchema
       mappingDF
     }
 
