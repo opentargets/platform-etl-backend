@@ -64,7 +64,7 @@ object NetworksHelpers {
         .withColumn(
           "causalInteraction",
           when(col("interaction.causal_interaction").isNull, False).otherwise(
-            col("interaction.causal_interaction").cast(boolean)
+            col("interaction.causal_interaction").cast(BooleanType)
           )
         )
         .withColumn("speciesA", col("interactorA.organism"))
