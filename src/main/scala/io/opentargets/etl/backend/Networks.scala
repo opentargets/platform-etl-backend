@@ -99,7 +99,7 @@ object NetworksHelpers {
         .withColumn("targetB", when(col("gene_id").isNull, col("intB")).otherwise(col("gene_id")))
         .drop("gene_id", "mapping.mapped_id")
 
-      mappingEvidencesDF = mappingDF.withColumn("evidences", explode(col("evidencesList"))).drop("evidencesList")
+      val mappingEvidencesDF = mappingDF.withColumn("evidences", explode(col("evidencesList"))).drop("evidencesList")
 
       mappingEvidencesDF.printSchema
       mappingEvidencesDF
