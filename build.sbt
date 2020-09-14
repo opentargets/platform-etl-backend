@@ -1,8 +1,6 @@
 import Dependencies._
 
 val buildResolvers = Seq(
-  //    "Local Maven Repository"    at "file://"+Path.userHome.absolutePath+"/.m2/repository",
-  //    "Maven repository"          at "http://download.java.net/maven/2/",
   "Typesafe Repo" at "https://repo.typesafe.com/typesafe/releases/",
   "Sonatype Snapshots" at "https://oss.sonatype.org/content/repositories/snapshots",
   "Sonatype Releases" at "https://oss.sonatype.org/content/repositories/releases"
