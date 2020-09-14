@@ -71,7 +71,7 @@ object NetworksHelpers {
         .withColumn("speciesB", col("interactorB.organism"))
         .withColumn("intABiologicalRole", col("interactorA.biological_role"))
         .withColumn("intBBiologicalRole", col("interactorB.biological_role"))
-        .withColumn("evidences", explode(col("interaction.evidence")))
+        .withColumn("evidencesList", col("interaction.evidence"))
         .selectExpr(
           "intA",
           "intA_source",
@@ -99,8 +99,10 @@ object NetworksHelpers {
         .withColumn("targetB", when(col("gene_id").isNull, col("intB")).otherwise(col("gene_id")))
         .drop("gene_id", "mapping.mapped_id")
 
-      mappingDF.printSchema
-      mappingDF
+      mappingEvidencesDF = mappingDF.withColumn("evidences", explode(col("evidencesList"))).drop("evidencesList")
+
+      mappingEvidencesDF.printSchema
+      mappingEvidencesDF
     }
 
 
