@@ -82,7 +82,7 @@ object NetworksHelpers {
           "interactionResources",
           "interactionScore",
           "causalInteraction",
-          "evidences",
+          "evidencesList",
           "intABiologicalRole",
           "intBBiologicalRole"
         )
