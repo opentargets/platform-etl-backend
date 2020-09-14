@@ -113,7 +113,10 @@ object NetworksHelpers {
     }
 
     def getUnmatch: DataFrame = {
-       df.filter("((targetA = intA) and (speciesA.taxon_id = 9606)) or ((targetB = intB) and (speciesB.taxon_id = 9606)) ")
+       df
+       .filter("((targetA = intA) and (speciesA.taxon_id = 9606)) or ((targetB = intB) and (speciesB.taxon_id = 9606))")
+       .select("targetA","targetB")
+
     }
 
     def selectFields: DataFrame = {
