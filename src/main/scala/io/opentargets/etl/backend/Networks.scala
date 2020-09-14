@@ -33,12 +33,12 @@ object NetworksHelpers {
         df.withColumn("proteins", col("proteinAnnotations.accessions")).select("id", "proteins"))
       val humanMappingDF = humanMapping.transformHumanMapping
 
-      val mappingInfoDF = (targets
+      val mappingInfoDF = targets
         .join(humanMappingDF, Seq("id"), "left")
         .withColumn("mapped_id_list", array_union(col("proteins"), col("mapping_list")))
         .select("id", "mapped_id_list")
         .distinct
-        .withColumnRenamed("id", "gene_id"))
+        .withColumnRenamed("id", "gene_id")
 
       val mappingInfoExplodeDF = mappingInfoDF.withColumn("mapped_id", explode(col("mapped_id_list"))).drop("mapped_id_list")
 
@@ -112,6 +112,9 @@ object NetworksHelpers {
        df.filter(col("targetB") === col("intB")).filter(col("speciesB.taxon_id") === 9606)
     }
 
+    def getUnmatch: DataFrame = {
+       df.filter(col("targetB") === col("intB")).filter(col("speciesB.taxon_id") === 9606)
+    }
 
     def selectFields: DataFrame = {
       df.selectExpr(
