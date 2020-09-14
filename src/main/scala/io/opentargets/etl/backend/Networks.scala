@@ -113,7 +113,7 @@ object NetworksHelpers {
     }
 
     def getUnmatch: DataFrame = {
-       df.filter(col("targetB") === col("intB")).filter(col("speciesB.taxon_id") === 9606)
+       df.filter("((targetA = intA) and (speciesA.taxon_id = 9606)) or ((targetB = intB) and (speciesB.taxon_id = 9606)) ")
     }
 
     def selectFields: DataFrame = {
@@ -208,7 +208,8 @@ object Networks extends LazyLogging {
     // TODO CINZIA WRITE IT DOWN TO A JSONLINES OUTPUT TO SHARE WITH DATA TEAM
     Map(
       "interactionEvidences" -> interactionEvidences,
-      "interactions" -> aggInteractionDF
+      "interactions" -> aggInteractionDF,
+      "interactionUnmatch" -> interactionEvidences.getUnmatch
     //  "interactionAUnmatch" -> interactionEvidences.getAUnmatch,
     //  "interactionBUnmatch" -> interactionEvidences.getBUnmatch
     )
