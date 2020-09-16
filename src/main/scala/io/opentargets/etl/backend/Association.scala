@@ -16,8 +16,7 @@ import scala.math.pow
 
 object AssociationHelpers extends LazyLogging {
   def maxHarmonicValue(vSize: Int, exp: Int, maxScore: Double): Double =
-    (0 until vSize).foldLeft(0d)((acc: Double, n: Int) =>
-      acc + (maxScore / pow(1d + n, exp)))
+    (0 until vSize).foldLeft(0d)((acc: Double, n: Int) => acc + (maxScore / pow(1d + n, exp)))
 
   def maxHarmonicValueExpr(vsizeCol: String): Column =
     expr(s"""
@@ -43,22 +42,21 @@ object AssociationHelpers extends LazyLogging {
         "ancestors"
       )
       val lut = diseases
-        .selectExpr(diseaseCols:_*)
+        .selectExpr(diseaseCols: _*)
 
       // map datasource list to a dataset
-      val datasources = broadcast(otc.dataSources.toDS()
-        .selectExpr("id as datasource_id", "propagate")
-        .orderBy($"datasource_id".asc)
-      )
+      val datasources = broadcast(
+        otc.dataSources
+          .toDS()
+          .selectExpr("id as datasource_id", "propagate")
+          .orderBy($"datasource_id".asc))
 
       /*
        ontology propagation happens just when datasource is not one of the banned ones
        by configuration file application.conf when the known datasource is specified
        */
       val dfWithLut = df
-        .join(datasources, Seq("datasource_id"),
-          "left_outer"
-        )
+        .join(datasources, Seq("datasource_id"), "left_outer")
         .na
         .fill(otc.defaultPropagate, Seq("propagate"))
         .repartitionByRange($"disease_id".asc)
@@ -66,8 +64,8 @@ object AssociationHelpers extends LazyLogging {
       val fullExpanded = dfWithLut
         .join(broadcast(lut.orderBy($"did".asc)), $"disease_id" === $"did", "inner")
         .withColumn("_ancestors",
-          when($"propagate" === true, concat(array($"did"), $"ancestors"))
-            .otherwise(array($"did")))
+                    when($"propagate" === true, concat(array($"did"), $"ancestors"))
+                      .otherwise(array($"did")))
         .withColumn("ancestor", explode($"_ancestors"))
         .drop("disease_id", "did", "ancestors", "_ancestors")
         .withColumnRenamed("ancestor", "disease_id")
@@ -75,21 +73,25 @@ object AssociationHelpers extends LazyLogging {
       fullExpanded
     }
 
-    def llrOver(setA: Set[String], setB: Set[String], scoreColNames: Seq[String],
+    def llrOver(setA: Set[String],
+                setB: Set[String],
+                scoreColNames: Seq[String],
                 prefixOutput: String,
                 otc: Option[AssociationsSection]): DataFrame = {
-      require((setA intersect setB) nonEmpty, logger.error("intersection column sets must be non empty"))
+      require((setA intersect setB) nonEmpty,
+              logger.error("intersection column sets must be non empty"))
 
       // obtain weights per datasource table
-      val datasourceWeights = otc.map(otcDS => broadcast(otcDS.dataSources.toDS()).toDF
-        .withColumnRenamed("id", "datasource_id")
-        .select("datasource_id", "weight")
-        .orderBy($"datasource_id".asc))
+      val datasourceWeights = otc.map(
+        otcDS =>
+          broadcast(otcDS.dataSources.toDS()).toDF
+            .withColumnRenamed("id", "datasource_id")
+            .select("datasource_id", "weight")
+            .orderBy($"datasource_id".asc))
 
       val dtAssocs = datasourceWeights match {
         case Some(ws) =>
-          df
-            .join(ws, Seq("datasource_id"), "left_outer")
+          df.join(ws, Seq("datasource_id"), "left_outer")
             // fill null for weight to default weight in case we have new datasources
             .na
             .fill(otc.get.defaultWeight, Seq("weight"))
@@ -103,10 +105,10 @@ object AssociationHelpers extends LazyLogging {
         val sA = setA.map(col).toSeq
         val sB = setB.map(col).toSeq
 
-        val Pall = Window.partitionBy(AintB:_*)
-        val PA = Window.partitionBy(sA:_*)
-        val PB = Window.partitionBy(sB:_*)
-        val PAB = Window.partitionBy(AunB:_*)
+        val Pall = Window.partitionBy(AintB: _*)
+        val PA = Window.partitionBy(sA: _*)
+        val PB = Window.partitionBy(sB: _*)
+        val PAB = Window.partitionBy(AunB: _*)
 
         val tName = prefixOutput + s"_${name}_t"
 
@@ -136,39 +138,40 @@ object AssociationHelpers extends LazyLogging {
           )
           .withColumn(tName + "_t_aterm", cA * (log(cA) - log(cA + cB)))
           .withColumn(tName + "_t_cterm", cC * (log(cC) - log(cC + cD)))
-          .withColumn(tName + "_t_acterm",
-            (cA + cC) * (log(cA + cC) - log(cA + cB + cC + cD)))
+          .withColumn(tName + "_t_acterm", (cA + cC) * (log(cA + cC) - log(cA + cB + cC + cD)))
           .withColumn(tName + "_t_llr",
-            col(tName + "_t_aterm") + col(tName + "_t_cterm") - col(tName + "_t_acterm"))
+                      col(tName + "_t_aterm") + col(tName + "_t_cterm") - col(tName + "_t_acterm"))
           .withColumn(tName + "_t_llr_raw",
-            when(col(tName + "_t_llr").isNotNull and !col(tName + "_t_llr").isNaN,
-              col(tName + "_t_llr")).otherwise(lit(0d)))
+                      when(col(tName + "_t_llr").isNotNull and !col(tName + "_t_llr").isNaN,
+                           col(tName + "_t_llr")).otherwise(lit(0d)))
           .withColumn(tName + "_t_llr_raw_max", max(tName + "_t_llr_raw").over(Pall))
           .withColumn(prefixOutput + s"${name}_score",
-            col(tName + "_t_llr_raw") / col(tName + "_t_llr_raw_max"))
+                      col(tName + "_t_llr_raw") / col(tName + "_t_llr_raw_max"))
 
         // remove temporal cols
         val droppedCols = bb.columns.filter(_.startsWith(tName))
-        bb.drop(droppedCols:_*)
+        bb.drop(droppedCols: _*)
       })
 
       rankedScores.drop("weight")
     }
 
-    def harmonicOver(pairColNames: Seq[String], scoreColNames: Seq[String],
+    def harmonicOver(pairColNames: Seq[String],
+                     scoreColNames: Seq[String],
                      prefixOutput: String,
                      otc: Option[AssociationsSection],
                      keepScoreOverColumn: Option[String]): DataFrame = {
       // obtain weights per datasource table
-      val datasourceWeights = otc.map(otcDS => broadcast(otcDS.dataSources.toDS()).toDF
-        .withColumnRenamed("id", "datasource_id")
-        .select("datasource_id", "weight")
-        .orderBy($"datasource_id".asc))
+      val datasourceWeights = otc.map(
+        otcDS =>
+          broadcast(otcDS.dataSources.toDS()).toDF
+            .withColumnRenamed("id", "datasource_id")
+            .select("datasource_id", "weight")
+            .orderBy($"datasource_id".asc))
 
       val dtAssocs = datasourceWeights match {
         case Some(ws) =>
-          df
-            .join(ws, Seq("datasource_id"), "left_outer")
+          df.join(ws, Seq("datasource_id"), "left_outer")
             // fill null for weight to default weight in case we have new datasources
             .na
             .fill(otc.get.defaultWeight, Seq("weight"))
@@ -181,25 +184,27 @@ object AssociationHelpers extends LazyLogging {
         val tName = prefixOutput + s"_${name}_t"
 
         val w = Window
-          .partitionBy(pairColNames.map(col):_*)
+          .partitionBy(pairColNames.map(col): _*)
 
-        val bb = b.withColumn(tName + "_ths_k", row_number() over(w.orderBy(col(name).desc)))
-          .withColumn(tName + "_ths_dx", col(name) / (powCol(col(tName + "_ths_k"), 2D) * maxHarmonicValue(10000, 2, 1D)))
-          .withColumn(tName + "_ths_t",
-            sum(col(tName + "_ths_dx")).over(w) )
+        val bb = b
+          .withColumn(tName + "_ths_k", row_number() over (w.orderBy(col(name).desc)))
+          .withColumn(
+            tName + "_ths_dx",
+            col(name) / (powCol(col(tName + "_ths_k"), 2D) * maxHarmonicValue(10000, 2, 1D)))
+          .withColumn(tName + "_ths_t", sum(col(tName + "_ths_dx")).over(w))
           .withColumn(prefixOutput + $"${name}_score", col(tName + "_ths_t") * col("weight"))
 
         val r = keepScoreOverColumn.foldLeft(bb)((b, colName) => {
           b.withColumn(tName + "_ths_st",
-            struct(col(colName),
-              col("weight"),
-              col(tName + "_ths_t").as(prefixOutput + $"${name}_score_raw")))
+                        struct(col(colName),
+                               col("weight"),
+                               col(tName + "_ths_t").as(prefixOutput + $"${name}_score_raw")))
             .withColumn(prefixOutput + $"${name}_dts", collect_set(col(tName + "_ths_st")).over(w))
         })
 
         // remove temporal cols
         val droppedCols = r.columns.filter(_.startsWith(tName))
-        r.drop(droppedCols:_*)
+        r.drop(droppedCols: _*)
       })
 
       rankedScores.drop("weight")
@@ -217,24 +222,33 @@ object AssociationHelpers extends LazyLogging {
 //         "datasource_llr_evidence_score_score as datasource_llr"
       )
 
-      val ddf = broadcast(diseases.selectExpr(
-          "id as disease_id",
-          "name as disease_label")
-        .orderBy(col("disease_id")))
+      val ddf = broadcast(
+        diseases
+          .selectExpr("id as disease_id", "name as disease_label")
+          .orderBy(col("disease_id")))
 
-      val tdf = broadcast(targets.selectExpr(
-          "id as target_id",
-          "approvedName as target_name",
-          "approvedSymbol as target_symbol")
-        .orderBy(col("target_id")))
+      val tdf = broadcast(
+        targets
+          .selectExpr("id as target_id",
+                      "approvedName as target_name",
+                      "approvedSymbol as target_symbol")
+          .orderBy(col("target_id")))
 
       val datasourceAssocs = df
-        .harmonicOver(Seq("datasource_id", "disease_id", "target_id"), Seq("evidence_score"), "datasource_hs_", None, None)
-        .harmonicOver(Seq("datatype_id", "disease_id", "target_id"), Seq("evidence_score"), "datatype_hs_", None, None)
+        .harmonicOver(Seq("datasource_id", "disease_id", "target_id"),
+                      Seq("evidence_score"),
+                      "datasource_hs_",
+                      None,
+                      None)
+        .harmonicOver(Seq("datatype_id", "disease_id", "target_id"),
+                      Seq("evidence_score"),
+                      "datatype_hs_",
+                      None,
+                      None)
 //         .llrOver(Set("datasource_id", "disease_id"), Set("datasource_id", "target_id"), Seq("evidence_score"), "datasource_llr_", None)
 
       datasourceAssocs
-        .selectExpr(cols:_*)
+        .selectExpr(cols: _*)
         .dropDuplicates("datasource_id", "disease_id", "target_id")
         .join(ddf, Seq("disease_id"), "left_outer")
         .join(tdf, Seq("target_id"), "left_outer")
@@ -244,7 +258,8 @@ object AssociationHelpers extends LazyLogging {
 
 object Association extends LazyLogging {
 
-  def prepareEvidences(expandOntology: Boolean = false)(implicit context: ETLSessionContext): DataFrame = {
+  def prepareEvidences(expandOntology: Boolean = false)(
+      implicit context: ETLSessionContext): DataFrame = {
     implicit val ss = context.sparkSession
     import ss.implicits._
     import AssociationHelpers._
@@ -273,7 +288,7 @@ object Association extends LazyLogging {
       val diseases = Disease.compute()
 
       dfs("evidences")
-        .selectExpr(evidenceColumns:_*)
+        .selectExpr(evidenceColumns: _*)
 //        .where($"evidence_score" > 0D)
         .computeOntologyExpansion(diseases, associationsSec)
         .repartitionByRange($"datasource_id".asc, $"disease_id".asc)
@@ -281,7 +296,7 @@ object Association extends LazyLogging {
 
     } else {
       dfs("evidences")
-        .selectExpr(evidenceColumns:_*)
+        .selectExpr(evidenceColumns: _*)
 //        .where($"evidence_score" > 0D)
         .repartitionByRange($"datasource_id".asc, $"disease_id".asc)
         .sortWithinPartitions($"datasource_id".asc, $"disease_id".asc)
@@ -301,7 +316,6 @@ object Association extends LazyLogging {
       "associations_per_datasource_direct" -> associationsPerDS,
       "associations_overall_direct" -> associationsOverall
     )
-
   }
 
   def computeIndirectAssociations()(implicit context: ETLSessionContext): Map[String, DataFrame] = {
@@ -318,7 +332,8 @@ object Association extends LazyLogging {
     )
   }
 
-  def computeAssociationsAllDS(assocsPerDS: DataFrame)(implicit context: ETLSessionContext): DataFrame = {
+  def computeAssociationsAllDS(assocsPerDS: DataFrame)(
+      implicit context: ETLSessionContext): DataFrame = {
     implicit val ss = context.sparkSession
 
     val associationsSec = context.configuration.associations
@@ -341,32 +356,33 @@ object Association extends LazyLogging {
     import AssociationHelpers._
 
     assocsPerDS
-      .harmonicOver(
-        Seq("datatype_id", "disease_id", "target_id"),
-        Seq("datasource_harmonic"),
-        "datatype_hs_",
-        None, None)
+      .harmonicOver(Seq("datatype_id", "disease_id", "target_id"),
+                    Seq("datasource_harmonic"),
+                    "datatype_hs_",
+                    None,
+                    None)
       .withColumnRenamed("datatype_hs_datasource_harmonic_score", "datatype_datasource_harmonic")
-      .harmonicOver(
-        Seq("disease_id", "target_id"),
-        Seq("datasource_harmonic"),
-        "overall_hs_",
-        Some(associationsSec), Some("datasource_id"))
-      .harmonicOver(
-        Seq("disease_id", "target_id"),
-        Seq("datatype_harmonic"),
-        "overall_hs_",
-        Some(associationsSec), Some("datatype_id"))
-      .harmonicOver(
-        Seq("disease_id", "target_id"),
-        Seq("datatype_datasource_harmonic"),
-        "overall_hs_",
-        Some(associationsSec), Some("datatype_id"))
-      .selectExpr(cols:_*)
+      .harmonicOver(Seq("disease_id", "target_id"),
+                    Seq("datasource_harmonic"),
+                    "overall_hs_",
+                    Some(associationsSec),
+                    Some("datasource_id"))
+      .harmonicOver(Seq("disease_id", "target_id"),
+                    Seq("datatype_harmonic"),
+                    "overall_hs_",
+                    Some(associationsSec),
+                    Some("datatype_id"))
+      .harmonicOver(Seq("disease_id", "target_id"),
+                    Seq("datatype_datasource_harmonic"),
+                    "overall_hs_",
+                    Some(associationsSec),
+                    Some("datatype_id"))
+      .selectExpr(cols: _*)
       .dropDuplicates("disease_id", "target_id")
   }
 
-  def computeAssociationsPerDS(evidences: DataFrame)(implicit context: ETLSessionContext): DataFrame = {
+  def computeAssociationsPerDS(evidences: DataFrame)(
+      implicit context: ETLSessionContext): DataFrame = {
     implicit val ss = context.sparkSession
 
     import ss.implicits._

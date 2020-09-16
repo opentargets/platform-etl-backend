@@ -45,7 +45,6 @@ object Configuration extends LazyLogging {
       disease: InputInfo,
       drug: InputInfo,
       evidence: InputInfo,
-      associations: InputInfo,
       ddr: InputInfo,
       reactome: InputInfo,
       eco: InputInfo,
