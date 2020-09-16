@@ -32,19 +32,22 @@ object NetworksHelpers {
       val targets = (
         df.withColumn("proteins", col("proteinAnnotations.accessions")).select("id", "proteins"))
       val humanMappingDF = humanMapping.transformHumanMapping
+      val rnaMappingDF = rnaCentral.transformRnacentral
 
-      val mappingInfoDF = targets
+      val mappingHumanDF = targets
         .join(humanMappingDF, Seq("id"), "left")
         .withColumn("mapped_id_list", array_union(col("proteins"), col("mapping_list")))
         .select("id", "mapped_id_list")
         .distinct
         .withColumnRenamed("id", "gene_id")
 
-      val mappingInfoExplodeDF = mappingInfoDF.withColumn("mapped_id", explode(col("mapped_id_list"))).drop("mapped_id_list")
+      val mappingExpandDF = mappingHumanDF.withColumn("mapped_id", explode(col("mapped_id_list"))).drop("mapped_id_list")
 
-      mappingInfoExplodeDF.printSchema
+      val mappingDF = mappingExpandDF.union(rnaMappingDF)
 
-      mappingInfoExplodeDF
+      mappingDF.write.json("mappings")
+
+      mappingDF
 
     }
 
