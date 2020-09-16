@@ -29,16 +29,25 @@ object NetworksHelpers {
     }
 
     def createMappingInfoDF(rnaCentral: DataFrame, humanMapping: DataFrame): DataFrame = {
-      val targets =
-        df.withColumn("proteins", col("proteinAnnotations.accessions")).select("id", "proteins")
+      val targets = (
+        df.withColumn("proteins", col("proteinAnnotations.accessions")).select("id", "proteins"))
       val humanMappingDF = humanMapping.transformHumanMapping
+      val rnaMappingDF = rnaCentral.transformRnacentral
 
-      val mappingInfoDF = targets
+      val mappingHumanDF = targets
         .join(humanMappingDF, Seq("id"), "left")
-        .withColumn("mapped_id", array_union(col("proteins"), col("mapping_list")))
-        .select("id", "mapping_list")
+        .withColumn("mapped_id_list", array_union(col("proteins"), col("mapping_list")))
+        .select("id", "mapped_id_list")
+        .distinct
         .withColumnRenamed("id", "gene_id")
-      mappingInfoDF
+
+      val mappingExpandDF = mappingHumanDF.withColumn("mapped_id", explode(col("mapped_id_list"))).drop("mapped_id_list")
+
+      val mappingDF = mappingExpandDF.union(rnaMappingDF)
+
+      mappingDF.write.json("mappings")
+
+      mappingDF
 
     }
 
@@ -57,15 +66,15 @@ object NetworksHelpers {
         .withColumn("interactionScore", col("interaction.interaction_score"))
         .withColumn(
           "causalInteraction",
-          when(col("interaction.causal_interaction").isNull, "false").otherwise(
-            col("interaction.causal_interaction")
+          when(col("interaction.causal_interaction").isNull, false).otherwise(
+            col("interaction.causal_interaction").cast("boolean")
           )
         )
         .withColumn("speciesA", col("interactorA.organism"))
         .withColumn("speciesB", col("interactorB.organism"))
         .withColumn("intABiologicalRole", col("interactorA.biological_role"))
         .withColumn("intBBiologicalRole", col("interactorB.biological_role"))
-        .withColumn("evidences", explode(col("interaction.evidence")))
+        .withColumn("evidencesList", col("interaction.evidence"))
         .selectExpr(
           "intA",
           "intA_source",
@@ -76,26 +85,27 @@ object NetworksHelpers {
           "interactionResources",
           "interactionScore",
           "causalInteraction",
-          "evidences",
+          "evidencesList",
           "intABiologicalRole",
           "intBBiologicalRole"
         )
 
       val mappingLeftDF = intactInfoDF
-        .join(mappingInfo, expr("array_contains(mapping_list, split(intA, '_')[0] )"), "left")
+        .join(mappingInfo,split(col("intA"), "_").getItem(0) === col("mapped_id"), "left")
         .withColumn("targetA", when(col("gene_id").isNull, col("intA")).otherwise(col("gene_id")))
-        .drop("gene_id", "mapping_list")
+        .drop("gene_id", "mappingInfo.mapping_id")
+
+      mappingLeftDF.printSchema
 
       val mappingDF = mappingLeftDF
-        .join(
-          mappingInfo.alias("mapping"),
-          expr("array_contains(mapping_list, split(intB, '_')[0] )"),
-          "left"
-        )
+        .join(mappingInfo.alias("mapping"),split(col("intB"), "_").getItem(0)  === col("mapping.mapped_id"), "left")
         .withColumn("targetB", when(col("gene_id").isNull, col("intB")).otherwise(col("gene_id")))
-        .drop("gene_id", "mapping_list")
+        .drop("gene_id", "mapping.mapped_id")
 
-      mappingDF
+      val mappingEvidencesDF = mappingDF.withColumn("evidences", explode(col("evidencesList"))).drop("evidencesList")
+
+      mappingEvidencesDF.printSchema
+      mappingEvidencesDF
     }
 
 
@@ -107,6 +117,12 @@ object NetworksHelpers {
        df.filter(col("targetB") === col("intB")).filter(col("speciesB.taxon_id") === 9606)
     }
 
+    def getUnmatch: DataFrame = {
+       df
+       .filter("((targetA = intA) and (speciesA.taxon_id = 9606)) or ((targetB = intB) and (speciesB.taxon_id = 9606))")
+       .select("targetA","targetB")
+
+    }
 
     def selectFields: DataFrame = {
       df.selectExpr(
@@ -201,8 +217,9 @@ object Networks extends LazyLogging {
     Map(
       "interactionEvidences" -> interactionEvidences,
       "interactions" -> aggInteractionDF,
-      "interactionAUnmatch" -> interactionEvidences.getAUnmatch,
-      "interactionBUnmatch" -> interactionEvidences.getBUnmatch
+      "interactionUnmatch" -> interactionEvidences.getUnmatch
+    //  "interactionAUnmatch" -> interactionEvidences.getAUnmatch,
+    //  "interactionBUnmatch" -> interactionEvidences.getBUnmatch
     )
   }
 
