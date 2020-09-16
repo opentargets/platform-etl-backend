@@ -21,7 +21,6 @@ object AssociationOTF extends LazyLogging {
     import AssociationHelpers._
 
     val commonSec = context.configuration.common
-    val associationsSec = context.configuration.associations
 
     val mappedInputs = Map(
       "evidences" -> IOResourceConfig(
@@ -33,10 +32,10 @@ object AssociationOTF extends LazyLogging {
 
     val evidenceColumns = Seq(
       "id as row_id",
-      "disease.id as A_id",
-      "concat(disease.id, ' ',disease.name) as A_data",
-      "target.id as B_id",
-      "concat(target.id, ' ', target.gene_info.name, ' ', target.gene_info.symbol) as B_data",
+      "disease.id as disease_id",
+      "concat(disease.id, ' ',disease.name) as disease_data",
+      "target.id as target_id",
+      "concat(target.id, ' ', target.gene_info.name, ' ', target.gene_info.symbol) as target_data",
       "sourceID as datasource_id",
       "`type` as datatype_id",
       "scores.association_score as row_score",
