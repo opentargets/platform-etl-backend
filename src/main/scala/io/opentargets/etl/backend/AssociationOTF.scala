@@ -15,12 +15,27 @@ import org.apache.spark.sql.expressions._
 import scala.math.pow
 
 object AssociationOTF extends LazyLogging {
-  def prepareEvidences(expandOntology: Boolean = false)(implicit context: ETLSessionContext): Map[String, DataFrame] = {
+  def compute()(implicit context: ETLSessionContext): Map[String, DataFrame] = {
     implicit val ss = context.sparkSession
     import ss.implicits._
     import AssociationHelpers._
 
+    val diseaseColumns = Seq(
+      "id",
+      "therapeuticAreas"
+    )
+
+    val targetColumns = Seq(
+      "id",
+      "classes",
+      "reactome",
+      "tractability"
+    )
+
     val commonSec = context.configuration.common
+
+    val diseases = Disease.compute().selectExpr(diseaseColumns:_*)
+    val targets = Target.compute().selectExpr(targetColumns:_*)
 
     val mappedInputs = Map(
       "evidences" -> IOResourceConfig(
@@ -52,7 +67,7 @@ object AssociationOTF extends LazyLogging {
     implicit val ss = context.sparkSession
     val commonSec = context.configuration.common
 
-    val clickhouseEvidences = prepareEvidences()
+    val clickhouseEvidences = compute()
 
     val outputs = clickhouseEvidences.keys map (name =>
       name -> IOResourceConfig(commonSec.outputFormat, commonSec.output + s"/$name"))
