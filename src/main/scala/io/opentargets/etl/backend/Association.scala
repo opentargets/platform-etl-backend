@@ -1,13 +1,8 @@
 package io.opentargets.etl.backend
 
-import org.apache.spark.SparkConf
 import org.apache.spark.sql._
-import org.apache.spark.sql.types._
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.functions.{pow => powCol}
-import better.files.Dsl._
-import better.files._
-import com.typesafe.config.{Config, ConfigFactory, ConfigObject, ConfigRenderOptions}
 import com.typesafe.scalalogging.{LazyLogging, Logger}
 import io.opentargets.etl.backend.SparkHelpers.IOResourceConfig
 import org.apache.spark.sql.expressions._
@@ -187,7 +182,7 @@ object AssociationHelpers extends LazyLogging {
           .partitionBy(pairColNames.map(col): _*)
 
         val bb = b
-          .withColumn(tName + "_ths_k", row_number() over (w.orderBy(col(name).desc)))
+          .withColumn(tName + "_ths_k", row_number() over w.orderBy(col(name).desc))
           .withColumn(
             tName + "_ths_dx",
             col(name) / (powCol(col(tName + "_ths_k"), 2D) * maxHarmonicValue(10000, 2, 1D)))
