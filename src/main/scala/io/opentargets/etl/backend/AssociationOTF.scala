@@ -15,27 +15,99 @@ import org.apache.spark.sql.expressions._
 import scala.math.pow
 
 object AssociationOTF extends LazyLogging {
+  private def computeFacetTractability(df: DataFrame, keyCol: String)(implicit context: ETLSessionContext): DataFrame = {
+    implicit val ss = context.sparkSession
+
+    val getPositiveCategories = udf((r: Row) => {
+      if (r != null) {
+        r.schema.names.map(name => if (r.getAs[Double](name) > 0) Some(name) else None)
+          .withFilter(_.isDefined).map(_.get)
+      } else Array.empty[String]
+    })
+
+    df.withColumn("facet_tractability_antibody",
+      getPositiveCategories(col(s"${keyCol}.antibody.categories")))
+      .withColumn("facet_tractability_smallmolecule",
+          getPositiveCategories(col(s"${keyCol}.smallmolecule.categories")))
+  }
+
+  private def computeFacetReactome(df: DataFrame, keyCol: String, vecCol: String)(implicit context: ETLSessionContext): DataFrame = {
+    implicit val ss = context.sparkSession
+    import ss.implicits._
+
+    val reactomeSection = context.configuration.common.inputs.reactome
+
+    val mappedInputs = Map(
+      "reactome" -> IOResourceConfig(
+        reactomeSection.format,
+        reactomeSection.path
+      )
+    )
+
+    val takelevel2 = udf(f = (l: Seq[Seq[String]]) => {
+      if (l.nonEmpty) l.flatMap {
+        case Seq(_, a, _*) => Seq(a)
+        case _ => Seq.empty
+      }.distinct
+      else Seq.empty
+    })
+
+    val takelevel4 = udf(f = (l: Seq[Seq[String]]) => {
+      if (l.nonEmpty) l.flatMap {
+        case Seq(_, _, _, a, _*) => Seq(a)
+        case _ => Seq.empty
+      }.distinct
+      else Seq.empty
+    })
+
+    val dfs = SparkHelpers.readFrom(mappedInputs)
+    val reacts = dfs("reactome")
+      .withColumn("levels2", takelevel2(col("path")))
+      .withColumn("levels4", takelevel4(col("path")))
+      .selectExpr("id", "levels2", "levels4")
+
+    val tempDF = df.selectExpr(keyCol, vecCol)
+      .withColumn(vecCol + "_tmp", explode(col(vecCol)))
+      .join(reacts, reacts("id") === col(vecCol + "_tmp"), "left_outer")
+      .groupBy(col(keyCol))
+      .agg(array_distinct(flatten(collect_list("levels2"))).as(vecCol + "_parents"),
+        array_distinct(flatten(collect_list("levels4"))).as(vecCol + "_children"))
+
+    tempDF
+  }
+
   def compute()(implicit context: ETLSessionContext): Map[String, DataFrame] = {
     implicit val ss = context.sparkSession
     import ss.implicits._
     import AssociationHelpers._
 
     val diseaseColumns = Seq(
-      "id",
-      "therapeuticAreas"
+      "id as disease_id",
+      "therapeuticAreas as facet_therapeuticAreas"
     )
 
     val targetColumns = Seq(
-      "id",
-      "classes",
-      "reactome",
+      "id as target_id",
+      "proteinAnnotations.classes as facet_classes",
+      "reactome as facet_reactome",
       "tractability"
     )
 
     val commonSec = context.configuration.common
 
-    val diseases = Disease.compute().selectExpr(diseaseColumns:_*)
-    val targets = Target.compute().selectExpr(targetColumns:_*)
+    val diseases = Disease.compute().selectExpr(diseaseColumns:_*).orderBy(col("disease_id").asc)
+    val targets = Target
+      .compute()
+      .selectExpr(targetColumns:_*)
+      .orderBy(col("target_id").asc)
+      .persist()
+
+    val targetsFacetReactome = computeFacetReactome(targets, "target_id", "facet_reactome")
+
+    val finalTargets = computeFacetTractability(targets, "tractability")
+      .drop("facet_reactome")
+      .join(targetsFacetReactome, Seq("target_id"), "inner")
+      .drop("facet_reactome")
 
     val mappedInputs = Map(
       "evidences" -> IOResourceConfig(
@@ -54,12 +126,14 @@ object AssociationOTF extends LazyLogging {
       "sourceID as datasource_id",
       "`type` as datatype_id",
       "scores.association_score as row_score",
-      "unique_association_fields.*"
+      "unique_association_fields"
     )
 
     Map("evidences_aotf" -> dfs("evidences")
       .selectExpr(evidenceColumns:_*)
       .repartition()
+      .join(diseases, Seq("disease_id"), "inner")
+      .join(finalTargets, Seq("target_id"), "inner")
     )
   }
 
