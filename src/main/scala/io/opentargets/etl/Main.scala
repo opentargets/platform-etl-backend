@@ -12,9 +12,6 @@ object ETL extends LazyLogging {
       case "search" =>
         logger.info("run step search")
         Search()
-      case "associationsLLR" =>
-        logger.info("run step associations-llr")
-        AssociationsLLR()
       case "clinicalTrials" =>
         logger.info("run step clinicaltrials")
         ClinicalTrials()
