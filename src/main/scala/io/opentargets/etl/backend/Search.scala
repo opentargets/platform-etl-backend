@@ -75,7 +75,7 @@ object Transformers {
       //      .join(ancestors, Seq("disease_id"), "left_outer")
       //      .withColumn("ancestor_id", explode(col("ancestors")))
       //      .withColumn("association_id", concat_ws("-", col("target_id"), col("ancestor_id")))
-      .withColumn("association_id", concat_ws("-", col("target_id"), col("disease_id")))
+      .withColumn("association_id", concat_ws("-", col("disease_id"), col("target_id")))
       .groupBy(col("association_id"))
       .agg(
         collect_set(col("drug_id")).as("drug_ids"),
@@ -91,8 +91,7 @@ object Transformers {
         associations: DataFrame,
         associatedDrugs: DataFrame,
         diseases: DataFrame,
-        drugs: DataFrame,
-        associationCounts: Long
+        drugs: DataFrame
     ): DataFrame = {
 
       val drugsByTarget = associatedDrugs
@@ -228,8 +227,7 @@ object Transformers {
         associations: DataFrame,
         associatedDrugs: DataFrame,
         targets: DataFrame,
-        drugs: DataFrame,
-        associationCounts: Long
+        drugs: DataFrame
     ): DataFrame = {
 
       val drugsByDisease = associatedDrugs
@@ -452,7 +450,9 @@ object Search extends LazyLogging {
     import ss.implicits._
     import Transformers.Implicits
 
-    val llrAssoc = AssociationsLLR.compute()
+    val assocs = Association.computeIndirectAssociations()
+
+    // get fields overall_ds_score_harmonic target_id, disease_id
 
     val common = context.configuration.common
 
@@ -544,18 +544,14 @@ object Search extends LazyLogging {
       "score"
     )
     logger.info("subselect indirect LLR associations just id and score and persist")
-    val associationScores = llrAssoc._2
-    //      .selectExpr("harmonic_sum.overall as score",
-    //                  "id as association_id",
-    //                  "target.id as target_id",
-    //                  "disease.id as disease_id")
-    // this needs to be addressed as the assocs llr does not create the correct structure to be
-    // compatible with the standard associations
+    val associationScores = assocs("associations_overall_indirect")
+      .withColumn("association_id",
+        concat_ws("-", col("disease_id"), col("target_id")))
       .selectExpr(
-        "harmonic_sum.overall as score",
-        "id as association_id",
-        "target as target_id",
-        "disease as disease_id"
+        "overall_ds_score_harmonic as score",
+        "association_id",
+        "target_id",
+        "disease_id"
       )
       .select(associationColumns.head, associationColumns.tail: _*)
       .persist(StorageLevel.DISK_ONLY)
@@ -566,7 +562,6 @@ object Search extends LazyLogging {
         .findAssociationsWithDrugs(inputDataFrame("evidence"), diseases)
 
     logger.info("compute total counts for associations and associations with drugs")
-    val totalAssociations = associationScores.count()
     val totalAssociationsWithDrugs = associationsWithDrugsFromEvidences.count()
 
     val drugColumns = Seq(
@@ -601,8 +596,7 @@ object Search extends LazyLogging {
         associationScores,
         associationsWithDrugsFromEvidencesWithScores,
         tLUT,
-        drLUT,
-        totalAssociations
+        drLUT
       )
 
     logger.info("generate search objects for target entity")
@@ -611,8 +605,7 @@ object Search extends LazyLogging {
         associationScores,
         associationsWithDrugsFromEvidencesWithScores,
         dLUT,
-        drLUT,
-        totalAssociations
+        drLUT
       )
 
     logger.info("generate search objects for drug entity")
