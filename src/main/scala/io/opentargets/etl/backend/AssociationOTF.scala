@@ -15,23 +15,39 @@ import org.apache.spark.sql.expressions._
 import scala.math.pow
 
 object AssociationOTF extends LazyLogging {
-  private def computeFacetTractability(df: DataFrame, keyCol: String)(implicit context: ETLSessionContext): DataFrame = {
+  implicit class Helpers(df: DataFrame)(implicit context: ETLSessionContext) {
     implicit val ss = context.sparkSession
 
-    val getPositiveCategories = udf((r: Row) => {
-      if (r != null) {
-        r.schema.names.map(name => if (r.getAs[Double](name) > 0) Some(name) else None)
-          .withFilter(_.isDefined).map(_.get)
-      } else Array.empty[String]
-    })
+    def computeFacetTractability(keyCol: String): DataFrame = {
+      val getPositiveCategories = udf((r: Row) => {
+        if (r != null) {
+          Some(r.schema.names.map(name => if (r.getAs[Double](name) > 0) Some(name) else None)
+            .withFilter(_.isDefined).map(_.get))
+        } else None
+      })
 
-    df.withColumn("facet_tractability_antibody",
-      getPositiveCategories(col(s"${keyCol}.antibody.categories")))
-      .withColumn("facet_tractability_smallmolecule",
-          getPositiveCategories(col(s"${keyCol}.smallmolecule.categories")))
+      df.withColumn("facet_tractability_antibody",
+        when(col(keyCol).isNotNull and col(s"${keyCol}.antibody").isNotNull,
+          getPositiveCategories(col(s"${keyCol}.antibody.categories"))))
+        .withColumn("facet_tractability_smallmolecule",
+          when(col(keyCol).isNotNull and col(s"${keyCol}.smallmolecule").isNotNull,
+            getPositiveCategories(col(s"${keyCol}.smallmolecule.categories"))))
+    }
+
+    // TODO EMPTY NULL FROM LIST
+    def computeFacetClasses(keyCol: String): DataFrame = {
+      df.withColumn(s"${keyCol}_parents",
+          transform(col(keyCol),el =>
+          el.getField("l1")
+            .getField("id").cast(StringType)))
+        .withColumn(s"${keyCol}_children",
+          transform(col(keyCol),el =>
+          el.getField("l2")
+            .getField("id").cast(StringType)))
+    }
   }
 
-  private def computeFacetReactome(df: DataFrame, keyCol: String, vecCol: String)(implicit context: ETLSessionContext): DataFrame = {
+  def computeFacetReactome(df: DataFrame, keyCol: String, vecCol: String)(implicit context: ETLSessionContext): DataFrame = {
     implicit val ss = context.sparkSession
     import ss.implicits._
 
@@ -78,8 +94,6 @@ object AssociationOTF extends LazyLogging {
 
   def compute()(implicit context: ETLSessionContext): Map[String, DataFrame] = {
     implicit val ss = context.sparkSession
-    import ss.implicits._
-    import AssociationHelpers._
 
     val diseaseColumns = Seq(
       "id as disease_id",
@@ -104,10 +118,11 @@ object AssociationOTF extends LazyLogging {
 
     val targetsFacetReactome = computeFacetReactome(targets, "target_id", "facet_reactome")
 
-    val finalTargets = computeFacetTractability(targets, "tractability")
-      .drop("facet_reactome")
+    val finalTargets = targets
+      .computeFacetTractability("tractability")
+      .computeFacetClasses("facet_classes")
       .join(targetsFacetReactome, Seq("target_id"), "inner")
-      .drop("facet_reactome")
+      .drop("facet_reactome", "tractability", "facet_classes")
 
     val mappedInputs = Map(
       "evidences" -> IOResourceConfig(
