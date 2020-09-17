@@ -34,16 +34,15 @@ object AssociationOTF extends LazyLogging {
             getPositiveCategories(col(s"${keyCol}.smallmolecule.categories"))))
     }
 
-    // TODO EMPTY NULL FROM LIST
     def computeFacetClasses(keyCol: String): DataFrame = {
       df.withColumn(s"${keyCol}_parents",
-          transform(col(keyCol),el =>
+          filter(transform(col(keyCol),el =>
           el.getField("l1")
-            .getField("id").cast(StringType)))
+            .getField("id").cast(StringType)),(c: Column) => c.isNotNull))
         .withColumn(s"${keyCol}_children",
-          transform(col(keyCol),el =>
+          filter(transform(col(keyCol),el =>
           el.getField("l2")
-            .getField("id").cast(StringType)))
+            .getField("id").cast(StringType)),(c: Column) => c.isNotNull))
     }
   }
 
