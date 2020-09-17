@@ -1,9 +1,7 @@
 package io.opentargets.etl.backend
 
-import com.typesafe.config.Config
 import com.typesafe.scalalogging.LazyLogging
 import io.opentargets.etl.backend.SparkHelpers.IOResourceConfig
-import org.apache.spark.SparkConf
 import org.apache.spark.sql._
 import org.apache.spark.sql.expressions._
 import org.apache.spark.sql.types._
@@ -62,8 +60,7 @@ object Transformers {
   /** NOTE finding drugs from associations are computed just using direct assocs
     *  otherwise drugs are spread traversing all efo tree.
     */
-  def findAssociationsWithDrugs(evidence: DataFrame, efos: DataFrame): DataFrame = {
-    val ancestors = efos.select("disease_id", "ancestors")
+  def findAssociationsWithDrugs(evidence: DataFrame): DataFrame = {
     evidence
       .filter(col("drug.id").isNotNull)
       .withColumn("drug_id", substring_index(col("drug.id"), "/", -1))
@@ -72,9 +69,6 @@ object Transformers {
         "target.id as target_id",
         "disease.id as disease_id"
       )
-      //      .join(ancestors, Seq("disease_id"), "left_outer")
-      //      .withColumn("ancestor_id", explode(col("ancestors")))
-      //      .withColumn("association_id", concat_ws("-", col("target_id"), col("ancestor_id")))
       .withColumn("association_id", concat_ws("-", col("disease_id"), col("target_id")))
       .groupBy(col("association_id"))
       .agg(
@@ -451,11 +445,7 @@ object Search extends LazyLogging {
     import Transformers.Implicits
 
     val assocs = Association.computeIndirectAssociations()
-
-    // get fields overall_ds_score_harmonic target_id, disease_id
-
     val common = context.configuration.common
-
     val mappedInputs = Map(
       "disease" -> IOResourceConfig(
         common.inputs.disease.format,
@@ -559,7 +549,7 @@ object Search extends LazyLogging {
     logger.info("find associated drugs using evidence dataset")
     val associationsWithDrugsFromEvidences =
       Transformers
-        .findAssociationsWithDrugs(inputDataFrame("evidence"), diseases)
+        .findAssociationsWithDrugs(inputDataFrame("evidence"))
 
     logger.info("compute total counts for associations and associations with drugs")
     val totalAssociationsWithDrugs = associationsWithDrugsFromEvidences.count()
