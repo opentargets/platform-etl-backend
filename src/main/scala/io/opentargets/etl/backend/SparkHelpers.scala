@@ -127,17 +127,19 @@ object SparkHelpers extends LazyLogging {
       schema.fields.map {
         case StructField(name, dtype: StructType, nullable, meta) =>
           StructField(rename(name), StructType(recurRename(dtype)), nullable, meta)
-        case StructField(name, dtype: ArrayType, nullable, meta)
-            if dtype.elementType.isInstanceOf[StructType] =>
-          StructField(
-            rename(name),
-            ArrayType(
-              StructType(recurRename(dtype.elementType.asInstanceOf[StructType])),
-              containsNull = true
-            ),
-            nullable,
-            meta
-          )
+        case StructField(name, dtype: ArrayType, nullable, meta) =>
+          dtype.elementType match {
+            case st: StructType =>
+              StructField(
+                rename(name),
+                ArrayType(
+                  StructType(recurRename(st)),
+                  containsNull = true
+                ),
+                nullable,
+                meta
+              )
+          }
         case StructField(name, dtype, nullable, meta) =>
           StructField(rename(name), dtype, nullable, meta)
       }

@@ -23,9 +23,8 @@ object Dependencies {
     "com.typesafe.scala-logging" %% "scala-logging" % "3.9.2"
   )
 
-  lazy val scalaCheck = "org.scalacheck" %% "scalacheck" % "1.14.3"
-
   val sparkVersion = "3.0.1"
+
   lazy val sparkDeps = Seq(
     "com.github.fommil.netlib" % "all" % "1.1.2" pomOnly (),
     "org.apache.spark" %% "spark-core" % sparkVersion,
@@ -33,10 +32,12 @@ object Dependencies {
     "org.apache.spark" %% "spark-graphx" % sparkVersion,
     "org.apache.spark" %% "spark-mllib" % sparkVersion
   )
+  lazy val scalaCheck = "org.scalacheck" %% "scalacheck" % "1.14.3"
 
+  lazy val testVersion = "3.2.0"
   lazy val testingDeps = Seq(
-    "org.scalactic" %% "scalactic" % "3.0.8",
-    "org.scalatest" %% "scalatest" % "3.0.8" % "test"
+    "org.scalactic" %% "scalactic" % "testVersion",
+    "org.scalatest" %% "scalatest" % "testVersion" % "test"
   )
 
   lazy val typeSafeConfig = "com.typesafe" % "config" % "1.4.0"
