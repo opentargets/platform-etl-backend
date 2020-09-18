@@ -3,7 +3,7 @@ import com.typesafe.scalalogging.LazyLogging
 import org.apache.spark.SparkConf
 import org.apache.spark.sql.{Column, DataFrame, DataFrameWriter, Row, SparkSession}
 import org.apache.spark.sql.functions.expr
-import org.apache.spark.sql.types.{ArrayType, StructField, StructType}
+import org.apache.spark.sql.types.{ArrayType, DataType, Metadata, StructField, StructType}
 
 object SparkHelpers extends LazyLogging {
   type IOResourceConfs = Map[String, IOResourceConfig]
@@ -122,27 +122,43 @@ object SparkHelpers extends LazyLogging {
     newDF
   }
 
-  def renameAllCols(schema: StructType, rename: String => String): StructType = {
-    def recurRename(schema: StructType): Seq[StructField] =
-      schema.fields.map {
-        case StructField(name, dtype: StructType, nullable, meta) =>
-          StructField(rename(name), StructType(recurRename(dtype)), nullable, meta)
-        case StructField(name, dtype: ArrayType, nullable, meta) =>
-          dtype.elementType match {
-            case st: StructType =>
-              StructField(
-                rename(name),
-                ArrayType(
-                  StructType(recurRename(st)),
-                  containsNull = true
-                ),
-                nullable,
-                meta
-              )
-          }
-        case StructField(name, dtype, nullable, meta) =>
-          StructField(rename(name), dtype, nullable, meta)
-      }
-    StructType(recurRename(schema))
+  def renameAllCols(schema: StructType, fn: String => String): StructType = {
+
+    def renameDataType(dt: StructType): StructType = StructType(dt.fields.map {
+      case StructField(name, dataType, nullable, metadata) =>
+        val renamedDT = dataType match {
+          case st: StructType => renameDataType(st)
+          case ArrayType(elementType: StructType, containsNull) =>
+            ArrayType(renameDataType(elementType), containsNull)
+          case rest: DataType => rest
+        }
+        StructField(fn(name), renamedDT, nullable, metadata)
+    })
+
+    renameDataType(schema)
   }
+
+//  def renameAllCols(schema: StructType, rename: String => String): StructType = {
+//    def recurRename(schema: StructType): Seq[StructField] =
+//      schema.fields.map {
+//        case StructField(name, dtype: StructType, nullable, meta) =>
+//          StructField(rename(name), StructType(recurRename(dtype)), nullable, meta)
+//        case StructField(name, ArrayType(elementType, containsNull), nullable, meta) =>
+//          elementType match {
+//            case st: StructType =>
+//              StructField(
+//                rename(name),
+//                ArrayType(
+//                  StructType(recurRename(st)),
+//                  containsNull
+//                ),
+//                nullable,
+//                meta
+//              )
+//          }
+//        case StructField(name, dtype, nullable, meta) =>
+//          StructField(rename(name), dtype, nullable, meta)
+//      }
+//    StructType(recurRename(schema))
+//  }
 }
