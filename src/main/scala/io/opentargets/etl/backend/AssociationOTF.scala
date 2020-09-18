@@ -15,38 +15,53 @@ import org.apache.spark.sql.expressions._
 import scala.math.pow
 
 object AssociationOTF extends LazyLogging {
+  case class FacetLevel(l1: Option[String], l2: Option[String])
+
   implicit class Helpers(df: DataFrame)(implicit context: ETLSessionContext) {
     implicit val ss = context.sparkSession
 
     def computeFacetTractability(keyCol: String): DataFrame = {
       val getPositiveCategories = udf((r: Row) => {
         if (r != null) {
-          Some(r.schema.names.map(name => if (r.getAs[Double](name) > 0) Some(name) else None)
-            .withFilter(_.isDefined).map(_.get))
+          Some(
+            r.schema.names
+              .map(name => if (r.getAs[Double](name) > 0) Some(name) else None)
+              .withFilter(_.isDefined)
+              .map(_.get))
         } else None
       })
 
-      df.withColumn("facet_tractability_antibody",
-        when(col(keyCol).isNotNull and col(s"${keyCol}.antibody").isNotNull,
-          getPositiveCategories(col(s"${keyCol}.antibody.categories"))))
-        .withColumn("facet_tractability_smallmolecule",
+      df.withColumn(
+          "facet_tractability_antibody",
+          when(col(keyCol).isNotNull and col(s"${keyCol}.antibody").isNotNull,
+               getPositiveCategories(col(s"${keyCol}.antibody.categories")))
+        )
+        .withColumn(
+          "facet_tractability_smallmolecule",
           when(col(keyCol).isNotNull and col(s"${keyCol}.smallmolecule").isNotNull,
-            getPositiveCategories(col(s"${keyCol}.smallmolecule.categories"))))
+               getPositiveCategories(col(s"${keyCol}.smallmolecule.categories")))
+        )
     }
 
     def computeFacetClasses(keyCol: String): DataFrame = {
-      df.withColumn(s"${keyCol}_parents",
-          filter(transform(col(keyCol),el =>
-          el.getField("l1")
-            .getField("id").cast(StringType)),(c: Column) => c.isNotNull))
-        .withColumn(s"${keyCol}_children",
-          filter(transform(col(keyCol),el =>
-          el.getField("l2")
-            .getField("id").cast(StringType)),(c: Column) => c.isNotNull))
+      df.withColumn(
+        s"${keyCol}",
+        array_distinct(transform(col(keyCol),
+                  el =>
+                    struct(el.getField("l1")
+                             .getField("id")
+                             .cast(StringType)
+                             .as("l1"),
+                           el.getField("l2")
+                             .getField("id")
+                             .cast(StringType)
+                             .as("l2"))))
+      )
     }
   }
 
-  def computeFacetReactome(df: DataFrame, keyCol: String, vecCol: String)(implicit context: ETLSessionContext): DataFrame = {
+  def computeFacetReactome(df: DataFrame, keyCol: String, vecCol: String)(
+      implicit context: ETLSessionContext): DataFrame = {
     implicit val ss = context.sparkSession
     import ss.implicits._
 
@@ -59,34 +74,26 @@ object AssociationOTF extends LazyLogging {
       )
     )
 
-    val takelevel2 = udf(f = (l: Seq[Seq[String]]) => {
-      if (l.nonEmpty) l.flatMap {
-        case Seq(_, a, _*) => Seq(a)
-        case _ => Seq.empty
-      }.distinct
-      else Seq.empty
-    })
-
-    val takelevel4 = udf(f = (l: Seq[Seq[String]]) => {
-      if (l.nonEmpty) l.flatMap {
-        case Seq(_, _, _, a, _*) => Seq(a)
-        case _ => Seq.empty
-      }.distinct
-      else Seq.empty
-    })
+    // implicit val facetLevelSchema = Encoders.product[FacetLevel].schema
+    val mapLevels = udf((l: Seq[String]) => l match {
+        case Seq(_, a, _, b, _*) => FacetLevel(Some(a), Some(b))
+        case Seq(_, a, _*)       => FacetLevel(Some(a), None)
+        case _                   => FacetLevel(None, None)
+      }
+    )
 
     val dfs = SparkHelpers.readFrom(mappedInputs)
     val reacts = dfs("reactome")
-      .withColumn("levels2", takelevel2(col("path")))
-      .withColumn("levels4", takelevel4(col("path")))
-      .selectExpr("id", "levels2", "levels4")
+      .withColumn("levels", when(size(col("path")) > 0,
+        transform(col("path"), (c: Column) => mapLevels(c))))
+      .selectExpr("id", "levels")
 
-    val tempDF = df.selectExpr(keyCol, vecCol)
+    val tempDF = df
+      .selectExpr(keyCol, vecCol)
       .withColumn(vecCol + "_tmp", explode(col(vecCol)))
       .join(reacts, reacts("id") === col(vecCol + "_tmp"), "left_outer")
       .groupBy(col(keyCol))
-      .agg(array_distinct(flatten(collect_list("levels2"))).as(vecCol + "_parents"),
-        array_distinct(flatten(collect_list("levels4"))).as(vecCol + "_children"))
+      .agg(array_distinct(flatten(collect_list("levels"))).as(vecCol))
 
     tempDF
   }
@@ -102,26 +109,27 @@ object AssociationOTF extends LazyLogging {
     val targetColumns = Seq(
       "id as target_id",
       "proteinAnnotations.classes as facet_classes",
-      "reactome as facet_reactome",
+      "reactome",
       "tractability"
     )
 
     val commonSec = context.configuration.common
 
-    val diseases = Disease.compute().selectExpr(diseaseColumns:_*).orderBy(col("disease_id").asc)
+    val diseases = Disease.compute().selectExpr(diseaseColumns: _*).orderBy(col("disease_id").asc)
     val targets = Target
       .compute()
-      .selectExpr(targetColumns:_*)
+      .selectExpr(targetColumns: _*)
       .orderBy(col("target_id").asc)
       .persist()
 
-    val targetsFacetReactome = computeFacetReactome(targets, "target_id", "facet_reactome")
+    val targetsFacetReactome = computeFacetReactome(targets, "target_id", "reactome")
+      .withColumnRenamed("reactome", "facet_reactome")
 
     val finalTargets = targets
       .computeFacetTractability("tractability")
       .computeFacetClasses("facet_classes")
       .join(targetsFacetReactome, Seq("target_id"), "inner")
-      .drop("facet_reactome", "tractability", "facet_classes")
+      .drop("tractability", "reactome")
 
     val mappedInputs = Map(
       "evidences" -> IOResourceConfig(
@@ -143,12 +151,12 @@ object AssociationOTF extends LazyLogging {
       "unique_association_fields"
     )
 
-    Map("evidences_aotf" -> dfs("evidences")
-      .selectExpr(evidenceColumns:_*)
-      .repartition()
-      .join(diseases, Seq("disease_id"), "inner")
-      .join(finalTargets, Seq("target_id"), "inner")
-    )
+    Map(
+      "evidences_aotf" -> dfs("evidences")
+        .selectExpr(evidenceColumns: _*)
+        .repartition()
+        .join(diseases, Seq("disease_id"), "inner")
+        .join(finalTargets, Seq("target_id"), "inner"))
   }
 
   def apply()(implicit context: ETLSessionContext) = {

@@ -1,13 +1,13 @@
 package io.opentargets.etl.backend
 
-import org.apache.spark.sql.types.{ArrayType, BooleanType, IntegerType, LongType, StringType, StructField, StructType}
+import org.apache.spark.sql.types._
 import org.scalatest.flatspec.AnyFlatSpecLike
 import org.scalatest.matchers.should.Matchers
 
+import io.opentargets.etl.backend.SparkHelpers._
 
 class SparkHelpersTest extends AnyFlatSpecLike with Matchers {
   // given
-  import SparkHelpers.renameAllCols
   val renameFun: String => String = _.toUpperCase
   val testStruct =
     StructType(
