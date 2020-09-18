@@ -18,6 +18,7 @@ lazy val root = (project in file("."))
     resolvers ++= buildResolvers,
     libraryDependencies += scalaCheck,
     libraryDependencies ++= sparkDeps,
+    libraryDependencies ++= testingDeps,
     libraryDependencies ++= aoyi,
     libraryDependencies += betterFiles,
     libraryDependencies ++= loggingDeps,
