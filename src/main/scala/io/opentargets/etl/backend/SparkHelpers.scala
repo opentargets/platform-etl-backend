@@ -137,28 +137,4 @@ object SparkHelpers extends LazyLogging {
 
     renameDataType(schema)
   }
-
-//  def renameAllCols(schema: StructType, rename: String => String): StructType = {
-//    def recurRename(schema: StructType): Seq[StructField] =
-//      schema.fields.map {
-//        case StructField(name, dtype: StructType, nullable, meta) =>
-//          StructField(rename(name), StructType(recurRename(dtype)), nullable, meta)
-//        case StructField(name, ArrayType(elementType, containsNull), nullable, meta) =>
-//          elementType match {
-//            case st: StructType =>
-//              StructField(
-//                rename(name),
-//                ArrayType(
-//                  StructType(recurRename(st)),
-//                  containsNull
-//                ),
-//                nullable,
-//                meta
-//              )
-//          }
-//        case StructField(name, dtype, nullable, meta) =>
-//          StructField(rename(name), dtype, nullable, meta)
-//      }
-//    StructType(recurRename(schema))
-//  }
 }
