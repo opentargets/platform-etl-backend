@@ -16,6 +16,7 @@ import scala.math.pow
 
 object AssociationOTF extends LazyLogging {
   case class FacetLevel(l1: Option[String], l2: Option[String])
+  case class ReactomeEntry(id: String, label: String)
 
   implicit class Helpers(df: DataFrame)(implicit context: ETLSessionContext) {
     implicit val ss = context.sparkSession
@@ -46,18 +47,40 @@ object AssociationOTF extends LazyLogging {
     def computeFacetClasses(keyCol: String): DataFrame = {
       df.withColumn(
         s"${keyCol}",
-        array_distinct(transform(col(keyCol),
-                  el =>
-                    struct(el.getField("l1")
-                             .getField("id")
-                             .cast(StringType)
-                             .as("l1"),
-                           el.getField("l2")
-                             .getField("id")
-                             .cast(StringType)
-                             .as("l2"))))
+        array_distinct(
+          transform(col(keyCol),
+                    el =>
+                      struct(el.getField("l1")
+                               .getField("label")
+                               .cast(StringType)
+                               .as("l1"),
+                             el.getField("l2")
+                               .getField("label")
+                               .cast(StringType)
+                               .as("l2"))))
       )
     }
+  }
+
+  def computeFacetTAs(df: DataFrame, keyCol: String, labelCol: String, vecCol: String)(
+      implicit context: ETLSessionContext): DataFrame = {
+    implicit val ss = context.sparkSession
+    import ss.implicits._
+
+    val taID = vecCol + "_tmp"
+    val tas = df
+      .selectExpr(keyCol, vecCol)
+      .withColumn(taID, explode(col(vecCol)))
+      .drop(vecCol)
+
+    val labels = df
+      .selectExpr(keyCol, labelCol)
+      .withColumnRenamed(keyCol, taID)
+
+    tas
+      .join(labels, Seq(taID), "inner")
+      .groupBy(col(keyCol))
+      .agg(collect_set(col(labelCol)).as(vecCol))
   }
 
   def computeFacetReactome(df: DataFrame, keyCol: String, vecCol: String)(
@@ -73,19 +96,25 @@ object AssociationOTF extends LazyLogging {
         reactomeSection.path
       )
     )
-
-    // implicit val facetLevelSchema = Encoders.product[FacetLevel].schema
-    val mapLevels = udf((l: Seq[String]) => l match {
-        case Seq(_, a, _, b, _*) => FacetLevel(Some(a), Some(b))
-        case Seq(_, a, _*)       => FacetLevel(Some(a), None)
-        case _                   => FacetLevel(None, None)
-      }
-    )
-
     val dfs = SparkHelpers.readFrom(mappedInputs)
+
+    val lutReact = ss.sparkContext.broadcast(
+      dfs("reactome")
+        .selectExpr("id", "label")
+        .as[ReactomeEntry]
+        .collect()
+        .map(e => e.id -> e.label).toMap)
+
+    val mapLevels = udf((l: Seq[String]) =>
+      l match {
+        case Seq(_, a, _, b, _*) => FacetLevel(lutReact.value.get(a), lutReact.value.get(b))
+        case Seq(_, a, _*)       => FacetLevel(lutReact.value.get(a), None)
+        case _                   => FacetLevel(None, None)
+    })
+
     val reacts = dfs("reactome")
-      .withColumn("levels", when(size(col("path")) > 0,
-        transform(col("path"), (c: Column) => mapLevels(c))))
+      .withColumn("levels",
+                  when(size(col("path")) > 0, transform(col("path"), (c: Column) => mapLevels(c))))
       .selectExpr("id", "levels")
 
     val tempDF = df
@@ -103,7 +132,8 @@ object AssociationOTF extends LazyLogging {
 
     val diseaseColumns = Seq(
       "id as disease_id",
-      "therapeuticAreas as facet_therapeuticAreas"
+      "therapeuticAreas",
+      "name"
     )
 
     val targetColumns = Seq(
@@ -115,12 +145,20 @@ object AssociationOTF extends LazyLogging {
 
     val commonSec = context.configuration.common
 
-    val diseases = Disease.compute().selectExpr(diseaseColumns: _*).orderBy(col("disease_id").asc)
+    val diseases = Disease
+      .compute()
+      .selectExpr(diseaseColumns: _*)
+      .orderBy(col("disease_id").asc)
+      .persist()
+
     val targets = Target
       .compute()
       .selectExpr(targetColumns: _*)
       .orderBy(col("target_id").asc)
       .persist()
+
+    val diseasesFacetTAs = computeFacetTAs(diseases, "disease_id", "name", "therapeuticAreas")
+      .withColumnRenamed("therapeuticAreas", "facet_therapeuticAreas")
 
     val targetsFacetReactome = computeFacetReactome(targets, "target_id", "reactome")
       .withColumnRenamed("reactome", "facet_reactome")
@@ -155,7 +193,7 @@ object AssociationOTF extends LazyLogging {
       "evidences_aotf" -> dfs("evidences")
         .selectExpr(evidenceColumns: _*)
         .repartition()
-        .join(diseases, Seq("disease_id"), "inner")
+        .join(diseasesFacetTAs, Seq("disease_id"), "inner")
         .join(finalTargets, Seq("target_id"), "inner"))
   }
 
