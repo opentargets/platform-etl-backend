@@ -70,7 +70,7 @@ object AssociationOTF extends LazyLogging {
     val taID = vecCol + "_tmp"
     val tas = df
       .selectExpr(keyCol, vecCol)
-      .withColumn(taID, explode(col(vecCol)))
+      .withColumn(taID, explode_outer(col(vecCol)))
       .drop(vecCol)
 
     val labels = df
@@ -119,7 +119,7 @@ object AssociationOTF extends LazyLogging {
 
     val tempDF = df
       .selectExpr(keyCol, vecCol)
-      .withColumn(vecCol + "_tmp", explode(col(vecCol)))
+      .withColumn(vecCol + "_tmp", explode_outer(col(vecCol)))
       .join(reacts, reacts("id") === col(vecCol + "_tmp"), "left_outer")
       .groupBy(col(keyCol))
       .agg(array_distinct(flatten(collect_list("levels"))).as(vecCol))
@@ -189,12 +189,14 @@ object AssociationOTF extends LazyLogging {
       "unique_association_fields"
     )
 
+    logger.info(s"number of evidences ${dfs("evidences").count()}")
+
     Map(
       "evidences_aotf" -> dfs("evidences")
         .selectExpr(evidenceColumns: _*)
         .repartition()
-        .join(diseasesFacetTAs, Seq("disease_id"), "inner")
-        .join(finalTargets, Seq("target_id"), "inner"))
+        .join(diseasesFacetTAs, Seq("disease_id"), "left_outer")
+        .join(finalTargets, Seq("target_id"), "left_outer"))
   }
 
   def apply()(implicit context: ETLSessionContext) = {
