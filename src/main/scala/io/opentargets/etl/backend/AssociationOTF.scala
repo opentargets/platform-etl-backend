@@ -78,7 +78,7 @@ object AssociationOTF extends LazyLogging {
       .withColumnRenamed(keyCol, taID)
 
     tas
-      .join(labels, Seq(taID), "inner")
+      .join(labels, Seq(taID), "left_outer")
       .groupBy(col(keyCol))
       .agg(collect_set(col(labelCol)).as(vecCol))
   }
@@ -166,7 +166,7 @@ object AssociationOTF extends LazyLogging {
     val finalTargets = targets
       .computeFacetTractability("tractability")
       .computeFacetClasses("facet_classes")
-      .join(targetsFacetReactome, Seq("target_id"), "inner")
+      .join(targetsFacetReactome, Seq("target_id"), "left_outer")
       .drop("tractability", "reactome")
 
     val mappedInputs = Map(
