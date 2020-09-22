@@ -46,7 +46,7 @@ object DrugBeta extends LazyLogging {
 
     logger.info("Raw inputs for Drug beta loaded.")
 
-    val molecule = new Molecule(moleculeDf, drugbankData)
+//    val molecule = new Molecule(moleculeDf, drugbankData)
 
     def mechanismPreprocess(df: DataFrame): DataFrame = ???
 

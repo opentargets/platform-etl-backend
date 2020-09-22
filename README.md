@@ -133,6 +133,7 @@ java -server -Xms1G -Xmx6G -Xss1M -XX:+CMSClassUnloadingEnabled \
 ```
 
 ### Create a fat JAR
+
 Simply run the following command:
 
 ```bash
@@ -182,6 +183,42 @@ common {
   output = "gs://ot-snapshots/etl/mk-latest"
 }
 ```
+
+## Steps independent of the Data Pipeline
+
+The majority of the ETL was written to process data which has been prepared by the data pipeline for subsequent
+ processing. It is intended that this pipeline will be deprecated; because of this some steps do not require inputs
+  from the data pipeline to function correctly. These include:
+  
+  - Drug-beta
+  
+## Step notes
+
+### DrugBeta
+
+`DrugBeta` will eventually replace the `Drug` step in the pipeline, as well as supersede the step of the same name in
+ the `data-pipeline` repository.
+ 
+#### Adding additional cross references
+
+If a new cross reference maps one-to-one to a ChEMBL ID it can be added by including it in the
+ `ProcessMoleculeCrossReferences` method on the `Molecule` object. Cross references which have more than one reference
+ per ChEMBL ID will need to be processed manually at this point, see the `ProcessChemblCrossReferences` method for a 
+ guide on how this can be done. 
+ 
+#### Inputs
+
+Inputs are specified in the `reference.conf` file and include the following: 
+
+| Name | Source |
+| --- | --- |
+|   `drug-chembl-molecule` | ChEMBL - Platform Input Support |
+|   `drug-chembl-indication` | ChEMBL - Platform Input Support |
+|   `drug-chembl-mechanism` | ChEMBL - Platform Input Support |
+|   `drug-chembl-target` | ChEMBL - Platform Input Support |
+|   `drug-drugbank` | Release annotation file |
+
+## Development environment notes
 
 ### Scalafmt Installation
 
