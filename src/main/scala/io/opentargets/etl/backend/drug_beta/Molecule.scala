@@ -4,8 +4,9 @@ import com.typesafe.scalalogging.LazyLogging
 import org.apache.spark.sql.functions.{array, array_sort, arrays_zip, col, collect_list, collect_set, explode, lit, map_concat, split, udf, upper, when}
 import org.apache.spark.sql.{DataFrame, SparkSession, functions}
 
-class Molecule(chembl_mols: DataFrame, drugbank: DataFrame)(implicit sparkSession: SparkSession)
-    extends LazyLogging {
+class Molecule()(implicit sparkSession: SparkSession)
+    extends LazyLogging with Serializable {
+
 
   import sparkSession.implicits._
 
@@ -92,75 +93,98 @@ class Molecule(chembl_mols: DataFrame, drugbank: DataFrame)(implicit sparkSessio
     */
   def processMoleculeCrossReferences(preProcessedMolecules: DataFrame): DataFrame = {
 
-    /**
-      * Helper function to created maps where references are grouped by source.
-      *
-      * @param refSrcAndId sequence on inner pairs (src, id). Need to use seq rather than tuple
-      *                    for Spark to handle it properly.
-      * @return Map[Source, Reference]
-      */
-    def createSrcToReferenceMap(refSrcAndId: Seq[Seq[String]]): Map[String, Seq[String]] = {
-      // (src, id)
-      val i: Seq[(String, String)] =
-        refSrcAndId.filter(_.size == 2).map(s => (s.head, s(1)))
+    val chemblCrossReferences = processChemblCrossReferences(preProcessedMolecules)
+    val singletonRefs: List[Tuple2[String, String]] = List(
+      ("drugbank_id", "drugbank"),
+      ("chebi_par_id", "chEBI")
+    )
 
-      i.groupBy(k => k._1).map(v => (v._1, v._2.map(_._2)))
-    }
+    singletonRefs.map( src => processSingletonCrossReferences(preProcessedMolecules, src._1, src._2))
+      .foldLeft(chemblCrossReferences)((agg, a) => mergeCrossReferenceMaps(agg, a))
 
-    val createReferenceMap = udf(createSrcToReferenceMap _)
+  }
 
-    /**
-      *
-      * @param preProcessedMolecules
-      * @return dataframe of: id, map(str, array[str])
-      */
-    def processChemblCrossReferences(preProcessedMolecules: DataFrame): DataFrame = {
-      // [id: str, refs: Array[src, ref_id]
-      val chemblXR = preProcessedMolecules
-        .select($"id",
-                explode(arrays_zip($"cross_references.xref_id".as("ref_id"),
-                                   $"cross_references.xref_src".as("ref_source"))).as("sources"))
-        .withColumn("ref_id", $"sources.xref_id")
-        .withColumn("ref_src", $"sources.xref_src")
-        .withColumn("refs", array($"ref_src", $"ref_id").as("refs"))
-        .drop("sources", "ref_id", "ref_src")
+  val XREF_COLUMN_NAME = "xref"
 
-      chemblXR
-        .groupBy("id")
-        .agg(collect_list($"refs").as("ref1"))
-        .withColumn("xref", createReferenceMap($"ref1"))
-        .drop("refs", "ref1")
-    }
+  /**
+    * Helper function to created maps where references are grouped by source.
+    *
+    * @param refSrcAndId sequence on inner pairs (src, id). Need to use seq rather than tuple
+    *                    for Spark to handle it properly.
+    * @return Map[Source, Reference]
+    */
+  def createSrcToReferenceMap(refSrcAndId: Seq[Seq[String]]): Map[String, Seq[String]] = {
+    // (src, id)
+    val i: Seq[(String, String)] =
+      refSrcAndId.filter(_.size == 2).map(s => (s.head, s(1)))
 
-    /**
-      *
-      * @param preProcessedMolecules
-      * @return chembl_id, Map(source -> Array[ref])
-      */
-    def processDrugbankCrossReferences(preProcessedMolecules: DataFrame): DataFrame = {
-      // Each drug is likely only to have a single drugbank id, but return an array so that
-      // it is compatible with other sources which have multiple references.
-      preProcessedMolecules
-        .filter($"drugbank_id".isNotNull)
-        .select("id", "drugbank_id")
-        .groupBy("id")
-        .agg(collect_set("drugbank_id").as("drugbank_id"))
-        .withColumn("xref", functions.map(lit("drugbank"), $"drugbank_id"))
-        .drop("drugbank_id")
-    }
+    i.groupBy(k => k._1).map(v => (v._1, v._2.map(_._2)))
+  }
 
-    def mergeCrossReferences(ref1: DataFrame, ref2: DataFrame): DataFrame = {
-      val ref1x = "x"
-      val ref2x = "y"
-      val r1 = ref1.withColumnRenamed("refs", ref1x)
-      val r2 = ref2.withColumnRenamed("refs", ref2x)
-      r1
-        .join(r2, Seq("id"), "full_outer")
-        .withColumn("xref", map_concat($"x", $"y"))
-        .drop("x", "y")
-    }
+  val createReferenceMap = udf(createSrcToReferenceMap _)
 
-    processChemblCrossReferences(preProcessedMolecules)
+  /**
+    *
+    * @param preProcessedMolecules
+    * @return dataframe of: id, map(str, array[str])
+    */
+  def processChemblCrossReferences(preProcessedMolecules: DataFrame): DataFrame = {
+    // [id: str, refs: Array[src, ref_id]
+    val chemblXR = preProcessedMolecules
+      .select($"id",
+        explode(arrays_zip($"cross_references.xref_id".as("ref_id"),
+          $"cross_references.xref_src".as("ref_source"))).as("sources"))
+      .withColumn("ref_id", $"sources.xref_id")
+      .withColumn("ref_src", $"sources.xref_src")
+      .withColumn("refs", array($"ref_src", $"ref_id").as("refs"))
+      .drop("sources", "ref_id", "ref_src")
+
+    chemblXR
+      .groupBy("id")
+      .agg(collect_list($"refs").as("ref1"))
+      .withColumn(XREF_COLUMN_NAME, createReferenceMap($"ref1"))
+      .drop("refs", "ref1")
+  }
+
+  /**
+    * Helper method to link singleton references to a ChEMBL id and return a cross reference map.
+    *
+    * Although the referenceIdColumn must be a singleton (str, int, long, etc) the method returns a map with an
+    * array of values so that types are compatible with sources that have several references.
+    *
+    * @param preProcessedMolecules dataframe prepared by `moleculePreprocess` method
+    * @param referenceIdColumn column in preProcessed molecules to use as reference ids. Must only be single values.
+    * @param source name of source used as key in returned map
+    * @return chembl_id, Map(source -> Array[ref])
+    */
+  def processSingletonCrossReferences(preProcessedMolecules: DataFrame, referenceIdColumn: String, source: String): DataFrame = {
+    preProcessedMolecules
+      .filter(col(referenceIdColumn).isNotNull)
+      .select($"id", col(referenceIdColumn).cast("string"))
+      .groupBy("id")
+      .agg(collect_set(referenceIdColumn).as(referenceIdColumn))
+      .withColumn("xref", functions.map(lit(source), col(referenceIdColumn)))
+      .drop(referenceIdColumn)
+  }
+
+  /**
+    * Helper method which takes in two dataframes of cross references and returns a single dataframe with the
+    * cross reference maps merged.
+    *
+    * @param ref1 dataframe with columns `id` and `xref`
+    * @param ref2
+    * @return
+    */
+  def mergeCrossReferenceMaps(ref1: DataFrame, ref2: DataFrame): DataFrame = {
+    val ref1x = "x"
+    val ref2x = "y"
+    val r1 = ref1.withColumnRenamed(XREF_COLUMN_NAME, ref1x)
+    val r2 = ref2.withColumnRenamed(XREF_COLUMN_NAME, ref2x)
+    r1
+      .join(r2, Seq("id"), "full_outer")
+      .withColumn(XREF_COLUMN_NAME, map_concat($"x", $"y"))
+      .drop("x", "y")
   }
 
 }
+
