@@ -1,9 +1,7 @@
 package io.opentargets.etl.backend
 
-import com.typesafe.config.Config
 import com.typesafe.scalalogging.LazyLogging
 import io.opentargets.etl.backend.SparkHelpers.IOResourceConfig
-import org.apache.spark.SparkConf
 import org.apache.spark.sql._
 import org.apache.spark.sql.expressions._
 import org.apache.spark.sql.types._
@@ -62,8 +60,7 @@ object Transformers {
   /** NOTE finding drugs from associations are computed just using direct assocs
     *  otherwise drugs are spread traversing all efo tree.
     */
-  def findAssociationsWithDrugs(evidence: DataFrame, efos: DataFrame): DataFrame = {
-    val ancestors = efos.select("disease_id", "ancestors")
+  def findAssociationsWithDrugs(evidence: DataFrame): DataFrame = {
     evidence
       .filter(col("drug.id").isNotNull)
       .withColumn("drug_id", substring_index(col("drug.id"), "/", -1))
@@ -72,10 +69,7 @@ object Transformers {
         "target.id as target_id",
         "disease.id as disease_id"
       )
-      //      .join(ancestors, Seq("disease_id"), "left_outer")
-      //      .withColumn("ancestor_id", explode(col("ancestors")))
-      //      .withColumn("association_id", concat_ws("-", col("target_id"), col("ancestor_id")))
-      .withColumn("association_id", concat_ws("-", col("target_id"), col("disease_id")))
+      .withColumn("association_id", concat_ws("-", col("disease_id"), col("target_id")))
       .groupBy(col("association_id"))
       .agg(
         collect_set(col("drug_id")).as("drug_ids"),
@@ -91,8 +85,7 @@ object Transformers {
         associations: DataFrame,
         associatedDrugs: DataFrame,
         diseases: DataFrame,
-        drugs: DataFrame,
-        associationCounts: Long
+        drugs: DataFrame
     ): DataFrame = {
 
       val drugsByTarget = associatedDrugs
@@ -228,8 +221,7 @@ object Transformers {
         associations: DataFrame,
         associatedDrugs: DataFrame,
         targets: DataFrame,
-        drugs: DataFrame,
-        associationCounts: Long
+        drugs: DataFrame
     ): DataFrame = {
 
       val drugsByDisease = associatedDrugs
@@ -452,10 +444,8 @@ object Search extends LazyLogging {
     import ss.implicits._
     import Transformers.Implicits
 
-    val llrAssoc = AssociationsLLR.compute()
-
+    val assocs = Association.computeIndirectAssociations()
     val common = context.configuration.common
-
     val mappedInputs = Map(
       "disease" -> IOResourceConfig(
         common.inputs.disease.format,
@@ -544,18 +534,14 @@ object Search extends LazyLogging {
       "score"
     )
     logger.info("subselect indirect LLR associations just id and score and persist")
-    val associationScores = llrAssoc._2
-    //      .selectExpr("harmonic_sum.overall as score",
-    //                  "id as association_id",
-    //                  "target.id as target_id",
-    //                  "disease.id as disease_id")
-    // this needs to be addressed as the assocs llr does not create the correct structure to be
-    // compatible with the standard associations
+    val associationScores = assocs("associations_overall_indirect")
+      .withColumn("association_id",
+        concat_ws("-", col("disease_id"), col("target_id")))
       .selectExpr(
-        "harmonic_sum.overall as score",
-        "id as association_id",
-        "target as target_id",
-        "disease as disease_id"
+        "overall_ds_score_harmonic as score",
+        "association_id",
+        "target_id",
+        "disease_id"
       )
       .select(associationColumns.head, associationColumns.tail: _*)
       .persist(StorageLevel.DISK_ONLY)
@@ -563,10 +549,9 @@ object Search extends LazyLogging {
     logger.info("find associated drugs using evidence dataset")
     val associationsWithDrugsFromEvidences =
       Transformers
-        .findAssociationsWithDrugs(inputDataFrame("evidence"), diseases)
+        .findAssociationsWithDrugs(inputDataFrame("evidence"))
 
     logger.info("compute total counts for associations and associations with drugs")
-    val totalAssociations = associationScores.count()
     val totalAssociationsWithDrugs = associationsWithDrugsFromEvidences.count()
 
     val drugColumns = Seq(
@@ -601,8 +586,7 @@ object Search extends LazyLogging {
         associationScores,
         associationsWithDrugsFromEvidencesWithScores,
         tLUT,
-        drLUT,
-        totalAssociations
+        drLUT
       )
 
     logger.info("generate search objects for target entity")
@@ -611,8 +595,7 @@ object Search extends LazyLogging {
         associationScores,
         associationsWithDrugsFromEvidencesWithScores,
         dLUT,
-        drLUT,
-        totalAssociations
+        drLUT
       )
 
     logger.info("generate search objects for drug entity")
