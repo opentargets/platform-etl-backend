@@ -31,26 +31,27 @@ object DrugBeta extends LazyLogging {
                                      common.inputs.drugChemblMolecule.path),
       "target" -> IOResourceConfig(common.inputs.drugChemblTarget.format,
                                    common.inputs.drugChemblTarget.path),
-      "drugbank" -> IOResourceConfig(common.inputs.drugDrugbank.format, common.inputs.drugDrugbank.path)
+      "drugbank" -> IOResourceConfig(common.inputs.drugDrugbank.format, common.inputs.drugDrugbank.path),
+      "efo" -> IOResourceConfig(common.inputs.disease.format, common.inputs.disease.path)
     )
 
     val inputDataFrames = SparkHelpers.readFrom(mappedInputs)
 
-    val moleculeDf: DataFrame = inputDataFrames("molecule")
-    val mechanismDf: DataFrame = inputDataFrames("mechanism")
-    val indicationDf: DataFrame = inputDataFrames("indication")
-    val targetDf: DataFrame = inputDataFrames("target")
-    val drugbankData: DataFrame = inputDataFrames("drugbank")
+    lazy val moleculeDf: DataFrame = inputDataFrames("molecule")
+    lazy val mechanismDf: DataFrame = inputDataFrames("mechanism")
+    lazy val indicationDf: DataFrame = inputDataFrames("indication")
+    lazy val targetDf: DataFrame = inputDataFrames("target")
+    lazy val drugbankData: DataFrame = inputDataFrames("drugbank")
       .withColumnRenamed("From src:'1'", "id")
       .withColumnRenamed("To src:'2'", "drugbank_id")
+    lazy val efoDf: DataFrame = inputDataFrames("efo")
 
     logger.info("Raw inputs for Drug beta loaded.")
 
-//    val molecule = new Molecule(moleculeDf, drugbankData)
+    val molecule = new Molecule(moleculeDf, drugbankData)
+    val indications = new Indication(indicationDf, efoDf)
 
     def mechanismPreprocess(df: DataFrame): DataFrame = ???
-
-    def indicationPreprocess(df: DataFrame): DataFrame = ???
 
     def targetPreprocess(df: DataFrame): DataFrame = ???
 
