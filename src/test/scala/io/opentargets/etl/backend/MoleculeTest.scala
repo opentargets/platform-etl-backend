@@ -101,6 +101,10 @@ object MoleculeTest {
     )
     sparkSession.createDataFrame(sparkSession.sparkContext.parallelize(data), schema)
   }
+
+  def getMoleculeInstance(sparkSession: SparkSession): Molecule = {
+    new Molecule(sparkSession.emptyDataFrame, sparkSession.emptyDataFrame)(sparkSession)
+  }
 }
 class MoleculeTest extends AnyWordSpecLike with Matchers with PrivateMethodTester with SparkSessionSetup {
 
@@ -110,14 +114,13 @@ class MoleculeTest extends AnyWordSpecLike with Matchers with PrivateMethodTeste
   val processChemblXR: PrivateMethod[Dataset[Row]] = PrivateMethod[Dataset[Row]]('processChemblCrossReferences)
 
   "The Molecule class" should {
-
     "given a preprocessed molecule successfully prepare all cross references" in withSparkSession { sparkSession =>
       // given
       val sampleMolecule: DataFrame = sparkSession.read
         .option("multiline",value = true)
         .schema(MoleculeTest.structAfterPreprocessing)
         .json(this.getClass.getResource("/sample_mol_after_preprocessing.json").getPath)
-      val molecule = new Molecule()(sparkSession)
+      val molecule = MoleculeTest.getMoleculeInstance(sparkSession)
       // when
       val results = molecule.processMoleculeCrossReferences(sampleMolecule)
       val xrefMap = results.head.getMap(1)
@@ -131,8 +134,7 @@ class MoleculeTest extends AnyWordSpecLike with Matchers with PrivateMethodTeste
       // given
       val refColumn = "src"
       val df = MoleculeTest.getDrugbankSampleData(refColumn, sparkSession)
-      val molecule = new Molecule()(sparkSession)
-
+      val molecule = MoleculeTest.getMoleculeInstance(sparkSession)
       // when
       val results = molecule invokePrivate processSingletonXR(df, refColumn, "SRC")
       val crossReferences: collection.Map[String, Array[String]] =
@@ -153,8 +155,7 @@ class MoleculeTest extends AnyWordSpecLike with Matchers with PrivateMethodTeste
                                                           MoleculeTest.simpleReferenceSchema)
       val refs2: DataFrame = sparkSession.createDataFrame(sparkSession.sparkContext.parallelize(y),
                                                           MoleculeTest.simpleReferenceSchema)
-      val molecule = new Molecule()(sparkSession)
-
+      val molecule = MoleculeTest.getMoleculeInstance(sparkSession)
       // when
       val results: DataFrame = molecule invokePrivate mergeXRMaps(refs1, refs2)
       // then
@@ -170,8 +171,7 @@ class MoleculeTest extends AnyWordSpecLike with Matchers with PrivateMethodTeste
       // given
       val sources = Set("PubChem", "DailyMed")
       val df = MoleculeTest.getSampleChemblData(sparkSession)
-      val molecule = new Molecule()(sparkSession)
-
+      val molecule = MoleculeTest.getMoleculeInstance(sparkSession)
       // when
       val results: DataFrame = molecule invokePrivate  processChemblXR(df)
       val row: Row = results.head

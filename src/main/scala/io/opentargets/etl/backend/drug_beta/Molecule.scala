@@ -5,7 +5,7 @@ import org.apache.spark.sql.expressions.UserDefinedFunction
 import org.apache.spark.sql.functions.{array, array_sort, arrays_zip, col, collect_list, collect_set, explode, lit, map_concat, split, udf, upper, when}
 import org.apache.spark.sql.{DataFrame, SparkSession, functions}
 
-class Molecule()(implicit sparkSession: SparkSession)
+class Molecule(moleculeRaw: DataFrame, drugbankRaw: DataFrame)(implicit sparkSession: SparkSession)
     extends LazyLogging with Serializable {
 
 
