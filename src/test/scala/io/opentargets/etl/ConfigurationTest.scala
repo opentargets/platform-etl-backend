@@ -9,7 +9,7 @@ import pureconfig.ConfigReader
 class ConfigurationTest extends AnyFlatSpecLike with Matchers {
   "Pureconfig" should "successfully load standard configuration without error" in {
     val conf: ConfigReader.Result[OTConfig] = Configuration.config
-    assert(conf.isRight)
+    assert(conf.isRight, s"Failed with ${conf.left}")
   }
 
   "The parsed configuration" should "include all necessary segments for the drug-beta step" in {
