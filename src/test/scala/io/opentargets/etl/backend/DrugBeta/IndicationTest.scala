@@ -10,6 +10,7 @@ import org.scalatest.matchers.must.Matchers
 import org.scalatest.wordspec.AnyWordSpecLike
 
 object IndicationTest {
+
   def getIndicationInstance(sparkSession: SparkSession): Indication = new Indication(sparkSession.emptyDataFrame, sparkSession.emptyDataFrame)(sparkSession)
 }
 class IndicationTest
@@ -71,6 +72,29 @@ class IndicationTest
           .collect
           .toList
           .forall(expectedResultSet.contains))
+    }
+  }
+
+  "Processing ChEMBL indications data" should {
+
+    "correctly replace : with _" in withSparkSession { sparkSession =>
+      val formatEfoIdsPM: PrivateMethod[Dataset[Row]] = PrivateMethod[Dataset[Row]]('formatEfoIds)
+      import sparkSession.implicits._
+      // given
+      case class EfoId(efo_id: String)
+      val data = Seq("EFO:0002618","EFO:0003716","EFO:0004232").map(Row(_))
+      val df: DataFrame = sparkSession.createDataFrame(sparkSession.sparkContext.parallelize(data), StructType(StructField("efo_id", StringType) :: Nil))
+      // when
+      val results: DataFrame = IndicationTest.getIndicationInstance(sparkSession) invokePrivate formatEfoIdsPM(df)
+      // then
+      assert(
+        results
+          .select("efo_id")
+          .map(r => r.getString(0))
+          .collect
+          .toList
+          .forall(!_.contains(':'))
+      )
     }
   }
 }
