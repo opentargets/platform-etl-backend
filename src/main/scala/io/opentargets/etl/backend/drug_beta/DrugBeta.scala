@@ -31,7 +31,9 @@ object DrugBeta extends LazyLogging {
       "target" -> IOResourceConfig(common.inputs.drugChemblTarget.format,
                                    common.inputs.drugChemblTarget.path),
       "drugbank" -> IOResourceConfig(common.inputs.drugDrugbank.format, common.inputs.drugDrugbank.path),
-      "efo" -> IOResourceConfig(common.inputs.disease.format, common.inputs.disease.path)
+      // inputs from data-pipeline
+      "efo" -> IOResourceConfig(common.inputs.disease.format, common.inputs.disease.path),
+      "gene" -> IOResourceConfig(common.inputs.target.format, common.inputs.target.path)
     )
 
     val inputDataFrames = SparkHelpers.readFrom(mappedInputs)
@@ -40,6 +42,7 @@ object DrugBeta extends LazyLogging {
     lazy val mechanismDf: DataFrame = inputDataFrames("mechanism")
     lazy val indicationDf: DataFrame = inputDataFrames("indication")
     lazy val targetDf: DataFrame = inputDataFrames("target")
+    lazy val geneDf: DataFrame = inputDataFrames("gene")
     lazy val drugbankData: DataFrame = inputDataFrames("drugbank")
       .withColumnRenamed("From src:'1'", "id")
       .withColumnRenamed("To src:'2'", "drugbank_id")
@@ -49,6 +52,7 @@ object DrugBeta extends LazyLogging {
 
     val molecule = new Molecule(moleculeDf, drugbankData)
     val indications = new Indication(indicationDf, efoDf)
+    val mechanismOfAction = new MechanismOfAction(mechanismDf, targetDf, geneDf)
 
     def mechanismPreprocess(df: DataFrame): DataFrame = ???
 
