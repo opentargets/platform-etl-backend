@@ -6,34 +6,38 @@ import org.apache.spark.sql.{DataFrame, Dataset, Row, SparkSession}
 import org.apache.spark.sql.functions.col
 import org.apache.spark.sql.types.{StringType, StructField, StructType}
 import org.scalatest.PrivateMethodTester
+import org.scalatest.flatspec.AnyFlatSpecLike
 import org.scalatest.matchers.must.Matchers
-import org.scalatest.wordspec.AnyWordSpecLike
 
 object IndicationTest {
+
+  def indicationDf(sparkSession: SparkSession): DataFrame = sparkSession.read.json(this.getClass.getResource("/indication_test30.jsonl").getPath)
+  def efoDf(sparkSession: SparkSession): DataFrame = sparkSession.read.parquet(this.getClass.getResource("/efo_sample.parquet").getPath )
 
   def getIndicationInstance(sparkSession: SparkSession): Indication = new Indication(sparkSession.emptyDataFrame, sparkSession.emptyDataFrame)(sparkSession)
 }
 class IndicationTest
-    extends AnyWordSpecLike
+    extends AnyFlatSpecLike
     with Matchers
     with PrivateMethodTester
     with SparkSessionSetup {
 
-  "Processing EFO metadata" should {
-    val getEfoDataFrame: PrivateMethod[Dataset[Row]] = PrivateMethod[Dataset[Row]]('getEfoDataframe)
-    "return a dataframe with the EFO's id, label and uri" in withSparkSession { sparkSession =>
-      // given
-      val inputDF: DataFrame = sparkSession.read.parquet(this.getClass.getResource("/efo_sample.parquet").getPath)
-      val expectedColumns = Set("efo_id", "efo_label", "efo_uri")
-      // when
-      val results: DataFrame = IndicationTest.getIndicationInstance(sparkSession) invokePrivate  getEfoDataFrame(inputDF)
+  val getEfoDataFrame: PrivateMethod[Dataset[Row]] = PrivateMethod[Dataset[Row]]('getEfoDataframe)
 
-      // then
-      results.columns.forall(expectedColumns.contains)
-    }
+  import sparkSession.implicits._
 
-    "extract the EFO ID from the URI" in withSparkSession { sparkSession =>
-      import sparkSession.implicits._
+  "Processing EFO metadata" should "return a dataframe with the EFO's id, label and uri" in {
+    // given
+    val inputDF: DataFrame = IndicationTest.efoDf(sparkSession)
+    val expectedColumns = Set("efo_id", "efo_label", "efo_uri")
+    // when
+    val results: DataFrame = IndicationTest.getIndicationInstance(sparkSession) invokePrivate  getEfoDataFrame(inputDF)
+
+    // then
+    results.columns.forall(expectedColumns.contains)
+  }
+
+  "The EFO ID" should "be extracted from the URI" in {
       // given
       val inputs = Seq(
         ("http://www.ebi.ac.uk/efo/EFO_1002015", "EFO_1002015"),
@@ -73,11 +77,21 @@ class IndicationTest
           .toList
           .forall(expectedResultSet.contains))
     }
-  }
 
-  "Processing ChEMBL indications data" should {
+  "Processing ChEMBL indications data" should "correctly process raw ChEMBL data into expected format" in {
+      // given
+      val indicationDf = IndicationTest.indicationDf(sparkSession)
+      val efoDf = IndicationTest.efoDf(sparkSession)
 
-    "correctly replace : with _" in withSparkSession { sparkSession =>
+      val indicationInst = new Indication(indicationDf, efoDf)(sparkSession)
+      // when
+      val results = indicationInst.processIndications
+      // then
+      val expectedColumns = Set("efo_id", "id", "max_phase_for_indications", "references", "efo_url", "efo_label")
+      assert(results.columns.forall(expectedColumns.contains) && expectedColumns.size == results.columns.length, s"All expected columns were expected but instead got ${results.columns.mkString("Array(", ", ", ")")}")
+    }
+
+  "The Indication class" should "correctly replace : with _ in efo ids" in {
       val formatEfoIdsPM: PrivateMethod[Dataset[Row]] = PrivateMethod[Dataset[Row]]('formatEfoIds)
       import sparkSession.implicits._
       // given
@@ -96,5 +110,5 @@ class IndicationTest
           .forall(!_.contains(':'))
       )
     }
-  }
+
 }
