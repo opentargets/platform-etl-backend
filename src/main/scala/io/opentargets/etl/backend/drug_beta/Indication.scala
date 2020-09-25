@@ -37,14 +37,20 @@ class Indication(indicationsRaw: DataFrame, efoRaw: DataFrame)(
     val df = formatEfoIds(this.indicationsRaw)
     // flatten hierarchy
     df.withColumn("r", explode($"indication_refs"))
-      .select($"molecule_chembl_id", $"efo_id", $"max_phase_for_ind", $"r.ref_id", $"r.ref_type", $"r.ref_url" )
+      .select(
+        $"molecule_chembl_id".as("id"),
+        $"efo_id",
+        $"max_phase_for_ind",
+        $"r.ref_id",
+        $"r.ref_type",
+        $"r.ref_url" )
     // handle case where clinical trials packs multiple ids into a csv string
       .withColumn("ref_id_temp", split($"ref_id", ","))
       .drop("ref_id")
       .withColumn("ref_id", explode($"ref_id_temp"))
       .drop("ref_id_temp")
     // group reference ids and urls by ref_type
-      .groupBy("molecule_chembl_id", "efo_id", "ref_type")
+      .groupBy("id", "efo_id", "ref_type")
       .agg(
         max("max_phase_for_ind").as("max_phase_for_ind"),
         collect_list("ref_id").as("ids"),
@@ -55,7 +61,7 @@ class Indication(indicationsRaw: DataFrame, efoRaw: DataFrame)(
         $"ids",
         $"urls"
       ))
-      .groupBy("molecule_chembl_id", "efo_id")
+      .groupBy("id", "efo_id")
       .agg(
         max("max_phase_for_ind").as("max_phase_for_indications"),
         collect_list("references").as("references")

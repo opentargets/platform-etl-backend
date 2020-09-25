@@ -5,7 +5,9 @@ import org.apache.spark.sql.functions.col
 import org.apache.spark.sql.{DataFrame, Dataset, Row, SparkSession}
 import org.apache.spark.sql.types.{ArrayType, BooleanType, LongType, MapType, StringType, StructField, StructType}
 import org.scalatest.PrivateMethodTester
+import org.scalatest.flatspec.AnyFlatSpecLike
 import org.scalatest.matchers.must.Matchers
+import org.scalatest.matchers.should.Matchers.convertToAnyShouldWrapper
 import org.scalatest.wordspec.AnyWordSpecLike
 
 object MoleculeTest {
@@ -106,15 +108,14 @@ object MoleculeTest {
     new Molecule(sparkSession.emptyDataFrame, sparkSession.emptyDataFrame)(sparkSession)
   }
 }
-class MoleculeTest extends AnyWordSpecLike with Matchers with PrivateMethodTester with SparkSessionSetup {
+class MoleculeTest extends AnyFlatSpecLike with Matchers with PrivateMethodTester with SparkSessionSetup {
 
   // private methods for testing
   val processSingletonXR: PrivateMethod[Dataset[Row]] = PrivateMethod[Dataset[Row]]('processSingletonCrossReferences)
   val mergeXRMaps: PrivateMethod[Dataset[Row]] = PrivateMethod[Dataset[Row]]('mergeCrossReferenceMaps)
   val processChemblXR: PrivateMethod[Dataset[Row]] = PrivateMethod[Dataset[Row]]('processChemblCrossReferences)
 
-  "The Molecule class" should {
-    "given a preprocessed molecule successfully prepare all cross references" in withSparkSession { sparkSession =>
+  "The Molecule class" should "given a preprocessed molecule successfully prepare all cross references" in {
       // given
       val sampleMolecule: DataFrame = sparkSession.read
         .option("multiline",value = true)
@@ -130,7 +131,7 @@ class MoleculeTest extends AnyWordSpecLike with Matchers with PrivateMethodTeste
       }
     }
 
-    "successfully create a map of singleton cross references" in withSparkSession { sparkSession =>
+    it should "successfully create a map of singleton cross references" in {
       // given
       val refColumn = "src"
       val df = MoleculeTest.getDrugbankSampleData(refColumn, sparkSession)
@@ -146,7 +147,7 @@ class MoleculeTest extends AnyWordSpecLike with Matchers with PrivateMethodTeste
              "Singleton cross references should have a single value.")
     }
 
-    "successfully merge two maps of references" in withSparkSession { sparkSession =>
+    it should "successfully merge two maps of references" in {
       // given
       val x: Seq[Row] = Seq(Row("id1", Map("a" -> Array("b"))))
       val y: Seq[Row] = Seq(Row("id1", Map("c" -> Array("d"))))
@@ -167,7 +168,7 @@ class MoleculeTest extends AnyWordSpecLike with Matchers with PrivateMethodTeste
       )
     }
 
-    "successfully create map of ChEMBL cross references" in withSparkSession { sparkSession =>
+    it should "successfully create map of ChEMBL cross references" in {
       // given
       val sources = Set("PubChem", "DailyMed")
       val df = MoleculeTest.getSampleChemblData(sparkSession)
@@ -182,7 +183,7 @@ class MoleculeTest extends AnyWordSpecLike with Matchers with PrivateMethodTeste
       assert(crossReferences.keys.toSet equals sources, s"Not all source found in source map.")
     }
 
-    "create map of sources from pairs represented as sequences" in {
+    it should "create map of sources from pairs represented as sequences" in {
       // given
       val input = Seq(
         Seq("a", "b"),
@@ -202,7 +203,4 @@ class MoleculeTest extends AnyWordSpecLike with Matchers with PrivateMethodTeste
         map.values.foldLeft(0)((acc, seq) => acc + seq.size)
       }
     }
-
-  }
-
 }
