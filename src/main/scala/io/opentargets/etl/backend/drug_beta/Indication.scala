@@ -1,6 +1,7 @@
 package io.opentargets.etl.backend.drug_beta
 
 import com.typesafe.scalalogging.LazyLogging
+import io.opentargets.etl.backend.SparkHelpers.applyFunToColumn
 import org.apache.spark.sql.{Column, DataFrame, SparkSession}
 import org.apache.spark.sql.functions._
 
@@ -35,6 +36,8 @@ class Indication(indicationsRaw: DataFrame, efoRaw: DataFrame)(
 
   private def processIndicationsRawData: DataFrame = {
     val df = formatEfoIds(this.indicationsRaw)
+
+    val splitComma = split(_: Column, ",")
     // flatten hierarchy
     df.withColumn("r", explode($"indication_refs"))
       .select(
@@ -45,10 +48,8 @@ class Indication(indicationsRaw: DataFrame, efoRaw: DataFrame)(
         $"r.ref_type",
         $"r.ref_url" )
     // handle case where clinical trials packs multiple ids into a csv string
-      .withColumn("ref_id_temp", split($"ref_id", ","))
-      .drop("ref_id")
-      .withColumn("ref_id", explode($"ref_id_temp"))
-      .drop("ref_id_temp")
+      .transform(applyFunToColumn("ref_id", _, splitComma))
+      .transform(applyFunToColumn("ref_id", _, explode))
     // group reference ids and urls by ref_type
       .groupBy("id", "efo_id", "ref_type")
       .agg(

@@ -2,7 +2,7 @@ package io.opentargets.etl.backend
 import com.typesafe.scalalogging.LazyLogging
 import org.apache.spark.SparkConf
 import org.apache.spark.sql.{Column, DataFrame, DataFrameWriter, Row, SparkSession}
-import org.apache.spark.sql.functions.expr
+import org.apache.spark.sql.functions.{col, expr}
 import org.apache.spark.sql.types.{ArrayType, DataType, Metadata, StructField, StructType}
 
 object SparkHelpers extends LazyLogging {
@@ -136,5 +136,20 @@ object SparkHelpers extends LazyLogging {
     })
 
     renameDataType(schema)
+  }
+
+  /**
+    * Helper method to apply a function to an existing column so that from the point of view of the user the
+    * dataframe passed in is mutated.
+    * @param columnName to apply function to
+    * @param dataFrame to transform
+    * @param fun transformation to apply to `columnName` in `dataFrame`
+    * @return transformed dataframe
+    */
+  def applyFunToColumn(columnName: String, dataFrame: DataFrame, fun: (Column) => Column): DataFrame = {
+    assert(dataFrame.columns.contains(columnName), s"Column $columnName was not in dataframe!")
+    dataFrame.withColumn("x", fun(col(columnName)))
+      .drop(columnName)
+      .withColumnRenamed("x", columnName)
   }
 }
