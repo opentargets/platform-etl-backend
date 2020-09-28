@@ -3,10 +3,11 @@ package io.opentargets.etl.backend
 import org.apache.spark.sql.types._
 import org.scalatest.flatspec.AnyFlatSpecLike
 import org.scalatest.matchers.should.Matchers
-
 import io.opentargets.etl.backend.SparkHelpers._
 
-class SparkHelpersTest extends AnyFlatSpecLike with Matchers {
+import org.apache.spark.sql.functions.lower
+
+class SparkHelpersTest extends AnyFlatSpecLike with Matchers with SparkSessionSetup {
   // given
   val renameFun: String => String = _.toUpperCase
   val testStruct =
@@ -34,5 +35,18 @@ class SparkHelpersTest extends AnyFlatSpecLike with Matchers {
     val results = renameAllCols(structWithArray, renameFun)
     // then
     assert(results(3).dataType.asInstanceOf[ArrayType].elementType.asInstanceOf[StructType].fieldNames.forall(_.head.isUpper))
+  }
+
+  "applyFunToColumn" should "apply the function to the column and return a dataframe with the same column names as in the input dataframe" in {
+    import sparkSession.implicits._
+    // given
+    val df = Seq("UPPER").toDF("a")
+    // when
+    val results = df.transform(SparkHelpers.applyFunToColumn("a", _, lower))
+    // then
+      // column names are unchanged
+    assert(results.columns sameElements df.columns)
+      // function was applied to elements
+    assert(results.head.getString(0).forall(c => c.isLower))
   }
 }
