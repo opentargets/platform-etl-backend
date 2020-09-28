@@ -146,10 +146,21 @@ object SparkHelpers extends LazyLogging {
     * @param fun transformation to apply to `columnName` in `dataFrame`
     * @return transformed dataframe
     */
-  def applyFunToColumn(columnName: String, dataFrame: DataFrame, fun: (Column) => Column): DataFrame = {
+  def applyFunToColumn(columnName: String, dataFrame: DataFrame, fun: Column => Column): DataFrame = {
     assert(dataFrame.columns.contains(columnName), s"Column $columnName was not in dataframe!")
     dataFrame.withColumn("x", fun(col(columnName)))
       .drop(columnName)
       .withColumnRenamed("x", columnName)
+  }
+
+  /**
+    * Helper function to confirm that all required columns are available on dataframe.
+    * @param requiredColumns on input dataframe
+    * @param dataFrame dataframe to test
+    */
+  def validateDF(requiredColumns: Set[String], dataFrame: DataFrame): Unit = {
+    lazy val msg = s"One or more required columns (${requiredColumns.mkString(",")}) not found in dataFrame columns: ${dataFrame.columns.mkString(",")}"
+    val columnsOnDf = dataFrame.columns.toSet
+    assert(requiredColumns.forall(columnsOnDf.contains), msg)
   }
 }

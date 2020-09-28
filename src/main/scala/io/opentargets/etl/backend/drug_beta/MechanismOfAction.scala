@@ -1,69 +1,32 @@
 package io.opentargets.etl.backend.drug_beta
 
-import io.opentargets.etl.backend.SparkHelpers.applyFunToColumn
-import org.apache.spark.sql.functions.{col, collect_list, explode, lower, struct, transform}
-import org.apache.spark.sql.{Column, ColumnName, DataFrame, SparkSession}
+import io.opentargets.etl.backend.SparkHelpers.{applyFunToColumn, validateDF}
+import org.apache.spark.sql.functions.{col, collect_list, explode, lower, struct}
+import org.apache.spark.sql.{ DataFrame, SparkSession}
 
 
 /**
-  * Input from mechanism df
-  * root
-  * |-- action_type: string (nullable = true)           // to lower case
-  * |-- mechanism_of_action: string (nullable = true)   // (rename description)
-  * |-- mechanism_refs: array (nullable = true)         // group by type and have array of id, url (rename references)
-  * |    |-- element: struct (containsNull = true)
-  * |    |    |-- ref_id: string (nullable = true)
-  * |    |    |-- ref_type: string (nullable = true)
-  * |    |    |-- ref_url: string (nullable = true)
-  * |-- molecule_chembl_id: string (nullable = true)
-  * |-- record_id: long (nullable = true)
-  * |-- target_chembl_id: string (nullable = true)
+  * Class for preparing mechanism of action section of the drug object.
   *
-  * Input from Target df
-  * root
-  * |-- pref_name: string (nullable = true)
-  * |-- target_chembl_id: string (nullable = true)
-  * |-- target_components: array (nullable = true)
-  * |    |-- element: struct (containsNull = true)
-  * |    |    |-- accession: string (nullable = true)
-  * |    |    |-- component_description: string (nullable = true)
-  * |    |    |-- component_id: long (nullable = true)
-  * |    |    |-- component_type: string (nullable = true)
-  * |    |    |-- relationship: string (nullable = true)
-  * |    |    |-- target_component_synonyms: array (nullable = true)
-  * |    |    |    |-- element: struct (containsNull = true)
-  * |    |    |    |    |-- component_synonym: string (nullable = true)
-  * |    |    |    |    |-- syn_type: string (nullable = true)
-  * |    |    |-- target_component_xrefs: array (nullable = true)
-  * |    |    |    |-- element: struct (containsNull = true)
-  * |    |    |    |    |-- xref_id: string (nullable = true)
-  * |    |    |    |    |-- xref_name: string (nullable = true)
-  * |    |    |    |    |-- xref_src_db: string (nullable = true)
-  * |    |    |    |    |-- xref_src_url: string (nullable = true)
-  * |    |    |    |    |-- xref_url: string (nullable = true)
-  * |-- target_type: string (nullable = true)
+  * Output structure
   *
-  * expected output:
-  * mechanisms_of_action: array (nullable = true)
-  * |    |-- element: struct (containsNull = true)
-  * |    |    |-- action_type: string (nullable = true)
-  * |    |    |-- description: string (nullable = true)
-  * |    |    |-- references: array (nullable = true)
-  * |    |    |    |-- element: struct (containsNull = true)
-  * |    |    |    |    |-- ids: array (nullable = true)
-  * |    |    |    |    |    |-- element: string (containsNull = true)
-  * |    |    |    |    |-- source: string (nullable = true)
-  * |    |    |    |    |-- urls: array (nullable = true)
-  * |    |    |    |    |    |-- element: string (containsNull = true)
-  * |    |    |-- target_components: array (nullable = true)
-  * |    |    |    |-- element: struct (containsNull = true)
-  * |    |    |    |    |-- approved_name: string (nullable = true)
-  * |    |    |    |    |-- approved_symbol: string (nullable = true)
-  * |    |    |    |    |-- ensembl: string (nullable = true)
-  * |    |    |-- target_name: string (nullable = true)
-  * |    |    |-- target_type: string (nullable = true)
+  * id
+  * description
+  * action_type
+  * references
+  * -- source
+  * -- ids
+  * -- urls
+  * target_name
+  * target_type
+  * target_components
+  * -- approved_name
+  * -- approved_symbol
+  * -- ensembl
   *
-  * @param mechanismDf
+  * @param mechanismDf: raw data from Chembl
+  * @param targetDf: raw data from Chembl
+  * @param geneDf: gene parquet file listed under target in configuration
   * @param sparkSession
   */
 class MechanismOfAction(mechanismDf: DataFrame, targetDf: DataFrame, geneDf: DataFrame)(implicit sparkSession: SparkSession) {
@@ -78,8 +41,9 @@ class MechanismOfAction(mechanismDf: DataFrame, targetDf: DataFrame, geneDf: Dat
     val target = chemblTarget(targetDf, geneDf)
 
     mechanism
-      .join(references, Seq("id"), "left_outer")
-      .join(target, $"id" === target.col("target_chembl_id"), "left_outer")
+      .join(references, Seq("id"), "outer")
+      .join(target, Seq("id"), "outer")
+      .drop("mechanism_refs", "record_id", "target_chembl_id")
 
   }
 
@@ -114,7 +78,7 @@ class MechanismOfAction(mechanismDf: DataFrame, targetDf: DataFrame, geneDf: Dat
     val targetDf = target.transform(applyFunToColumn("target_components", _, explode))
       .filter($"target_components.accession".isNotNull)
       .transform(applyFunToColumn("target_type", _, lower))
-      .select($"pref_name".as("target_name"), $"target_components.accession".as("uniprot_id"), $"target_type", $"target_chembl_id")
+      .select($"pref_name".as("target_name"), $"target_components.accession".as("uniprot_id"), $"target_type", $"target_chembl_id".as("id"))
     val genes = gene.select(geneCols.map(col): _*)
 
     targetDf.join(genes, Seq("uniprot_id"), "left_outer")
@@ -123,13 +87,10 @@ class MechanismOfAction(mechanismDf: DataFrame, targetDf: DataFrame, geneDf: Dat
         $"approved_symbol",
         $"ensembl_gene_id".as("ensembl")
       ))
-      .groupBy("target_chembl_id", "target_name", "target_type")
+      .groupBy("id", "target_name", "target_type")
       .agg(collect_list("target_components").as("target_components"))
 
   }
 
-  private def validateDF(requiredColumns: Set[String], dataFrame: DataFrame): Unit = {
-    lazy val msg = s"One or more required columns (${requiredColumns.mkString(",")}) not found in dataFrame columns: ${dataFrame.columns.mkString(",")}"
-    assert(dataFrame.columns.forall(requiredColumns.contains), msg)
-  }
+
 }
