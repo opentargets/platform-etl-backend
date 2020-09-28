@@ -87,7 +87,8 @@ class IndicationTest
       // when
       val results = indicationInst.processIndications
       // then
-      val expectedColumns = Set("efo_id", "id", "max_phase_for_indications", "references", "efo_url", "efo_label")
+      val expectedColumns = Set("id", "indications", "indication_therapeutic_areas", "number_of_indications")
+
       assert(results.columns.forall(expectedColumns.contains) && expectedColumns.size == results.columns.length, s"All expected columns were expected but instead got ${results.columns.mkString("Array(", ", ", ")")}")
     }
 

@@ -21,7 +21,8 @@ import org.apache.spark.sql.functions._
   *       urls: [str1, ..., strn],
   *       ids: [str1, ..., strn]
   *     }]
-  *  }
+  *  },
+  *  thera
   *
   */
 class Indication(indicationsRaw: DataFrame, efoRaw: DataFrame)(
@@ -29,9 +30,42 @@ class Indication(indicationsRaw: DataFrame, efoRaw: DataFrame)(
   import sparkSession.implicits._
 
   def processIndications: DataFrame = {
-    val preprocessedIndications = formatEfoIds(processIndicationsRawData)
-    val efoDf = formatEfoIds(getEfoDataframe(efoRaw))
-    preprocessedIndications.join(efoDf, Seq("efo_id"), "leftouter")
+
+    val efoDf = getEfoDataframe(efoRaw).transform(formatEfoIds)
+    val indicationDf = processIndicationsRawData
+      .join(efoDf, Seq("efo_id"), "leftouter")
+    val therapeuticDf = indicationDf.transform(processTherapeuticAreas)
+
+    indicationDf.join(therapeuticDf, Seq("id"), "left_outer")
+      .withColumn("struct",
+        struct($"efo_id",
+          $"max_phase_for_indications",
+          $"references",
+          $"efo_url",
+          $"efo_label"
+        ))
+      .groupBy("id")
+      .agg(
+        collect_list($"struct").as("indications"),
+        collect_list($"indication_therapeutic_areas").as("indication_therapeutic_areas")
+      ).withColumn("number_of_indications", size($"indications"))
+  }
+
+  private def processTherapeuticAreas(dataFrame: DataFrame): DataFrame = {
+    dataFrame
+      .withColumn("t_labels", explode($"therapeutic_labels"))
+      .withColumn("t_codes", explode($"therapeutic_codes"))
+      .groupBy("id", "t_codes", "t_labels")
+      .agg(count("*").as("count"))
+      .orderBy(asc("count"))
+      .withColumn("struct", struct(
+        $"t_codes".as("therapeutic_code"),
+        $"t_labels".as("therapeutic_label"),
+        $"count"
+      ))
+      .groupBy("id")
+      .agg(
+        collect_list("struct").as("indication_therapeutic_areas"))
   }
 
   private def processIndicationsRawData: DataFrame = {
@@ -40,28 +74,27 @@ class Indication(indicationsRaw: DataFrame, efoRaw: DataFrame)(
     val splitComma = split(_: Column, ",")
     // flatten hierarchy
     df.withColumn("r", explode($"indication_refs"))
-      .select(
-        $"molecule_chembl_id".as("id"),
-        $"efo_id",
-        $"max_phase_for_ind",
-        $"r.ref_id",
-        $"r.ref_type",
-        $"r.ref_url" )
-    // handle case where clinical trials packs multiple ids into a csv string
+      .select($"molecule_chembl_id".as("id"),
+              $"efo_id",
+              $"max_phase_for_ind",
+              $"r.ref_id",
+              $"r.ref_type",
+              $"r.ref_url")
+      // handle case where clinical trials packs multiple ids into a csv string
       .transform(applyFunToColumn("ref_id", _, splitComma))
       .transform(applyFunToColumn("ref_id", _, explode))
-    // group reference ids and urls by ref_type
+      // group reference ids and urls by ref_type
       .groupBy("id", "efo_id", "ref_type")
-      .agg(
-        max("max_phase_for_ind").as("max_phase_for_ind"),
-        collect_list("ref_id").as("ids"),
-        collect_list("ref_url").as("urls"))
-    // nest references and find max_phase
-      .withColumn("references", struct(
-        $"ref_type".as("source"),
-        $"ids",
-        $"urls"
-      ))
+      .agg(max("max_phase_for_ind").as("max_phase_for_ind"),
+           collect_list("ref_id").as("ids"),
+           collect_list("ref_url").as("urls"))
+      // nest references and find max_phase
+      .withColumn("references",
+                  struct(
+                    $"ref_type".as("source"),
+                    $"ids",
+                    $"urls"
+                  ))
       .groupBy("id", "efo_id")
       .agg(
         max("max_phase_for_ind").as("max_phase_for_indications"),
@@ -73,10 +106,13 @@ class Indication(indicationsRaw: DataFrame, efoRaw: DataFrame)(
   /**
     *
     * @param rawEfoData taken from the `disease` input data
-    * @return dataframe of `efo_id`, `efo_label`, `efo_uri`
+    * @return dataframe of `efo_id`, `efo_label`, `efo_uri`, `therapeutic_codes`, `therapeutic_labels`
     */
   private def getEfoDataframe(rawEfoData: DataFrame): DataFrame = {
-    val columnsOfInterest = Seq(("code", "efo_url"), ("label", "efo_label"))
+    val columnsOfInterest = Seq(("code", "efo_url"),
+                                ("label", "efo_label"),
+                                ("therapeutic_codes", "therapeutic_codes"),
+                                ("therapeutic_labels", "therapeutic_labels"))
     val df = rawEfoData
       .select(columnsOfInterest.map(_._1).map(col): _*)
       .withColumn("efo_id", Indication.splitAndTakeLastElement(col("code")))
