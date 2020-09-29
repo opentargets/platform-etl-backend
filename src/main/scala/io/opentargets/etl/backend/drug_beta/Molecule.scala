@@ -3,7 +3,6 @@ package io.opentargets.etl.backend.drug_beta
 import com.typesafe.scalalogging.LazyLogging
 import org.apache.spark.sql.expressions.UserDefinedFunction
 import org.apache.spark.sql.functions.{array, array_sort, arrays_zip, col, collect_list, collect_set, explode, lit, map_concat, split, udf, upper, when}
-import org.apache.spark.sql.types.{ArrayType, BooleanType, LongType, StringType, StructField, StructType}
 import org.apache.spark.sql.{DataFrame, SparkSession, functions}
 
 class Molecule(moleculeRaw: DataFrame, drugbankRaw: DataFrame)(implicit sparkSession: SparkSession)
@@ -18,10 +17,12 @@ class Molecule(moleculeRaw: DataFrame, drugbankRaw: DataFrame)(implicit sparkSes
     val mols: DataFrame = moleculePreprocess(moleculeRaw, drugbankRaw)
     val synonyms: DataFrame = processMoleculeSynonyms(mols)
     val crossReferences: DataFrame = processMoleculeCrossReferences(mols)
-
-    mols.drop("cross_references", "syns", "chebi_par_id", "drugbank_id")
+    val hierarchy: DataFrame = processMoleculeHierarchy(mols)
+    mols.drop("cross_references", "syns", "chebi_par_id", "drugbank_id", "molecule_hierarchy")
       .join(synonyms, Seq("id"), "left_outer")
       .join(crossReferences, Seq("id"), "left_outer")
+      .join(hierarchy, Seq("id"), "left_outer")
+
   }
 
   /**
@@ -93,6 +94,14 @@ class Molecule(moleculeRaw: DataFrame, drugbankRaw: DataFrame)(implicit sparkSes
 
   }
 
+  private def processMoleculeHierarchy(preProcessedMolecules: DataFrame): DataFrame = {
+    preProcessedMolecules
+      .select($"id", $"molecule_hierarchy.parent_chembl_id".as("parent_id"))
+      .filter($"id" =!= $"parent_id")
+      .groupBy("parent_id")
+      .agg(collect_list($"id").as("child_chembl_ids"))
+      .withColumnRenamed("parent_id", "id")
+  }
   /**
     * Method to group cross references for each molecule id. Source ids are grouped according to source.
     *
