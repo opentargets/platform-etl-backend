@@ -1,33 +1,35 @@
 package io.opentargets.etl.backend.drug_beta
 
-import io.opentargets.etl.backend.SparkHelpers.{applyFunToColumn, validateDF}
-import org.apache.spark.sql.functions.{col, collect_list, explode, lower, struct}
-import org.apache.spark.sql.{ DataFrame, SparkSession}
+import io.opentargets.etl.backend.SparkHelpers.{applyFunToColumn, nest, validateDF}
+import org.apache.spark.sql.functions.{col, collect_list, explode, lower, size, struct}
+import org.apache.spark.sql.{DataFrame, SparkSession}
 
 
 /**
   * Class for preparing mechanism of action section of the drug object.
   *
-  * Output structure
+  * Output structure:
   *
   * id
-  * description
-  * action_type
-  * references
-  * -- source
-  * -- ids
-  * -- urls
-  * target_name
-  * target_type
-  * target_components
-  * -- approved_name
-  * -- approved_symbol
-  * -- ensembl
+  * mechanism_of_action
+  * --description
+  * --action_type
+  * --references
+  * ---- source
+  * ---- ids
+  * ---- urls
+  * --target_name
+  * --target_type
+  * --target_components
+  * ---- approved_name
+  * ---- approved_symbol
+  * ---- ensembl
+  * number_of_mechanisms_of_action
   *
   * @param mechanismDf: raw data from Chembl
   * @param targetDf: raw data from Chembl
   * @param geneDf: gene parquet file listed under target in configuration
-  * @param sparkSession
+  * @param sparkSession implicit
   */
 class MechanismOfAction(mechanismDf: DataFrame, targetDf: DataFrame, geneDf: DataFrame)(implicit sparkSession: SparkSession) {
   import sparkSession.implicits._
@@ -44,7 +46,17 @@ class MechanismOfAction(mechanismDf: DataFrame, targetDf: DataFrame, geneDf: Dat
       .join(references, Seq("id"), "outer")
       .join(target, Seq("id"), "outer")
       .drop("mechanism_refs", "record_id", "target_chembl_id")
+      .transform(nestMechanismUnderIdAndCollectCount)
 
+  }
+
+  private def nestMechanismUnderIdAndCollectCount(dataFrame: DataFrame): DataFrame = {
+    val aggName = "mechanism_of_action"
+    val discriminator = "id"
+    val df = nest(dataFrame, dataFrame.columns.filterNot(_ == discriminator).toList, aggName)
+    df.groupBy(discriminator)
+      .agg(collect_list(aggName).as(aggName))
+      .withColumn("number_of_mechanisms_of_action", size(col(aggName)))
   }
 
   private def chemblMechanismReferences(dataFrame: DataFrame): DataFrame = {
@@ -91,6 +103,4 @@ class MechanismOfAction(mechanismDf: DataFrame, targetDf: DataFrame, geneDf: Dat
       .agg(collect_list("target_components").as("target_components"))
 
   }
-
-
 }

@@ -2,8 +2,10 @@ package io.opentargets.etl.backend
 import com.typesafe.scalalogging.LazyLogging
 import org.apache.spark.SparkConf
 import org.apache.spark.sql.{Column, DataFrame, DataFrameWriter, Row, SparkSession}
-import org.apache.spark.sql.functions.{col, expr}
+import org.apache.spark.sql.functions.{col, expr, struct}
 import org.apache.spark.sql.types.{ArrayType, DataType, Metadata, StructField, StructType}
+
+import scala.util.Random
 
 object SparkHelpers extends LazyLogging {
   type IOResourceConfs = Map[String, IOResourceConfig]
@@ -151,6 +153,25 @@ object SparkHelpers extends LazyLogging {
     dataFrame.withColumn("x", fun(col(columnName)))
       .drop(columnName)
       .withColumnRenamed("x", columnName)
+  }
+
+  /**
+    * Given a dataframe with a n columns, this method create a new column called `collectUnder` which will include all
+    * columns listed in `includedColumns` in a struct column. Those columns will be removed from the original dataframe.
+    * This can be used to nest fields.
+    * @param dataFrame on which to perform nesting
+    * @param includedColumns columns to include in new nested column
+    * @param collectUnder name of new struct column
+    * @return dataframe with new column `collectUnder` with `includedColumns` nested within it.
+    */
+  def nest(dataFrame: DataFrame, includedColumns: List[String], collectUnder: String): DataFrame = {
+    // We need to use a random column name in case `collectUnder` is also in `includedColumns` as Spark SQL
+    // isn't case sensitive.
+    val tempCol: String = Random.alphanumeric.take(collectUnder.length + 2).mkString
+    dataFrame
+      .withColumn(tempCol, struct(includedColumns.map(col): _*))
+      .drop(includedColumns: _*)
+      .withColumnRenamed(tempCol, collectUnder)
   }
 
   /**
