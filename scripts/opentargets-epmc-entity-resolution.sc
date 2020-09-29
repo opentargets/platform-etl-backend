@@ -81,6 +81,7 @@ object ETL extends LazyLogging {
       first($"DS").as("DS"))
       .withColumn("targets", filter($"mapped_terms", c => c.getField("entity") === "target"))
       .withColumn("diseases", filter($"mapped_terms", c => c.getField("entity") === "disease"))
+      .withColumn("drugs", filter($"mapped_terms", c => c.getField("entity") === "drug"))
 
     dict
   }
