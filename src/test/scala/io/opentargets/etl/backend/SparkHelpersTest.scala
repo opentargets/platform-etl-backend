@@ -1,20 +1,26 @@
 package io.opentargets.etl.backend
 
+import com.typesafe.scalalogging.LazyLogging
 import org.apache.spark.sql.types._
 import org.scalatest.flatspec.AnyFlatSpecLike
 import org.scalatest.matchers.should.Matchers
 import io.opentargets.etl.backend.SparkHelpers._
-
+import org.apache.spark.sql.{DataFrame, Row}
 import org.apache.spark.sql.functions.lower
+import org.scalatest.prop.TableDrivenPropertyChecks
 
-class SparkHelpersTest extends AnyFlatSpecLike with Matchers with SparkSessionSetup {
+import scala.util.Random
+
+class SparkHelpersTest extends AnyFlatSpecLike with TableDrivenPropertyChecks with Matchers with LazyLogging with SparkSessionSetup {
   // given
   val renameFun: String => String = _.toUpperCase
-  val testStruct =
+  lazy val testStruct: StructType =
     StructType(
       StructField("a", IntegerType, nullable = true) ::
         StructField("b", LongType, nullable = false) ::
         StructField("c", BooleanType, nullable = false) :: Nil)
+  lazy val testData: Seq[Row] = Seq(Row(1, 1L, true), Row(2, 2L, false))
+  lazy val testDf: DataFrame = sparkSession.createDataFrame(sparkSession.sparkContext.parallelize(testData), testStruct)
 
   "Rename columns" should "rename all columns using given function" in {
 
@@ -49,4 +55,32 @@ class SparkHelpersTest extends AnyFlatSpecLike with Matchers with SparkSessionSe
       // function was applied to elements
     assert(results.head.getString(0).forall(c => c.isLower))
   }
+
+  private val potentialColumnNames = Table(
+    "column names",
+    "a", // shadow existing column name and case
+    "d", // new name
+    "A", // shadow existing column name, different case
+    "_", // special characters
+    "!",
+    Random.alphanumeric.take(100).mkString) // very long
+  "nest" should "return dataframe with selected columns nested under new column" in {
+    // given
+    logger.debug(s"Input DF structure ${testDf.printSchema}")
+    val columnsToNest = testDf.columns.toList
+    forAll(potentialColumnNames) { (colName: String) =>
+      // when
+      val results = nest(testDf, columnsToNest, colName)
+      logger.debug(s"Output DF schema: ${results.printSchema}")
+      // then
+      assertResult(1, s"All columns should be listed under new column $colName"){
+        results.columns.length
+      }
+      assertResult(colName, "The nesting column should be appropriately named."){
+        results.columns.head
+      }
+    }
+
+  }
+
 }

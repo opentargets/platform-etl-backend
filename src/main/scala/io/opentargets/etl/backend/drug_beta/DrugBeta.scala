@@ -13,7 +13,7 @@ import org.apache.spark.sql.{DataFrame, SparkSession}
   */
 object DrugBeta extends LazyLogging {
 
-  def apply()(implicit context: ETLSessionContext) = {
+  def apply()(implicit context: ETLSessionContext): Unit = {
     implicit val ss: SparkSession = context.sparkSession
 
     import ss.implicits._
@@ -53,10 +53,6 @@ object DrugBeta extends LazyLogging {
     val molecule = new Molecule(moleculeDf, drugbankData)
     val indications = new Indication(indicationDf, efoDf)
     val mechanismOfAction = new MechanismOfAction(mechanismDf, targetDf, geneDf)
-
-    def mechanismPreprocess(df: DataFrame): DataFrame = ???
-
-    def targetPreprocess(df: DataFrame): DataFrame = ???
 
   }
 
