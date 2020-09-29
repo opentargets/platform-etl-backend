@@ -3,13 +3,26 @@ package io.opentargets.etl.backend.drug_beta
 import com.typesafe.scalalogging.LazyLogging
 import org.apache.spark.sql.expressions.UserDefinedFunction
 import org.apache.spark.sql.functions.{array, array_sort, arrays_zip, col, collect_list, collect_set, explode, lit, map_concat, split, udf, upper, when}
+import org.apache.spark.sql.types.{ArrayType, BooleanType, LongType, StringType, StructField, StructType}
 import org.apache.spark.sql.{DataFrame, SparkSession, functions}
 
 class Molecule(moleculeRaw: DataFrame, drugbankRaw: DataFrame)(implicit sparkSession: SparkSession)
     extends LazyLogging with Serializable {
 
-
   import sparkSession.implicits._
+
+  private val XREF_COLUMN_NAME = "xref"
+
+  def processMolecules: DataFrame = {
+    logger.info("Processing molecules.")
+    val mols: DataFrame = moleculePreprocess(moleculeRaw, drugbankRaw)
+    val synonyms: DataFrame = processMoleculeSynonyms(mols)
+    val crossReferences: DataFrame = processMoleculeCrossReferences(mols)
+
+    mols.drop("cross_references", "syns", "chebi_par_id", "drugbank_id")
+      .join(synonyms, Seq("id"), "left_outer")
+      .join(crossReferences, Seq("id"), "left_outer")
+  }
 
   /**
     *
@@ -17,7 +30,7 @@ class Molecule(moleculeRaw: DataFrame, drugbankRaw: DataFrame)(implicit sparkSes
     * @param drugbank drugbank lookup table of chembl_id -> drugbank_id
     * @return dataframe with unwanted fields removed, and basic preprocessing completed.
     */
-  def moleculePreprocess(chemblMoleculeRaw: DataFrame, drugbank: DataFrame): DataFrame = {
+  private def moleculePreprocess(chemblMoleculeRaw: DataFrame, drugbank: DataFrame): DataFrame = {
     //      logger.info("Processing molecule data.")
     val columnsOfInterest = chemblMoleculeRaw
       .select(
@@ -28,7 +41,7 @@ class Molecule(moleculeRaw: DataFrame, drugbankRaw: DataFrame)(implicit sparkSes
         col("black_box_warning"),
         col("pref_name"),
         col("cross_references"),
-        col("first_approval"),
+        col("first_approval").as("year_first_approved"),
         col("max_phase").as("max_clinical_trial_phase"),
         col("molecule_hierarchy"),
         col("molecule_synonyms.molecule_synonym").as("mol_synonyms"),
@@ -56,7 +69,7 @@ class Molecule(moleculeRaw: DataFrame, drugbankRaw: DataFrame)(implicit sparkSes
     * @param preProcessedMolecules df prepared with moleculePreprocess method
     * @return dataframe of `id: String, trade_name: Set[String], synonym: Set[String]`
     */
-  def processMoleculeSynonyms(preProcessedMolecules: DataFrame): DataFrame = {
+  private def processMoleculeSynonyms(preProcessedMolecules: DataFrame): DataFrame = {
     val synonyms: DataFrame = preProcessedMolecules
       .select($"id", explode($"syns"))
       .withColumn("syn_type", upper($"col.synonym_type"))
@@ -65,24 +78,19 @@ class Molecule(moleculeRaw: DataFrame, drugbankRaw: DataFrame)(implicit sparkSes
     val tradeName = synonyms
       .filter($"syn_type" === "TRADE_NAME")
       .groupBy($"id")
-      .agg(collect_set($"synonym").alias("trade_name"))
+      .agg(collect_set($"synonym").alias("trade_names"))
     val synonym = synonyms
       .filter($"syn_type" =!= "TRADE_NAME")
       .groupBy($"id")
-      .agg(collect_set($"synonym").alias("synonym"))
+      .agg(collect_set($"synonym").alias("synonyms"))
 
+    val groupings = Seq("synonyms", "trade_names")
     val full = tradeName
       .join(synonym, Seq("id"), "fullouter")
-      // cast nulls to empty arrays
-      .withColumn("synonym",
-                  when($"synonym".isNull, array().cast("array<string>")).otherwise($"synonym"))
-      .withColumn(
-        "trade_name",
-        when($"trade_name".isNull, array().cast("array<string>")).otherwise($"trade_name"))
-      // sort lists
-      .withColumn("synonym", array_sort($"synonym"))
-      .withColumn("trade_name", array_sort($"trade_name"))
-    full
+
+    groupings.foldLeft(full)((df, colName) =>
+      df.withColumn(colName, when(col(colName).isNull, array().cast("array<string>")).otherwise(array_sort(col(colName)))))
+
   }
 
   /**
@@ -91,7 +99,7 @@ class Molecule(moleculeRaw: DataFrame, drugbankRaw: DataFrame)(implicit sparkSes
     * @param preProcessedMolecules df prepared with moleculePreprocess methods
     * @return dataframe of `id: String, source: Map(src: String -> ids: Array[String])`
     */
-  def processMoleculeCrossReferences(preProcessedMolecules: DataFrame): DataFrame = {
+  private def processMoleculeCrossReferences(preProcessedMolecules: DataFrame): DataFrame = {
 
     val chemblCrossReferences = processChemblCrossReferences(preProcessedMolecules)
     val singletonRefs: List[Tuple2[String, String]] = List(
@@ -100,13 +108,8 @@ class Molecule(moleculeRaw: DataFrame, drugbankRaw: DataFrame)(implicit sparkSes
     )
 
     singletonRefs.map( src => processSingletonCrossReferences(preProcessedMolecules, src._1, src._2))
-      .foldLeft(chemblCrossReferences)((agg, a) => mergeCrossReferenceMaps(agg, a))
-
+      .foldLeft(chemblCrossReferences)((agg, a) => mergeCrossReferenceMaps(agg, a)).withColumnRenamed("xref", "cross_references")
   }
-
-  val XREF_COLUMN_NAME = "xref"
-
-  val createReferenceMap: UserDefinedFunction = udf(Molecule.createSrcToReferenceMap _)
 
   /**
     *
@@ -114,6 +117,9 @@ class Molecule(moleculeRaw: DataFrame, drugbankRaw: DataFrame)(implicit sparkSes
     * @return dataframe of: id, map(str, array[str])
     */
   private def processChemblCrossReferences(preProcessedMolecules: DataFrame): DataFrame = {
+
+
+    val createReferenceMap: UserDefinedFunction = udf(Molecule.createSrcToReferenceMap _)
     // [id: str, refs: Array[src, ref_id]
     val chemblXR = preProcessedMolecules
       .select($"id",
@@ -188,5 +194,7 @@ object Molecule {
 
     i.groupBy(k => k._1).map(v => (v._1, v._2.map(_._2)))
   }
+
+
 }
 
