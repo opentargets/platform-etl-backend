@@ -1,5 +1,6 @@
 package io.opentargets.etl.backend
 
+import io.opentargets.etl.backend.MoleculeTest.{getMoleculeInstance, getSampleSynonymData}
 import io.opentargets.etl.backend.drug_beta.Molecule
 import org.apache.spark.sql.functions.col
 import org.apache.spark.sql.{DataFrame, Dataset, Row, SparkSession}
@@ -7,8 +8,7 @@ import org.apache.spark.sql.types.{ArrayType, BooleanType, LongType, MapType, St
 import org.scalatest.PrivateMethodTester
 import org.scalatest.flatspec.AnyFlatSpecLike
 import org.scalatest.matchers.must.Matchers
-import org.scalatest.matchers.should.Matchers.convertToAnyShouldWrapper
-import org.scalatest.wordspec.AnyWordSpecLike
+
 
 object MoleculeTest {
 
@@ -104,6 +104,24 @@ object MoleculeTest {
     sparkSession.createDataFrame(sparkSession.sparkContext.parallelize(data), schema)
   }
 
+  def getSampleSynonymData(sparkSession: SparkSession): DataFrame = {
+    val schema = StructType(Array(
+      StructField("id", StringType),
+      StructField("syns",
+        ArrayType(
+          StructType(
+            Array(
+              StructField("mol_synonyms", StringType),
+              StructField("synonym_type", StringType)))))))
+    val data: Seq[Row] = Seq(
+      Row("id1", Seq(Row("Aches-N-Pain","trade_name"), Row("Advil", "trade_name"))),
+      Row("id1", Seq(Row("Ibuprofil","UBAN"), Row("U-18573", "research_code"))),
+      Row("id2", Seq(Row("Quinocort","trade_name"), Row("Terra-Cortil", "other"))),
+    )
+    sparkSession.createDataFrame(sparkSession.sparkContext.parallelize(data), schema)
+
+  }
+
   def getMoleculeInstance(sparkSession: SparkSession): Molecule = {
     new Molecule(sparkSession.emptyDataFrame, sparkSession.emptyDataFrame)(sparkSession)
   }
@@ -114,6 +132,10 @@ class MoleculeTest extends AnyFlatSpecLike with Matchers with PrivateMethodTeste
   val processSingletonXR: PrivateMethod[Dataset[Row]] = PrivateMethod[Dataset[Row]]('processSingletonCrossReferences)
   val mergeXRMaps: PrivateMethod[Dataset[Row]] = PrivateMethod[Dataset[Row]]('mergeCrossReferenceMaps)
   val processChemblXR: PrivateMethod[Dataset[Row]] = PrivateMethod[Dataset[Row]]('processChemblCrossReferences)
+  val processMoleculeCrossReferences: PrivateMethod[Dataset[Row]] = PrivateMethod[Dataset[Row]]('processMoleculeCrossReferences)
+  val processMoleculeSynonyms: PrivateMethod[Dataset[Row]] = PrivateMethod[Dataset[Row]]('processMoleculeSynonyms)
+
+  val molecule: Molecule = getMoleculeInstance(sparkSession)
 
   "The Molecule class" should "given a preprocessed molecule successfully prepare all cross references" in {
       // given
@@ -123,7 +145,7 @@ class MoleculeTest extends AnyFlatSpecLike with Matchers with PrivateMethodTeste
         .json(this.getClass.getResource("/sample_mol_after_preprocessing.json").getPath)
       val molecule = MoleculeTest.getMoleculeInstance(sparkSession)
       // when
-      val results = molecule.processMoleculeCrossReferences(sampleMolecule)
+      val results = molecule invokePrivate processMoleculeCrossReferences(sampleMolecule)
       val xrefMap = results.head.getMap(1)
       // then
       assertResult(4){
@@ -203,4 +225,28 @@ class MoleculeTest extends AnyFlatSpecLike with Matchers with PrivateMethodTeste
         map.values.foldLeft(0)((acc, seq) => acc + seq.size)
       }
     }
+
+  it should "separate synonyms into trade_names and synonyms" in {
+    // given
+    val df = getSampleSynonymData(sparkSession)
+    // when
+    val results = molecule invokePrivate processMoleculeSynonyms(df)
+    // then
+    val expectedColumns = Set("id", "synonyms", "trade_names")
+    val expectedTradeNameCount = Seq(("id1", 2), ("id2", 1))
+    val expectedSynonymCount = Seq(("id1", 2), ("id2", 1))
+    def testcounts(column: String, inputs: Seq[(String, Int)]): Boolean = {
+      val r = for ((id, count) <- inputs) yield {
+          results.filter(col("id") === id)
+            .select(org.apache.spark.sql.functions.size(col(column).as("s"))).head.getAs[Int](0) == count
+      }
+      r.forall( v => v )
+    }
+
+    assert(results.columns.length == 3 && results.columns.forall(expectedColumns.contains), "Expected columns should be generated.")
+    assert(results.count == 2, "Results should be grouped by ID")
+    assert(testcounts("trade_names", expectedTradeNameCount), "The correct number of trade names are grouped")
+    assert(testcounts("synonyms", expectedSynonymCount), "The correct number of synonyms are grouped.")
+
+  }
 }
