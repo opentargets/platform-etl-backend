@@ -49,7 +49,7 @@ object DrugBeta extends LazyLogging {
     lazy val efoDf: DataFrame = inputDataFrames("efo")
 
     logger.info("Raw inputs for Drug beta loaded.")
-
+    logger.info("Processing Drug beta transformations.")
     val molecule = new Molecule(moleculeDf, drugbankData)
     val indications = new Indication(indicationDf, efoDf)
     val mechanismOfAction = new MechanismOfAction(mechanismDf, targetDf, geneDf)
