@@ -1,5 +1,6 @@
 package io.opentargets.etl.backend.drug_beta
 
+import com.typesafe.scalalogging.LazyLogging
 import io.opentargets.etl.backend.SparkHelpers.{applyFunToColumn, nest, validateDF}
 import org.apache.spark.sql.functions.{col, collect_list, explode, lower, size, struct}
 import org.apache.spark.sql.{DataFrame, SparkSession}
@@ -31,10 +32,11 @@ import org.apache.spark.sql.{DataFrame, SparkSession}
   * @param geneDf: gene parquet file listed under target in configuration
   * @param sparkSession implicit
   */
-class MechanismOfAction(mechanismDf: DataFrame, targetDf: DataFrame, geneDf: DataFrame)(implicit sparkSession: SparkSession) {
+class MechanismOfAction(mechanismDf: DataFrame, targetDf: DataFrame, geneDf: DataFrame)(implicit sparkSession: SparkSession) extends LazyLogging {
   import sparkSession.implicits._
 
-  def processMechanismOfAction(): DataFrame = {
+  def processMechanismOfAction: DataFrame = {
+    logger.info("Processing mechanisms of action")
     val mechanism = mechanismDf
       .withColumnRenamed("molecule_chembl_id", "id")
       .transform(applyFunToColumn("action_type", _, lower))

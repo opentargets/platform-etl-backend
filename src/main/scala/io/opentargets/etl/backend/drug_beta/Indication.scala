@@ -26,11 +26,11 @@ import org.apache.spark.sql.functions._
   *
   */
 class Indication(indicationsRaw: DataFrame, efoRaw: DataFrame)(
-    implicit sparkSession: SparkSession) {
+    implicit sparkSession: SparkSession) extends LazyLogging {
   import sparkSession.implicits._
 
   def processIndications: DataFrame = {
-
+    logger.info("Processing indications.")
     val efoDf = getEfoDataframe(efoRaw).transform(formatEfoIds)
     val indicationDf = processIndicationsRawData
       .join(efoDf, Seq("efo_id"), "leftouter")
