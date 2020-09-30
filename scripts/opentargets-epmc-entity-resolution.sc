@@ -100,14 +100,11 @@ object ETL extends LazyLogging {
       .join(luts, $"term_norm" === $"keyword_norm", "left_outer")
       .groupBy($"pmid")
       .agg(
-        filter(collect_set(
-                 struct($"term_raw",
-                        $"term_norm",
-                        $"id",
-                        $"term_type",
-                        $"keyword_type")),
-               c => c.getField("id").isNotNull).as("terms_mapped")
+        collect_set(struct($"term_raw", $"term_norm", $"id", $"term_type", $"keyword_type")).as(
+          "terms")
       )
+      .withColumn("terms_mapped", filter($"terms", c => c.getField("id").isNotNull))
+      .withColumn("terms_not_mapped", filter($"terms", c => c.getField("id").isNull))
       .withColumn("targets_mapped",
                   filter($"terms_mapped",
                          c =>
@@ -125,6 +122,7 @@ object ETL extends LazyLogging {
       .withColumn(
         "cross_mapped",
         filter($"terms_mapped", c => c.getField("term_type") =!= c.getField("keyword_type")))
+      .drop("terms")
 
     dict
   }
