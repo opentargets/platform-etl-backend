@@ -105,7 +105,6 @@ object ETL extends LazyLogging {
                         $"term_norm",
                         $"id",
                         $"term_type",
-                        $"keyword_raw",
                         $"keyword_type")),
                c => c.getField("id").isNotNull).as("terms_mapped")
       )
