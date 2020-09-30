@@ -1,5 +1,6 @@
 package io.opentargets.etl.backend
 import com.typesafe.scalalogging.LazyLogging
+import io.opentargets.etl.backend.Configuration.OTConfig
 import org.apache.spark.SparkConf
 import org.apache.spark.sql.{Column, DataFrame, DataFrameWriter, Row, SparkSession}
 import org.apache.spark.sql.functions.{col, expr, struct}
@@ -42,6 +43,18 @@ object SparkHelpers extends LazyLogging {
     SparkSession.builder
       .config(conf)
       .getOrCreate
+  }
+
+  /**
+    * Create an IOResourceConf Map for each of the given files, where the file is a key and the value is the output
+    * configuration
+    * @param files will be the names out the output files
+    * @param configuration to provide access to the program's configuration
+    * @return a map of file -> IOResourceConfig
+    */
+  def generateDefaultIoOutputConfiguration(files: String*)(configuration: OTConfig): IOResourceConfs = {
+    (for (n <- files) yield n -> IOResourceConfig(configuration.common.outputFormat, configuration.common.output + s"/$n")) toMap
+
   }
 
   /**

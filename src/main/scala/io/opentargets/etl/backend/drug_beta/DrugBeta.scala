@@ -54,6 +54,19 @@ object DrugBeta extends LazyLogging {
     val indications = new Indication(indicationDf, efoDf)
     val mechanismOfAction = new MechanismOfAction(mechanismDf, targetDf, geneDf)
 
+    logger.info("Joining molecules, indications, and mechanisms of action.")
+    val drugDf = molecule.processMolecules
+      .join(indications.processIndications, Seq("id"), "left_outer")
+      .join(mechanismOfAction.processMechanismOfAction, Seq("id"), "left_outer")
+
+    val outputs = Seq("drugs-beta")
+    logger.info(s"Writing outputs: ${outputs.mkString(",")}")
+
+    val outputConfs = SparkHelpers.generateDefaultIoOutputConfiguration(outputs: _*)(context.configuration)
+
+    val outputDFs = (outputs zip Seq(drugDf)).toMap
+
+    SparkHelpers.writeTo(outputConfs, outputDFs)
   }
 
 }
