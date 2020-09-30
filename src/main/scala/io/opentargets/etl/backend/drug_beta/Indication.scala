@@ -1,7 +1,8 @@
 package io.opentargets.etl.backend.drug_beta
 
 import com.typesafe.scalalogging.LazyLogging
-import io.opentargets.etl.backend.SparkHelpers.applyFunToColumn
+import io.opentargets.etl.backend.SparkHelpers
+import io.opentargets.etl.backend.SparkHelpers.{applyFunToColumn, nest}
 import org.apache.spark.sql.{Column, DataFrame, SparkSession}
 import org.apache.spark.sql.functions._
 
@@ -25,30 +26,29 @@ import org.apache.spark.sql.functions._
   *  thera
   *
   */
-class Indication(indicationsRaw: DataFrame, efoRaw: DataFrame)(
-    implicit sparkSession: SparkSession) extends LazyLogging {
+class Indication(indicationsRaw: DataFrame, efoRaw: DataFrame)(implicit sparkSession: SparkSession)
+    extends LazyLogging {
   import sparkSession.implicits._
 
   def processIndications: DataFrame = {
     logger.info("Processing indications.")
+    // efoDf for therapeutic areas
     val efoDf = getEfoDataframe(efoRaw).transform(formatEfoIds)
-    val indicationDf = processIndicationsRawData
+    val indicationAndEfoDf = processIndicationsRawData
       .join(efoDf, Seq("efo_id"), "leftouter")
-    val therapeuticDf = indicationDf.transform(processTherapeuticAreas)
+    val therapeuticDf = indicationAndEfoDf.transform(processTherapeuticAreas)
+
+    val indicationDf: DataFrame = indicationAndEfoDf
+      .withColumn("struct",
+                  struct($"efo_id".as("disease"),
+                         $"max_phase_for_indications".as("maxPhaseForIndication"),
+                         $"references"))
+      .groupBy("id")
+      .agg(collect_list("struct").as("rows"))
+      .withColumn("count", size($"rows"))
+      .transform(nest(_: DataFrame, List("rows", "count"), "indications"))
 
     indicationDf.join(therapeuticDf, Seq("id"), "left_outer")
-      .withColumn("struct",
-        struct($"efo_id",
-          $"max_phase_for_indications",
-          $"references",
-          $"efo_url",
-          $"efo_label"
-        ))
-      .groupBy("id")
-      .agg(
-        collect_list($"struct").as("indications"),
-        collect_list($"indication_therapeutic_areas").as("indication_therapeutic_areas")
-      ).withColumn("number_of_indications", size($"indications"))
   }
 
   private def processTherapeuticAreas(dataFrame: DataFrame): DataFrame = {
@@ -58,14 +58,14 @@ class Indication(indicationsRaw: DataFrame, efoRaw: DataFrame)(
       .groupBy("id", "t_codes", "t_labels")
       .agg(count("*").as("count"))
       .orderBy(asc("count"))
-      .withColumn("struct", struct(
-        $"t_codes".as("therapeutic_code"),
-        $"t_labels".as("therapeutic_label"),
-        $"count"
-      ))
+      .withColumn("struct",
+                  struct(
+                    $"t_codes".as("therapeutic_code"),
+                    $"t_labels".as("therapeutic_label"),
+                    $"count"
+                  ))
       .groupBy("id")
-      .agg(
-        collect_list("struct").as("indication_therapeutic_areas"))
+      .agg(collect_list("struct").as("indication_therapeutic_areas"))
   }
 
   private def processIndicationsRawData: DataFrame = {
@@ -122,16 +122,12 @@ class Indication(indicationsRaw: DataFrame, efoRaw: DataFrame)(
 
   /**
     *
-    * @param indicationDf
+    * @param indicationDf dataframe of ChEMBL indications
     * @return dataframe with efo_ids in form EFO_xxxx instead of EFO:xxxx
     */
   private def formatEfoIds(indicationDf: DataFrame): DataFrame = {
-    val idColumn = "efo_id"
-    val tempColumn = "x"
-    indicationDf
-      .withColumnRenamed(idColumn, tempColumn)
-      .withColumn(idColumn, regexp_replace(col(tempColumn), ":", "_"))
-      .drop(tempColumn)
+    val f = regexp_replace(_: Column, ":", "_")
+    SparkHelpers.applyFunToColumn("efo_id", indicationDf, f)
   }
 
 }
