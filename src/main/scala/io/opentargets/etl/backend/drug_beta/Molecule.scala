@@ -39,21 +39,21 @@ class Molecule(moleculeRaw: DataFrame, drugbankRaw: DataFrame)(implicit sparkSes
         col("molecule_structures.canonical_smiles").as("canonical_smiles"),
         col("molecule_type").as("type"),
         col("chebi_par_id"),
-        col("black_box_warning"),
-        col("pref_name"),
+        col("black_box_warning").as("blackBoxWarning"),
+        col("pref_name").as("name"),
         col("cross_references"),
-        col("first_approval").as("year_first_approved"),
-        col("max_phase").as("max_clinical_trial_phase"),
+        col("first_approval").as("yearOfFirstApproval"),
+        col("max_phase").as("maximumClinicalTrialPhase"),
         col("molecule_hierarchy"),
         col("molecule_synonyms.molecule_synonym").as("mol_synonyms"),
         col("molecule_synonyms.syn_type").as("synonym_type"),
-        col("withdrawn_flag"),
+        col("withdrawn_flag").as("hasBeenWithdrawn"),
         col("withdrawn_year"),
         col("withdrawn_reason"),
         col("withdrawn_country"),
         col("withdrawn_class")
       )
-      .withColumn("black_box_warning", when($"black_box_warning" === 1, true).otherwise(false))
+      .withColumn("blackBoxWarning", when($"blackBoxWarning" === 1, true).otherwise(false))
       .withColumn("withdrawn_reason", split(col("withdrawn_reason"), ";"))
       .withColumn("withdrawn_country", split(col("withdrawn_country"), ";"))
       .withColumn("withdrawn_class", split(col("withdrawn_class"), ";"))
@@ -68,7 +68,7 @@ class Molecule(moleculeRaw: DataFrame, drugbankRaw: DataFrame)(implicit sparkSes
     * Method to group synonyms into sorted sets of trade names and others synonyms.
     *
     * @param preProcessedMolecules df prepared with moleculePreprocess method
-    * @return dataframe of `id: String, trade_name: Set[String], synonym: Set[String]`
+    * @return dataframe of `id: String, tradeName: Set[String], synonym: Set[String]`
     */
   private def processMoleculeSynonyms(preProcessedMolecules: DataFrame): DataFrame = {
     val synonyms: DataFrame = preProcessedMolecules
@@ -79,13 +79,13 @@ class Molecule(moleculeRaw: DataFrame, drugbankRaw: DataFrame)(implicit sparkSes
     val tradeName = synonyms
       .filter($"syn_type" === "TRADE_NAME")
       .groupBy($"id")
-      .agg(collect_set($"synonym").alias("trade_names"))
+      .agg(collect_set($"synonym").alias("tradeNames"))
     val synonym = synonyms
       .filter($"syn_type" =!= "TRADE_NAME")
       .groupBy($"id")
       .agg(collect_set($"synonym").alias("synonyms"))
 
-    val groupings = Seq("synonyms", "trade_names")
+    val groupings = Seq("synonyms", "tradeNames")
     val full = tradeName
       .join(synonym, Seq("id"), "fullouter")
 
@@ -94,6 +94,11 @@ class Molecule(moleculeRaw: DataFrame, drugbankRaw: DataFrame)(implicit sparkSes
 
   }
 
+  /**
+    * Group all child molecules by chembl_id
+    * @param preProcessedMolecules df produced by this.moleculePreprocess
+    * @return dataframe of two columns `id`: Str, `child_chembl_ids`: Array[Str]
+    */
   private def processMoleculeHierarchy(preProcessedMolecules: DataFrame): DataFrame = {
     preProcessedMolecules
       .select($"id", $"molecule_hierarchy.parent_chembl_id".as("parent_id"))
