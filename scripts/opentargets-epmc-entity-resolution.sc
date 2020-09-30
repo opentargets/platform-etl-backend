@@ -100,7 +100,7 @@ object ETL extends LazyLogging {
       .join(luts, $"term_norm" === $"keyword_norm", "left_outer")
       .groupBy($"pmid")
       .agg(
-        filter(collect_list(
+        filter(collect_set(
                  struct($"term_raw",
                         $"term_norm",
                         $"id",
