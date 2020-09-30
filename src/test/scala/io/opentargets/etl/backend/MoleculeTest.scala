@@ -21,10 +21,10 @@ object MoleculeTest {
   val structAfterPreprocessing: StructType = StructType(
     StructField("id", StringType) ::
       StructField("canonical_smiles", StringType, nullable = true) ::
-      StructField("type", StringType, nullable = true) ::
+      StructField("drugType", StringType, nullable = true) ::
       StructField("chebi_par_id", LongType, nullable = true) ::
-      StructField("black_box_warning", BooleanType, nullable = false) ::
-      StructField("pref_name", StringType, nullable = true) ::
+      StructField("blackBoxWarning", BooleanType, nullable = false) ::
+      StructField("name", StringType, nullable = true) ::
       StructField(
       "cross_references",
       ArrayType(
@@ -37,12 +37,12 @@ object MoleculeTest {
         ))
       )
     ) ::
-      StructField("first_approval", LongType) ::
-      StructField("max_clinical_trial_phase", LongType) ::
+      StructField("yearOfFirstApproval", LongType) ::
+      StructField("maximumClinicalTrialPhase", LongType) ::
       StructField("molecule_hierarchy",
                   StructType(Array(StructField("molecule_chembl_id", StringType),
                                    StructField("parent_chembl_id", StringType)))) ::
-      StructField("withdrawn_flag", BooleanType) ::
+      StructField("hasBeenWithdrawn", BooleanType) ::
       StructField("withdrawn_year", LongType) ::
       StructField("withdrawn_reason", ArrayType(StringType)) ::
       StructField("withdrawn_country", ArrayType(StringType)) ::
@@ -264,13 +264,13 @@ class MoleculeTest
     assert(results.filter(col("id") === "a").head.getList[String](1).size == 2, "Id 'a' should have two children.")
   }
 
-  it should "separate synonyms into trade_names and synonyms" in {
+  it should "separate synonyms into tradeNames and synonyms" in {
     // given
     val df = getSampleSynonymData(sparkSession)
     // when
     val results = molecule invokePrivate processMoleculeSynonyms(df)
     // then
-    val expectedColumns = Set("id", "synonyms", "trade_names")
+    val expectedColumns = Set("id", "synonyms", "tradeNames")
     val expectedTradeNameCount = Seq(("id1", 2), ("id2", 1))
     val expectedSynonymCount = Seq(("id1", 2), ("id2", 1))
     def testcounts(column: String, inputs: Seq[(String, Int)]): Boolean = {
@@ -287,7 +287,7 @@ class MoleculeTest
     assert(results.columns.length == 3 && results.columns.forall(expectedColumns.contains),
            "Expected columns should be generated.")
     assert(results.count == 2, "Results should be grouped by ID")
-    assert(testcounts("trade_names", expectedTradeNameCount),
+    assert(testcounts("tradeNames", expectedTradeNameCount),
            "The correct number of trade names are grouped")
     assert(testcounts("synonyms", expectedSynonymCount),
            "The correct number of synonyms are grouped.")
