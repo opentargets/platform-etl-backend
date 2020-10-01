@@ -10,21 +10,20 @@ import org.apache.spark.sql.functions._
   * Class to process ChEMBL indications for incorporation into Drug.
   *
   * Output schema:
-  *
-  * {
-  *   efo_id : str ,
-  *   efo_label : str ,
-  *   efo_uri : str ,
-  *   max_phase_for_indication : int ,
-  *   references : [
-  *     {
-  *       source: str ,
-  *       urls: [str1, ..., strn],
-  *       ids: [str1, ..., strn]
-  *     }]
-  *  },
-  *  thera
-  *
+  * id
+  * indications
+  * -- count
+  * -- rows
+  * ---- disease
+  * ---- maxPhaseForIndication
+  * ---- references
+  * ------ source
+  * ------ ids
+  * ------ urls
+  * indication_therapeutic_areas
+  * -- therapeutic_code
+  * -- therapeutic_label
+  * -- count
   */
 class Indication(indicationsRaw: DataFrame, efoRaw: DataFrame)(implicit sparkSession: SparkSession)
     extends LazyLogging {
@@ -36,7 +35,6 @@ class Indication(indicationsRaw: DataFrame, efoRaw: DataFrame)(implicit sparkSes
     val efoDf = getEfoDataframe(efoRaw).transform(formatEfoIds)
     val indicationAndEfoDf = processIndicationsRawData
       .join(efoDf, Seq("efo_id"), "leftouter")
-    val therapeuticDf = indicationAndEfoDf.transform(processTherapeuticAreas)
 
     val indicationDf: DataFrame = indicationAndEfoDf
       .withColumn("struct",
@@ -48,24 +46,7 @@ class Indication(indicationsRaw: DataFrame, efoRaw: DataFrame)(implicit sparkSes
       .withColumn("count", size($"rows"))
       .transform(nest(_: DataFrame, List("rows", "count"), "indications"))
 
-    indicationDf.join(therapeuticDf, Seq("id"), "left_outer")
-  }
-
-  private def processTherapeuticAreas(dataFrame: DataFrame): DataFrame = {
-    dataFrame
-      .withColumn("t_labels", explode($"therapeutic_labels"))
-      .withColumn("t_codes", explode($"therapeutic_codes"))
-      .groupBy("id", "t_codes", "t_labels")
-      .agg(count("*").as("count"))
-      .orderBy(asc("count"))
-      .withColumn("struct",
-                  struct(
-                    $"t_codes".as("therapeutic_code"),
-                    $"t_labels".as("therapeutic_label"),
-                    $"count"
-                  ))
-      .groupBy("id")
-      .agg(collect_list("struct").as("indication_therapeutic_areas"))
+    indicationDf
   }
 
   private def processIndicationsRawData: DataFrame = {

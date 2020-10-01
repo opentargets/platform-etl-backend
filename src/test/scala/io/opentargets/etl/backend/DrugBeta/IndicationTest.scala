@@ -92,7 +92,7 @@ class IndicationTest
     // when
     val results = indicationInst.processIndications
     // then
-    val expectedColumns = Set("id", "indications", "indication_therapeutic_areas")
+    val expectedColumns = Set("id", "indications")
 
     assert(
       results.columns
