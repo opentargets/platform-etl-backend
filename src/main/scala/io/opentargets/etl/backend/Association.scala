@@ -308,8 +308,8 @@ object Association extends LazyLogging {
     val associationsOverall = computeAssociationsAllDS(associationsPerDS)
 
     Map(
-      "associations_per_datasource_direct" -> associationsPerDS,
-      "associations_overall_direct" -> associationsOverall
+      "associationsDatasourceDirect" -> associationsPerDS,
+      "associationsOverallDirect" -> associationsOverall
     )
   }
 
@@ -322,8 +322,8 @@ object Association extends LazyLogging {
     val associationsOverall = computeAssociationsAllDS(associationsPerDS)
 
     Map(
-      "associations_per_datasource_indirect" -> associationsPerDS,
-      "associations_overall_indirect" -> associationsOverall
+      "associationsDatasourceIndirect" -> associationsPerDS,
+      "associationsOverallIndirect" -> associationsOverall
     )
   }
 
