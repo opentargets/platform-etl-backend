@@ -3,6 +3,7 @@ package io.opentargets.etl.backend.drug_beta
 import com.typesafe.scalalogging.LazyLogging
 import io.opentargets.etl.backend.{ETLSessionContext, SparkHelpers}
 import io.opentargets.etl.backend.SparkHelpers.IOResourceConfig
+import org.apache.spark.sql.functions.col
 import org.apache.spark.sql.{DataFrame, SparkSession}
 
 /**
@@ -30,10 +31,12 @@ object DrugBeta extends LazyLogging {
                                      common.inputs.drugChemblMolecule.path),
       "target" -> IOResourceConfig(common.inputs.drugChemblTarget.format,
                                    common.inputs.drugChemblTarget.path),
-      "drugbank" -> IOResourceConfig(common.inputs.drugDrugbank.format, common.inputs.drugDrugbank.path),
+      "drugbank" -> IOResourceConfig(common.inputs.drugDrugbank.format,
+                                     common.inputs.drugDrugbank.path, Some("\t"), Some(true)),
       // inputs from data-pipeline
       "efo" -> IOResourceConfig(common.inputs.disease.format, common.inputs.disease.path),
-      "gene" -> IOResourceConfig(common.inputs.target.format, common.inputs.target.path)
+      "gene" -> IOResourceConfig(common.inputs.target.format, common.inputs.target.path),
+      "evidence" -> IOResourceConfig(common.inputs.evidence.format, common.inputs.evidence.path)
     )
 
     val inputDataFrames = SparkHelpers.readFrom(mappedInputs)
@@ -47,6 +50,7 @@ object DrugBeta extends LazyLogging {
       .withColumnRenamed("From src:'1'", "id")
       .withColumnRenamed("To src:'2'", "drugbank_id")
     lazy val efoDf: DataFrame = inputDataFrames("efo")
+    lazy val evidenceDf: DataFrame = inputDataFrames("evidence")
 
     logger.info("Raw inputs for Drug beta loaded.")
     logger.info("Processing Drug beta transformations.")
@@ -55,14 +59,18 @@ object DrugBeta extends LazyLogging {
     val mechanismOfAction = new MechanismOfAction(mechanismDf, targetDf, geneDf)
 
     logger.info("Joining molecules, indications, and mechanisms of action.")
-    val drugDf = molecule.processMolecules
+    val drugDf: DataFrame = molecule.processMolecules
       .join(indications.processIndications, Seq("id"), "left_outer")
       .join(mechanismOfAction.processMechanismOfAction, Seq("id"), "left_outer")
+      .join(DrugCommon.getUniqTargetsAndDiseasesPerDrugId(evidenceDf),
+            col("id") === col("drug_id"),
+            "left_outer")
 
     val outputs = Seq("drugs-beta")
     logger.info(s"Writing outputs: ${outputs.mkString(",")}")
 
-    val outputConfs = SparkHelpers.generateDefaultIoOutputConfiguration(outputs: _*)(context.configuration)
+    val outputConfs =
+      SparkHelpers.generateDefaultIoOutputConfiguration(outputs: _*)(context.configuration)
 
     val outputDFs = (outputs zip Seq(drugDf)).toMap
 
@@ -70,5 +78,3 @@ object DrugBeta extends LazyLogging {
   }
 
 }
-
-
