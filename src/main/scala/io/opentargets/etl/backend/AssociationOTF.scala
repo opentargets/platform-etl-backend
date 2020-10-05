@@ -189,10 +189,10 @@ object AssociationOTF extends LazyLogging {
       "unique_association_fields"
     )
 
-    logger.info(s"number of evidences ${dfs("evidences").count()}")
+    logger.debug(s"number of evidences ${dfs("evidences").count()}")
 
     Map(
-      "evidences_aotf" -> dfs("evidences")
+      "evidencesAOTF" -> dfs("evidences")
         .selectExpr(evidenceColumns: _*)
         .repartition()
         .join(diseasesFacetTAs, Seq("disease_id"), "left_outer")

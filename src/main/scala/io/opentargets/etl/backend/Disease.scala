@@ -163,7 +163,7 @@ object Disease extends LazyLogging {
       .coalesce(1)
       .write
       .option("header", "false")
-      .csv(common.output + "/diseases_static_therapeuticarea")
+      .csv(common.output + "/diseasesStaticTherapeuticarea")
 
     val efoBasicInfoDF =
       diseaseDF.select("id", "name", "parents").withColumnRenamed("parents", "parentIds")
@@ -171,6 +171,6 @@ object Disease extends LazyLogging {
     efoBasicInfoDF
       .coalesce(1)
       .write
-      .json(common.output + "/diseases_static_efos")
+      .json(common.output + "/diseasesStaticEfos")
   }
 }
