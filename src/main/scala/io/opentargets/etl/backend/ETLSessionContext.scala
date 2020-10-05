@@ -2,7 +2,7 @@ package io.opentargets.etl.backend
 
 import com.typesafe.scalalogging.LazyLogging
 import io.opentargets.etl.backend.Configuration.OTConfig
-import io.opentargets.etl.backend.SparkHelpers.getOrCreateSparkSession
+import io.opentargets.etl.backend.spark.Helpers.getOrCreateSparkSession
 import org.apache.spark.sql.SparkSession
 import pureconfig.error.ConfigReaderFailures
 

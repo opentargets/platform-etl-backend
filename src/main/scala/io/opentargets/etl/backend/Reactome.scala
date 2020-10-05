@@ -7,7 +7,8 @@ import org.apache.spark.sql.functions.col
 import org.apache.spark.sql._
 import org.apache.spark.sql.types._
 import com.typesafe.config.Config
-import io.opentargets.etl.backend.SparkHelpers.IOResourceConfig
+import io.opentargets.etl.backend.spark.Helpers
+import io.opentargets.etl.backend.spark.Helpers.IOResourceConfig
 
 // This is option/step reactome in the config file
 object Reactome extends LazyLogging {
@@ -23,7 +24,7 @@ object Reactome extends LazyLogging {
         common.inputs.reactome.path
       )
     )
-    val inputDataFrame = SparkHelpers.readFrom(mappedInputs)
+    val inputDataFrame = Helpers.readFrom(mappedInputs)
     val reactomeDF = inputDataFrame(dfName)
 
     val outputs = Seq(dfName)
@@ -37,6 +38,6 @@ object Reactome extends LazyLogging {
       .toMap
 
     val outputDFs = (outputs zip Seq(reactomeDF)).toMap
-    SparkHelpers.writeTo(outputConfs, outputDFs)
+    Helpers.writeTo(outputConfs, outputDFs)
   }
 }

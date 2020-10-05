@@ -9,7 +9,8 @@ import org.apache.spark.sql.types._
 import com.typesafe.config.Config
 import better.files._
 import better.files.File._
-import io.opentargets.etl.backend.SparkHelpers.IOResourceConfig
+import io.opentargets.etl.backend.spark.Helpers
+import io.opentargets.etl.backend.spark.Helpers.IOResourceConfig
 
 object DiseaseHelpers {
   implicit class AggregationHelpers(df: DataFrame)(implicit ss: SparkSession) {
@@ -128,7 +129,7 @@ object Disease extends LazyLogging {
         common.inputs.disease.path
       )
     )
-    val inputDataFrame = SparkHelpers.readFrom(mappedInputs)
+    val inputDataFrame = Helpers.readFrom(mappedInputs)
 
     val diseaseDF = inputDataFrame("disease").setIdAndSelectFromDiseases
 
@@ -153,7 +154,7 @@ object Disease extends LazyLogging {
       )
     )
 
-    SparkHelpers.writeTo(outputConfs, Map("disease" -> diseaseDF))
+    Helpers.writeTo(outputConfs, Map("disease" -> diseaseDF))
 
     val therapeticAreaList = diseaseDF
       .filter(col("ontology.isTherapeuticArea") === true)

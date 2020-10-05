@@ -2,7 +2,8 @@ package io.opentargets.etl.backend
 
 import com.typesafe.scalalogging.LazyLogging
 import io.opentargets.etl.backend.Association.{computeAssociationsPerDS, prepareEvidences}
-import io.opentargets.etl.backend.SparkHelpers.IOResourceConfig
+import io.opentargets.etl.backend.spark.Helpers
+import io.opentargets.etl.backend.spark.Helpers.IOResourceConfig
 import org.apache.spark.sql._
 import org.apache.spark.sql.functions._
 
@@ -57,6 +58,6 @@ object Connections extends LazyLogging {
       )
       .toMap
 
-    SparkHelpers.writeTo(outputConfs, outputs)
+    Helpers.writeTo(outputConfs, outputs)
   }
 }

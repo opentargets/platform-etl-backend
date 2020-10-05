@@ -7,7 +7,8 @@ import org.apache.spark.sql.functions.col
 import org.apache.spark.sql._
 import org.apache.spark.sql.types._
 import com.typesafe.config.Config
-import io.opentargets.etl.backend.SparkHelpers.IOResourceConfig
+import io.opentargets.etl.backend.spark.Helpers
+import io.opentargets.etl.backend.spark.Helpers.IOResourceConfig
 
 import scala.collection.mutable.WrappedArray
 
@@ -282,7 +283,7 @@ object Drug extends LazyLogging {
         common.inputs.evidence.path
       )
     )
-    val inputDataFrame = SparkHelpers.readFrom(mappedInputs)
+    val inputDataFrame = Helpers.readFrom(mappedInputs)
 
     val dfDrugIndex = inputDataFrame("drug")
       .setIdAndSelectFromDrugs(inputDataFrame("evidence"))
@@ -298,6 +299,6 @@ object Drug extends LazyLogging {
       .toMap
 
     val outputDFs = (outputs zip Seq(dfDrugIndex)).toMap
-    SparkHelpers.writeTo(outputConfs, outputDFs)
+    Helpers.writeTo(outputConfs, outputDFs)
   }
 }

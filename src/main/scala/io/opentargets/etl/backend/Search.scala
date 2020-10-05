@@ -1,13 +1,14 @@
 package io.opentargets.etl.backend
 
 import com.typesafe.scalalogging.LazyLogging
-import io.opentargets.etl.backend.SparkHelpers.IOResourceConfig
+import io.opentargets.etl.backend.spark.{Helpers => C}
+import io.opentargets.etl.backend.spark.Helpers._
+
 import org.apache.spark.sql._
 import org.apache.spark.sql.expressions._
 import org.apache.spark.sql.types._
 import org.apache.spark.sql.functions._
 import org.apache.spark.storage.StorageLevel
-import io.opentargets.etl.backend.{SparkHelpers => C}
 
 object Transformers {
   val searchFields = Seq(
@@ -465,7 +466,7 @@ object Search extends LazyLogging {
       )
     )
 
-    val inputDataFrame = SparkHelpers.readFrom(mappedInputs)
+    val inputDataFrame = C.readFrom(mappedInputs)
 
     logger.info("process diseases and compute ancestors and descendants and persist")
     val diseases = Transformers
@@ -535,8 +536,7 @@ object Search extends LazyLogging {
     )
     logger.info("subselect indirect LLR associations just id and score and persist")
     val associationScores = assocs("associations_overall_indirect")
-      .withColumn("association_id",
-        concat_ws("-", col("disease_id"), col("target_id")))
+      .withColumn("association_id", concat_ws("-", col("disease_id"), col("target_id")))
       .selectExpr(
         "overall_ds_score_harmonic as score",
         "association_id",
@@ -614,6 +614,6 @@ object Search extends LazyLogging {
 
     val outputDFs = (outputs zip Seq(searchDiseases, searchTargets, searchDrugs)).toMap
 
-    SparkHelpers.writeTo(outputConfs, outputDFs)
+    C.writeTo(outputConfs, outputDFs)
   }
 }
