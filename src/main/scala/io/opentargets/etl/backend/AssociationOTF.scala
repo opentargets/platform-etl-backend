@@ -9,8 +9,9 @@ import better.files.Dsl._
 import better.files._
 import com.typesafe.config.{Config, ConfigFactory, ConfigObject, ConfigRenderOptions}
 import com.typesafe.scalalogging.{LazyLogging, Logger}
-import io.opentargets.etl.backend.SparkHelpers.IOResourceConfig
+
 import org.apache.spark.sql.expressions._
+import spark.{Helpers => H}
 
 import scala.math.pow
 
@@ -91,12 +92,12 @@ object AssociationOTF extends LazyLogging {
     val reactomeSection = context.configuration.common.inputs.reactome
 
     val mappedInputs = Map(
-      "reactome" -> IOResourceConfig(
+      "reactome" -> H.IOResourceConfig(
         reactomeSection.format,
         reactomeSection.path
       )
     )
-    val dfs = SparkHelpers.readFrom(mappedInputs)
+    val dfs = H.readFrom(mappedInputs)
 
     val lutReact = ss.sparkContext.broadcast(
       dfs("reactome")
@@ -170,12 +171,12 @@ object AssociationOTF extends LazyLogging {
       .drop("tractability", "reactome")
 
     val mappedInputs = Map(
-      "evidences" -> IOResourceConfig(
+      "evidences" -> H.IOResourceConfig(
         commonSec.inputs.evidence.format,
         commonSec.inputs.evidence.path
       )
     )
-    val dfs = SparkHelpers.readFrom(mappedInputs)
+    val dfs = H.readFrom(mappedInputs)
 
     val evidenceColumns = Seq(
       "id as row_id",
@@ -189,10 +190,10 @@ object AssociationOTF extends LazyLogging {
       "unique_association_fields"
     )
 
-    logger.info(s"number of evidences ${dfs("evidences").count()}")
+    logger.debug(s"number of evidences ${dfs("evidences").count()}")
 
     Map(
-      "evidences_aotf" -> dfs("evidences")
+      "evidencesAOTF" -> dfs("evidences")
         .selectExpr(evidenceColumns: _*)
         .repartition()
         .join(diseasesFacetTAs, Seq("disease_id"), "left_outer")
@@ -206,8 +207,8 @@ object AssociationOTF extends LazyLogging {
     val clickhouseEvidences = compute()
 
     val outputs = clickhouseEvidences.keys map (name =>
-      name -> IOResourceConfig(commonSec.outputFormat, commonSec.output + s"/$name"))
+      name -> H.IOResourceConfig(commonSec.outputFormat, commonSec.output + s"/$name"))
 
-    SparkHelpers.writeTo(outputs.toMap, clickhouseEvidences)
+    H.writeTo(outputs.toMap, clickhouseEvidences)
   }
 }
