@@ -2,7 +2,7 @@
 #cat "$1" | elasticsearch_loader --es-host "http://localhost:9200" --index-settings-file "index_settings_search.json" --with-retry --bulk-size 5000 --index searches --type search --id-field id json --json-lines -
 
 export INDEX_SETTINGS="index_settings_search.json"
-export RELEASE='20.04_'
+export RELEASE=''
 export TYPE_FIELD="_doc"
 export ES="http://localhost:9200"
 
