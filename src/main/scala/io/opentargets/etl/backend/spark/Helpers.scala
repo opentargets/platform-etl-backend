@@ -1,11 +1,12 @@
-package io.opentargets.etl.backend
+package io.opentargets.etl.backend.spark
+
 import com.typesafe.scalalogging.LazyLogging
 import org.apache.spark.SparkConf
-import org.apache.spark.sql.{Column, DataFrame, DataFrameWriter, Row, SparkSession}
 import org.apache.spark.sql.functions.expr
-import org.apache.spark.sql.types.{ArrayType, DataType, Metadata, StructField, StructType}
+import org.apache.spark.sql.types.{ArrayType, DataType, StructField, StructType}
+import org.apache.spark.sql._
 
-object SparkHelpers extends LazyLogging {
+object Helpers extends LazyLogging {
   type IOResourceConfs = Map[String, IOResourceConfig]
   type IOResources = Map[String, DataFrame]
 
@@ -95,9 +96,9 @@ object SparkHelpers extends LazyLogging {
     }
   }
 
-  def writeTo(outputConfs: IOResourceConfs, outputs: IOResources)(implicit
-      session: SparkSession
-  ): IOResources = {
+  def writeTo(outputConfs: IOResourceConfs, outputs: IOResources)(
+      implicit
+      session: SparkSession): IOResources = {
 
     logger.info(s"Saving data to '${outputConfs.mkString(", ")}'")
 
@@ -124,16 +125,17 @@ object SparkHelpers extends LazyLogging {
 
   def renameAllCols(schema: StructType, fn: String => String): StructType = {
 
-    def renameDataType(dt: StructType): StructType = StructType(dt.fields.map {
-      case StructField(name, dataType, nullable, metadata) =>
-        val renamedDT = dataType match {
-          case st: StructType => renameDataType(st)
-          case ArrayType(elementType: StructType, containsNull) =>
-            ArrayType(renameDataType(elementType), containsNull)
-          case rest: DataType => rest
-        }
-        StructField(fn(name), renamedDT, nullable, metadata)
-    })
+    def renameDataType(dt: StructType): StructType =
+      StructType(dt.fields.map {
+        case StructField(name, dataType, nullable, metadata) =>
+          val renamedDT = dataType match {
+            case st: StructType => renameDataType(st)
+            case ArrayType(elementType: StructType, containsNull) =>
+              ArrayType(renameDataType(elementType), containsNull)
+            case rest: DataType => rest
+          }
+          StructField(fn(name), renamedDT, nullable, metadata)
+      })
 
     renameDataType(schema)
   }

@@ -7,7 +7,8 @@ import org.apache.spark.sql.functions.col
 import org.apache.spark.sql._
 import org.apache.spark.sql.types._
 import com.typesafe.config.Config
-import io.opentargets.etl.backend.SparkHelpers.IOResourceConfig
+import io.opentargets.etl.backend.spark.Helpers
+import io.opentargets.etl.backend.spark.Helpers.IOResourceConfig
 
 object CancerBiomarkersHelpers {
   implicit class AggregationHelpers(df: DataFrame)(implicit ss: SparkSession) {
@@ -110,7 +111,7 @@ object CancerBiomarkers extends LazyLogging {
     val mappedInputs = Map(
       "target" -> IOResourceConfig(common.inputs.target.format, common.inputs.target.path)
     )
-    val inputDataFrame = SparkHelpers.readFrom(mappedInputs)
+    val inputDataFrame = Helpers.readFrom(mappedInputs)
 
     val cancerBiomakerDf = inputDataFrame("target").getBiomarkerTargetDiseaseDrugEntity
 
@@ -125,6 +126,6 @@ object CancerBiomarkers extends LazyLogging {
       .toMap
 
     val outputDFs = (outputs zip Seq(cancerBiomakerDf)).toMap
-    SparkHelpers.writeTo(outputConfs, outputDFs)
+    Helpers.writeTo(outputConfs, outputDFs)
   }
 }

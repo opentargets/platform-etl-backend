@@ -7,7 +7,8 @@ import org.apache.spark.sql.functions.col
 import org.apache.spark.sql._
 import org.apache.spark.sql.types._
 import com.typesafe.config.Config
-import io.opentargets.etl.backend.SparkHelpers.IOResourceConfig
+import io.opentargets.etl.backend.spark.Helpers
+import io.opentargets.etl.backend.spark.Helpers.IOResourceConfig
 
 object EvidenceDrugHelpers {
   implicit class AggregationHelpers(df: DataFrame)(implicit ss: SparkSession) {
@@ -106,7 +107,7 @@ object EvidenceDrug extends LazyLogging {
         common.inputs.evidence.path
       )
     )
-    val inputDataFrame = SparkHelpers.readFrom(mappedInputs)
+    val inputDataFrame = Helpers.readFrom(mappedInputs)
 
     val diseases = inputDataFrame("disease").getDiseaseAndDescendants
       .selectExpr("id as disease_id", "ancestors", "descendants")
@@ -119,6 +120,6 @@ object EvidenceDrug extends LazyLogging {
         context.configuration.common.output + "/evidenceDrug"
       ))
 
-    SparkHelpers.writeTo(outputConfs, Map("evidenceDrug" -> dfEvidencesDrug))
+    Helpers.writeTo(outputConfs, Map("evidenceDrug" -> dfEvidencesDrug))
   }
 }

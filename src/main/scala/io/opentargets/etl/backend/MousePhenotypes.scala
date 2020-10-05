@@ -7,7 +7,8 @@ import org.apache.spark.sql.functions.col
 import org.apache.spark.sql._
 import org.apache.spark.sql.types._
 import com.typesafe.config.Config
-import io.opentargets.etl.backend.SparkHelpers.IOResourceConfig
+import io.opentargets.etl.backend.spark.Helpers
+import io.opentargets.etl.backend.spark.Helpers.IOResourceConfig
 
 // This is option/step MousePhenotypes in the config file. JQ file input
 object MousePhenotypes extends LazyLogging {
@@ -23,7 +24,7 @@ object MousePhenotypes extends LazyLogging {
         common.inputs.mousephenotypes.path
       )
     )
-    val inputDataFrame = SparkHelpers.readFrom(mappedInputs)
+    val inputDataFrame = Helpers.readFrom(mappedInputs)
     val mousePhenotypesDF = inputDataFrame(dfName)
 
     val outputs = Seq(dfName)
@@ -39,6 +40,6 @@ object MousePhenotypes extends LazyLogging {
       .toMap
 
     val outputDFs = (outputs zip Seq(mousePhenotypesDF)).toMap
-    SparkHelpers.writeTo(outputConfs, outputDFs)
+    Helpers.writeTo(outputConfs, outputDFs)
   }
 }
