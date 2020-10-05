@@ -5,7 +5,7 @@ export INDEX_SETTINGS="index_settings.json"
 export RELEASE=''
 export INDEX_NAME="network"
 export TYPE_FIELD="network"
-export INPUT="../out/netowrks/interactions"
+export INPUT="../out/interactions"
 #export INPUT="gs://ot-snapshots/etl/latest/cancerBiomarkers"
 export ES="http://localhost:9200"
 
