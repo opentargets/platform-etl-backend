@@ -1,7 +1,7 @@
 #!/bin/bash
 
 export INDEX_SETTINGS="index_settings.json"
-export RELEASE='20.04_'
+export RELEASE=''
 export INDEX_NAME="mouse_phenotypes"
 export TYPE_FIELD="mouse_phenotypes"
 export INPUT="../out/mouse_phenotypes"

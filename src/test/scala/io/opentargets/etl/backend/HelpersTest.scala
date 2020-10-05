@@ -4,9 +4,9 @@ import org.apache.spark.sql.types._
 import org.scalatest.flatspec.AnyFlatSpecLike
 import org.scalatest.matchers.should.Matchers
 
-import io.opentargets.etl.backend.SparkHelpers._
+import io.opentargets.etl.backend.spark.Helpers._
 
-class SparkHelpersTest extends AnyFlatSpecLike with Matchers {
+class HelpersTest extends AnyFlatSpecLike with Matchers {
   // given
   val renameFun: String => String = _.toUpperCase
   val testStruct =

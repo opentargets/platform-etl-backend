@@ -4,7 +4,7 @@ import org.apache.spark.sql._
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.functions.{pow => powCol}
 import com.typesafe.scalalogging.{LazyLogging, Logger}
-import io.opentargets.etl.backend.SparkHelpers.IOResourceConfig
+import io.opentargets.etl.backend.spark.{Helpers => H}
 import org.apache.spark.sql.expressions._
 
 import scala.math.pow
@@ -263,12 +263,12 @@ object Association extends LazyLogging {
     val associationsSec = context.configuration.associations
 
     val mappedInputs = Map(
-      "evidences" -> IOResourceConfig(
+      "evidences" -> H.IOResourceConfig(
         commonSec.inputs.evidence.format,
         commonSec.inputs.evidence.path
       )
     )
-    val dfs = SparkHelpers.readFrom(mappedInputs)
+    val dfs = H.readFrom(mappedInputs)
 
     val evidenceColumns = Seq(
       "disease.id as disease_id",
@@ -308,8 +308,8 @@ object Association extends LazyLogging {
     val associationsOverall = computeAssociationsAllDS(associationsPerDS)
 
     Map(
-      "associations_per_datasource_direct" -> associationsPerDS,
-      "associations_overall_direct" -> associationsOverall
+      "associationsDatasourceDirect" -> associationsPerDS,
+      "associationsOverallDirect" -> associationsOverall
     )
   }
 
@@ -322,8 +322,8 @@ object Association extends LazyLogging {
     val associationsOverall = computeAssociationsAllDS(associationsPerDS)
 
     Map(
-      "associations_per_datasource_indirect" -> associationsPerDS,
-      "associations_overall_indirect" -> associationsOverall
+      "associationsDatasourceIndirect" -> associationsPerDS,
+      "associationsOverallIndirect" -> associationsOverall
     )
   }
 
@@ -401,8 +401,8 @@ object Association extends LazyLogging {
     val outputDFs = directs ++ indirects
 
     val outputs = outputDFs.keys map (name =>
-      name -> IOResourceConfig(commonSec.outputFormat, commonSec.output + s"/$name"))
+      name -> H.IOResourceConfig(commonSec.outputFormat, commonSec.output + s"/$name"))
 
-    SparkHelpers.writeTo(outputs.toMap, outputDFs)
+    H.writeTo(outputs.toMap, outputDFs)
   }
 }

@@ -9,7 +9,8 @@ import org.apache.spark.sql.types._
 import com.typesafe.config.Config
 import better.files._
 import better.files.File._
-import io.opentargets.etl.backend.SparkHelpers.IOResourceConfig
+import io.opentargets.etl.backend.spark.Helpers
+import io.opentargets.etl.backend.spark.Helpers.IOResourceConfig
 
 object DiseaseHelpers {
   implicit class AggregationHelpers(df: DataFrame)(implicit ss: SparkSession) {
@@ -128,7 +129,7 @@ object Disease extends LazyLogging {
         common.inputs.disease.path
       )
     )
-    val inputDataFrame = SparkHelpers.readFrom(mappedInputs)
+    val inputDataFrame = Helpers.readFrom(mappedInputs)
 
     val diseaseDF = inputDataFrame("disease").setIdAndSelectFromDiseases
 
@@ -153,7 +154,7 @@ object Disease extends LazyLogging {
       )
     )
 
-    SparkHelpers.writeTo(outputConfs, Map("disease" -> diseaseDF))
+    Helpers.writeTo(outputConfs, Map("disease" -> diseaseDF))
 
     val therapeticAreaList = diseaseDF
       .filter(col("ontology.isTherapeuticArea") === true)
@@ -163,7 +164,7 @@ object Disease extends LazyLogging {
       .coalesce(1)
       .write
       .option("header", "false")
-      .csv(common.output + "/diseases_static_therapeuticarea")
+      .csv(common.output + "/diseasesStaticTherapeuticarea")
 
     val efoBasicInfoDF =
       diseaseDF.select("id", "name", "parents").withColumnRenamed("parents", "parentIds")
@@ -171,6 +172,6 @@ object Disease extends LazyLogging {
     efoBasicInfoDF
       .coalesce(1)
       .write
-      .json(common.output + "/diseases_static_efos")
+      .json(common.output + "/diseasesStaticEfos")
   }
 }

@@ -1,7 +1,7 @@
 #!/bin/bash
 
 export INDEX_SETTINGS="index_settings.json"
-export RELEASE='20.04_'
+export RELEASE=''
 export INDEX_NAME="target_relation"
 export TYPE_FIELD="target_relation"
 export INPUT="../out/targetRelation"
