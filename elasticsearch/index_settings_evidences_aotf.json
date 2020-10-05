@@ -6,13 +6,7 @@
 					"match_mapping_type": "object",
 					"match": "facet_*",
 					"mapping": {
-						"type": "nested",
-						"fields": {
-							"keyword": {
-								"type": "keyword",
-								"ignore_above": 1024
-							}
-						}
+						"type": "nested"
 					}
 				}
 			}
@@ -24,5 +18,4 @@
 			"number_of_shards": 5
 		}
 	}
-
 }
