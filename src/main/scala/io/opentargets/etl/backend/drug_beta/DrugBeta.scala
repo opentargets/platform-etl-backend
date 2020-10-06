@@ -3,7 +3,6 @@ package io.opentargets.etl.backend.drug_beta
 import com.typesafe.scalalogging.LazyLogging
 import io.opentargets.etl.backend.{ETLSessionContext, SparkHelpers}
 import io.opentargets.etl.backend.SparkHelpers.IOResourceConfig
-import org.apache.spark.sql.functions.col
 import org.apache.spark.sql.{DataFrame, SparkSession}
 
 /**
@@ -32,7 +31,9 @@ object DrugBeta extends LazyLogging {
       "target" -> IOResourceConfig(common.inputs.drugChemblTarget.format,
                                    common.inputs.drugChemblTarget.path),
       "drugbank" -> IOResourceConfig(common.inputs.drugDrugbank.format,
-                                     common.inputs.drugDrugbank.path, Some("\\t"), Some(true)),
+                                     common.inputs.drugDrugbank.path,
+                                     Some("\\t"),
+                                     Some(true)),
       // inputs from data-pipeline
       "efo" -> IOResourceConfig(common.inputs.disease.format, common.inputs.disease.path),
       "gene" -> IOResourceConfig(common.inputs.target.format, common.inputs.target.path),
@@ -58,14 +59,23 @@ object DrugBeta extends LazyLogging {
     val indications = new Indication(indicationDf, efoDf)
     val mechanismOfAction = new MechanismOfAction(mechanismDf, targetDf, geneDf)
 
-    logger.info("Joining molecules, indications, and mechanisms of action.")
-    val drugDf: DataFrame = molecule.processMolecules
-      .join(indications.processIndications, Seq("id"), "left_outer")
-      .join(mechanismOfAction.processMechanismOfAction, Seq("id"), "left_outer")
-      .join(DrugCommon.getUniqTargetsAndDiseasesPerDrugId(evidenceDf),
-            col("id") === col("drug_id"),
-            "left_outer")
-      .transform(DrugCommon.addDescriptionField)
+    val moleculeProcessedDf = molecule.processMolecules
+    val indicationProcessedDf = indications.processIndications
+    val mechanismOfActionProcessedDf = mechanismOfAction.processMechanismOfAction
+    val targetsAndDiseasesDf = DrugCommon.getUniqTargetsAndDiseasesPerDrugId(evidenceDf).withColumnRenamed("drug_id", "id")
+    val columnString: DataFrame => String = _.columns.mkString("Columns: [", ",", "]")
+    logger.trace(s"""Intermediate dataframes:
+    \n\t Molecule: ${columnString(moleculeProcessedDf)},
+    \n\t Indications: ${columnString(indicationProcessedDf)},
+    \n\t Mechanisms: ${columnString(indicationProcessedDf)},
+    \n\t Linkages: ${columnString(indicationProcessedDf)}
+    """)
+
+    logger.info("Joining molecules, indications, mechanisms of action, and target and disease linkages.")
+    val drugDf: DataFrame = moleculeProcessedDf
+      .join(indicationProcessedDf, Seq("id"), "left_outer")
+      .join(mechanismOfActionProcessedDf, Seq("id"), "left_outer")
+      .join(targetsAndDiseasesDf, Seq("id"), "left_outer")
 
     val outputs = Seq("drugs-beta")
     logger.info(s"Writing outputs: ${outputs.mkString(",")}")
