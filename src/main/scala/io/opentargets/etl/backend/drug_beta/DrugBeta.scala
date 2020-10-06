@@ -3,6 +3,7 @@ package io.opentargets.etl.backend.drug_beta
 import com.typesafe.scalalogging.LazyLogging
 import io.opentargets.etl.backend.{ETLSessionContext, SparkHelpers}
 import io.opentargets.etl.backend.SparkHelpers.IOResourceConfig
+import org.apache.spark.sql.functions.{col, size}
 import org.apache.spark.sql.{DataFrame, SparkSession}
 
 /**
@@ -63,19 +64,15 @@ object DrugBeta extends LazyLogging {
     val indicationProcessedDf = indications.processIndications
     val mechanismOfActionProcessedDf = mechanismOfAction.processMechanismOfAction
     val targetsAndDiseasesDf = DrugCommon.getUniqTargetsAndDiseasesPerDrugId(evidenceDf).withColumnRenamed("drug_id", "id")
-    val columnString: DataFrame => String = _.columns.mkString("Columns: [", ",", "]")
-    logger.trace(s"""Intermediate dataframes:
-    \n\t Molecule: ${columnString(moleculeProcessedDf)},
-    \n\t Indications: ${columnString(indicationProcessedDf)},
-    \n\t Mechanisms: ${columnString(mechanismOfActionProcessedDf)},
-    \n\t Linkages: ${columnString(targetsAndDiseasesDf)}
-    """)
+    printDetailedLogging(moleculeProcessedDf, indicationProcessedDf, mechanismOfActionProcessedDf, targetsAndDiseasesDf)
 
     logger.info("Joining molecules, indications, mechanisms of action, and target and disease linkages.")
+    // using inner joins as we don't want molecules that have no indications and mechanisms of action.
     val drugDf: DataFrame = moleculeProcessedDf
-      .join(indicationProcessedDf, Seq("id"), "left_outer")
-      .join(mechanismOfActionProcessedDf, Seq("id"), "left_outer")
+      .join(indicationProcessedDf, Seq("id"))
+      .join(mechanismOfActionProcessedDf, Seq("id"))
       .join(targetsAndDiseasesDf, Seq("id"), "left_outer")
+      .transform(addDescriptionField)
 
     val outputs = Seq("drugs-beta")
     logger.info(s"Writing outputs: ${outputs.mkString(",")}")
@@ -86,6 +83,32 @@ object DrugBeta extends LazyLogging {
     val outputDFs = (outputs zip Seq(drugDf)).toMap
 
     SparkHelpers.writeTo(outputConfs, outputDFs)
+  }
+
+  // Effectively a wrapper around the 'description` UDF: isolating in function so the adding/dumping necessary
+  // columns doesn't clutter logic in the apply method. Note: this should be applied after all other transformations!
+  private def addDescriptionField(dataFrame: DataFrame): DataFrame = {
+    dataFrame.withColumn("_indication_phases", col("indications.rows.maxPhaseForIndication"))
+      .withColumn("_indication_labels", col("indications.rows.disease"))
+      .transform(DrugCommon.addDescriptionField)
+      .drop("_indication_phases", "_indication_labels")
+  }
+
+  private def printDetailedLogging(molecule: DataFrame, indication:DataFrame, mechanismOfAction: DataFrame, targetsAndDiseases: DataFrame): Unit = {
+    val columnString: DataFrame => String = _.columns.mkString("Columns: [", ",", "]")
+    logger.trace(s"""Intermediate dataframes:
+    Columns:
+    \n\t Molecule: ${columnString(molecule)},
+    \n\t Indications: ${columnString(indication)},
+    \n\t Mechanisms: ${columnString(mechanismOfAction)},
+    \n\t Linkages: ${columnString(targetsAndDiseases)}
+    Row counts:
+    \n\t Molecule: ${molecule.count},
+    \n\t Indications: ${indication.count},
+    \n\t Mechanisms: ${mechanismOfAction.count},
+    \n\t Linkages: ${targetsAndDiseases.count}
+    """)
+
   }
 
 }

@@ -3,13 +3,11 @@ package io.opentargets.etl.backend.drug_beta
 import com.typesafe.scalalogging.LazyLogging
 import io.opentargets.etl.backend.SparkHelpers.{applyFunToColumn, nest, validateDF}
 import org.apache.spark.sql.functions.{
-  array_distinct,
   col,
   collect_list,
   collect_set,
   explode,
   lower,
-  size,
   struct
 }
 import org.apache.spark.sql.{DataFrame, SparkSession}
@@ -51,6 +49,7 @@ class MechanismOfAction(mechanismDf: DataFrame, targetDf: DataFrame, geneDf: Dat
       .withColumnRenamed("mechanism_of_action", "mechanismOfAction")
     val references = chemblMechanismReferences(mechanism)
     val target = chemblTarget(targetDf, geneDf)
+
     mechanism
       .join(references, Seq("id"), "outer")
       .join(target, Seq("id"), "outer")
