@@ -67,8 +67,8 @@ object DrugBeta extends LazyLogging {
     logger.trace(s"""Intermediate dataframes:
     \n\t Molecule: ${columnString(moleculeProcessedDf)},
     \n\t Indications: ${columnString(indicationProcessedDf)},
-    \n\t Mechanisms: ${columnString(indicationProcessedDf)},
-    \n\t Linkages: ${columnString(indicationProcessedDf)}
+    \n\t Mechanisms: ${columnString(mechanismOfActionProcessedDf)},
+    \n\t Linkages: ${columnString(targetsAndDiseasesDf)}
     """)
 
     logger.info("Joining molecules, indications, mechanisms of action, and target and disease linkages.")

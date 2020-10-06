@@ -154,7 +154,7 @@ class Molecule(moleculeRaw: DataFrame, drugbankRaw: DataFrame)(implicit sparkSes
     singletonRefs
       .map(src => processSingletonCrossReferences(preProcessedMolecules, src._1, src._2))
       .foldLeft(chemblCrossReferences)((agg, a) => mergeCrossReferenceMaps(agg, a))
-      .withColumnRenamed("xref", "cross_references")
+      .withColumnRenamed("xref", "crossReferences")
   }
 
   /**
