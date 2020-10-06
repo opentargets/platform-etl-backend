@@ -20,18 +20,19 @@ import org.apache.spark.sql.{DataFrame, SparkSession}
   * Output structure:
   *
   * id
-  * rows
-  * -- mechanismOfAction
-  * -- references
-  * ---- source
-  * ---- ids
-  * ---- urls
-  * -- targets
-  * ---- approved_name
-  * ---- approved_symbol
-  * ---- ensembl
-  * uniqueActiontype
-  * unqueTargetType
+  * mechanismsOfAction
+  * -- rows
+  * ---- mechanismOfAction
+  * ---- references
+  * ------ source
+  * ------ ids
+  * ------ urls
+  * ---- targets
+  * ------ approved_name
+  * ------ approved_symbol
+  * ------ ensembl
+  * -- uniqueActiontype
+  * -- unqueTargetType
   *
   * @param mechanismDf: raw data from Chembl
   * @param targetDf: raw data from Chembl
@@ -62,7 +63,7 @@ class MechanismOfAction(mechanismDf: DataFrame, targetDf: DataFrame, geneDf: Dat
       .agg(collect_list("rows") as "rows",
            collect_set("action_type") as "uniqueActionType",
            collect_set("target_type") as "uniqueTargetType")
-      .transform(nest(_: DataFrame, List("rows, uniqueActiontype, uniqueTargetType"), "mechanismsOfAction"))
+      .transform(nest(_: DataFrame, List("rows", "uniqueActionType", "uniqueTargetType"), "mechanismsOfAction"))
   }
 
   private def chemblMechanismReferences(dataFrame: DataFrame): DataFrame = {
