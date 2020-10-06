@@ -9,6 +9,9 @@ import org.apache.spark.sql.functions.{col, collect_set, size, struct, substring
   */
 object DrugCommon {
 
+  /*
+  Adds description field to dataframe using UDF.
+   */
   def addDescriptionField(dataFrame: DataFrame): DataFrame = {
     dataFrame.withColumn("description", DrugCommon.generateDescriptionFieldUdf(
       col("drugType"),
@@ -30,7 +33,7 @@ object DrugCommon {
   /**
     * User defined function wrapper of `generateDescriptionField`
     */
-  lazy val generateDescriptionFieldUdf = udf(
+  lazy private val generateDescriptionFieldUdf = udf(
     (
       drugType: String,
       maxPhase: Int,
@@ -57,20 +60,9 @@ object DrugCommon {
 
   /**
     * Use drug metadata to construct a syntactically correct English sentence description of the drug.
-    *
-    * @param drugType
-    * @param maxPhase
-    * @param firstApproval
-    * @param indicationPhases
-    * @param indicationLabels
-    * @param withdrawnYear
-    * @param withdrawnCountries
-    * @param withdrawnReasons
-    * @param blackBoxWarning
-    * @param minIndicationsToShow
     * @return sentence describing the key features of the drug.
     */
-  def generateDescriptionField(
+  private def generateDescriptionField(
                                 drugType: String,
                                 maxPhase: Option[Int],
                                 firstApproval: Option[Int],

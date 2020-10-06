@@ -257,7 +257,7 @@ class MoleculeTest
     // when
     val results = molecule invokePrivate processMoleculeHierarchy(df)
     // then
-    val expectedColumns = Set("id", "child_chembl_ids")
+    val expectedColumns = Set("id", "childChemblIds")
     assert(results.count == 2, "Two inputs had children so two rows should be returned.")
     assert(results.columns.length == expectedColumns.size && results.columns.forall(expectedColumns.contains),
       "All expected columns should be present")

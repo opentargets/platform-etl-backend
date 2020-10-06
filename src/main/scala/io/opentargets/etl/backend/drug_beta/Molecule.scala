@@ -53,7 +53,7 @@ class Molecule(moleculeRaw: DataFrame, drugbankRaw: DataFrame)(implicit sparkSes
     val columnsOfInterest = chemblMoleculeRaw
       .select(
         col("molecule_chembl_id").as("id"),
-        col("molecule_structures.canonical_smiles").as("canonical_smiles"),
+        col("molecule_structures.canonical_smiles").as("canonicalSmiles"),
         col("molecule_type").as("drugType"),
         col("chebi_par_id"),
         col("black_box_warning").as("blackBoxWarning"),
@@ -133,7 +133,7 @@ class Molecule(moleculeRaw: DataFrame, drugbankRaw: DataFrame)(implicit sparkSes
       .select($"id", $"molecule_hierarchy.parent_chembl_id".as("parent_id"))
       .filter($"id" =!= $"parent_id")
       .groupBy("parent_id")
-      .agg(collect_list($"id").as("child_chembl_ids"))
+      .agg(collect_list($"id").as("childChemblIds"))
       .withColumnRenamed("parent_id", "id")
   }
 
