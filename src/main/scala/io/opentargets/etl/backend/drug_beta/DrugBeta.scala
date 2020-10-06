@@ -32,7 +32,7 @@ object DrugBeta extends LazyLogging {
       "target" -> IOResourceConfig(common.inputs.drugChemblTarget.format,
                                    common.inputs.drugChemblTarget.path),
       "drugbank" -> IOResourceConfig(common.inputs.drugDrugbank.format,
-                                     common.inputs.drugDrugbank.path, Some("\t"), Some(true)),
+                                     common.inputs.drugDrugbank.path, Some("\\t"), Some(true)),
       // inputs from data-pipeline
       "efo" -> IOResourceConfig(common.inputs.disease.format, common.inputs.disease.path),
       "gene" -> IOResourceConfig(common.inputs.target.format, common.inputs.target.path),
@@ -65,6 +65,7 @@ object DrugBeta extends LazyLogging {
       .join(DrugCommon.getUniqTargetsAndDiseasesPerDrugId(evidenceDf),
             col("id") === col("drug_id"),
             "left_outer")
+      .transform(DrugCommon.addDescriptionField)
 
     val outputs = Seq("drugs-beta")
     logger.info(s"Writing outputs: ${outputs.mkString(",")}")
