@@ -2,7 +2,7 @@ package io.opentargets.etl.backend.drug_beta
 
 import io.opentargets.etl.backend.DrugHelpers.mkStringSemantic
 import org.apache.spark.sql.DataFrame
-import org.apache.spark.sql.functions.{col, collect_set, size, substring_index, typedLit, udf, when}
+import org.apache.spark.sql.functions.{col, collect_set, size, struct, substring_index, typedLit, udf, when}
 
 /**
   * Utility object to hold methods common to Drug and DrugBeta steps to prevent code duplication.
@@ -26,6 +26,7 @@ object DrugCommon {
       col("blackBoxWarning")
     ))
   }
+
   /**
     * User defined function wrapper of `generateDescriptionField`
     */
@@ -56,6 +57,7 @@ object DrugCommon {
 
   /**
     * Use drug metadata to construct a syntactically correct English sentence description of the drug.
+    *
     * @param drugType
     * @param maxPhase
     * @param firstApproval
@@ -69,17 +71,17 @@ object DrugCommon {
     * @return sentence describing the key features of the drug.
     */
   def generateDescriptionField(
-                                 drugType: String,
-                                 maxPhase: Option[Int],
-                                 firstApproval: Option[Int],
-                                 indicationPhases: Seq[Long],
-                                 indicationLabels: Seq[String],
-                                 withdrawnYear: Option[Int],
-                                 withdrawnCountries: Seq[String],
-                                 withdrawnReasons: Seq[String],
-                                 blackBoxWarning: Boolean,
-                                 minIndicationsToShow: Int = 2
-                               ): String = {
+                                drugType: String,
+                                maxPhase: Option[Int],
+                                firstApproval: Option[Int],
+                                indicationPhases: Seq[Long],
+                                indicationLabels: Seq[String],
+                                withdrawnYear: Option[Int],
+                                withdrawnCountries: Seq[String],
+                                withdrawnReasons: Seq[String],
+                                blackBoxWarning: Boolean,
+                                minIndicationsToShow: Int = 2
+                              ): String = {
 
     val romanNumbers = Map[Int, String](4 -> "IV", 3 -> "III", 2 -> "II", 1 -> "I", 0 -> "I")
       .withDefaultValue("")
@@ -88,8 +90,10 @@ object DrugCommon {
     val phase = maxPhase match {
       case Some(p) =>
         Some(
-          s" with a maximum clinical trial phase of ${romanNumbers(p)}${if (indicationLabels.size > 1) " (across all indications)"
-          else ""}"
+          s" with a maximum clinical trial phase of ${romanNumbers(p)}${
+            if (indicationLabels.size > 1) " (across all indications)"
+            else ""
+          }"
         )
       case _ => None
     }
@@ -159,16 +163,25 @@ object DrugCommon {
   }
 
   def getUniqTargetsAndDiseasesPerDrugId(evidenceDf: DataFrame): DataFrame = {
+
     evidenceDf
       .filter(col("sourceID") === "chembl")
       .withColumn("drug_id", substring_index(col("drug.id"), "/", -1))
       .groupBy(col("drug_id"))
       .agg(
-        collect_set(col("target.id")).as("linkedTargets"),
-        collect_set(col("disease.id")).as("linkedDiseases")
+        collect_set(col("target.id")).as("targets"),
+        collect_set(col("disease.id")).as("diseases")
       )
-      .withColumn("linkedTargetsCount", size(col("linkedTargets")))
-      .withColumn("linkedDiseasesCount", size(col("linkedDiseases")))
+      .withColumn("targetCount", size(col("targets")))
+      .withColumn("diseaseCount", size(col("diseases")))
+      .withColumn("linkedTargets",
+        struct(col("targets").as("rows"),
+          col("targetCount").as("count")))
+      .withColumn("linkedDiseases",
+        struct(
+          col("diseases").as("rows"),
+          col("diseaseCount").as("count")))
+      .select("drug_id", "linkedTargets", "linkedDiseases")
   }
 
 }

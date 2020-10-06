@@ -7,7 +7,7 @@ import org.apache.spark.sql.functions.col
 import org.apache.spark.sql._
 import org.apache.spark.sql.types._
 import com.typesafe.config.Config
-import io.opentargets.etl.backend.SparkHelpers.IOResourceConfig
+import io.opentargets.etl.backend.SparkHelpers.{IOResourceConfig, IOResources}
 import io.opentargets.etl.backend.drug_beta.DrugCommon
 
 import scala.collection.mutable.WrappedArray
@@ -70,8 +70,6 @@ object DrugHelpers {
         "internal_compound as internalCompound",
         "transform(indications, i -> i.max_phase_for_indication) as _indication_phases",
         "transform(indications, i -> i.efo_label) as _indication_labels",
-        "struct(ifnull(linkedTargetsCount, 0) as count, ifnull(linkedTargets, array()) as rows) as linkedTargets",
-        "struct(ifnull(linkedDiseasesCount,0) as count, ifnull(linkedDiseases,array()) as rows) as linkedDiseases",
         "withdrawnNotice",
         "black_box_warning as blackBoxWarning"
       )
@@ -126,7 +124,7 @@ object DrugHelpers {
 
 // This is option/step drug in the config file
 object Drug extends LazyLogging {
-  def apply()(implicit context: ETLSessionContext) = {
+  def apply()(implicit context: ETLSessionContext): IOResources = {
     implicit val ss: SparkSession = context.sparkSession
     import ss.implicits._
     import DrugHelpers._
