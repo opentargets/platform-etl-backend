@@ -100,8 +100,8 @@ common {
 ```
 
 The same happens with logback configuration. You can add `-Dlogback.configurationFile=application.xml` and
-have a logback.xml hanging on your project root or run path. An exmaple log configuration
-file
+have a logback.xml hanging on your project root or run path. An example log configuration
+file:
 
 ```xml
 <configuration>

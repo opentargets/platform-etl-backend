@@ -62,6 +62,7 @@ class MechanismOfAction(mechanismDf: DataFrame, targetDf: DataFrame, geneDf: Dat
       .agg(collect_list("rows") as "rows",
            collect_set("action_type") as "uniqueActionType",
            collect_set("target_type") as "uniqueTargetType")
+      .transform(nest(_: DataFrame, List("rows, uniqueActiontype, uniqueTargetType"), "mechanismsOfAction"))
   }
 
   private def chemblMechanismReferences(dataFrame: DataFrame): DataFrame = {
