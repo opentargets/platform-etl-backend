@@ -12,7 +12,7 @@ import org.apache.spark.sql.{DataFrame, SparkSession}
   * It incorporates processing which was previously done in the `data-pipeline` project and consolidates all the logic in
   * this class.
   */
-object DrugBeta extends LazyLogging {
+object DrugBeta extends DrugCommon with Serializable with LazyLogging {
 
   def apply()(implicit context: ETLSessionContext): Unit = {
     implicit val ss: SparkSession = context.sparkSession
@@ -63,16 +63,16 @@ object DrugBeta extends LazyLogging {
     val moleculeProcessedDf = molecule.processMolecules
     val indicationProcessedDf = indications.processIndications
     val mechanismOfActionProcessedDf = mechanismOfAction.processMechanismOfAction
-    val targetsAndDiseasesDf = DrugCommon.getUniqTargetsAndDiseasesPerDrugId(evidenceDf).withColumnRenamed("drug_id", "id")
+    val targetsAndDiseasesDf = getUniqTargetsAndDiseasesPerDrugId(evidenceDf).withColumnRenamed("drug_id", "id")
     printDetailedLogging(moleculeProcessedDf, indicationProcessedDf, mechanismOfActionProcessedDf, targetsAndDiseasesDf)
 
     logger.info("Joining molecules, indications, mechanisms of action, and target and disease linkages.")
     // using inner joins as we don't want molecules that have no indications and mechanisms of action.
     val drugDf: DataFrame = moleculeProcessedDf
-      .join(indicationProcessedDf, Seq("id"))
       .join(mechanismOfActionProcessedDf, Seq("id"))
+      .join(indicationProcessedDf, Seq("id"))
       .join(targetsAndDiseasesDf, Seq("id"), "left_outer")
-      .transform(addDescriptionField)
+      .transform(addDescription)
 
     val outputs = Seq("drugs-beta")
     logger.info(s"Writing outputs: ${outputs.mkString(",")}")
@@ -87,10 +87,10 @@ object DrugBeta extends LazyLogging {
 
   // Effectively a wrapper around the 'description` UDF: isolating in function so the adding/dumping necessary
   // columns doesn't clutter logic in the apply method. Note: this should be applied after all other transformations!
-  private def addDescriptionField(dataFrame: DataFrame): DataFrame = {
+  def addDescription(dataFrame: DataFrame): DataFrame = {
     dataFrame.withColumn("_indication_phases", col("indications.rows.maxPhaseForIndication"))
       .withColumn("_indication_labels", col("indications.rows.disease"))
-      .transform(DrugCommon.addDescriptionField)
+      .transform(addDescriptionField)
       .drop("_indication_phases", "_indication_labels")
   }
 

@@ -12,39 +12,7 @@ import io.opentargets.etl.backend.drug_beta.DrugCommon
 
 import scala.collection.mutable.WrappedArray
 
-object DrugHelpers {
-
-  /**
-    * take a list of tokens and join them like a proper english sentence with items in it. As
-    * an example ["miguel", "cinzia", "jarrod"] -> "miguel, cinzia and jarrod" and all the
-    * the causistic you could find in it.
-    * @param tokens list of tokens
-    * @param start prefix string to use
-    * @param sep the separator to use but not with the last two elements
-    * @param end the suffix to put
-    * @param lastSep the last separator as " and "
-    * @tparam T it is converted to string
-    * @return the unique string with all information concatenated
-    */
-  def mkStringSemantic[T](
-      tokens: Seq[T],
-      start: String = "",
-      sep: String = ", ",
-      end: String = "",
-      lastSep: String = " and "
-  ): Option[String] = {
-    val strTokens = tokens.map(_.toString)
-
-    strTokens.size match {
-      case 0 => None
-      case 1 => Some(strTokens.mkString(start, sep, end))
-      case _ =>
-        Some(
-          (Seq(strTokens.init.mkString(start, sep, "")) :+ lastSep :+ strTokens.last)
-            .mkString("", "", end)
-        )
-    }
-  }
+object DrugHelpers extends DrugCommon with Serializable {
 
   implicit class AggregationHelpers(df: DataFrame)(implicit ss: SparkSession) {
     import Configuration._
@@ -73,7 +41,7 @@ object DrugHelpers {
         "withdrawnNotice",
         "black_box_warning as blackBoxWarning"
       )
-
+      // drug rewrite: done
       val mechanismsOfAction =
         """
           |if(number_of_mechanisms_of_action > 0,struct(
@@ -87,6 +55,7 @@ object DrugHelpers {
           |  array_distinct(transform(mechanisms_of_action, x -> x.target_type)) as uniqueTargetTypes), null) as mechanismsOfAction
           |""".stripMargin
 
+      // drug rewrite: done
       val indications =
         """
           |if(number_of_indications > 0,struct(
@@ -97,7 +66,7 @@ object DrugHelpers {
           |""".stripMargin
 
       df.join(
-          DrugCommon.getUniqTargetsAndDiseasesPerDrugId(evidences),
+          getUniqTargetsAndDiseasesPerDrugId(evidences),
           col("id") === col("drug_id"),
           "left_outer"
         )
@@ -116,7 +85,7 @@ object DrugHelpers {
           )
         )
         .selectExpr(selectExpression ++ Seq(mechanismsOfAction, indications): _*)
-        .transform(DrugCommon.addDescriptionField)
+        .transform(addDescriptionField)
         .drop("_indication_phases", "_indication_labels")
     }
   }
