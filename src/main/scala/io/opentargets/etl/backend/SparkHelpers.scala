@@ -52,8 +52,12 @@ object SparkHelpers extends LazyLogging {
     * @param configuration to provide access to the program's configuration
     * @return a map of file -> IOResourceConfig
     */
-  def generateDefaultIoOutputConfiguration(files: String*)(configuration: OTConfig): IOResourceConfs = {
-    (for (n <- files) yield n -> IOResourceConfig(configuration.common.outputFormat, configuration.common.output + s"/$n")) toMap
+  def generateDefaultIoOutputConfiguration(files: String*)(
+      configuration: OTConfig): IOResourceConfs = {
+    (for (n <- files)
+      yield
+        n -> IOResourceConfig(configuration.common.outputFormat,
+                              configuration.common.output + s"/$n")) toMap
 
   }
 
@@ -97,22 +101,40 @@ object SparkHelpers extends LazyLogging {
   }
 
   def loadFileToDF(pathInfo: IOResourceConfig)(implicit session: SparkSession): DataFrame = {
-    logger.debug(s"load file ${pathInfo.path} with format ${pathInfo.format} to dataframe")
-    if (pathInfo.format.contains("sv")) {
-      logger.debug("some ice")
-      session.read
-        .format("csv")
-        .option("header", pathInfo.header.get)
-        .option("delimiter", pathInfo.delimiter.get)
-        .load(pathInfo.path)
-    } else {
-      session.read.format(pathInfo.format).load(pathInfo.path)
+    logger.info(s"load file ${pathInfo.path} with format ${pathInfo.format} to dataframe")
+    pathInfo match {
+      // CSV, TSV, etc
+      case IOResourceConfig(_: String,
+                            format: String,
+                            header: Option[String],
+                            delimiter: Option[Boolean])
+          if format.contains("sv") && header.isDefined && delimiter.isDefined => {
+        logger.debug(
+          s"Loading separated value file: header - ${pathInfo.header.get}, delimiter - ${pathInfo.delimiter.get}")
+        session.read
+          .format("csv")
+          .option("header", pathInfo.header.get)
+          .option("delimiter", pathInfo.delimiter.get)
+          .load(pathInfo.path)
+      }
+      case IOResourceConfig(_: String,
+                            format: String,
+                            header: Option[String],
+                            delimiter: Option[Boolean]) if format.contains("sv") => {
+        logger.error(
+          s"Separated value filed ${pathInfo.path} selected without specifying header and/or delimiter values")
+        // killing program through exception.
+        assert(false, s"Unable to complete pipeline due to bad file configuration for ${pathInfo}")
+        session.emptyDataFrame
+      }
+      // All other formats
+      case _ => session.read.format(pathInfo.format).load(pathInfo.path)
     }
   }
 
-  def writeTo(outputConfs: IOResourceConfs, outputs: IOResources)(implicit
-      session: SparkSession
-  ): IOResources = {
+  def writeTo(outputConfs: IOResourceConfs, outputs: IOResources)(
+      implicit
+      session: SparkSession): IOResources = {
 
     logger.info(s"Saving data to '${outputConfs.mkString(", ")}'")
 
@@ -139,16 +161,17 @@ object SparkHelpers extends LazyLogging {
 
   def renameAllCols(schema: StructType, fn: String => String): StructType = {
 
-    def renameDataType(dt: StructType): StructType = StructType(dt.fields.map {
-      case StructField(name, dataType, nullable, metadata) =>
-        val renamedDT = dataType match {
-          case st: StructType => renameDataType(st)
-          case ArrayType(elementType: StructType, containsNull) =>
-            ArrayType(renameDataType(elementType), containsNull)
-          case rest: DataType => rest
-        }
-        StructField(fn(name), renamedDT, nullable, metadata)
-    })
+    def renameDataType(dt: StructType): StructType =
+      StructType(dt.fields.map {
+        case StructField(name, dataType, nullable, metadata) =>
+          val renamedDT = dataType match {
+            case st: StructType => renameDataType(st)
+            case ArrayType(elementType: StructType, containsNull) =>
+              ArrayType(renameDataType(elementType), containsNull)
+            case rest: DataType => rest
+          }
+          StructField(fn(name), renamedDT, nullable, metadata)
+      })
 
     renameDataType(schema)
   }
@@ -161,9 +184,12 @@ object SparkHelpers extends LazyLogging {
     * @param fun transformation to apply to `columnName` in `dataFrame`
     * @return transformed dataframe
     */
-  def applyFunToColumn(columnName: String, dataFrame: DataFrame, fun: Column => Column): DataFrame = {
+  def applyFunToColumn(columnName: String,
+                       dataFrame: DataFrame,
+                       fun: Column => Column): DataFrame = {
     assert(dataFrame.columns.contains(columnName), s"Column $columnName was not in dataframe!")
-    dataFrame.withColumn("x", fun(col(columnName)))
+    dataFrame
+      .withColumn("x", fun(col(columnName)))
       .drop(columnName)
       .withColumnRenamed("x", columnName)
   }
@@ -193,7 +219,9 @@ object SparkHelpers extends LazyLogging {
     * @param dataFrame dataframe to test
     */
   def validateDF(requiredColumns: Set[String], dataFrame: DataFrame): Unit = {
-    lazy val msg = s"One or more required columns (${requiredColumns.mkString(",")}) not found in dataFrame columns: ${dataFrame.columns.mkString(",")}"
+    lazy val msg =
+      s"One or more required columns (${requiredColumns.mkString(",")}) not found in dataFrame columns: ${dataFrame.columns
+        .mkString(",")}"
     val columnsOnDf = dataFrame.columns.toSet
     assert(requiredColumns.forall(columnsOnDf.contains), msg)
   }
