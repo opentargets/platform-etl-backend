@@ -45,6 +45,25 @@ class SparkHelpersTest
 
   }
 
+  "separated values files" should "only be processed when they have a header and separator specified" in {
+    // given
+    val input = IOResourceConfig("name", "csv")
+    // when
+    lazy val results = SparkHelpers.loadFileToDF(input)(sparkSession)
+    // then
+    assertThrows[AssertionError](results)
+  }
+
+  they should "load correctly when header and separator as specified" in {
+    // given
+    val path: String = this.getClass.getResource("/drugbank_v.csv").getPath
+    val input = IOResourceConfig("csv", path, Some("\\t"), Some(true))
+    // when
+    val results = SparkHelpers.loadFileToDF(input)(sparkSession)
+    // then
+    assert( !results.isEmpty, "The provided dataframe should not be empty.")
+  }
+
   "Rename columns" should "rename all columns using given function" in {
 
     // when
