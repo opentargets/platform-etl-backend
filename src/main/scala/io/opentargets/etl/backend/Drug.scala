@@ -12,7 +12,7 @@ import io.opentargets.etl.backend.drug_beta.DrugCommon
 
 import scala.collection.mutable.WrappedArray
 
-object DrugHelpers extends DrugCommon with Serializable {
+object DrugHelpers extends Serializable {
 
   implicit class AggregationHelpers(df: DataFrame)(implicit ss: SparkSession) {
     import Configuration._
@@ -66,7 +66,7 @@ object DrugHelpers extends DrugCommon with Serializable {
           |""".stripMargin
 
       df.join(
-          getUniqTargetsAndDiseasesPerDrugId(evidences),
+          DrugCommon.getUniqTargetsAndDiseasesPerDrugId(evidences),
           col("id") === col("drug_id"),
           "left_outer"
         )
@@ -85,7 +85,7 @@ object DrugHelpers extends DrugCommon with Serializable {
           )
         )
         .selectExpr(selectExpression ++ Seq(mechanismsOfAction, indications): _*)
-        .transform(addDescriptionField)
+        .transform(DrugCommon.addDescriptionField)
         .drop("_indication_phases", "_indication_labels")
     }
   }

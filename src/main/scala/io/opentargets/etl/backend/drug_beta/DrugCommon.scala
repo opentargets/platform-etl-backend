@@ -6,15 +6,16 @@ import org.apache.spark.sql.functions.{col, collect_set, size, struct, substring
 /**
   * Utility object to hold methods common to Drug and DrugBeta steps to prevent code duplication.
   */
-trait DrugCommon extends Serializable {
+object DrugCommon extends Serializable {
 
   /*
   Adds description field to dataframe using UDF.
    */
   def addDescriptionField(dataFrame: DataFrame): DataFrame = {
+
     dataFrame.withColumn(
       "description",
-      generateDescriptionFieldUdf(
+      DrugCommon.generateDescriptionFieldUdf(
         col("drugType"),
         col("maximumClinicalTrialPhase"),
         when(col("yearOfFirstApproval").isNotNull, col("yearOfFirstApproval")).otherwise(0),
@@ -35,7 +36,7 @@ trait DrugCommon extends Serializable {
   /**
     * User defined function wrapper of `generateDescriptionField`
     */
-  private val generateDescriptionFieldUdf = udf(
+  val generateDescriptionFieldUdf: UserDefinedFunction = udf(
     (
         drugType: String,
         maxPhase: Int,
@@ -72,7 +73,7 @@ trait DrugCommon extends Serializable {
     * @tparam T it is converted to string
     * @return the unique string with all information concatenated
     */
-  private def mkStringSemantic[T](
+  def mkStringSemantic[T](
       tokens: Seq[T],
       start: String = "",
       sep: String = ", ",
@@ -96,7 +97,7 @@ trait DrugCommon extends Serializable {
     * Use drug metadata to construct a syntactically correct English sentence description of the drug.
     * @return sentence describing the key features of the drug.
     */
-  private def generateDescriptionField(
+  def generateDescriptionField(
       drugType: String,
       maxPhase: Option[Int],
       firstApproval: Option[Int],
@@ -134,9 +135,9 @@ trait DrugCommon extends Serializable {
         case (0, 0) =>
           None
         case (n, 0) =>
-          if (n <= minIndicationsToShow)
+          if (n <= minIndicationsToShow) {
             mkStringSemantic(approvedIndications.map(_._2), " and is indicated for ")
-          else
+          } else
             Some(s" and has $n approved indications")
         case (0, m) =>
           Some(s" and has $m investigational indication${if (m > 1) "s" else ""}")
