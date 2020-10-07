@@ -1,6 +1,7 @@
 package io.opentargets.etl.backend.drug_beta
 
 import org.apache.spark.sql.DataFrame
+import org.apache.spark.sql.expressions.UserDefinedFunction
 import org.apache.spark.sql.functions.{col, collect_set, size, struct, substring_index, typedLit, udf, when}
 
 /**
@@ -136,14 +137,14 @@ object DrugCommon extends Serializable {
           None
         case (n, 0) =>
           if (n <= minIndicationsToShow) {
-            mkStringSemantic(approvedIndications.map(_._2), " and is indicated for ")
+            DrugCommon.mkStringSemantic(approvedIndications.map(_._2), " and is indicated for ")
           } else
             Some(s" and has $n approved indications")
         case (0, m) =>
           Some(s" and has $m investigational indication${if (m > 1) "s" else ""}")
         case (n, m) =>
           if (n <= minIndicationsToShow)
-            mkStringSemantic(
+            DrugCommon.mkStringSemantic(
               approvedIndications.map(_._2),
               start = " and is indicated for ",
               end = s" and has $m investigational indication${if (m > 1) "s" else ""}"
@@ -164,8 +165,8 @@ object DrugCommon extends Serializable {
 
     val year = withdrawnYear.map(y =>
       s" ${if (withdrawnCountries.size > 1) "initially" else ""} in ${y.toString}")
-    val countries = mkStringSemantic(withdrawnCountries, " in ")
-    val reasons = mkStringSemantic(withdrawnReasons, " due to ")
+    val countries = DrugCommon.mkStringSemantic(withdrawnCountries, " in ")
+    val reasons = DrugCommon.mkStringSemantic(withdrawnReasons, " due to ")
     val wdrawnNoteList = List(Some(" It was withdrawn"), countries, year, reasons, Some("."))
 
     val wdrawnNote = wdrawnNoteList.count(_.isDefined) match {
