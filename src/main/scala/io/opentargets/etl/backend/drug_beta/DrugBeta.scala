@@ -3,7 +3,7 @@ package io.opentargets.etl.backend.drug_beta
 import com.typesafe.scalalogging.LazyLogging
 import io.opentargets.etl.backend.{ETLSessionContext, SparkHelpers}
 import io.opentargets.etl.backend.SparkHelpers.IOResourceConfig
-import org.apache.spark.sql.functions.{col, size}
+import io.opentargets.etl.backend.drug_beta.DrugCommon.addDescription
 import org.apache.spark.sql.{DataFrame, SparkSession}
 
 /**
@@ -43,6 +43,7 @@ object DrugBeta extends Serializable with LazyLogging {
 
     val inputDataFrames = SparkHelpers.readFrom(mappedInputs)
 
+    // raw input dataframes
     lazy val moleculeDf: DataFrame = inputDataFrames("molecule")
     lazy val mechanismDf: DataFrame = inputDataFrames("mechanism")
     lazy val indicationDf: DataFrame = inputDataFrames("indication")
@@ -54,6 +55,7 @@ object DrugBeta extends Serializable with LazyLogging {
     lazy val efoDf: DataFrame = inputDataFrames("efo")
     lazy val evidenceDf: DataFrame = inputDataFrames("evidence")
 
+    // processed dataframes
     logger.info("Raw inputs for Drug beta loaded.")
     logger.info("Processing Drug beta transformations.")
     val molecule = new Molecule(moleculeDf, drugbankData)
@@ -63,10 +65,15 @@ object DrugBeta extends Serializable with LazyLogging {
     val moleculeProcessedDf = molecule.processMolecules
     val indicationProcessedDf = indications.processIndications
     val mechanismOfActionProcessedDf = mechanismOfAction.processMechanismOfAction
-    val targetsAndDiseasesDf = DrugCommon.getUniqTargetsAndDiseasesPerDrugId(evidenceDf).withColumnRenamed("drug_id", "id")
-    printDetailedLogging(moleculeProcessedDf, indicationProcessedDf, mechanismOfActionProcessedDf, targetsAndDiseasesDf)
+    val targetsAndDiseasesDf =
+      DrugCommon.getUniqTargetsAndDiseasesPerDrugId(evidenceDf).withColumnRenamed("drug_id", "id")
+    printDetailedLogging(moleculeProcessedDf,
+                         indicationProcessedDf,
+                         mechanismOfActionProcessedDf,
+                         targetsAndDiseasesDf)
 
-    logger.info("Joining molecules, indications, mechanisms of action, and target and disease linkages.")
+    logger.info(
+      "Joining molecules, indications, mechanisms of action, and target and disease linkages.")
     // using inner joins as we don't want molecules that have no indications and mechanisms of action.
     val drugDf: DataFrame = moleculeProcessedDf
       .join(mechanismOfActionProcessedDf, Seq("id"))
@@ -85,16 +92,10 @@ object DrugBeta extends Serializable with LazyLogging {
     SparkHelpers.writeTo(outputConfs, outputDFs)
   }
 
-  // Effectively a wrapper around the 'description` UDF: isolating in function so the adding/dumping necessary
-  // columns doesn't clutter logic in the apply method. Note: this should be applied after all other transformations!
-  def addDescription(dataFrame: DataFrame): DataFrame = {
-    dataFrame.withColumn("_indication_phases", col("indications.rows.maxPhaseForIndication"))
-      .withColumn("_indication_labels", col("indications.rows.disease"))
-      .transform(DrugCommon.addDescriptionField)
-      .drop("_indication_phases", "_indication_labels")
-  }
-
-  private def printDetailedLogging(molecule: DataFrame, indication:DataFrame, mechanismOfAction: DataFrame, targetsAndDiseases: DataFrame): Unit = {
+  private def printDetailedLogging(molecule: DataFrame,
+                                   indication: DataFrame,
+                                   mechanismOfAction: DataFrame,
+                                   targetsAndDiseases: DataFrame): Unit = {
     val columnString: DataFrame => String = _.columns.mkString("Columns: [", ",", "]")
     logger.trace(s"""Intermediate dataframes:
     Columns:
@@ -110,5 +111,4 @@ object DrugBeta extends Serializable with LazyLogging {
     """)
 
   }
-
 }
