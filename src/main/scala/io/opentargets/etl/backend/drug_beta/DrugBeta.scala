@@ -12,7 +12,7 @@ import org.apache.spark.sql.{DataFrame, SparkSession}
   * It incorporates processing which was previously done in the `data-pipeline` project and consolidates all the logic in
   * this class.
   */
-object DrugBeta extends DrugCommon with Serializable with LazyLogging {
+object DrugBeta extends Serializable with LazyLogging {
 
   def apply()(implicit context: ETLSessionContext): Unit = {
     implicit val ss: SparkSession = context.sparkSession
@@ -63,7 +63,7 @@ object DrugBeta extends DrugCommon with Serializable with LazyLogging {
     val moleculeProcessedDf = molecule.processMolecules
     val indicationProcessedDf = indications.processIndications
     val mechanismOfActionProcessedDf = mechanismOfAction.processMechanismOfAction
-    val targetsAndDiseasesDf = getUniqTargetsAndDiseasesPerDrugId(evidenceDf).withColumnRenamed("drug_id", "id")
+    val targetsAndDiseasesDf = DrugCommon.getUniqTargetsAndDiseasesPerDrugId(evidenceDf).withColumnRenamed("drug_id", "id")
     printDetailedLogging(moleculeProcessedDf, indicationProcessedDf, mechanismOfActionProcessedDf, targetsAndDiseasesDf)
 
     logger.info("Joining molecules, indications, mechanisms of action, and target and disease linkages.")
@@ -90,7 +90,7 @@ object DrugBeta extends DrugCommon with Serializable with LazyLogging {
   def addDescription(dataFrame: DataFrame): DataFrame = {
     dataFrame.withColumn("_indication_phases", col("indications.rows.maxPhaseForIndication"))
       .withColumn("_indication_labels", col("indications.rows.disease"))
-      .transform(addDescriptionField)
+      .transform(DrugCommon.addDescriptionField)
       .drop("_indication_phases", "_indication_labels")
   }
 
