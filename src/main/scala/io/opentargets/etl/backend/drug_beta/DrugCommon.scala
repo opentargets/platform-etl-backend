@@ -9,6 +9,16 @@ import org.apache.spark.sql.functions.{col, collect_set, size, struct, substring
   */
 object DrugCommon extends Serializable {
 
+  // Effectively a wrapper around the 'description` UDF: isolating in function so the adding/dumping necessary
+  // columns doesn't clutter logic in the apply method. Note: this should be applied after all other transformations!
+  def addDescription(dataFrame: DataFrame): DataFrame = {
+    dataFrame
+      .withColumn("_indication_phases", col("indications.rows.maxPhaseForIndication"))
+      .withColumn("_indication_labels", col("indications.rows.disease"))
+      .transform(addDescriptionField)
+      .drop("_indication_phases", "_indication_labels")
+  }
+
   /*
   Adds description field to dataframe using UDF.
    */
@@ -75,13 +85,14 @@ object DrugCommon extends Serializable {
     * @return the unique string with all information concatenated
     */
   def mkStringSemantic[T](
-      tokens: Seq[T],
+      tokens: Option[Seq[T]],
       start: String = "",
       sep: String = ", ",
       end: String = "",
       lastSep: String = " and "
   ): Option[String] = {
-    val strTokens = tokens.map(_.toString)
+
+    val strTokens: Seq[String] = tokens.fold(Seq.empty[String])(t => t.map(_.toString))
 
     strTokens.size match {
       case 0 => None
@@ -137,7 +148,7 @@ object DrugCommon extends Serializable {
           None
         case (n, 0) =>
           if (n <= minIndicationsToShow) {
-            DrugCommon.mkStringSemantic(approvedIndications.map(_._2), " and is indicated for ")
+            DrugCommon.mkStringSemantic(Some(approvedIndications.map(_._2)), " and is indicated for ")
           } else
             Some(s" and has $n approved indications")
         case (0, m) =>
@@ -145,7 +156,7 @@ object DrugCommon extends Serializable {
         case (n, m) =>
           if (n <= minIndicationsToShow)
             DrugCommon.mkStringSemantic(
-              approvedIndications.map(_._2),
+              Some(approvedIndications.map(_._2)),
               start = " and is indicated for ",
               end = s" and has $m investigational indication${if (m > 1) "s" else ""}"
             )
@@ -165,8 +176,8 @@ object DrugCommon extends Serializable {
 
     val year = withdrawnYear.map(y =>
       s" ${if (withdrawnCountries.size > 1) "initially" else ""} in ${y.toString}")
-    val countries = DrugCommon.mkStringSemantic(withdrawnCountries, " in ")
-    val reasons = DrugCommon.mkStringSemantic(withdrawnReasons, " due to ")
+    val countries = DrugCommon.mkStringSemantic(Some(withdrawnCountries), " in ")
+    val reasons = DrugCommon.mkStringSemantic(Some(withdrawnReasons), " due to ")
     val wdrawnNoteList = List(Some(" It was withdrawn"), countries, year, reasons, Some("."))
 
     val wdrawnNote = wdrawnNoteList.count(_.isDefined) match {
