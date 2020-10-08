@@ -3,7 +3,16 @@ package io.opentargets.etl.backend.drug_beta
 import com.typesafe.scalalogging.LazyLogging
 import org.apache.spark.sql.DataFrame
 import org.apache.spark.sql.expressions.UserDefinedFunction
-import org.apache.spark.sql.functions.{col, collect_set, size, struct, substring_index, typedLit, udf, when}
+import org.apache.spark.sql.functions.{
+  col,
+  collect_set,
+  size,
+  struct,
+  substring_index,
+  typedLit,
+  udf,
+  when
+}
 
 /**
   * Utility object to hold methods common to Drug and DrugBeta steps to prevent code duplication.
@@ -93,21 +102,21 @@ object DrugCommon extends Serializable with LazyLogging {
       lastSep: String = " and "
   ): Option[String] = {
 
-    logger.debug(s"mkStringSemantic tokens '${tokens}'")
-    None
+    // nulls are quite diff to spot
+    val strTokens: Seq[String] = tokens
+      .withFilter(_ != null)
+      .map(_.map(_.toString))
+      .getOrElse(Seq.empty[String])
 
-//    // nulls are quite diff to spot
-//    val strTokens: Seq[String] = tokens.map(_.map(_.toString)).getOrElse(Seq.empty[String])
-//
-//    strTokens.size match {
-//      case 0 => None
-//      case 1 => Some(strTokens.mkString(start, sep, end))
-//      case _ =>
-//        Some(
-//          (Seq(strTokens.init.mkString(start, sep, "")) :+ lastSep :+ strTokens.last)
-//            .mkString("", "", end)
-//        )
-//    }
+    strTokens.size match {
+      case 0 => None
+      case 1 => Some(strTokens.mkString(start, sep, end))
+      case _ =>
+        Some(
+          (Seq(strTokens.init.mkString(start, sep, "")) :+ lastSep :+ strTokens.last)
+            .mkString("", "", end)
+        )
+    }
   }
 
   /**
@@ -153,7 +162,8 @@ object DrugCommon extends Serializable with LazyLogging {
           None
         case (n, 0) =>
           if (n <= minIndicationsToShow) {
-            DrugCommon.mkStringSemantic(Option(approvedIndications.map(_._2)), " and is indicated for ")
+            DrugCommon.mkStringSemantic(Option(approvedIndications.map(_._2)),
+                                        " and is indicated for ")
           } else
             Some(s" and has $n approved indications")
         case (0, m) =>
