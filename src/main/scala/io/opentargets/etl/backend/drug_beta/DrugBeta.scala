@@ -76,8 +76,8 @@ object DrugBeta extends Serializable with LazyLogging {
       "Joining molecules, indications, mechanisms of action, and target and disease linkages.")
     // using inner joins as we don't want molecules that have no indications and mechanisms of action.
     val drugDf: DataFrame = moleculeProcessedDf
-      .join(mechanismOfActionProcessedDf, Seq("id"))
       .join(indicationProcessedDf, Seq("id"))
+      .join(mechanismOfActionProcessedDf, Seq("id"), "left_outer")
       .join(targetsAndDiseasesDf, Seq("id"), "left_outer")
       .transform(addDescription)
 
