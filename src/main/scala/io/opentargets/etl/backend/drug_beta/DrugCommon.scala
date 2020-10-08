@@ -94,22 +94,7 @@ object DrugCommon extends Serializable with LazyLogging {
   ): Option[String] = {
 
     // nulls are quite diff to spot
-    val strTokens: Seq[String] = if (tokens != null) {
-      tokens.map {
-        v => Option(v) match {
-          case Some(value) => if (value != null) {
-            value.map(_.toString)
-          } else {
-            logger.error("here inside there should not be a null but here it is")
-            Seq.empty[String]
-          }
-          case None => Seq.empty[String]
-        }
-      }.getOrElse(Seq.empty[String])
-    } else {
-      logger.error("nasty null here, so we must be passing nulls in from some transformations")
-      Seq.empty[String]
-    }
+    val strTokens: Seq[String] = tokens.map(_.map(_.toString)).getOrElse(Seq.empty[String])
 
     strTokens.size match {
       case 0 => None
