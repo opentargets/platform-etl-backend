@@ -3,7 +3,7 @@ package io.opentargets.etl.backend.drug_beta
 import com.typesafe.scalalogging.LazyLogging
 import io.opentargets.etl.backend.{ETLSessionContext, SparkHelpers}
 import io.opentargets.etl.backend.SparkHelpers.IOResourceConfig
-import io.opentargets.etl.backend.drug_beta.DrugCommon.addDescription
+import io.opentargets.etl.backend.drug_beta.DrugCommon._
 import org.apache.spark.sql.{DataFrame, SparkSession}
 
 /**
