@@ -3,7 +3,16 @@ package io.opentargets.etl.backend.drug_beta
 import com.typesafe.scalalogging.LazyLogging
 import org.apache.spark.sql.DataFrame
 import org.apache.spark.sql.expressions.UserDefinedFunction
-import org.apache.spark.sql.functions.{col, collect_set, size, struct, substring_index, typedLit, udf, when}
+import org.apache.spark.sql.functions.{
+  col,
+  collect_set,
+  size,
+  struct,
+  substring_index,
+  typedLit,
+  udf,
+  when
+}
 
 /**
   * Utility object to hold methods common to Drug and DrugBeta steps to prevent code duplication.
@@ -94,7 +103,11 @@ object DrugCommon extends Serializable with LazyLogging {
   ): Option[String] = {
 
     // nulls are quite diff to spot
-    val strTokens: Seq[String] = tokens.map(_.map(_.toString)).getOrElse(Seq.empty[String])
+    val strTokens: Seq[String] = tokens
+      .map(
+        _.withFilter(_ != null)
+          .map(_.toString))
+      .getOrElse(Seq.empty[String])
 
     strTokens.size match {
       case 0 => None
@@ -150,7 +163,8 @@ object DrugCommon extends Serializable with LazyLogging {
           None
         case (n, 0) =>
           if (n <= minIndicationsToShow) {
-            DrugCommon.mkStringSemantic(Option(approvedIndications.map(_._2)), " and is indicated for ")
+            DrugCommon.mkStringSemantic(Option(approvedIndications.map(_._2)),
+                                        " and is indicated for ")
           } else
             Some(s" and has $n approved indications")
         case (0, m) =>
@@ -178,8 +192,8 @@ object DrugCommon extends Serializable with LazyLogging {
 
     val year = withdrawnYear.map(y =>
       s" ${if (withdrawnCountries.size > 1) "initially" else ""} in ${y.toString}")
-    val countries = DrugCommon.mkStringSemantic(Some(withdrawnCountries), " in ")
-    val reasons = DrugCommon.mkStringSemantic(Some(withdrawnReasons), " due to ")
+    val countries = DrugCommon.mkStringSemantic(Option(withdrawnCountries), " in ")
+    val reasons = DrugCommon.mkStringSemantic(Option(withdrawnReasons), " due to ")
     val wdrawnNoteList = List(Some(" It was withdrawn"), countries, year, reasons, Some("."))
 
     val wdrawnNote = wdrawnNoteList.count(_.isDefined) match {
