@@ -93,18 +93,21 @@ object DrugCommon extends Serializable with LazyLogging {
       lastSep: String = " and "
   ): Option[String] = {
 
-    // nulls are quite diff to spot
-    val strTokens: Seq[String] = tokens.map(_.map(_.toString)).getOrElse(Seq.empty[String])
+    logger.debug(s"mkStringSemantic tokens '${tokens}'")
+    None
 
-    strTokens.size match {
-      case 0 => None
-      case 1 => Some(strTokens.mkString(start, sep, end))
-      case _ =>
-        Some(
-          (Seq(strTokens.init.mkString(start, sep, "")) :+ lastSep :+ strTokens.last)
-            .mkString("", "", end)
-        )
-    }
+//    // nulls are quite diff to spot
+//    val strTokens: Seq[String] = tokens.map(_.map(_.toString)).getOrElse(Seq.empty[String])
+//
+//    strTokens.size match {
+//      case 0 => None
+//      case 1 => Some(strTokens.mkString(start, sep, end))
+//      case _ =>
+//        Some(
+//          (Seq(strTokens.init.mkString(start, sep, "")) :+ lastSep :+ strTokens.last)
+//            .mkString("", "", end)
+//        )
+//    }
   }
 
   /**
