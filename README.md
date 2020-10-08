@@ -199,9 +199,11 @@ The majority of the ETL was written to process data which has been prepared by t
 `DrugBeta` will eventually replace the `Drug` step in the pipeline, as well as supersede the step of the same name in
  the `data-pipeline` repository.
  
+To run the `DrugBeta` step use the example command under `Create a fat JAR` with `DrugBeta` as the step name. 
+ 
 #### Adding additional cross references
 
-If a new cross reference maps one-to-one to a ChEMBL ID it can be added by including it in the
+If a new cross reference maps one-to-one to a ChEMBL ID (Drugbank for example) it can be added by including it in the
  `ProcessMoleculeCrossReferences` method on the `Molecule` object. Cross references which have more than one reference
  per ChEMBL ID will need to be processed manually at this point, see the `ProcessChemblCrossReferences` method for a 
  guide on how this can be done. 
@@ -217,6 +219,14 @@ Inputs are specified in the `reference.conf` file and include the following:
 |   `drug-chembl-mechanism` | ChEMBL - Platform Input Support |
 |   `drug-chembl-target` | ChEMBL - Platform Input Support |
 |   `drug-drugbank` | Release annotation file |
+
+The `DrugBeta` step also relies on several other sources that we already inputs to the ETL:
+
+| Name in DrugBeta | Field in configuration file |
+| --- | --- |
+| `efo` | disease | 
+| `gene` | target | 
+| `evidence` | evidence | 
 
 ## Development environment notes
 
