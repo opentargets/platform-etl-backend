@@ -165,7 +165,7 @@ object DrugCommon extends Serializable with LazyLogging {
           None
         case (n, 0) =>
           if (n <= minIndicationsToShow) {
-            DrugCommon.mkStringSemantic(Some(approvedIndications.map(_._2)), " and is indicated for ")
+            DrugCommon.mkStringSemantic(Option(approvedIndications.map(_._2)), " and is indicated for ")
           } else
             Some(s" and has $n approved indications")
         case (0, m) =>
@@ -173,7 +173,7 @@ object DrugCommon extends Serializable with LazyLogging {
         case (n, m) =>
           if (n <= minIndicationsToShow)
             DrugCommon.mkStringSemantic(
-              Some(approvedIndications.map(_._2)),
+              Option(approvedIndications.map(_._2)),
               start = " and is indicated for ",
               end = s" and has $m investigational indication${if (m > 1) "s" else ""}"
             )
