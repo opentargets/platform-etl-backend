@@ -92,7 +92,13 @@ object DrugCommon extends Serializable {
       lastSep: String = " and "
   ): Option[String] = {
 
-    val strTokens: Seq[String] = tokens.fold(Seq.empty[String])(t => t.map(_.toString))
+    // nulls are quite diff to spot
+    val strTokens: Seq[String] = tokens.map {
+      v => Option(v) match {
+        case Some(value) => value.map(_.toString)
+        case None => Seq.empty[String]
+      }
+    }.getOrElse(Seq.empty[String])
 
     strTokens.size match {
       case 0 => None
