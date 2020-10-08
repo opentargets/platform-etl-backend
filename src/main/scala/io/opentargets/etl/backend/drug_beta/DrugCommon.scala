@@ -1,5 +1,6 @@
 package io.opentargets.etl.backend.drug_beta
 
+import com.typesafe.scalalogging.LazyLogging
 import org.apache.spark.sql.DataFrame
 import org.apache.spark.sql.expressions.UserDefinedFunction
 import org.apache.spark.sql.functions.{col, collect_set, size, struct, substring_index, typedLit, udf, when}
@@ -7,7 +8,7 @@ import org.apache.spark.sql.functions.{col, collect_set, size, struct, substring
 /**
   * Utility object to hold methods common to Drug and DrugBeta steps to prevent code duplication.
   */
-object DrugCommon extends Serializable {
+object DrugCommon extends Serializable with LazyLogging {
 
   // Effectively a wrapper around the 'description` UDF: isolating in function so the adding/dumping necessary
   // columns doesn't clutter logic in the apply method. Note: this should be applied after all other transformations!
@@ -93,12 +94,22 @@ object DrugCommon extends Serializable {
   ): Option[String] = {
 
     // nulls are quite diff to spot
-    val strTokens: Seq[String] = tokens.map {
-      v => Option(v) match {
-        case Some(value) => value.map(_.toString)
-        case None => Seq.empty[String]
-      }
-    }.getOrElse(Seq.empty[String])
+    val strTokens: Seq[String] = if (tokens != null) {
+      tokens.map {
+        v => Option(v) match {
+          case Some(value) => if (value != null) {
+            value.map(_.toString)
+          } else {
+            logger.error("here inside there should not be a null but here it is")
+            Seq.empty[String]
+          }
+          case None => Seq.empty[String]
+        }
+      }.getOrElse(Seq.empty[String])
+    } else {
+      logger.error("nasty null here, so we must be passing nulls in from some transformations")
+      Seq.empty[String]
+    }
 
     strTokens.size match {
       case 0 => None
