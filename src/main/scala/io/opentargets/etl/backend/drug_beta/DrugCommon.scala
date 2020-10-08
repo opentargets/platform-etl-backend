@@ -181,8 +181,8 @@ object DrugCommon extends Serializable with LazyLogging {
 
     val year = withdrawnYear.map(y =>
       s" ${if (withdrawnCountries.size > 1) "initially" else ""} in ${y.toString}")
-    val countries = DrugCommon.mkStringSemantic(Some(withdrawnCountries), " in ")
-    val reasons = DrugCommon.mkStringSemantic(Some(withdrawnReasons), " due to ")
+    val countries = DrugCommon.mkStringSemantic(Option(withdrawnCountries), " in ")
+    val reasons = DrugCommon.mkStringSemantic(Option(withdrawnReasons), " due to ")
     val wdrawnNoteList = List(Some(" It was withdrawn"), countries, year, reasons, Some("."))
 
     val wdrawnNote = wdrawnNoteList.count(_.isDefined) match {
