@@ -104,8 +104,9 @@ object DrugCommon extends Serializable with LazyLogging {
 
     // nulls are quite diff to spot
     val strTokens: Seq[String] = tokens
-      .withFilter(_ != null)
-      .map(_.map(_.toString))
+      .map(
+        _.withFilter(_ != null)
+          .map(_.toString))
       .getOrElse(Seq.empty[String])
 
     strTokens.size match {
