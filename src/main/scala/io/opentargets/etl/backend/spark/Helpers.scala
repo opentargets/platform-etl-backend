@@ -1,14 +1,15 @@
-package io.opentargets.etl.backend
+package io.opentargets.etl.backend.spark
+
 import com.typesafe.scalalogging.LazyLogging
 import io.opentargets.etl.backend.Configuration.OTConfig
 import org.apache.spark.SparkConf
 import org.apache.spark.sql.{Column, DataFrame, DataFrameWriter, Row, SparkSession}
 import org.apache.spark.sql.functions.{col, expr, struct}
-import org.apache.spark.sql.types.{ArrayType, DataType, Metadata, StructField, StructType}
+import org.apache.spark.sql.types.{ArrayType, DataType, StructField, StructType}
 
 import scala.util.Random
 
-object SparkHelpers extends LazyLogging {
+object Helpers extends LazyLogging {
   type IOResourceConfs = Map[String, IOResourceConfig]
   type IOResources = Map[String, DataFrame]
 

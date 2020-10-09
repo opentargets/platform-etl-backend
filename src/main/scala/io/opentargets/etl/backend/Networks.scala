@@ -7,7 +7,8 @@ import org.apache.spark.sql.functions.col
 import org.apache.spark.sql._
 import org.apache.spark.sql.types._
 import com.typesafe.config.Config
-import io.opentargets.etl.backend.SparkHelpers.IOResourceConfig
+import io.opentargets.etl.backend.spark.Helpers
+import io.opentargets.etl.backend.spark.Helpers.IOResourceConfig
 
 object NetworksHelpers {
   implicit class AggregationHelpers(df: DataFrame)(implicit ss: SparkSession) {
@@ -202,7 +203,7 @@ object Networks extends LazyLogging {
     )
 
     val targets = Target.compute()
-    val inputDataFrame = SparkHelpers.readFrom(mappedInputs)
+    val inputDataFrame = Helpers.readFrom(mappedInputs)
 
     val mappingDF = targets.createMappingInfoDF(
       inputDataFrame("rnacentral"),
@@ -239,6 +240,6 @@ object Networks extends LazyLogging {
       )
       .toMap
 
-    SparkHelpers.writeTo(outputConfs, otnetworksDF)
+    Helpers.writeTo(outputConfs, otnetworksDF)
   }
 }

@@ -7,7 +7,8 @@ import org.apache.spark.sql.functions.col
 import org.apache.spark.sql._
 import org.apache.spark.sql.types._
 import com.typesafe.config.Config
-import io.opentargets.etl.backend.SparkHelpers.IOResourceConfig
+import io.opentargets.etl.backend.spark.Helpers
+import io.opentargets.etl.backend.spark.Helpers.IOResourceConfig
 
 // This is option/step expression in the config file
 object Expression extends LazyLogging {
@@ -23,7 +24,7 @@ object Expression extends LazyLogging {
         common.inputs.expression.path
       )
     )
-    val inputDataFrame = SparkHelpers.readFrom(mappedInputs)
+    val inputDataFrame = Helpers.readFrom(mappedInputs)
 
     val expressionDF = inputDataFrame(dfName).withColumnRenamed("gene", "id")
 
@@ -39,6 +40,6 @@ object Expression extends LazyLogging {
       .toMap
 
     val outputDFs = (outputs zip Seq(expressionDF)).toMap
-    SparkHelpers.writeTo(outputConfs, outputDFs)
+    Helpers.writeTo(outputConfs, outputDFs)
   }
 }

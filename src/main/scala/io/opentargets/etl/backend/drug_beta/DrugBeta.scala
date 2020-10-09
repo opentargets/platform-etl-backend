@@ -1,9 +1,10 @@
 package io.opentargets.etl.backend.drug_beta
 
 import com.typesafe.scalalogging.LazyLogging
-import io.opentargets.etl.backend.{ETLSessionContext, SparkHelpers}
-import io.opentargets.etl.backend.SparkHelpers.IOResourceConfig
+import io.opentargets.etl.backend.ETLSessionContext
 import io.opentargets.etl.backend.drug_beta.DrugCommon._
+import io.opentargets.etl.backend.spark.Helpers
+import io.opentargets.etl.backend.spark.Helpers.IOResourceConfig
 import org.apache.spark.sql.{DataFrame, SparkSession}
 
 /**
@@ -41,7 +42,7 @@ object DrugBeta extends Serializable with LazyLogging {
       "evidence" -> IOResourceConfig(common.inputs.evidence.format, common.inputs.evidence.path)
     )
 
-    val inputDataFrames = SparkHelpers.readFrom(mappedInputs)
+    val inputDataFrames = Helpers.readFrom(mappedInputs)
 
     // raw input dataframes
     lazy val moleculeDf: DataFrame = inputDataFrames("molecule")
@@ -85,11 +86,11 @@ object DrugBeta extends Serializable with LazyLogging {
     logger.info(s"Writing outputs: ${outputs.mkString(",")}")
 
     val outputConfs =
-      SparkHelpers.generateDefaultIoOutputConfiguration(outputs: _*)(context.configuration)
+      Helpers.generateDefaultIoOutputConfiguration(outputs: _*)(context.configuration)
 
     val outputDFs = (outputs zip Seq(drugDf)).toMap
 
-    SparkHelpers.writeTo(outputConfs, outputDFs)
+    Helpers.writeTo(outputConfs, outputDFs)
   }
 
   private def printDetailedLogging(molecule: DataFrame,

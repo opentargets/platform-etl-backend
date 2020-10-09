@@ -7,7 +7,8 @@ import org.apache.spark.sql.functions.col
 import org.apache.spark.sql._
 import org.apache.spark.sql.types._
 import com.typesafe.config.Config
-import io.opentargets.etl.backend.SparkHelpers.IOResourceConfig
+import io.opentargets.etl.backend.spark.Helpers
+import io.opentargets.etl.backend.spark.Helpers.IOResourceConfig
 
 object TargetHelpers {
   implicit class AggregationHelpers(df: DataFrame)(implicit ss: SparkSession) {
@@ -218,11 +219,11 @@ object Target extends LazyLogging {
       )
     )
 
-    val inputDataFrame = SparkHelpers.readFrom(mappedInputs)
+    val inputDataFrame = Helpers.readFrom(mappedInputs)
 
     // The gene index contains keys with spaces. This step creates a new Dataframe with the proper keys
-    val targetDFnewSchema = SparkHelpers.replaceSpacesSchema(inputDataFrame("target"))
-    val tepDFnewSchema = SparkHelpers.replaceSpacesSchema(inputDataFrame("tep"))
+    val targetDFnewSchema = Helpers.replaceSpacesSchema(inputDataFrame("target"))
+    val tepDFnewSchema = Helpers.replaceSpacesSchema(inputDataFrame("tep"))
 
     targetDFnewSchema.setIdAndSelectFromTargets.addTEPInfo(tepDFnewSchema)
   }
@@ -247,6 +248,6 @@ object Target extends LazyLogging {
       .toMap
 
     val outputDFs = (outputs zip Seq(targetDF)).toMap
-    SparkHelpers.writeTo(outputConfs, outputDFs)
+    Helpers.writeTo(outputConfs, outputDFs)
   }
 }
