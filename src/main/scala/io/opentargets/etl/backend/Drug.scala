@@ -1,16 +1,12 @@
 package io.opentargets.etl.backend
 
-import org.apache.spark.SparkConf
 import com.typesafe.scalalogging.LazyLogging
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.functions.col
 import org.apache.spark.sql._
-import org.apache.spark.sql.types._
-import com.typesafe.config.Config
-import io.opentargets.etl.backend.SparkHelpers.{IOResourceConfig, IOResources}
-import io.opentargets.etl.backend.drug_beta.DrugCommon
-
-import scala.collection.mutable.WrappedArray
+import io.opentargets.etl.backend.spark.Helpers.IOResources
+import io.opentargets.etl.backend.spark.Helpers
+import io.opentargets.etl.backend.spark.Helpers.IOResourceConfig
 
 object DrugHelpers {
 
@@ -284,7 +280,7 @@ object Drug extends LazyLogging {
         common.inputs.evidence.path
       )
     )
-    val inputDataFrame = SparkHelpers.readFrom(mappedInputs)
+    val inputDataFrame = Helpers.readFrom(mappedInputs)
 
     val dfDrugIndex = inputDataFrame("drug")
       .setIdAndSelectFromDrugs(inputDataFrame("evidence"))
@@ -292,10 +288,10 @@ object Drug extends LazyLogging {
     val outputs = Seq("drugs")
 
     val outputConfs =
-      SparkHelpers.generateDefaultIoOutputConfiguration(outputs: _*)(context.configuration)
+      Helpers.generateDefaultIoOutputConfiguration(outputs: _*)(context.configuration)
 
     val outputDFs = (outputs zip Seq(dfDrugIndex)).toMap
-    SparkHelpers.writeTo(outputConfs, outputDFs)
+    Helpers.writeTo(outputConfs, outputDFs)
   }
 }
 

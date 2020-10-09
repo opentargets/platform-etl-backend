@@ -7,7 +7,8 @@ import org.apache.spark.sql.functions.col
 import org.apache.spark.sql._
 import org.apache.spark.sql.types._
 import com.typesafe.config.Config
-import io.opentargets.etl.backend.SparkHelpers.IOResourceConfig
+import io.opentargets.etl.backend.spark.Helpers
+import io.opentargets.etl.backend.spark.Helpers.IOResourceConfig
 
 object DataDrivenRelationsHelpers {
   implicit class AggregationHelpers(df: DataFrame)(implicit ss: SparkSession) {
@@ -60,7 +61,7 @@ object DataDrivenRelation extends LazyLogging {
     val mappedInputs = Map(
       "ddr" -> IOResourceConfig(common.inputs.ddr.format, common.inputs.ddr.path)
     )
-    val inputDataFrame = SparkHelpers.readFrom(mappedInputs)
+    val inputDataFrame = Helpers.readFrom(mappedInputs)
 
     val dfOutputs = inputDataFrame("ddr").getDataDrivenRelationgEntity
 
@@ -72,6 +73,6 @@ object DataDrivenRelation extends LazyLogging {
         (dfName -> name, dfName -> df)
     }
     val unzipped = outputs.unzip
-    SparkHelpers.writeTo(unzipped._1.toMap, unzipped._2.toMap)
+    Helpers.writeTo(unzipped._1.toMap, unzipped._2.toMap)
   }
 }

@@ -2,23 +2,25 @@ package io.opentargets.etl.backend
 
 import com.typesafe.scalalogging.LazyLogging
 import io.opentargets.etl.backend.Configuration.OTConfig
+import io.opentargets.etl.backend.spark.Helpers
 import org.apache.spark.sql.types._
 import org.scalatest.flatspec.AnyFlatSpecLike
 import org.scalatest.matchers.should.Matchers
-import io.opentargets.etl.backend.SparkHelpers._
 import org.apache.spark.sql.{DataFrame, Row}
 import org.apache.spark.sql.functions.lower
 import org.scalatest.prop.TableDrivenPropertyChecks
-import pureconfig.ConfigReader
+import io.opentargets.etl.backend.spark.Helpers._
 
 import scala.util.Random
 
-class SparkHelpersTest
+class HelpersTest
     extends AnyFlatSpecLike
     with TableDrivenPropertyChecks
     with Matchers
     with LazyLogging
     with SparkSessionSetup {
+
+
   // given
   val renameFun: String => String = _.toUpperCase
   lazy val testStruct: StructType =
@@ -35,7 +37,7 @@ class SparkHelpersTest
     val config: OTConfig = Configuration.config.right.get
     val inputFileNames = Seq("a", "b", "c")
     // when
-    val results = SparkHelpers.generateDefaultIoOutputConfiguration(inputFileNames: _*)(config)
+    val results = Helpers.generateDefaultIoOutputConfiguration(inputFileNames: _*)(config)
     // then
     assert(results.keys.size == inputFileNames.size)
     assert(
@@ -49,7 +51,7 @@ class SparkHelpersTest
     // given
     val input = IOResourceConfig("name", "csv")
     // when
-    lazy val results = SparkHelpers.loadFileToDF(input)(sparkSession)
+    lazy val results = Helpers.loadFileToDF(input)(sparkSession)
     // then
     assertThrows[AssertionError](results)
   }
@@ -59,7 +61,7 @@ class SparkHelpersTest
     val path: String = this.getClass.getResource("/drugbank_v.csv").getPath
     val input = IOResourceConfig("csv", path, Some("\\t"), Some(true))
     // when
-    val results = SparkHelpers.loadFileToDF(input)(sparkSession)
+    val results = Helpers.loadFileToDF(input)(sparkSession)
     // then
     assert( !results.isEmpty, "The provided dataframe should not be empty.")
   }
@@ -98,7 +100,7 @@ class SparkHelpersTest
     // given
     val df = Seq("UPPER").toDF("a")
     // when
-    val results = df.transform(SparkHelpers.applyFunToColumn("a", _, lower))
+    val results = df.transform(Helpers.applyFunToColumn("a", _, lower))
     // then
     // column names are unchanged
     assert(results.columns sameElements df.columns)

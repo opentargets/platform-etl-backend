@@ -1,8 +1,8 @@
 package io.opentargets.etl.backend.drug_beta
 
 import com.typesafe.scalalogging.LazyLogging
-import io.opentargets.etl.backend.SparkHelpers
-import io.opentargets.etl.backend.SparkHelpers.{applyFunToColumn, nest}
+import io.opentargets.etl.backend.spark.Helpers
+import io.opentargets.etl.backend.spark.Helpers.{applyFunToColumn, nest}
 import org.apache.spark.sql.{Column, DataFrame, SparkSession}
 import org.apache.spark.sql.functions._
 
@@ -108,7 +108,7 @@ class Indication(indicationsRaw: DataFrame, efoRaw: DataFrame)(implicit sparkSes
     */
   private def formatEfoIds(indicationDf: DataFrame): DataFrame = {
     val f = regexp_replace(_: Column, ":", "_")
-    SparkHelpers.applyFunToColumn("efo_id", indicationDf, f)
+    Helpers.applyFunToColumn("efo_id", indicationDf, f)
   }
 
 }

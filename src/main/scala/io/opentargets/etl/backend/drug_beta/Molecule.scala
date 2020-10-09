@@ -24,7 +24,7 @@ class Molecule(moleculeRaw: DataFrame, drugbankRaw: DataFrame)(implicit sparkSes
     with Serializable {
 
   import sparkSession.implicits._
-  import io.opentargets.etl.backend.SparkHelpers.nest
+  import io.opentargets.etl.backend.spark.Helpers.nest
 
   private val XREF_COLUMN_NAME = "xref"
 
