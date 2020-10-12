@@ -1,10 +1,13 @@
 package io.opentargets.etl.backend.spark
 
 import com.typesafe.scalalogging.LazyLogging
+import io.opentargets.etl.backend.Configuration.OTConfig
 import org.apache.spark.SparkConf
-import org.apache.spark.sql.functions.expr
+import org.apache.spark.sql.{Column, DataFrame, DataFrameWriter, Row, SparkSession}
+import org.apache.spark.sql.functions.{col, expr, struct}
 import org.apache.spark.sql.types.{ArrayType, DataType, StructField, StructType}
-import org.apache.spark.sql._
+
+import scala.util.Random
 
 object Helpers extends LazyLogging {
   type IOResourceConfs = Map[String, IOResourceConfig]
@@ -41,6 +44,22 @@ object Helpers extends LazyLogging {
     SparkSession.builder
       .config(conf)
       .getOrCreate
+  }
+
+  /**
+    * Create an IOResourceConf Map for each of the given files, where the file is a key and the value is the output
+    * configuration
+    * @param files will be the names out the output files
+    * @param configuration to provide access to the program's configuration
+    * @return a map of file -> IOResourceConfig
+    */
+  def generateDefaultIoOutputConfiguration(files: String*)(
+      configuration: OTConfig): IOResourceConfs = {
+    (for (n <- files)
+      yield
+        n -> IOResourceConfig(configuration.common.outputFormat,
+                              configuration.common.output + s"/$n")) toMap
+
   }
 
   /**
@@ -83,16 +102,34 @@ object Helpers extends LazyLogging {
   }
 
   def loadFileToDF(pathInfo: IOResourceConfig)(implicit session: SparkSession): DataFrame = {
-    logger.debug(s"load file ${pathInfo.path} with format ${pathInfo.format} to dataframe")
-    if (pathInfo.format.contains("sv")) {
-      logger.debug("some ice")
-      session.read
-        .format("csv")
-        .option("header", pathInfo.header.get)
-        .option("delimiter", pathInfo.delimiter.get)
-        .load(pathInfo.path)
-    } else {
-      session.read.format(pathInfo.format).load(pathInfo.path)
+    logger.info(s"load file ${pathInfo.path} with format ${pathInfo.format} to dataframe")
+    pathInfo match {
+      // CSV, TSV, etc
+      case IOResourceConfig(_: String,
+                            format: String,
+                            header: Option[String],
+                            delimiter: Option[Boolean])
+          if format.contains("sv") && header.isDefined && delimiter.isDefined =>
+        logger.debug(
+          s"Loading separated value file: header - ${pathInfo.header.get}, delimiter - ${pathInfo.delimiter.get}")
+        session.read
+          .format("csv")
+          .option("header", pathInfo.header.get)
+          .option("delimiter", pathInfo.delimiter.get)
+          .load(pathInfo.path)
+
+      case IOResourceConfig(_: String,
+                            format: String,
+                            header: Option[String],
+                            delimiter: Option[Boolean]) if format.contains("sv") => {
+        logger.error(
+          s"Separated value filed ${pathInfo.path} selected without specifying header and/or delimiter values")
+        // killing program through exception.
+        assert(false, s"Unable to complete pipeline due to bad file configuration for $pathInfo")
+        session.emptyDataFrame
+      }
+      // All other formats
+      case _ => session.read.format(pathInfo.format).load(pathInfo.path)
     }
   }
 
@@ -138,5 +175,37 @@ object Helpers extends LazyLogging {
       })
 
     renameDataType(schema)
+  }
+
+  /**
+    * Given a dataframe with a n columns, this method create a new column called `collectUnder` which will include all
+    * columns listed in `includedColumns` in a struct column. Those columns will be removed from the original dataframe.
+    * This can be used to nest fields.
+    * @param dataFrame on which to perform nesting
+    * @param includedColumns columns to include in new nested column
+    * @param collectUnder name of new struct column
+    * @return dataframe with new column `collectUnder` with `includedColumns` nested within it.
+    */
+  def nest(dataFrame: DataFrame, includedColumns: List[String], collectUnder: String): DataFrame = {
+    // We need to use a random column name in case `collectUnder` is also in `includedColumns` as Spark SQL
+    // isn't case sensitive.
+    val tempCol: String = Random.alphanumeric.take(collectUnder.length + 2).mkString
+    dataFrame
+      .withColumn(tempCol, struct(includedColumns.map(col): _*))
+      .drop(includedColumns: _*)
+      .withColumnRenamed(tempCol, collectUnder)
+  }
+
+  /**
+    * Helper function to confirm that all required columns are available on dataframe.
+    * @param requiredColumns on input dataframe
+    * @param dataFrame dataframe to test
+    */
+  def validateDF(requiredColumns: Set[String], dataFrame: DataFrame): Unit = {
+    lazy val msg =
+      s"One or more required columns (${requiredColumns.mkString(",")}) not found in dataFrame columns: ${dataFrame.columns
+        .mkString(",")}"
+    val columnsOnDf = dataFrame.columns.toSet
+    assert(requiredColumns.forall(columnsOnDf.contains), msg)
   }
 }

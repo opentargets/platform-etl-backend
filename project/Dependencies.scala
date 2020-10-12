@@ -23,8 +23,7 @@ object Dependencies {
     "com.typesafe.scala-logging" %% "scala-logging" % "3.9.2"
   )
 
-  val sparkVersion = "3.0.1"
-
+  lazy val sparkVersion = "3.0.1"
   lazy val sparkDeps = Seq(
     "com.github.fommil.netlib" % "all" % "1.1.2" pomOnly (),
     "org.apache.spark" %% "spark-core" % sparkVersion,
