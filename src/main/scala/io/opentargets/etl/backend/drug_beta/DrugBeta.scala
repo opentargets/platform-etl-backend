@@ -68,10 +68,22 @@ object DrugBeta extends Serializable with LazyLogging {
     val mechanismOfActionProcessedDf = mechanismOfAction.processMechanismOfAction
     val targetsAndDiseasesDf =
       DrugCommon.getUniqTargetsAndDiseasesPerDrugId(evidenceDf).withColumnRenamed("drug_id", "id")
-    printDetailedLogging(moleculeProcessedDf,
-                         indicationProcessedDf,
-                         mechanismOfActionProcessedDf,
-                         targetsAndDiseasesDf)
+
+    logger.whenTraceEnabled {
+      val columnString: DataFrame => String = _.columns.mkString("Columns: [", ",", "]")
+      logger.trace(s"""Intermediate dataframes:
+             Columns:
+             \n\t Molecule: ${columnString(moleculeProcessedDf)},
+             \n\t Indications: ${columnString(indicationDf)},
+             \n\t Mechanisms: ${columnString(mechanismOfActionProcessedDf)},
+             \n\t Linkages: ${columnString(targetsAndDiseasesDf)}
+             Row counts:
+             \n\t Molecule: ${moleculeProcessedDf.count},
+             \n\t Indications: ${indicationDf.count},
+             \n\t Mechanisms: ${mechanismOfActionProcessedDf.count},
+             \n\t Linkages: ${targetsAndDiseasesDf.count}
+             """)
+    }
 
     logger.info(
       "Joining molecules, indications, mechanisms of action, and target and disease linkages.")
@@ -93,23 +105,4 @@ object DrugBeta extends Serializable with LazyLogging {
     Helpers.writeTo(outputConfs, outputDFs)
   }
 
-  private def printDetailedLogging(molecule: DataFrame,
-                                   indication: DataFrame,
-                                   mechanismOfAction: DataFrame,
-                                   targetsAndDiseases: DataFrame): Unit = {
-    val columnString: DataFrame => String = _.columns.mkString("Columns: [", ",", "]")
-    logger.trace(s"""Intermediate dataframes:
-    Columns:
-    \n\t Molecule: ${columnString(molecule)},
-    \n\t Indications: ${columnString(indication)},
-    \n\t Mechanisms: ${columnString(mechanismOfAction)},
-    \n\t Linkages: ${columnString(targetsAndDiseases)}
-    Row counts:
-    \n\t Molecule: ${molecule.count},
-    \n\t Indications: ${indication.count},
-    \n\t Mechanisms: ${mechanismOfAction.count},
-    \n\t Linkages: ${targetsAndDiseases.count}
-    """)
-
-  }
 }

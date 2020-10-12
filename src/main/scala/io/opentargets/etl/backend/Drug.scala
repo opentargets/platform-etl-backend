@@ -173,7 +173,7 @@ object DrugHelpers {
         "withdrawnNotice",
         "black_box_warning as blackBoxWarning"
       )
-      // drug rewrite: done
+
       val mechanismsOfAction =
         """
           |if(number_of_mechanisms_of_action > 0,struct(
@@ -187,7 +187,6 @@ object DrugHelpers {
           |  array_distinct(transform(mechanisms_of_action, x -> x.target_type)) as uniqueTargetTypes), null) as mechanismsOfAction
           |""".stripMargin
 
-      // drug rewrite: done
       val indications =
         """
           |if(number_of_indications > 0,struct(

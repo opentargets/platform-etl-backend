@@ -1,7 +1,7 @@
 package io.opentargets.etl.backend.drug_beta
 
 import com.typesafe.scalalogging.LazyLogging
-import io.opentargets.etl.backend.spark.Helpers.{applyFunToColumn, nest, validateDF}
+import io.opentargets.etl.backend.spark.Helpers.{ nest, validateDF}
 import org.apache.spark.sql.functions.{
   col,
   collect_list,
@@ -89,9 +89,9 @@ class MechanismOfAction(mechanismDf: DataFrame, targetDf: DataFrame, geneDf: Dat
 
     // get rid of entries where target components is none
     val targetDf = target
-      .transform(applyFunToColumn("target_components", _, explode))
+      .withColumn("target_components", explode($"target_components"))
       .filter($"target_components.accession".isNotNull)
-      .transform(applyFunToColumn("target_type", _, lower))
+      .withColumn("target_type", lower($"target_type"))
       .select($"pref_name".as("targetName"),
               $"target_components.accession".as("uniprot_id"),
               $"target_type",
