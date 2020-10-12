@@ -8,6 +8,7 @@ import better.files.Dsl._
 import better.files._
 import com.typesafe.config.{Config, ConfigFactory, ConfigObject, ConfigRenderOptions}
 import com.typesafe.scalalogging.{LazyLogging, Logger}
+import io.opentargets.etl.backend.spark.Helpers.stripIDFromURI
 
 import scala.math.pow
 
@@ -25,7 +26,7 @@ object LoadersCT extends LazyLogging {
 
     // generate needed fields as ancestors
     val efos = diseaseList
-      .withColumn("disease_id", substring_index(col("code"), "/", -1))
+      .withColumn("disease_id", stripIDFromURI(col("code"))
       .withColumn("ancestors", flatten(col("path_codes")))
 
     // compute descendants

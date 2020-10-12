@@ -26,7 +26,7 @@ object LoadersDailymed extends LazyLogging {
 
     // generate needed fields as ancestors
     val efos = diseaseList
-      .withColumn("disease_id", substring_index(col("code"), "/", -1))
+      .withColumn("disease_id", stripIDFromURI(col("code")))
       .withColumn("ancestors", flatten(col("path_codes")))
 
     // compute descendants

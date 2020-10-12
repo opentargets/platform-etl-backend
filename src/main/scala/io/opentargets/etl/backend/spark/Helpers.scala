@@ -2,7 +2,7 @@ package io.opentargets.etl.backend.spark
 
 import com.typesafe.scalalogging.LazyLogging
 import org.apache.spark.SparkConf
-import org.apache.spark.sql.functions.expr
+import org.apache.spark.sql.functions.{col, expr, substring_index}
 import org.apache.spark.sql.types.{ArrayType, DataType, StructField, StructType}
 import org.apache.spark.sql._
 
@@ -42,6 +42,12 @@ object Helpers extends LazyLogging {
       .config(conf)
       .getOrCreate
   }
+
+  /** using the uri get the last token as an ID by example
+    * http://identifiers.org/chembl.compound/CHEMBL207538 -> CHEMBL207538
+    * */
+  def stripIDFromURI(uri: Column): Column =
+    substring_index(col("drug.id"), "/", -1)
 
   /**
     * colNames are columns to flat if any inner array and then concatenate them

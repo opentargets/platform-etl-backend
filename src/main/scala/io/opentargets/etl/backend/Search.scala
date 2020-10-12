@@ -28,7 +28,7 @@ object Transformers {
 
   def processDiseases(efos: DataFrame): DataFrame = {
     val efosDF = efos
-      .withColumn("disease_id", substring_index(col("code"), "/", -1))
+      .withColumn("disease_id", stripIDFromURI(col("code")))
       .withColumn("ancestors", flatten(col("path_codes")))
       .drop("code", "path_codes")
 
@@ -64,7 +64,7 @@ object Transformers {
   def findAssociationsWithDrugs(evidence: DataFrame): DataFrame = {
     evidence
       .filter(col("drug.id").isNotNull)
-      .withColumn("drug_id", substring_index(col("drug.id"), "/", -1))
+      .withColumn("drug_id", stripIDFromURI(col("drug.id")))
       .selectExpr(
         "drug_id",
         "target.id as target_id",

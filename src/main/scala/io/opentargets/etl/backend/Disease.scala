@@ -10,7 +10,7 @@ import com.typesafe.config.Config
 import better.files._
 import better.files.File._
 import io.opentargets.etl.backend.spark.Helpers
-import io.opentargets.etl.backend.spark.Helpers.IOResourceConfig
+import io.opentargets.etl.backend.spark.Helpers.{IOResourceConfig, stripIDFromURI}
 
 object DiseaseHelpers {
   implicit class AggregationHelpers(df: DataFrame)(implicit ss: SparkSession) {
@@ -31,14 +31,18 @@ object DiseaseHelpers {
           "sourcePhenotypes",
           when(
             size(col("phenotypes")) > 0,
-            expr(
-              "transform(phenotypes, phRow -> named_struct('url', phRow.uri,'name',  phRow.label, 'disease', substring_index(phRow.uri, '/', -1)))"
-            )
+            transform($"phenotypes", c => {
+              val idC = stripIDFromURI(c.getField("uri")).as("disease")
+              val nameC = c.getField("label").as("name")
+              val urlC = c.getField("uri").as("url")
+
+              struct(urlC, nameC, idC)
+            })
           )
         )
 
       val efosSummary = dfPhenotypeId
-        .withColumn("id", substring_index(col("code"), "/", -1))
+        .withColumn("id", stripIDFromURI(col("code")))
         .withColumn(
           "ancestors",
           array_except(

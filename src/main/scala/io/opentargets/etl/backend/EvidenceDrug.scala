@@ -8,7 +8,7 @@ import org.apache.spark.sql._
 import org.apache.spark.sql.types._
 import com.typesafe.config.Config
 import io.opentargets.etl.backend.spark.Helpers
-import io.opentargets.etl.backend.spark.Helpers.IOResourceConfig
+import io.opentargets.etl.backend.spark.Helpers.{IOResourceConfig, stripIDFromURI}
 
 object EvidenceDrugHelpers {
   implicit class AggregationHelpers(df: DataFrame)(implicit ss: SparkSession) {
@@ -20,7 +20,7 @@ object EvidenceDrugHelpers {
       val genAncestors = udf((codes: Seq[Seq[String]]) => codes.view.flatten.toSet.toSeq)
 
       val efos = df
-        .withColumn("id", substring_index(col("code"), "/", -1))
+        .withColumn("id", stripIDFromURI(col("code")))
         .withColumn("ancestors", genAncestors(col("path_codes")))
         .drop("paths", "private", "_private", "path")
 
@@ -43,7 +43,7 @@ object EvidenceDrugHelpers {
         .where(col("private.datatype") === "known_drug")
         .withColumn("disease_id", col("disease.id"))
         .withColumn("target_id", col("target.id"))
-        .withColumn("drug_id", substring_index(col("drug.id"), "/", -1))
+        .withColumn("drug_id", stripIDFromURI(col("drug.id")))
         .join(df, Seq("disease_id"), "inner")
         .withColumn("ancestor", explode(col("ancestors")))
 

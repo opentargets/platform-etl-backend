@@ -8,7 +8,7 @@ import org.apache.spark.sql._
 import org.apache.spark.sql.types._
 import com.typesafe.config.Config
 import io.opentargets.etl.backend.spark.Helpers
-import io.opentargets.etl.backend.spark.Helpers.IOResourceConfig
+import io.opentargets.etl.backend.spark.Helpers.{IOResourceConfig, stripIDFromURI}
 
 object EvidenceDrugDirectHelpers {
   implicit class AggregationHelpers(df: DataFrame)(implicit ss: SparkSession) {
@@ -23,7 +23,7 @@ object EvidenceDrugDirectHelpers {
         .withColumn("target_id", col("target.id"))
         .withColumn("approvedSymbol", col("target.gene_info.symbol"))
         .withColumn("approvedName", col("target.gene_info.name"))
-        .withColumn("drug_id", substring_index(col("drug.id"), "/", -1))
+        .withColumn("drug_id", stripIDFromURI(col("drug.id")))
         .withColumn("prefName", col("drug.molecule_name"))
 
       val dfDirect = fds

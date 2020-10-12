@@ -8,7 +8,7 @@ import org.apache.spark.sql._
 import org.apache.spark.sql.types._
 import com.typesafe.config.Config
 import io.opentargets.etl.backend.spark.Helpers
-import io.opentargets.etl.backend.spark.Helpers.IOResourceConfig
+import io.opentargets.etl.backend.spark.Helpers.{IOResourceConfig, stripIDFromURI}
 
 import scala.collection.mutable.WrappedArray
 
@@ -150,7 +150,7 @@ object DrugHelpers {
       def _getUniqTargetsAndDiseasesPerDrugId(evs: DataFrame): DataFrame = {
         evs
           .filter(col("sourceID") === "chembl")
-          .withColumn("drug_id", substring_index(col("drug.id"), "/", -1))
+          .withColumn("drug_id", stripIDFromURI(col("drug.id")))
           .groupBy(col("drug_id"))
           .agg(
             collect_set(col("target.id")).as("linkedTargets"),
