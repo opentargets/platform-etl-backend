@@ -26,7 +26,7 @@ object LoadersCT extends LazyLogging {
 
     // generate needed fields as ancestors
     val efos = diseaseList
-      .withColumn("disease_id", stripIDFromURI(col("code"))
+      .withColumn("disease_id", stripIDFromURI(col("code")))
       .withColumn("ancestors", flatten(col("path_codes")))
 
     // compute descendants
