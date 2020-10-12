@@ -1,0 +1,80 @@
+{
+  "id": "CHEMBL1201042",
+  "canonical_smiles": "CC(O)(P(=O)([O-])O)P(=O)([O-])O.[Na+].[Na+]",
+  "type": "Small molecule",
+  "chebi_par_id": 4906,
+  "black_box_warning": false,
+  "cross_references": [
+    {
+      "xref_id": "etidronate%20disodium",
+      "xref_name": "etidronate disodium",
+      "xref_src": "DailyMed",
+      "xref_src_url": "http://dailymed.nlm.nih.gov/dailymed",
+      "xref_url": "http://dailymed.nlm.nih.gov/dailymed/advSearch.cfm?startswith=NAME:(%22etidronate%20disodium%22)"
+    },
+    {
+      "xref_id": "11112988",
+      "xref_name": "SID: 11112988",
+      "xref_src": "PubChem",
+      "xref_src_url": "http://pubchem.ncbi.nlm.nih.gov"
+    },
+    {
+      "xref_id": "144205149",
+      "xref_name": "SID: 144205149",
+      "xref_src": "PubChem",
+      "xref_src_url": "http://pubchem.ncbi.nlm.nih.gov"
+    },
+    {
+      "xref_id": "170464730",
+      "xref_name": "SID: 170464730",
+      "xref_src": "PubChem",
+      "xref_src_url": "http://pubchem.ncbi.nlm.nih.gov"
+    }
+  ],
+  "first_approval": 1977,
+  "max_clinical_trial_phase": 4,
+  "molecule_hierarchy": {
+    "molecule_chembl_id": "CHEMBL1201042",
+    "parent_chembl_id": "CHEMBL871"
+  },
+  "withdrawn_flag": false,
+  "syns": [
+    {
+      "mol_synonyms": "Didronel",
+      "synonym_type": "TRADE_NAME"
+    },
+    {
+      "mol_synonyms": "Didronel IV",
+      "synonym_type": "TRADE_NAME"
+    },
+    {
+      "mol_synonyms": "Didronel PMO",
+      "synonym_type": "TRADE_NAME"
+    },
+    {
+      "mol_synonyms": "Etidronate Disodium",
+      "synonym_type": "BNF"
+    },
+    {
+      "mol_synonyms": "Etidronate Disodium",
+      "synonym_type": "FDA"
+    },
+    {
+      "mol_synonyms": "Etidronate Disodium",
+      "synonym_type": "JAN"
+    },
+    {
+      "mol_synonyms": "Etidronate Disodium",
+      "synonym_type": "TRADE_NAME"
+    },
+    {
+      "mol_synonyms": "Etidronate Disodium",
+      "synonym_type": "USAN"
+    },
+    {
+      "mol_synonyms": "Etidronate Disodium",
+      "synonym_type": "USP"
+    }
+  ],
+  "drugbank_id": "DB000001"
+}
