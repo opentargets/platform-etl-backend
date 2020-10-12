@@ -3,9 +3,9 @@ package io.opentargets.etl.backend
 import com.typesafe.scalalogging.LazyLogging
 import io.opentargets.etl.backend.Configuration.OTConfig
 import io.opentargets.etl.backend.spark.Helpers
-import org.apache.spark.sql.types._
 import org.scalatest.flatspec.AnyFlatSpecLike
 import org.scalatest.matchers.should.Matchers
+import org.apache.spark.sql.types._
 import org.apache.spark.sql.{DataFrame, Row}
 import org.apache.spark.sql.functions.lower
 import org.scalatest.prop.TableDrivenPropertyChecks
@@ -93,19 +93,6 @@ class HelpersTest
         .asInstanceOf[StructType]
         .fieldNames
         .forall(_.head.isUpper))
-  }
-
-  "applyFunToColumn" should "apply the function to the column and return a dataframe with the same column names as in the input dataframe" in {
-    import sparkSession.implicits._
-    // given
-    val df = Seq("UPPER").toDF("a")
-    // when
-    val results = df.transform(Helpers.applyFunToColumn("a", _, lower))
-    // then
-    // column names are unchanged
-    assert(results.columns sameElements df.columns)
-    // function was applied to elements
-    assert(results.head.getString(0).forall(c => c.isLower))
   }
 
   private val potentialColumnNames = Table(

@@ -109,7 +109,7 @@ object Helpers extends LazyLogging {
                             format: String,
                             header: Option[String],
                             delimiter: Option[Boolean])
-          if format.contains("sv") && header.isDefined && delimiter.isDefined => {
+          if format.contains("sv") && header.isDefined && delimiter.isDefined =>
         logger.debug(
           s"Loading separated value file: header - ${pathInfo.header.get}, delimiter - ${pathInfo.delimiter.get}")
         session.read
@@ -117,7 +117,7 @@ object Helpers extends LazyLogging {
           .option("header", pathInfo.header.get)
           .option("delimiter", pathInfo.delimiter.get)
           .load(pathInfo.path)
-      }
+
       case IOResourceConfig(_: String,
                             format: String,
                             header: Option[String],
@@ -125,7 +125,7 @@ object Helpers extends LazyLogging {
         logger.error(
           s"Separated value filed ${pathInfo.path} selected without specifying header and/or delimiter values")
         // killing program through exception.
-        assert(false, s"Unable to complete pipeline due to bad file configuration for ${pathInfo}")
+        assert(false, s"Unable to complete pipeline due to bad file configuration for $pathInfo")
         session.emptyDataFrame
       }
       // All other formats
@@ -175,24 +175,6 @@ object Helpers extends LazyLogging {
       })
 
     renameDataType(schema)
-  }
-
-  /**
-    * Helper method to apply a function to an existing column so that from the point of view of the user the
-    * dataframe passed in is mutated.
-    * @param columnName to apply function to
-    * @param dataFrame to transform
-    * @param fun transformation to apply to `columnName` in `dataFrame`
-    * @return transformed dataframe
-    */
-  def applyFunToColumn(columnName: String,
-                       dataFrame: DataFrame,
-                       fun: Column => Column): DataFrame = {
-    assert(dataFrame.columns.contains(columnName), s"Column $columnName was not in dataframe!")
-    dataFrame
-      .withColumn("x", fun(col(columnName)))
-      .drop(columnName)
-      .withColumnRenamed("x", columnName)
   }
 
   /**

@@ -2,7 +2,7 @@ package io.opentargets.etl.backend.drug_beta
 
 import com.typesafe.scalalogging.LazyLogging
 import io.opentargets.etl.backend.spark.Helpers
-import io.opentargets.etl.backend.spark.Helpers.{applyFunToColumn, nest}
+import io.opentargets.etl.backend.spark.Helpers.nest
 import org.apache.spark.sql.{Column, DataFrame, SparkSession}
 import org.apache.spark.sql.functions._
 
@@ -52,7 +52,6 @@ class Indication(indicationsRaw: DataFrame, efoRaw: DataFrame)(implicit sparkSes
   private def processIndicationsRawData: DataFrame = {
     val df = formatEfoIds(this.indicationsRaw)
 
-    val splitComma = split(_: Column, ",")
     // flatten hierarchy
     df.withColumn("r", explode($"indication_refs"))
       .select($"molecule_chembl_id".as("id"),
@@ -62,8 +61,8 @@ class Indication(indicationsRaw: DataFrame, efoRaw: DataFrame)(implicit sparkSes
               $"r.ref_type",
               $"r.ref_url")
       // handle case where clinical trials packs multiple ids into a csv string
-      .transform(applyFunToColumn("ref_id", _, splitComma))
-      .transform(applyFunToColumn("ref_id", _, explode))
+      .withColumn("ref_id", split($"ref_id", ","))
+      .withColumn("ref_id", explode($"ref_id"))
       // group reference ids and urls by ref_type
       .groupBy("id", "efo_id", "ref_type")
       .agg(max("max_phase_for_ind").as("max_phase_for_ind"),
@@ -107,8 +106,7 @@ class Indication(indicationsRaw: DataFrame, efoRaw: DataFrame)(implicit sparkSes
     * @return dataframe with efo_ids in form EFO_xxxx instead of EFO:xxxx
     */
   private def formatEfoIds(indicationDf: DataFrame): DataFrame = {
-    val f = regexp_replace(_: Column, ":", "_")
-    Helpers.applyFunToColumn("efo_id", indicationDf, f)
+    indicationDf.withColumn("efo_id", regexp_replace(col("efo_id"), ":", "_"))
   }
 
 }
