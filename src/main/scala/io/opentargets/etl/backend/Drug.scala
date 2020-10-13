@@ -1,16 +1,12 @@
 package io.opentargets.etl.backend
 
-import org.apache.spark.SparkConf
 import com.typesafe.scalalogging.LazyLogging
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.functions.col
 import org.apache.spark.sql._
-import org.apache.spark.sql.types._
-import com.typesafe.config.Config
+import io.opentargets.etl.backend.spark.Helpers.IOResources
 import io.opentargets.etl.backend.spark.Helpers
 import io.opentargets.etl.backend.spark.Helpers.{IOResourceConfig, stripIDFromURI}
-
-import scala.collection.mutable.WrappedArray
 
 object DrugHelpers {
 
@@ -181,7 +177,8 @@ object DrugHelpers {
       val mechanismsOfAction =
         """
           |if(number_of_mechanisms_of_action > 0,struct(
-          |  transform(mechanisms_of_action, m -> struct(m.description as mechanismOfAction,
+          |  transform(mechanisms_of_action, m -> struct(
+          |    m.description as mechanismOfAction,
           |    m.target_name as targetName,
           |    m.references as references,
           |    ifnull(array_distinct(
@@ -263,15 +260,14 @@ object DrugHelpers {
           )
         )
         .drop("_indication_phases", "_indication_labels")
-
     }
   }
 }
 
 // This is option/step drug in the config file
 object Drug extends LazyLogging {
-  def apply()(implicit context: ETLSessionContext) = {
-    implicit val ss = context.sparkSession
+  def apply()(implicit context: ETLSessionContext): IOResources = {
+    implicit val ss: SparkSession = context.sparkSession
     import ss.implicits._
     import DrugHelpers._
 
@@ -290,15 +286,11 @@ object Drug extends LazyLogging {
 
     val outputs = Seq("drugs")
 
-    // TODO THIS NEEDS MORE REFACTORING WORK AS IT CAN BE SIMPLIFIED
-    val outputConfs = outputs
-      .map(
-        name =>
-          name -> IOResourceConfig(context.configuration.common.outputFormat,
-                                   context.configuration.common.output + s"/$name"))
-      .toMap
+    val outputConfs =
+      Helpers.generateDefaultIoOutputConfiguration(outputs: _*)(context.configuration)
 
     val outputDFs = (outputs zip Seq(dfDrugIndex)).toMap
     Helpers.writeTo(outputConfs, outputDFs)
   }
 }
+
