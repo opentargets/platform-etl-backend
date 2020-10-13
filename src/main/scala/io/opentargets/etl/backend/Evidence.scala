@@ -9,16 +9,25 @@ import spark.{Helpers => H}
 object Evidence extends LazyLogging {
   def evidenceOper(df: DataFrame): DataFrame = {
     val transformations = Map(
-      "disease_id" -> col("disease.id"),
-      "disease_from_original" -> col("disease.source_name"),
-      "disease_from_trait" -> col("disease.reported_trait"),
-      "target_id" -> col("target.id"),
-      "reported_accession" -> col("accession"),
-      "drug_id" -> H.stripIDFromURI(col("drug.id")),
-      "row_score"-> col("scores.association_score"),
-      "row_id" -> col("id")
+      "diseaseId" -> col("disease.id"),
+      "diseaseFromOriginal" -> col("disease.source_name"),
+      "diseaseFromTrait" -> col("disease.reported_trait"),
+      "targetId" -> col("target.id"),
+      "reportedAccession" -> col("accession"),
+      "drugId" -> H.stripIDFromURI(col("drug.id")),
+      "rowScore"-> col("scores.association_score"),
+      "rowId" -> col("id"),
+      "variantId" -> col("variant.id"),
+      "rsId" -> col("variant.rs_id"),
+      "allelicComposition" -> col("allelic_composition"),
     )
 
+    //  |-- variant: struct (nullable = true)
+    // |    |-- id: string (nullable = true)
+    // |    |-- rs_id: string (nullable = true)
+    // |    |-- source_link: string (nullable = true)
+    // |    |-- type: string (nullable = true)
+    // |    |-- type_link: string (nullable = true)
     val tdf = transformations.foldLeft(df) {
       case (z, (name, oper)) => z.withColumn(name, oper)
     }
