@@ -60,9 +60,9 @@ class MechanismOfAction(mechanismDf: DataFrame, targetDf: DataFrame, geneDf: Dat
              "rows"))
       .groupBy("id")
       .agg(collect_list("rows") as "rows",
-           collect_set("action_type") as "uniqueActionType",
-           collect_set("target_type") as "uniqueTargetType")
-      .transform(nest(_: DataFrame, List("rows", "uniqueActionType", "uniqueTargetType"), "mechanismsOfAction"))
+           collect_set("action_type") as "uniqueActionTypes",
+           collect_set("target_type") as "uniqueTargetTypes")
+      .transform(nest(_: DataFrame, List("rows", "uniqueActionTypes", "uniqueTargetTypes"), "mechanismsOfAction"))
   }
 
   private def chemblMechanismReferences(dataFrame: DataFrame): DataFrame = {
