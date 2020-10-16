@@ -13,5 +13,5 @@
 ./load_target_relation.sh
 ./load_otars.sh
 ./load_evidences_aotf.sh
-./load_network.sh
-./load_networkEvidences.sh
+./load_interaction.sh
+./load_interaction_evidence.sh
