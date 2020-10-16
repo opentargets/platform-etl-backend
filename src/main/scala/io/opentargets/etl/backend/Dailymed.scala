@@ -8,6 +8,7 @@ import better.files.Dsl._
 import better.files._
 import com.typesafe.config.{Config, ConfigFactory, ConfigObject, ConfigRenderOptions}
 import com.typesafe.scalalogging.{LazyLogging, Logger}
+import spark.{Helpers => H}
 
 import scala.math.pow
 import scala.xml._
@@ -26,7 +27,7 @@ object LoadersDailymed extends LazyLogging {
 
     // generate needed fields as ancestors
     val efos = diseaseList
-      .withColumn("disease_id", stripIDFromURI(col("code")))
+      .withColumn("disease_id", H.stripIDFromURI(col("code")))
       .withColumn("ancestors", flatten(col("path_codes")))
 
     // compute descendants

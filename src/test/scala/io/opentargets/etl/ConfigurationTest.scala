@@ -2,7 +2,7 @@ package io.opentargets.etl
 
 import org.scalatest.flatspec.AnyFlatSpecLike
 import io.opentargets.etl.backend.Configuration
-import io.opentargets.etl.backend.Configuration.{InputInfo, OTConfig}
+import io.opentargets.etl.backend.Configuration._
 import org.scalatest.matchers.must.Matchers
 import pureconfig.ConfigReader
 

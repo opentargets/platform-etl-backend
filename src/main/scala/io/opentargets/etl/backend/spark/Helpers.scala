@@ -172,7 +172,8 @@ object Helpers extends LazyLogging {
       StructType(dt.fields.map {
         case StructField(name, dataType, nullable, metadata) =>
           val renamedDT = dataType match {
-            case st: StructType => renameDataType(st)
+            case st: StructType =>
+              renameDataType(st)
             case ArrayType(elementType: StructType, containsNull) =>
               ArrayType(renameDataType(elementType), containsNull)
             case rest: DataType => rest

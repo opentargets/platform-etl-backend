@@ -10,6 +10,9 @@ object ETL extends LazyLogging {
 
   def applySingleStep(step: String)(implicit context: ETLSessionContext): Unit = {
     step match {
+      case "evidence" =>
+        logger.info("run step search")
+        Evidence()
       case "search" =>
         logger.info("run step search")
         Search()

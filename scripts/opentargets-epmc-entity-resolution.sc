@@ -34,14 +34,19 @@ object SparkSessionWrapper extends LazyLogging {
       .builder()
       .config(sparkConf)
       .getOrCreate
+
 }
 
 object ETL extends LazyLogging {
   import ColumnTransformationHelpers._
 
   object ColumnTransformationHelpers {
-    def normalise(c: Column): Column =
-      lower(translate(trim(trim(c), "."), "[]{}()'- ", ""))
+    def normalise(c: Column): Column = {
+      // https://www.rapidtables.com/math/symbols/greek_alphabet.html
+      translate(rtrim(lower(translate(trim(trim(c), "."), "/`''[]{}()- ", "")), "s"),
+                "αβγδεζηικλμνξπτυω",
+                "abgdezhiklmnxptuo")
+    }
   }
 
   def loadEntities(uri: String)(implicit sparkSession: SparkSession) = {
@@ -62,7 +67,12 @@ object ETL extends LazyLogging {
                               struct(normalise(c).as("term_norm"),
                                      c.as("term_raw"),
                                      lit("disease").as("term_type"))))
-      .withColumn("normalised_terms", concat($"normalised_gp", $"normalised_ds"))
+      .withColumn(
+        "normalised_cd",
+        transform(
+          $"CD",
+          c => struct(normalise(c).as("term_norm"), c.as("term_raw"), lit("drug").as("term_type"))))
+      .withColumn("normalised_terms", concat($"normalised_gp", $"normalised_ds", $"normalised_cd"))
       .withColumn("normalised_term", explode($"normalised_terms"))
       .selectExpr("*", "normalised_term.*")
 
@@ -128,7 +138,11 @@ object ETL extends LazyLogging {
   }
 
   def apply(entitiesUri: String, lutsUri: String, outputUri: String) = {
-    implicit val spark = SparkSessionWrapper.session
+    implicit val spark = {
+      val ss = SparkSessionWrapper.session
+      ss.sparkContext.setLogLevel("WARN")
+      ss
+    }
 
     val entities = loadEntities(entitiesUri)
     val luts = loadLUTs(lutsUri)
