@@ -32,6 +32,10 @@ object Evidence extends LazyLogging {
     }
 
     val transformations = Map(
+      trans(col("sourceID"), fixedName = Some("sourceId")),
+      trans(col("type"), fixedName = Some("datatype_id")),
+      trans(col("sourceID"), fixedName = Some("datasource_id")),
+      trans(col("type"), fixedName = Some("datatype_id")),
       trans(col("disease.id")),
       trans(coalesce(col("disease.source_name"), col("disease.reported_trait")),
             fixedName = Some("diseaseFromOriginal")),
@@ -69,7 +73,30 @@ object Evidence extends LazyLogging {
       trans(col("evidence.literature_ref.lit_id")),
       trans(col("evidence.literature_ref.mined_sentences")),
       trans(col("evidence.log2_fold_change.value")),
-      trans(col("evidence.log2_fold_change.percentile_rank"))
+      trans(col("evidence.log2_fold_change.percentile_rank")),
+      trans(col("evidence.resource_score.method.description")),
+      trans(col("evidence.resource_score.method.reference")),
+      trans(col("evidence.resource_score.method.url")),
+      trans(col("evidence.resource_score.type")),
+      trans(col("evidence.resource_score.value")),
+      trans(col("evidence.significant_driver_methods")),
+      trans(col("evidence.target2drug.action_type")),
+      trans(col("evidence.target2drug.mechanism_of_action")),
+      trans(col("evidence.target2drug.provenance_type.literature.references"),
+            fn = co => transform(co, c => c.getField("lit_id"))),
+      trans(col("evidence.target2drug.urls")),
+      trans(col("evidence.urls")),
+      trans(col("evidence.variant2disease.cases")),
+      trans(col("evidence.variant2disease.confidence_interval")),
+      trans(col("evidence.variant2disease.gwas_sample_size")),
+      trans(col("evidence.variant2disease.odds_ratio")),
+      trans(col("evidence.variant2disease.provenance_type.literature.references")),
+      trans(col("evidence.variant2disease.reported_trait")),
+      trans(col("evidence.variant2disease.resource_score.exponent")),
+      trans(col("evidence.variant2disease.resource_score.mantissa")),
+      trans(col("evidence.variant2disease.resource_score.value")),
+      trans(col("evidence.variant2disease.study_link")),
+      trans(col("evidence.variant2disease.urls"))
     )
 
     val tdf = transformations.foldLeft(df) {
@@ -106,7 +133,9 @@ object Evidence extends LazyLogging {
     val processedEvidences = compute()
 
     val outputs = processedEvidences.keys map (name =>
-      name -> H.IOResourceConfig(commonSec.outputFormat, commonSec.output + s"/$name"))
+      name -> H.IOResourceConfig(commonSec.outputFormat,
+                                 commonSec.output + s"/$name",
+                                 partitionBy = Seq("sourceId")))
 
     H.writeTo(outputs.toMap, processedEvidences)
   }

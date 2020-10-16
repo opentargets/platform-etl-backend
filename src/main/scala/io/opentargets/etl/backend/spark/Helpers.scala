@@ -17,7 +17,8 @@ object Helpers extends LazyLogging {
       format: String,
       path: String,
       delimiter: Option[String] = None,
-      header: Option[Boolean] = None
+      header: Option[Boolean] = None,
+      partitionBy: Seq[String] = Seq.empty
   )
 
   /**
@@ -111,10 +112,7 @@ object Helpers extends LazyLogging {
     logger.info(s"load file ${pathInfo.path} with format ${pathInfo.format} to dataframe")
     pathInfo match {
       // CSV, TSV, etc
-      case IOResourceConfig(_: String,
-                            format: String,
-                            header: Option[String],
-                            delimiter: Option[Boolean])
+      case IOResourceConfig(_, format, header, delimiter, _)
           if format.contains("sv") && header.isDefined && delimiter.isDefined =>
         logger.debug(
           s"Loading separated value file: header - ${pathInfo.header.get}, delimiter - ${pathInfo.delimiter.get}")
@@ -124,10 +122,7 @@ object Helpers extends LazyLogging {
           .option("delimiter", pathInfo.delimiter.get)
           .load(pathInfo.path)
 
-      case IOResourceConfig(_: String,
-                            format: String,
-                            header: Option[String],
-                            delimiter: Option[Boolean]) if format.contains("sv") => {
+      case IOResourceConfig(_, format, header, delimiter, _) if format.contains("sv") => {
         logger.error(
           s"Separated value filed ${pathInfo.path} selected without specifying header and/or delimiter values")
         // killing program through exception.
@@ -148,7 +143,13 @@ object Helpers extends LazyLogging {
     outputConfs foreach {
       case (n, c) =>
         logger.debug(s"saving dataframe '$n' into '${c.path}'")
-        outputs(n).write.format(c.format).save(c.path)
+        if (c.partitionBy.isEmpty)
+          outputs(n).write.format(c.format).save(c.path)
+        else
+          outputs(n).write
+            .partitionBy(c.partitionBy: _*)
+            .format(c.format)
+            .save(c.path)
     }
 
     outputs
