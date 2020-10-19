@@ -184,6 +184,21 @@ common {
 }
 ```
 
+### Adding ETL outputs to ElasticSearch
+
+The `elasticsearch` directory in the project root folder includes utility scripts to load the outputs of the ETL into
+a preconfigured ElasticSearch instance. 
+
+#### Requirements
+
+1. Python utility `elasticsearch_loader` must be installed and on your `PATH`
+2. An open port of the ES instance must be forwarded to your local machine and execute the relevant script.
+
+```
+gcloud beta compute ssh --zone "europe-west1-d" "es7-20-09" --project "open-targets-eu-dev" -- -L 9200:localhost:9200
+```  
+3. Update the scripts with the relevant input/output directories
+
 ## Steps independent of the Data Pipeline
 
 The majority of the ETL was written to process data which has been prepared by the data pipeline for subsequent
@@ -199,7 +214,7 @@ The majority of the ETL was written to process data which has been prepared by t
 `DrugBeta` will eventually replace the `Drug` step in the pipeline, as well as supersede the step of the same name in
  the `data-pipeline` repository.
  
-To run the `DrugBeta` step use the example command under `Create a fat JAR` with `DrugBeta` as the step name. 
+To run the `DrugBeta` step use the example command under `Create a fat JAR` with `drugBeta` as the step name. 
  
 #### Adding additional cross references
 

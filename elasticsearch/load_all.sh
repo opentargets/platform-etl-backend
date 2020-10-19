@@ -1,6 +1,7 @@
 ./load_targets.sh
 ./load_diseases.sh
 ./load_drugs.sh
+./load_drugBeta.sh
 ./load_eco.sh
 ./load_expression.sh
 ./load_mp.sh
