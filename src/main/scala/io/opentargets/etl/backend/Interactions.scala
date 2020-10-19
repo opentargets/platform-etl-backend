@@ -349,6 +349,7 @@ object Interactions extends LazyLogging {
 
     val interactionStringsDF =
       inputDataFrame("strings").generateStrings(inputDataFrame("ensproteins"))
+
     val interactionIntactDF = inputDataFrame("intact").generateIntacts(
       targets,
       inputDataFrame("rnacentral"),
@@ -356,7 +357,7 @@ object Interactions extends LazyLogging {
     )
 
     val aggregationInteractions = interactionIntactDF.interactionAggreation(interactionStringsDF)
-    val interactionEvidences = interactionStringsDF.generateEvidences(interactionStringsDF)
+    val interactionEvidences = interactionIntactDF.generateEvidences(interactionStringsDF)
 
     Map(
       "interactionEvidences" -> interactionEvidences,
