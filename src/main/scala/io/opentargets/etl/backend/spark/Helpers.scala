@@ -159,12 +159,10 @@ object Helpers extends LazyLogging {
     * @return a sparksession object
     */
   def columnExpr(myCols: Set[String], allCols: Set[String]) = {
-    allCols.toList.map(x =>
-      x match {
-        case x if myCols.contains(x) => col(x)
-        case _                       => lit(null).as(x)
-      }
-    )
+    val inter = (allCols intersect myCols).map(col)
+    val differ = (allCols diff myCols).map(lit(null).as(_))
+
+    inter union differ
   }
 
   /** generate the union between two dataframe with different Schema.
