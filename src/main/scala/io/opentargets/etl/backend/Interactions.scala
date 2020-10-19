@@ -126,8 +126,6 @@ object InteractionsHelpers extends LazyLogging {
     def generateInteractions(mappingInfo: DataFrame): DataFrame = {
 
       val interactions = df
-        .withColumn("intA", col("interactorA.id"))
-        .withColumn("intA_source", col("interactorA.id_source"))
         .withColumn(
           "intB",
           when(col("interactorB.id").isNull, col("interactorA.id")).otherwise(col("interactorB.id"))
@@ -138,41 +136,36 @@ object InteractionsHelpers extends LazyLogging {
             col("interactorB.id_source")
           )
         )
-        .withColumnRenamed("source_info", "interactionResources")
-        .withColumn("interactionScore", col("interaction.interaction_score"))
-        .withColumn(
-          "causalInteraction",
-          when(col("interaction.causal_interaction").isNull, false).otherwise(
-            col("interaction.causal_interaction").cast("boolean")
-          )
-        )
-        .withColumn("speciesA", col("interactorA.organism"))
         .withColumn(
           "speciesB",
           when(col("interactorB.organism").isNull, col("interactorA.organism")).otherwise(
             col("interactorB.organism")
           )
         )
-        .withColumn("intABiologicalRole", col("interactorA.biological_role"))
         .withColumn(
           "intBBiologicalRole",
           when(col("interactorB.biological_role").isNull, col("interactorA.biological_role"))
             .otherwise(col("interactorB.biological_role"))
         )
-        .withColumn("evidencesList", col("interaction.evidence"))
+        .withColumn(
+          "causalInteraction",
+          when(col("interaction.causal_interaction").isNull, false).otherwise(
+            col("interaction.causal_interaction").cast("boolean")
+          )
+        )
         .selectExpr(
-          "intA",
-          "intA_source",
-          "speciesA",
+          "interactorA.id as intA",
+          "interactorA.id_source as intA_source",
+          "interactorA.organism as speciesA",
+          "interactorA.biological_role as intABiologicalRole",
           "intB",
           "intB_source",
           "speciesB",
-          "interactionResources",
-          "interactionScore",
+          "intBBiologicalRole",
           "causalInteraction",
-          "evidencesList",
-          "intABiologicalRole",
-          "intBBiologicalRole"
+          "source_info as interactionResources",
+          "interaction.evidence as evidencesList",
+          "interaction.interaction_score as interactionScore"
         )
 
       val interactionMapLeft = interactions
