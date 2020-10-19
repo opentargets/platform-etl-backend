@@ -177,7 +177,7 @@ object Helpers extends LazyLogging {
 
     // Union between two dataframes with different schema. columnExpr helps to unify the schema
     val unionDF =
-      df.select(columnExpr(cols1, total): _*).unionByName(df2.select(columnExpr(cols2, total): _*))
+      df.select(columnExpr(cols1, total).toList: _*).unionByName(df2.select(columnExpr(cols2, total).toList: _*))
     unionDF
   }
 
