@@ -1,14 +1,18 @@
 package io.opentargets.etl.backend.drug_beta
 
 import com.typesafe.scalalogging.LazyLogging
-import io.opentargets.etl.backend.spark.Helpers.{ nest, validateDF}
+import io.opentargets.etl.backend.spark.Helpers.{nest, validateDF}
 import org.apache.spark.sql.functions.{
+  size,
+  array_distinct,
   col,
   collect_list,
   collect_set,
   explode,
+  isnull,
   lower,
-  struct
+  struct,
+  when
 }
 import org.apache.spark.sql.{DataFrame, SparkSession}
 
@@ -26,9 +30,7 @@ import org.apache.spark.sql.{DataFrame, SparkSession}
   * ------ ids
   * ------ urls
   * ---- targets
-  * ------ approved_name
-  * ------ approved_symbol
-  * ------ ensembl
+  * ---- targetName
   * -- uniqueActiontype
   * -- unqueTargetType
   *
@@ -52,17 +54,18 @@ class MechanismOfAction(mechanismDf: DataFrame, targetDf: DataFrame, geneDf: Dat
 
     mechanism
       .join(references, Seq("id"), "outer")
-      .join(target, Seq("id"), "outer")
+      .join(target, Seq("target_chembl_id"), "outer")
       .drop("mechanism_refs", "record_id", "target_chembl_id")
-      .transform(
-        nest(_: DataFrame,
-             List("mechanismOfAction", "references", "targetName", "targets"),
-             "rows"))
+      .transform(nest(_: DataFrame,
+                      List("mechanismOfAction", "references", "targetName", "targets"),
+                      "rows"))
       .groupBy("id")
       .agg(collect_list("rows") as "rows",
-           collect_set("action_type") as "uniqueActionType",
-           collect_set("target_type") as "uniqueTargetType")
-      .transform(nest(_: DataFrame, List("rows", "uniqueActionType", "uniqueTargetType"), "mechanismsOfAction"))
+           collect_set("action_type") as "uniqueActionTypes",
+           collect_set("target_type") as "uniqueTargetTypes")
+      .transform(nest(_: DataFrame,
+                      List("rows", "uniqueActionTypes", "uniqueTargetTypes"),
+                      "mechanismsOfAction"))
   }
 
   private def chemblMechanismReferences(dataFrame: DataFrame): DataFrame = {
@@ -93,21 +96,15 @@ class MechanismOfAction(mechanismDf: DataFrame, targetDf: DataFrame, geneDf: Dat
       .filter($"target_components.accession".isNotNull)
       .withColumn("target_type", lower($"target_type"))
       .select($"pref_name".as("targetName"),
-              $"target_components.accession".as("uniprot_id"),
-              $"target_type",
-              $"target_chembl_id".as("id"))
+        $"target_components.accession".as("uniprot_id"),
+        $"target_type",
+        $"target_chembl_id")
     val genes = gene.select(geneCols.map(col): _*)
 
     targetDf
       .join(genes, Seq("uniprot_id"), "left_outer")
-      .withColumn("target_components",
-                  struct(
-                    $"approved_name",
-                    $"approved_symbol",
-                    $"ensembl_gene_id".as("ensembl")
-                  ))
-      .groupBy("id", "targetName", "target_type")
-      .agg(collect_list("target_components").as("targets"))
-
+      .groupBy("target_chembl_id", "targetName", "target_type")
+      .agg(array_distinct(collect_list("ensembl_gene_id")).as("targets"))
   }
+
 }
