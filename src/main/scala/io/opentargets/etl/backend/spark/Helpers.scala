@@ -122,7 +122,7 @@ object Helpers extends LazyLogging {
           .option("delimiter", pathInfo.delimiter.get)
           .load(pathInfo.path)
 
-      case IOResourceConfig(_, format, header, delimiter, _) if format.contains("sv") => {
+      case IOResourceConfig(_, format, _, _, _) if format.contains("sv") => {
         logger.error(
           s"Separated value filed ${pathInfo.path} selected without specifying header and/or delimiter values"
         )
