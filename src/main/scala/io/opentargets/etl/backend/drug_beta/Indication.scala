@@ -60,6 +60,8 @@ class Indication(indicationsRaw: DataFrame, efoRaw: DataFrame)(implicit sparkSes
               $"r.ref_id",
               $"r.ref_type",
               $"r.ref_url")
+      // remove indications we can't link to a disease.
+      .filter($"efo_id".isNotNull)
       // handle case where clinical trials packs multiple ids into a csv string
       .withColumn("ref_id", split($"ref_id", ","))
       .withColumn("ref_id", explode($"ref_id"))
