@@ -19,18 +19,9 @@ object Evidence extends LazyLogging {
 
   val normAndCCase = toCamelCase compose normaliseString
 
-  /** apply to colName fn() and if fixedName is None camelCase and unify dots to '_' and split by it,
-    * otherwise uses that fixedName */
-  def trans(inColumn: Column,
-            newNameFn: String => String,
-            columnFn: Column => Column): (String, Column) = {
-
-    newNameFn(inColumn.toString) -> columnFn(inColumn)
-  }
-
-  val flattenC = trans(_, normAndCCase, identity)
-  val flattenCAndSetN = trans(_, _, identity)
-  val flattenCAndSetC = trans(_, normAndCCase, _)
+  val flattenC = H.trans(_, normAndCCase, identity)
+  val flattenCAndSetN = H.trans(_, _, identity)
+  val flattenCAndSetC = H.trans(_, normAndCCase, _)
 
   def evidenceOper(df: DataFrame): DataFrame = {
     val transformations = Map(
@@ -61,13 +52,13 @@ object Evidence extends LazyLogging {
                       n => normAndCCase(n.replaceFirst("\\.cohort", ""))),
       flattenCAndSetN(col("evidence.comparison_name"), _ => "evidenceContrast"),
       flattenC(col("evidence.confidence")),
-      trans(
+      H.trans(
         col("evidence.disease_model_association.human_phenotypes"),
         newNameFn = _ => "evidenceDiseaseModelAssociatedHumanPhenotypes",
         columnFn = co =>
           transform(co, c => struct(c.getField("id").as("id"), c.getField("label").as("label")))
       ),
-      trans(
+      H.trans(
         col("evidence.disease_model_association.model_phenotypes"),
         newNameFn = _ => "evidenceDiseaseModelAssociatedModelPhenotypes",
         columnFn = co =>
@@ -112,7 +103,7 @@ object Evidence extends LazyLogging {
       flattenCAndSetN(col("evidence.variant2disease.resource_score.exponent"),
                       _ => "evidenceResourceScoreExponent"),
       flattenC(col("evidence.variant2disease.resource_score.mantissa")),
-      trans(col("evidence.variant2disease.study_link"), _ => "evidenceStudyId", H.stripIDFromURI),
+      H.trans(col("evidence.variant2disease.study_link"), _ => "evidenceStudyId", H.stripIDFromURI),
     )
 
     val tdf = transformations.foldLeft(df) {

@@ -63,6 +63,17 @@ object Helpers extends LazyLogging {
 
   }
 
+  /** apply to newNameFn() to the new name for the transformation and columnFn() to the inColumn
+    * it returns a pair that can be used to create a map of transformations. Useful to use with
+    * withColumn DataFrame function too
+    */
+  def trans(inColumn: Column,
+            newNameFn: String => String,
+            columnFn: Column => Column): (String, Column) = {
+
+    newNameFn(inColumn.toString) -> columnFn(inColumn)
+  }
+
   /** using the uri get the last token as an ID by example
     * http://identifiers.org/chembl.compound/CHEMBL207538 -> CHEMBL207538
     * */
