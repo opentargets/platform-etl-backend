@@ -67,7 +67,7 @@ object Helpers extends LazyLogging {
     * http://identifiers.org/chembl.compound/CHEMBL207538 -> CHEMBL207538
     * */
   def stripIDFromURI(uri: Column): Column =
-    substring_index(col("drug.id"), "/", -1)
+    substring_index(uri, "/", -1)
 
   /** colNames are columns to flat if any inner array and then concatenate them
     * @param colNames list of column names as string
