@@ -31,10 +31,12 @@ object Configuration extends LazyLogging {
 
   case class EvidenceProteinFix(input: String, output: String)
 
-  case class NetworksSection(
-       rnacentral: InputInfo,
-       humanmapping: InputInfo,
-       interactions: InputInfo
+  case class InteractionsSection(
+      rnacentral: InputInfo,
+      humanmapping: InputInfo,
+      ensproteins: InputInfo,
+      intact: InputInfo,
+      strings: InputInfo
    )
 
 
@@ -56,7 +58,7 @@ object Configuration extends LazyLogging {
       expression: InputInfo,
       tep: InputInfo,
       mousephenotypes: InputInfo,
-      networks: NetworksSection
+      interactions: InteractionsSection
   )
 
   case class Common(defaultSteps: Seq[String], inputs: Inputs, output: String, outputFormat: String)

@@ -21,8 +21,7 @@ object Helpers extends LazyLogging {
       partitionBy: Seq[String] = Seq.empty
   )
 
-  /**
-    * generate a spark session given the arguments if sparkUri is None then try to get from env
+  /** generate a spark session given the arguments if sparkUri is None then try to get from env
     * otherwise it will set the master explicitely
     * @param appName the app name
     * @param sparkUri uri for the spark env master if None then it will try to get from yarn
@@ -47,19 +46,20 @@ object Helpers extends LazyLogging {
       .getOrCreate
   }
 
-  /**
-    * Create an IOResourceConf Map for each of the given files, where the file is a key and the value is the output
+  /** Create an IOResourceConf Map for each of the given files, where the file is a key and the value is the output
     * configuration
     * @param files will be the names out the output files
     * @param configuration to provide access to the program's configuration
     * @return a map of file -> IOResourceConfig
     */
-  def generateDefaultIoOutputConfiguration(files: String*)(
-      configuration: OTConfig): IOResourceConfs = {
+  def generateDefaultIoOutputConfiguration(
+      files: String*
+  )(configuration: OTConfig): IOResourceConfs = {
     (for (n <- files)
-      yield
-        n -> IOResourceConfig(configuration.common.outputFormat,
-                              configuration.common.output + s"/$n")) toMap
+      yield n -> IOResourceConfig(
+        configuration.common.outputFormat,
+        configuration.common.output + s"/$n"
+      )) toMap
 
   }
 
@@ -69,8 +69,7 @@ object Helpers extends LazyLogging {
   def stripIDFromURI(uri: Column): Column =
     substring_index(col("drug.id"), "/", -1)
 
-  /**
-    * colNames are columns to flat if any inner array and then concatenate them
+  /** colNames are columns to flat if any inner array and then concatenate them
     * @param colNames list of column names as string
     * @return A `Column` ready to be used as any other column operator
     */
@@ -115,7 +114,8 @@ object Helpers extends LazyLogging {
       case IOResourceConfig(_, format, header, delimiter, _)
           if format.contains("sv") && header.isDefined && delimiter.isDefined =>
         logger.debug(
-          s"Loading separated value file: header - ${pathInfo.header.get}, delimiter - ${pathInfo.delimiter.get}")
+          s"Loading separated value file: header - ${pathInfo.header.get}, delimiter - ${pathInfo.delimiter.get}"
+        )
         session.read
           .format("csv")
           .option("header", pathInfo.header.get)
@@ -124,7 +124,8 @@ object Helpers extends LazyLogging {
 
       case IOResourceConfig(_, format, header, delimiter, _) if format.contains("sv") => {
         logger.error(
-          s"Separated value filed ${pathInfo.path} selected without specifying header and/or delimiter values")
+          s"Separated value filed ${pathInfo.path} selected without specifying header and/or delimiter values"
+        )
         // killing program through exception.
         assert(false, s"Unable to complete pipeline due to bad file configuration for $pathInfo")
         session.emptyDataFrame
@@ -134,9 +135,9 @@ object Helpers extends LazyLogging {
     }
   }
 
-  def writeTo(outputConfs: IOResourceConfs, outputs: IOResources)(
-      implicit
-      session: SparkSession): IOResources = {
+  def writeTo(outputConfs: IOResourceConfs, outputs: IOResources)(implicit
+      session: SparkSession
+  ): IOResources = {
 
     logger.info(s"Saving data to '${outputConfs.mkString(", ")}'")
 
@@ -153,6 +154,55 @@ object Helpers extends LazyLogging {
     }
 
     outputs
+  }
+
+  /** generate a set of String with the union of Columns.
+    * Eg, myCols =( a,c,d) and allCols(a,c,d,e,f,h)
+    * return (a,c,d,e,f,h)
+    * @param myCols the list of the Columns in a specific Dataframe
+    * @param allCols the list of Columns to match
+    * @return a sparksession object
+    */
+  def columnExpr(myCols: Set[String], allCols: Set[String]) = {
+    val inter = (allCols intersect myCols).map(col)
+    val differ = (allCols diff myCols).map(lit(null).as(_))
+
+    inter union differ
+  }
+
+  /** generate the union between two dataframe with different Schema.
+    * df is the implicit dataframe
+    * @param df2 Dataframe with possibly a different Columns
+    * @return a DataFrame
+    */
+  def unionDataframeDifferentSchema(df: DataFrame, df2: DataFrame): DataFrame = {
+    val cols1 = df.columns.toSet
+    val cols2 = df2.columns.toSet
+    val total = cols1 ++ cols2 // union
+
+    // Union between two dataframes with different schema. columnExpr helps to unify the schema
+    val unionDF =
+      df.select(columnExpr(cols1, total).toList: _*).unionByName(df2.select(columnExpr(cols2, total).toList: _*))
+    unionDF
+  }
+
+  /** generate snake to camel for the Elasticsearch indices.
+    * Replace all _ with Capiltal letter except the first letter. Eg. "abc_def_gh" => "abcDefGh"
+    * @param df Dataframe
+    * @return a DataFrame with the schema lowerCamel
+    */
+  def snakeToLowerCamelSchema(df: DataFrame)(implicit session: SparkSession): DataFrame = {
+
+    //replace all _ with Capiltal letter except the first letter. Eg. "abc_def_gh" => "abcDefGh"
+    val snakeToLowerCamelFnc = (s: String) => {
+      val tokens = s.split("_")
+      tokens.head + tokens.tail.map(_.capitalize).mkString
+    }
+
+    val newDF =
+      session.createDataFrame(df.rdd, renameAllCols(df.schema, snakeToLowerCamelFnc))
+
+    newDF
   }
 
   // Replace the spaces from the schema fields with _
@@ -173,8 +223,7 @@ object Helpers extends LazyLogging {
       StructType(dt.fields.map {
         case StructField(name, dataType, nullable, metadata) =>
           val renamedDT = dataType match {
-            case st: StructType =>
-              renameDataType(st)
+            case st: StructType => renameDataType(st)
             case ArrayType(elementType: StructType, containsNull) =>
               ArrayType(renameDataType(elementType), containsNull)
             case rest: DataType => rest
@@ -185,8 +234,7 @@ object Helpers extends LazyLogging {
     renameDataType(schema)
   }
 
-  /**
-    * Given a dataframe with a n columns, this method create a new column called `collectUnder` which will include all
+  /** Given a dataframe with a n columns, this method create a new column called `collectUnder` which will include all
     * columns listed in `includedColumns` in a struct column. Those columns will be removed from the original dataframe.
     * This can be used to nest fields.
     * @param dataFrame on which to perform nesting
@@ -204,8 +252,7 @@ object Helpers extends LazyLogging {
       .withColumnRenamed(tempCol, collectUnder)
   }
 
-  /**
-    * Helper function to confirm that all required columns are available on dataframe.
+  /** Helper function to confirm that all required columns are available on dataframe.
     * @param requiredColumns on input dataframe
     * @param dataFrame dataframe to test
     */
