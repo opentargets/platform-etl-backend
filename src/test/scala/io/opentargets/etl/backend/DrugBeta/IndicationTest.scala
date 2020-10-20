@@ -19,6 +19,7 @@ object IndicationTest {
   def getIndicationInstance(sparkSession: SparkSession): Indication =
     new Indication(sparkSession.emptyDataFrame, sparkSession.emptyDataFrame)(sparkSession)
 }
+
 class IndicationTest
     extends AnyFlatSpecLike
     with Matchers
@@ -85,20 +86,34 @@ class IndicationTest
 
   "Processing ChEMBL indications data" should "correctly process raw ChEMBL data into expected format" in {
     // given
-    val indicationDf = IndicationTest.indicationDf(sparkSession)
-    val efoDf = IndicationTest.efoDf(sparkSession)
+    val indicationDf: DataFrame = IndicationTest.indicationDf(sparkSession)
+    val efoDf: DataFrame = IndicationTest.efoDf(sparkSession)
 
-    val indicationInst = new Indication(indicationDf, efoDf)(sparkSession)
+    val indication: Indication = new Indication(indicationDf, efoDf)(sparkSession)
     // when
-    val results = indicationInst.processIndications
+    val results: DataFrame = indication.processIndications
     // then
-    val expectedColumns = Set("id", "indications")
+    val expectedColumns: Set[String] = Set("id", "indications")
 
     assert(
       results.columns
         .forall(expectedColumns.contains) && expectedColumns.size == results.columns.length,
       s"All expected columns were expected but instead got ${results.columns.mkString("Array(", ", ", ")")}"
     )
+  }
+
+  it should "not contain any entries with no linked disease (efo)" in {
+    // given
+    val indicationDf: DataFrame = IndicationTest.indicationDf(sparkSession)
+    val efoDf: DataFrame = IndicationTest.efoDf(sparkSession)
+
+    val indication: Indication = new Indication(indicationDf, efoDf)(sparkSession)
+    // when
+    val results: DataFrame = indication.processIndications.select(
+      col("indications.rows.disease").as("efoId"))
+      .filter(col("efoId").isNull)
+    // then
+    assert(results.count() == 0L)
   }
 
   "The Indication class" should "correctly replace : with _ in efo ids" in {
