@@ -2,6 +2,7 @@ package io.opentargets.etl.backend.DrugBeta
 
 import io.opentargets.etl.backend.SparkSessionSetup
 import io.opentargets.etl.backend.drug_beta.Indication
+import io.opentargets.etl.backend.spark.Helpers
 import org.apache.spark.sql.{DataFrame, Dataset, Row, SparkSession}
 import org.apache.spark.sql.functions.col
 import org.apache.spark.sql.types.{StringType, StructField, StructType}
@@ -72,7 +73,7 @@ class IndicationTest
       sparkSession.sparkContext.parallelize(inputs.map(_._1).map(Row(_))),
       s)
     // when
-    val results = df.withColumn("efo_id", Indication.splitAndTakeLastElement(col("case")))
+    val results = df.withColumn("efo_id", Helpers.stripIDFromURI(col("case")))
     // then
     val expectedResultSet: Set[String] = inputs.map(_._2).toSet
     assert(
