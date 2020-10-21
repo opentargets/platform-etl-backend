@@ -16,6 +16,11 @@ object IndicationTest {
     sparkSession.read.json(this.getClass.getResource("/indication_test30.jsonl").getPath)
   def efoDf(implicit sparkSession: SparkSession): DataFrame =
     sparkSession.read.parquet(this.getClass.getResource("/efo_sample.parquet").getPath)
+  def efoCurated(implicit sparkSession: SparkSession): DataFrame =
+    sparkSession.read
+      .format("csv")
+      .option("header", "true")
+      .load(this.getClass.getResource("/efo_curated.csv").getPath)
 }
 
 class IndicationTest
@@ -85,9 +90,10 @@ class IndicationTest
     // given
     val indicationDf: DataFrame = IndicationTest.indicationDf(sparkSession)
     val efoDf: DataFrame = IndicationTest.efoDf(sparkSession)
+    val efoCurated = IndicationTest.efoCurated(sparkSession)
 
     // when
-    val results: DataFrame = Indication(indicationDf, efoDf)(sparkSession)
+    val results: DataFrame = Indication(indicationDf, efoDf, efoCurated)
     // then
     val expectedColumns: Set[String] = Set("id", "indications")
 
@@ -102,8 +108,9 @@ class IndicationTest
     // given
     val indicationDf: DataFrame = IndicationTest.indicationDf
     val efoDf: DataFrame = IndicationTest.efoDf
+    val efoCurated = IndicationTest.efoCurated(sparkSession)
 
-    val indication: DataFrame = Indication(indicationDf, efoDf)
+    val indication: DataFrame = Indication(indicationDf, efoDf, efoCurated)
     // when
     val results: DataFrame = indication.select(
       col("indications.rows.disease").as("efoId"))
