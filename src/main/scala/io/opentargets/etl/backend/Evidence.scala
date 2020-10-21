@@ -17,6 +17,10 @@ object Evidence extends LazyLogging {
     (tokens.head +: tokens.tail.map(_.capitalize)).mkString
   }
 
+  val publicationParseFromURL = (cc: Column) =>
+    when(instr(H.stripIDFromURI(cc), "PMC") > 0, H.stripIDFromURI(cc))
+      .otherwise(concat(lit("PM"), H.stripIDFromURI(cc)))
+
   val normAndCCase = toCamelCase compose normaliseString
 
   val flattenC = H.trans(_, normAndCCase, identity)
@@ -78,6 +82,7 @@ object Evidence extends LazyLogging {
           transform(
             filter(
               concat(
+                array(col("evidence.resource_score.method.reference")),
                 transform(col("evidence.gene2variant.provenance_type.literature.references"),
                           c => c.getField("lit_id")),
                 transform(col("evidence.variant2disease.provenance_type.literature.references"),
@@ -86,9 +91,7 @@ object Evidence extends LazyLogging {
               ),
               co => co.isNotNull
             ),
-            cc =>
-              when(instr(H.stripIDFromURI(cc), "PMC") > 0, H.stripIDFromURI(cc))
-                .otherwise(concat(lit("PM"), H.stripIDFromURI(cc)))
+            cc => publicationParseFromURL(cc)
           )),
         _ => "evidenceLiterature"
       ),
@@ -116,7 +119,7 @@ object Evidence extends LazyLogging {
       flattenCAndSetN(col("evidence.target2drug.mechanism_of_action"),
                       _ => "evidenceDrugMechanismOfAction"),
       H.trans(
-        coalesce(col("evidence.variant2disease.urls"), col("evidence.urls")),
+        coalesce(col("evidence.urls"), col("evidence.variant2disease.urls")),
         _ => "evidenceRecordId",
         c =>
           when(col("sourceID") isInCollection List("eva", "eva_somatic", "clingen"),
@@ -134,7 +137,7 @@ object Evidence extends LazyLogging {
         _ => "evidencePathwayName",
         c =>
           when(col("sourceID") isInCollection List("progeny", "reactome", "slapenrich"),
-               transform(c, co => co.getField("nice_name")).getItem(0))
+               trim(transform(c, co => co.getField("nice_name")).getItem(0)))
       ),
       H.trans(
         coalesce(
@@ -165,10 +168,7 @@ object Evidence extends LazyLogging {
               c => when(c.isNotNull, c.cast(DoubleType))),
       flattenCAndSetN(col("evidence.variant2disease.resource_score.exponent"),
                       _ => "evidenceResourceScoreExponent"),
-      flattenC(col("evidence.variant2disease.resource_score.mantissa")),
-      flattenCAndSetN(when(col("sourceID") isInCollection List("sysbio", "crispr"),
-                           col("evidence.resource_score.method.reference")),
-                      _ => "evidenceLiterature")
+      flattenC(col("evidence.variant2disease.resource_score.mantissa"))
     )
 
     val tdf = transformations.foldLeft(df) {
