@@ -71,7 +71,11 @@ object Helpers extends LazyLogging {
             newNameFn: String => String,
             columnFn: Column => Column): (String, Column) = {
 
-    newNameFn(inColumn.toString) -> columnFn(inColumn)
+    val name = newNameFn(inColumn.toString)
+    val oper = columnFn(inColumn)
+
+    logger.info(s"tranform ${oper.toString} -> ${name}")
+    name -> oper
   }
 
   /** using the uri get the last token as an ID by example
