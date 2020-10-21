@@ -39,8 +39,11 @@ object Evidence extends LazyLogging {
       flattenCAndSetC(col("drug.id"), H.stripIDFromURI),
       flattenCAndSetN(col("scores.association_score"), _ => "score"),
       flattenC(col("id")),
-      flattenC(col("variant.id")),
-      flattenC(col("variant.rs_id")),
+      flattenCAndSetC(col("variant.id"),
+                      c => when(col("sourceID") === "ot_genetics_portal", H.stripIDFromURI(c))),
+      H.trans(coalesce(col("variant.rs_id"), col("variant.id")),
+              _ => "variantRsId",
+              H.stripIDFromURI),
       flattenC(col("evidence.allelic_requirement")),
       flattenC(col("evidence.biological_model.allelic_composition")),
       flattenC(col("evidence.biological_model.genetic_background")),
@@ -76,25 +79,6 @@ object Evidence extends LazyLogging {
       flattenC(col("evidence.experiment_overview")),
       flattenCAndSetN(col("evidence.gene2variant.functional_consequence"),
                       _ => "evidenceVariantFunctionalConsequenceUri"),
-      // TODO it needs further process
-      flattenCAndSetN(
-        array_distinct(
-          transform(
-            filter(
-              concat(
-                array(col("evidence.resource_score.method.reference")),
-                transform(col("evidence.gene2variant.provenance_type.literature.references"),
-                          c => c.getField("lit_id")),
-                transform(col("evidence.variant2disease.provenance_type.literature.references"),
-                          c => c.getField("lit_id")),
-                array(col("evidence.literature_ref.lit_id"))
-              ),
-              co => co.isNotNull
-            ),
-            cc => publicationParseFromURL(cc)
-          )),
-        _ => "evidenceLiterature"
-      ),
       H.trans(
         col("evidence.variant2disease.provenance_type.literature.references"),
         _ => "evidencePublicationFirstAuthor",
@@ -168,7 +152,34 @@ object Evidence extends LazyLogging {
               c => when(c.isNotNull, c.cast(DoubleType))),
       flattenCAndSetN(col("evidence.variant2disease.resource_score.exponent"),
                       _ => "evidenceResourceScoreExponent"),
-      flattenC(col("evidence.variant2disease.resource_score.mantissa"))
+      flattenC(col("evidence.variant2disease.resource_score.mantissa")),
+      flattenCAndSetN(
+        array_distinct(
+          transform(
+            filter(
+              concat(
+                when(
+                  col("sourceID") isInCollection List("sysbio", "crispr"),
+                  array(col("evidence.resource_score.method.reference"))
+                ).otherwise(array()),
+                transform(
+                  coalesce(col("evidence.gene2variant.provenance_type.literature.references"),
+                           array()),
+                  c => c.getField("lit_id")),
+                transform(
+                  coalesce(col("evidence.variant2disease.provenance_type.literature.references"),
+                           array()),
+                  c => c.getField("lit_id")),
+                when(col("evidence.literature_ref.lit_id").isNotNull,
+                     array(col("evidence.literature_ref.lit_id")))
+                  .otherwise(array())
+              ),
+              co => co.isNotNull
+            ),
+            cc => publicationParseFromURL(cc)
+          )),
+        _ => "evidenceLiterature"
+      )
     )
 
     val tdf = transformations.foldLeft(df) {
