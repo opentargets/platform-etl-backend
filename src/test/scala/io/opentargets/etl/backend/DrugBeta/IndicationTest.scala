@@ -12,13 +12,10 @@ import org.scalatest.matchers.must.Matchers
 
 object IndicationTest {
 
-  def indicationDf(sparkSession: SparkSession): DataFrame =
+  def indicationDf(implicit sparkSession: SparkSession): DataFrame =
     sparkSession.read.json(this.getClass.getResource("/indication_test30.jsonl").getPath)
-  def efoDf(sparkSession: SparkSession): DataFrame =
+  def efoDf(implicit sparkSession: SparkSession): DataFrame =
     sparkSession.read.parquet(this.getClass.getResource("/efo_sample.parquet").getPath)
-
-  def getIndicationInstance(sparkSession: SparkSession): Indication =
-    new Indication(sparkSession.emptyDataFrame, sparkSession.emptyDataFrame)(sparkSession)
 }
 
 class IndicationTest
@@ -28,7 +25,6 @@ class IndicationTest
     with SparkSessionSetup {
 
   val getEfoDataFrame: PrivateMethod[Dataset[Row]] = PrivateMethod[Dataset[Row]]('getEfoDataframe)
-
   import sparkSession.implicits._
 
   "Processing EFO metadata" should "return a dataframe with the EFO's id, label and uri" in {
@@ -37,7 +33,7 @@ class IndicationTest
     val expectedColumns = Set("efo_id", "efo_label", "efo_uri")
     // when
     val results
-      : DataFrame = IndicationTest.getIndicationInstance(sparkSession) invokePrivate getEfoDataFrame(
+      : DataFrame = Indication invokePrivate getEfoDataFrame(
       inputDF)
 
     // then
@@ -90,9 +86,8 @@ class IndicationTest
     val indicationDf: DataFrame = IndicationTest.indicationDf(sparkSession)
     val efoDf: DataFrame = IndicationTest.efoDf(sparkSession)
 
-    val indication: Indication = new Indication(indicationDf, efoDf)(sparkSession)
     // when
-    val results: DataFrame = indication.processIndications
+    val results: DataFrame = Indication(indicationDf, efoDf)(sparkSession)
     // then
     val expectedColumns: Set[String] = Set("id", "indications")
 
@@ -105,12 +100,12 @@ class IndicationTest
 
   it should "not contain any entries with no linked disease (efo)" in {
     // given
-    val indicationDf: DataFrame = IndicationTest.indicationDf(sparkSession)
-    val efoDf: DataFrame = IndicationTest.efoDf(sparkSession)
+    val indicationDf: DataFrame = IndicationTest.indicationDf
+    val efoDf: DataFrame = IndicationTest.efoDf
 
-    val indication: Indication = new Indication(indicationDf, efoDf)(sparkSession)
+    val indication: DataFrame = Indication(indicationDf, efoDf)
     // when
-    val results: DataFrame = indication.processIndications.select(
+    val results: DataFrame = indication.select(
       col("indications.rows.disease").as("efoId"))
       .filter(col("efoId").isNull)
     // then
@@ -128,7 +123,7 @@ class IndicationTest
                                    StructType(StructField("efo_id", StringType) :: Nil))
     // when
     val results
-      : DataFrame = IndicationTest.getIndicationInstance(sparkSession) invokePrivate formatEfoIdsPM(
+      : DataFrame = Indication invokePrivate formatEfoIdsPM(
       df)
     // then
     assert(
