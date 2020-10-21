@@ -1,6 +1,6 @@
 package io.opentargets.etl.backend
 
-import io.opentargets.etl.backend.MoleculeTest.{getMoleculeInstance, getSampleHierarchyData, getSampleSynonymData}
+import io.opentargets.etl.backend.MoleculeTest.{getSampleHierarchyData, getSampleSynonymData}
 import io.opentargets.etl.backend.drug_beta.Molecule
 import org.apache.spark.sql.functions.col
 import org.apache.spark.sql.{DataFrame, Dataset, Row, SparkSession}
@@ -141,9 +141,6 @@ object MoleculeTest {
 
   }
 
-  def getMoleculeInstance(sparkSession: SparkSession): Molecule = {
-    new Molecule(sparkSession.emptyDataFrame, sparkSession.emptyDataFrame)(sparkSession)
-  }
 }
 class MoleculeTest
     extends AnyFlatSpecLike
@@ -164,8 +161,6 @@ class MoleculeTest
     PrivateMethod[Dataset[Row]]('processMoleculeSynonyms)
   val processMoleculeHierarchy: PrivateMethod[Dataset[Row]] = PrivateMethod[Dataset[Row]]('processMoleculeHierarchy)
 
-  val molecule: Molecule = getMoleculeInstance(sparkSession)
-
   "The Molecule class" should "given a preprocessed molecule successfully prepare all cross references" in {
     // given
     val sampleMolecule: DataFrame = sparkSession.read
@@ -173,7 +168,7 @@ class MoleculeTest
       .schema(MoleculeTest.structAfterPreprocessing)
       .json(this.getClass.getResource("/sample_mol_after_preprocessing.json").getPath)
     // when
-    val results = molecule invokePrivate processMoleculeCrossReferences(sampleMolecule)
+    val results = Molecule invokePrivate processMoleculeCrossReferences(sampleMolecule)
     val xrefMap = results.head.getMap(1)
     // then
     assertResult(4) {
@@ -186,7 +181,7 @@ class MoleculeTest
     val refColumn = "src"
     val df = MoleculeTest.getDrugbankSampleData(refColumn, sparkSession)
     // when
-    val results = molecule invokePrivate processSingletonXR(df, refColumn, "SRC")
+    val results = Molecule invokePrivate processSingletonXR(df, refColumn, "SRC")
     val crossReferences: collection.Map[String, Array[String]] =
       results.head.getMap[String, Array[String]](1)
     // then
@@ -206,7 +201,7 @@ class MoleculeTest
     val refs2: DataFrame = sparkSession.createDataFrame(sparkSession.sparkContext.parallelize(y),
                                                         MoleculeTest.simpleReferenceSchema)
     // when
-    val results: DataFrame = molecule invokePrivate mergeXRMaps(refs1, refs2)
+    val results: DataFrame = Molecule invokePrivate mergeXRMaps(refs1, refs2)
     // then
     assert(refs1.join(refs2, Seq("id"), "fullouter").select(col("id")).count() == results.count(),
            "All IDs should be returned in combined dataframe.")
@@ -221,7 +216,7 @@ class MoleculeTest
     val sources = Set("PubChem", "DailyMed")
     val df = MoleculeTest.getSampleChemblData(sparkSession)
     // when
-    val results: DataFrame = molecule invokePrivate processChemblXR(df)
+    val results: DataFrame = Molecule invokePrivate processChemblXR(df)
     val row: Row = results.head
     val crossReferences: collection.Map[String, Array[String]] =
       row.getMap[String, Array[String]](1)
@@ -255,7 +250,7 @@ class MoleculeTest
     // given
     val df = getSampleHierarchyData(sparkSession)
     // when
-    val results = molecule invokePrivate processMoleculeHierarchy(df)
+    val results = Molecule invokePrivate processMoleculeHierarchy(df)
     // then
     val expectedColumns = Set("id", "childChemblIds")
     assert(results.count == 2, "Two inputs had children so two rows should be returned.")
@@ -268,7 +263,7 @@ class MoleculeTest
     // given
     val df = getSampleSynonymData(sparkSession)
     // when
-    val results = molecule invokePrivate processMoleculeSynonyms(df)
+    val results = Molecule invokePrivate processMoleculeSynonyms(df)
     // then
     val expectedColumns = Set("id", "synonyms", "tradeNames")
     val expectedTradeNameCount = Seq(("id1", 2), ("id2", 1))
