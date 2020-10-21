@@ -51,6 +51,7 @@ object Configuration extends LazyLogging {
       drugChemblMechanism: InputInfo,
       drugChemblTarget: InputInfo,
       drugDrugbank: InputInfo,
+      drugCuratedEfoMap: InputInfo,
       evidence: InputInfo,
       ddr: InputInfo,
       reactome: InputInfo,
