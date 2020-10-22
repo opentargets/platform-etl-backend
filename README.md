@@ -234,7 +234,6 @@ Inputs are specified in the `reference.conf` file and include the following:
 |   `drug-chembl-mechanism` | ChEMBL - Platform Input Support |
 |   `drug-chembl-target` | ChEMBL - Platform Input Support |
 |   `drug-drugbank` | Release annotation file |
-|   `drug-curated-efo-map` | Custom file generated using OnToma to find missing EFO's that ChEMBL does not have. |
 
 The `DrugBeta` step also relies on several other sources that we already inputs to the ETL:
 
