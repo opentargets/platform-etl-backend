@@ -118,7 +118,7 @@ object InteractionsHelpers extends LazyLogging {
       * @param s string with possible _, -, .  or spaces chars
       * @return a string
       */
-    val getCodeFcn = udf { s: String => s.trim.split("_")(0).split("-")(0).split(".")(0) }
+    val getCodeFcn = udf { s: String => s.trim.split("_")(0).split("-")(0) }
 
     /** generate the interactions from a common Dataframe schema
       * If causalInteraction is true -> swap (A, B) and add to the dataframe
