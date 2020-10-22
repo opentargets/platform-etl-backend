@@ -18,17 +18,13 @@ import org.apache.spark.sql.functions.{
   when
 }
 import org.apache.spark.sql.{DataFrame, SparkSession, functions}
+import io.opentargets.etl.backend.spark.Helpers.nest
 
-class Molecule(moleculeRaw: DataFrame, drugbankRaw: DataFrame)(implicit sparkSession: SparkSession)
-    extends LazyLogging
-    with Serializable {
-
-  import sparkSession.implicits._
-  import io.opentargets.etl.backend.spark.Helpers.nest
+object Molecule extends LazyLogging {
 
   private val XREF_COLUMN_NAME = "xref"
 
-  def processMolecules: DataFrame = {
+  def apply(moleculeRaw: DataFrame, drugbankRaw: DataFrame)(implicit sparkSession: SparkSession): DataFrame = {
     logger.info("Processing molecules.")
     val mols: DataFrame = moleculePreprocess(moleculeRaw, drugbankRaw)
     val synonyms: DataFrame = processMoleculeSynonyms(mols)
@@ -41,7 +37,6 @@ class Molecule(moleculeRaw: DataFrame, drugbankRaw: DataFrame)(implicit sparkSes
       .join(hierarchy, Seq("id"), "left_outer")
 
   }
-
   /**
     *
     * @param chemblMoleculeRaw of raw molecule inputs
@@ -70,11 +65,11 @@ class Molecule(moleculeRaw: DataFrame, drugbankRaw: DataFrame)(implicit sparkSes
         col("withdrawn_country"),
         col("withdrawn_class")
       )
-      .withColumn("blackBoxWarning", when($"blackBoxWarning" === 1, true).otherwise(false))
+      .withColumn("blackBoxWarning", when(col("blackBoxWarning") === 1, true).otherwise(false))
       .withColumn("withdrawn_reason", split(col("withdrawn_reason"), ";"))
       .withColumn("withdrawn_country", split(col("withdrawn_country"), ";"))
       .withColumn("withdrawn_class", split(col("withdrawn_class"), ";"))
-      .withColumn("syns", arrays_zip($"mol_synonyms", $"synonym_type"))
+      .withColumn("syns", arrays_zip(col("mol_synonyms"), col("synonym_type")))
       .drop("mol_synonyms", "synonym_type", "withdrawn_reason")
       .transform(processWithdrawnNotices)
       .join(drugbank, Seq("id"), "left_outer")
@@ -98,18 +93,18 @@ class Molecule(moleculeRaw: DataFrame, drugbankRaw: DataFrame)(implicit sparkSes
     */
   private def processMoleculeSynonyms(preProcessedMolecules: DataFrame): DataFrame = {
     val synonyms: DataFrame = preProcessedMolecules
-      .select($"id", explode($"syns"))
-      .withColumn("syn_type", upper($"col.synonym_type"))
-      .withColumn("synonym", $"col.mol_synonyms")
+      .select(col("id"), explode(col("syns")))
+      .withColumn("syn_type", upper(col("col.synonym_type")))
+      .withColumn("synonym", col("col.mol_synonyms"))
 
     val tradeName = synonyms
-      .filter($"syn_type" === "TRADE_NAME")
-      .groupBy($"id")
-      .agg(collect_set($"synonym").alias("tradeNames"))
+      .filter(col("syn_type") === "TRADE_NAME")
+      .groupBy(col("id"))
+      .agg(collect_set(col("synonym")).alias("tradeNames"))
     val synonym = synonyms
-      .filter($"syn_type" =!= "TRADE_NAME")
-      .groupBy($"id")
-      .agg(collect_set($"synonym").alias("synonyms"))
+      .filter(col("syn_type") =!= "TRADE_NAME")
+      .groupBy(col("id"))
+      .agg(collect_set(col("synonym")).alias("synonyms"))
 
     val groupings = Seq("synonyms", "tradeNames")
     val full = tradeName
@@ -118,8 +113,8 @@ class Molecule(moleculeRaw: DataFrame, drugbankRaw: DataFrame)(implicit sparkSes
     groupings.foldLeft(full)(
       (df, colName) =>
         df.withColumn(colName,
-                      when(col(colName).isNull, array().cast("array<string>"))
-                        .otherwise(array_sort(col(colName)))))
+          when(col(colName).isNull, array().cast("array<string>"))
+            .otherwise(array_sort(col(colName)))))
 
   }
 
@@ -130,10 +125,10 @@ class Molecule(moleculeRaw: DataFrame, drugbankRaw: DataFrame)(implicit sparkSes
     */
   private def processMoleculeHierarchy(preProcessedMolecules: DataFrame): DataFrame = {
     preProcessedMolecules
-      .select($"id", $"molecule_hierarchy.parent_chembl_id".as("parent_id"))
-      .filter($"id" =!= $"parent_id")
+      .select(col("id"), col("molecule_hierarchy.parent_chembl_id").as("parent_id"))
+      .filter(col("id") =!= col("parent_id"))
       .groupBy("parent_id")
-      .agg(collect_list($"id").as("childChemblIds"))
+      .agg(collect_list(col("id")).as("childChemblIds"))
       .withColumnRenamed("parent_id", "id")
   }
 
@@ -167,18 +162,18 @@ class Molecule(moleculeRaw: DataFrame, drugbankRaw: DataFrame)(implicit sparkSes
     val createReferenceMap: UserDefinedFunction = udf(Molecule.createSrcToReferenceMap _)
     // [id: str, refs: Array[src, ref_id]
     val chemblXR = preProcessedMolecules
-      .select($"id",
-              explode(arrays_zip($"cross_references.xref_id".as("ref_id"),
-                                 $"cross_references.xref_src".as("ref_source"))).as("sources"))
-      .withColumn("ref_id", $"sources.xref_id")
-      .withColumn("ref_src", $"sources.xref_src")
-      .withColumn("refs", array($"ref_src", $"ref_id").as("refs"))
+      .select(col("id"),
+        explode(arrays_zip(col("cross_references.xref_id").as("ref_id"),
+          col("cross_references.xref_src").as("ref_source"))).as("sources"))
+      .withColumn("ref_id", col("sources.xref_id"))
+      .withColumn("ref_src", col("sources.xref_src"))
+      .withColumn("refs", array(col("ref_src"), col("ref_id")).as("refs"))
       .drop("sources", "ref_id", "ref_src")
 
     chemblXR
       .groupBy("id")
-      .agg(collect_list($"refs").as("ref1"))
-      .withColumn(XREF_COLUMN_NAME, createReferenceMap($"ref1"))
+      .agg(collect_list(col("refs")).as("ref1"))
+      .withColumn(XREF_COLUMN_NAME, createReferenceMap(col("ref1")))
       .drop("refs", "ref1")
   }
 
@@ -198,7 +193,7 @@ class Molecule(moleculeRaw: DataFrame, drugbankRaw: DataFrame)(implicit sparkSes
                                               source: String): DataFrame = {
     preProcessedMolecules
       .filter(col(referenceIdColumn).isNotNull)
-      .select($"id", col(referenceIdColumn).cast("string"))
+      .select(col("id"), col(referenceIdColumn).cast("string"))
       .groupBy("id")
       .agg(collect_set(referenceIdColumn).as(referenceIdColumn))
       .withColumn("xref", functions.map(lit(source), col(referenceIdColumn)))
@@ -219,13 +214,9 @@ class Molecule(moleculeRaw: DataFrame, drugbankRaw: DataFrame)(implicit sparkSes
     val r1 = ref1.withColumnRenamed(XREF_COLUMN_NAME, ref1x)
     val r2 = ref2.withColumnRenamed(XREF_COLUMN_NAME, ref2x)
     r1.join(r2, Seq("id"), "full_outer")
-      .withColumn(XREF_COLUMN_NAME, map_concat($"x", $"y"))
+      .withColumn(XREF_COLUMN_NAME, map_concat(col("x"), col("y")))
       .drop("x", "y")
   }
-
-}
-
-object Molecule {
 
   /**
     * Helper function to created maps where references are grouped by source.

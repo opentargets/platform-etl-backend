@@ -17,7 +17,7 @@ import org.apache.spark.sql.functions.{
 import org.apache.spark.sql.{DataFrame, SparkSession}
 
 /**
-  * Class for preparing mechanism of action section of the drug object.
+  * Object for preparing mechanism of action section of the drug object.
   *
   * Output structure:
   *
@@ -34,17 +34,20 @@ import org.apache.spark.sql.{DataFrame, SparkSession}
   * -- uniqueActiontype
   * -- unqueTargetType
   *
-  * @param mechanismDf: raw data from Chembl
-  * @param targetDf: raw data from Chembl
-  * @param geneDf: gene parquet file listed under target in configuration
-  * @param sparkSession implicit
-  */
-class MechanismOfAction(mechanismDf: DataFrame, targetDf: DataFrame, geneDf: DataFrame)(
-    implicit sparkSession: SparkSession)
-    extends LazyLogging {
-  import sparkSession.implicits._
 
-  def processMechanismOfAction: DataFrame = {
+  */
+object MechanismOfAction extends LazyLogging {
+
+  /**
+    *
+    * @param mechanismDf: raw data from Chembl
+    * @param targetDf: raw data from Chembl
+    * @param geneDf: gene parquet file listed under target in configuration
+    * @param sparkSession implicit
+    */
+  def apply(mechanismDf: DataFrame, targetDf: DataFrame, geneDf: DataFrame)(
+    implicit sparkSession: SparkSession): DataFrame = {
+
     logger.info("Processing mechanisms of action")
     val mechanism = mechanismDf
       .withColumnRenamed("molecule_chembl_id", "id")
@@ -73,11 +76,11 @@ class MechanismOfAction(mechanismDf: DataFrame, targetDf: DataFrame, geneDf: Dat
     validateDF(requiredColumns, dataFrame)
 
     dataFrame
-      .select($"id", explode($"mechanism_refs"))
+      .select(col("id"), explode(col("mechanism_refs")))
       .groupBy("id", "col.ref_type")
       .agg(collect_list("col.ref_id").as("ref_id"), collect_list("col.ref_url").as("ref_url"))
       .withColumn("references",
-                  struct($"ref_type".as("source"), $"ref_id".as("ids"), $"ref_url".as("urls")))
+                  struct(col("ref_type").as("source"), col("ref_id").as("ids"), col("ref_url").as("urls")))
       .groupBy("id")
       .agg(collect_list("references").as("references"))
   }
@@ -92,13 +95,13 @@ class MechanismOfAction(mechanismDf: DataFrame, targetDf: DataFrame, geneDf: Dat
 
     // get rid of entries where target components is none
     val targetDf = target
-      .withColumn("target_components", explode($"target_components"))
-      .filter($"target_components.accession".isNotNull)
-      .withColumn("target_type", lower($"target_type"))
-      .select($"pref_name".as("targetName"),
-        $"target_components.accession".as("uniprot_id"),
-        $"target_type",
-        $"target_chembl_id")
+      .withColumn("target_components", explode(col("target_components")))
+      .filter(col("target_components.accession").isNotNull)
+      .withColumn("target_type", lower(col("target_type")))
+      .select(col("pref_name").as("targetName"),
+        col("target_components.accession").as("uniprot_id"),
+        col("target_type"),
+        col("target_chembl_id"))
     val genes = gene.select(geneCols.map(col): _*)
 
     targetDf

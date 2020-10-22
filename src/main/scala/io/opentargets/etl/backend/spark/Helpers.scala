@@ -4,7 +4,7 @@ import com.typesafe.scalalogging.LazyLogging
 import io.opentargets.etl.backend.Configuration.OTConfig
 import org.apache.spark.SparkConf
 import org.apache.spark.sql.{Column, DataFrame, DataFrameWriter, Row, SparkSession}
-import org.apache.spark.sql.functions.{col, expr, struct, udf, lit}
+import org.apache.spark.sql.functions.{col, expr, lit, struct, substring_index, udf}
 import org.apache.spark.sql.types.{ArrayType, DataType, StructField, StructType}
 
 import scala.util.Random
@@ -61,6 +61,23 @@ object Helpers extends LazyLogging {
       )) toMap
 
   }
+
+  /** apply to newNameFn() to the new name for the transformation and columnFn() to the inColumn
+    * it returns a pair that can be used to create a map of transformations. Useful to use with
+    * withColumn DataFrame function too
+    */
+  def trans(inColumn: Column,
+            newNameFn: String => String,
+            columnFn: Column => Column): (String, Column) = {
+
+    newNameFn(inColumn.toString) -> columnFn(inColumn)
+  }
+
+  /** using the uri get the last token as an ID by example
+    * http://identifiers.org/chembl.compound/CHEMBL207538 -> CHEMBL207538
+    * */
+  def stripIDFromURI(uri: Column): Column =
+    substring_index(uri, "/", -1)
 
   /** colNames are columns to flat if any inner array and then concatenate them
     * @param colNames list of column names as string
