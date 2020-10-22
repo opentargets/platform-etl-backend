@@ -21,7 +21,8 @@ sourceId=sysbio
 sourceId=uniprot_literature
 sourceId=uniprot_somatic
 "
-FOLDER_PREFIX="../out/etl/mkarmona/20.09/processedEvidences"
+
+FOLDER_PREFIX="../out/etl/20.09/mkarmona/json/processedEvidences"
 
 for folder in $FOLDERS; do
   IFS='=' read -ra tokens <<< "$folder"
@@ -39,14 +40,3 @@ for folder in $FOLDERS; do
   ./load_jsons.sh
 done
 
-
-
-export INDEX_SETTINGS="index_settings.json"
-export RELEASE=''
-export INDEX_NAME="evidences"
-export TYPE_FIELD="evidences"
-export INPUT="../out/etl/mkarmona/20.09/processedEvidences/"
-#export INPUT="gs://ot-snapshots/etl/latest/cancerBiomarkers"
-export ES="http://localhost:9200"
-
-# ./load_jsons.sh

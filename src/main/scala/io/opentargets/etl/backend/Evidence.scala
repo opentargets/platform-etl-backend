@@ -77,8 +77,15 @@ object Evidence extends LazyLogging {
               co => when(col("sourceID") === "chembl", co)),
       flattenCAndSetN(col("evidence.drug2clinic.urls"), _ => "evidenceClinicalUrls"),
       flattenC(col("evidence.experiment_overview")),
-      flattenCAndSetN(col("evidence.gene2variant.functional_consequence"),
-                      _ => "evidenceVariantFunctionalConsequenceUri"),
+      H.trans(col("evidence.gene2variant.functional_consequence"),
+              _ => "evidenceVariantFunctionalConsequence",
+              H.stripIDFromURI),
+      flattenCAndSetN(when(col("sourceID") === "ot_genetics_portal",
+                           col("evidence.gene2variant.resource_score.value")),
+                      _ => "evidenceLocus2GeneScore"),
+      flattenCAndSetN(
+        when(col("sourceID") === "eva", col("evidence.gene2variant.resource_score.value")),
+        _ => "evidenceVariantFunctionalConsequenceScore"),
       H.trans(
         col("evidence.variant2disease.provenance_type.literature.references"),
         _ => "evidencePublicationFirstAuthor",
@@ -154,30 +161,33 @@ object Evidence extends LazyLogging {
                       _ => "evidenceResourceScoreExponent"),
       flattenC(col("evidence.variant2disease.resource_score.mantissa")),
       flattenCAndSetN(
-        array_distinct(
-          transform(
-            filter(
-              concat(
-                when(
-                  col("sourceID") isInCollection List("sysbio", "crispr"),
-                  array(col("evidence.resource_score.method.reference"))
-                ).otherwise(array()),
-                transform(
-                  coalesce(col("evidence.gene2variant.provenance_type.literature.references"),
-                           array()),
-                  c => c.getField("lit_id")),
-                transform(
-                  coalesce(col("evidence.variant2disease.provenance_type.literature.references"),
-                           array()),
-                  c => c.getField("lit_id")),
-                when(col("evidence.literature_ref.lit_id").isNotNull,
-                     array(col("evidence.literature_ref.lit_id")))
-                  .otherwise(array())
+        when(
+          col("sourceID") =!= "phewas_catalog",
+          array_distinct(
+            transform(
+              filter(
+                concat(
+                  when(
+                    col("sourceID") isInCollection List("sysbio", "crispr"),
+                    array(col("evidence.resource_score.method.reference"))
+                  ).otherwise(array()),
+                  transform(
+                    coalesce(col("evidence.gene2variant.provenance_type.literature.references"),
+                             array()),
+                    c => c.getField("lit_id")),
+                  transform(
+                    coalesce(col("evidence.variant2disease.provenance_type.literature.references"),
+                             array()),
+                    c => c.getField("lit_id")),
+                  when(col("evidence.literature_ref.lit_id").isNotNull,
+                       array(col("evidence.literature_ref.lit_id")))
+                    .otherwise(array())
+                ),
+                co => co.isNotNull
               ),
-              co => co.isNotNull
-            ),
-            cc => publicationParseFromURL(cc)
-          )),
+              cc => publicationParseFromURL(cc)
+            ))
+        ),
         _ => "evidenceLiterature"
       )
     )
