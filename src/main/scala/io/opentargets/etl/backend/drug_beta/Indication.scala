@@ -6,9 +6,6 @@ import io.opentargets.etl.backend.spark.Helpers.nest
 import org.apache.spark.sql.{DataFrame, SparkSession}
 import org.apache.spark.sql.functions._
 
-import scala.Seq
-import scala.io.Source
-
 /**
   * Object to process ChEMBL indications for incorporation into Drug.
   *
@@ -30,12 +27,12 @@ import scala.io.Source
   */
 object Indication extends Serializable with LazyLogging {
 
-  def apply(indicationsRaw: DataFrame, efoRaw: DataFrame, efoCurated: DataFrame)(implicit ss: SparkSession): DataFrame = {
+  def apply(indicationsRaw: DataFrame, efoRaw: DataFrame)(implicit ss: SparkSession): DataFrame = {
 
     logger.info("Processing indications.")
     // efoDf for therapeutic areas
-    val efoDf = getEfoDataframe(efoRaw)
-    val indicationAndEfoDf = processIndicationsRawData(indicationsRaw, efoCurated)
+    val efoDf = getEfoDataframe(efoRaw).transform(formatEfoIds)
+    val indicationAndEfoDf = processIndicationsRawData(indicationsRaw)
       .join(efoDf, Seq("efo_id"), "leftouter")
 
     val indicationDf: DataFrame = indicationAndEfoDf
@@ -50,7 +47,6 @@ object Indication extends Serializable with LazyLogging {
 
     indicationDf
   }
-
   /**
     *
     * @param rawEfoData taken from the `disease` input data
@@ -64,33 +60,27 @@ object Indication extends Serializable with LazyLogging {
     val df = rawEfoData
       .select(columnsOfInterest.map(_._1).map(col): _*)
       .withColumn("efo_id", Helpers.stripIDFromURI(col("code")))
-    // rename columns and make sure efo_id is correct 'shape'
-    columnsOfInterest.foldLeft(df)((d, names) => d.withColumnRenamed(names._1, names._2)).transform(formatEfoIds)
+    // rename columns
+    columnsOfInterest.foldLeft(df)((d, names) => d.withColumnRenamed(names._1, names._2))
   }
 
-  private def processIndicationsRawData(indicationsRaw: DataFrame, curatedDf: DataFrame): DataFrame = {
+  private def processIndicationsRawData(indicationsRaw: DataFrame): DataFrame = {
 
     val df = formatEfoIds(indicationsRaw)
 
     // flatten hierarchy
-    val dfWithFlatHierarchy = df.withColumn("r", explode(col("indication_refs")))
+    df.withColumn("r", explode(col("indication_refs")))
       .select(col("molecule_chembl_id").as("id"),
         col("efo_id"),
         col("max_phase_for_ind"),
         col("r.ref_id"),
         col("r.ref_type"),
         col("r.ref_url"))
+      // remove indications we can't link to a disease.
+      .filter(col("efo_id").isNotNull)
       // handle case where clinical trials packs multiple ids into a csv string
-      .withColumn("ref_id", explode(split(col("ref_id"), ",")))
-
-    // Try and match any records with null EFO fields with the curated list.
-    val withCuratedEfos = dfWithFlatHierarchy
-      .filter(col("efo_id").isNull)
-      .drop("efo_id")
-      .join(curatedDf.withColumnRenamed("molecule_chembl_id", "id"), Seq("id", "ref_id"))
-
-    dfWithFlatHierarchy.filter(col("efo_id").isNotNull) // prevent duplicates
-      .unionByName(withCuratedEfos)
+      .withColumn("ref_id", split(col("ref_id"), ","))
+      .withColumn("ref_id", explode(col("ref_id")))
       // group reference ids and urls by ref_type
       .groupBy("id", "efo_id", "ref_type")
       .agg(max("max_phase_for_ind").as("max_phase_for_ind"),
