@@ -41,6 +41,25 @@ object InteractionsHelpers extends LazyLogging {
         .select("id", "mapping_list")
     }
 
+    /** from Human mapping it extract links between Gene Name and gene_id and other id.
+      * @return a DataFrame (gene_id, mapped_id)
+      */
+    def transformGeneIds(humanMapping: DataFrame): DataFrame = {
+      val genes = humanMapping
+        .filter(col("_c1") === "Gene_Name")
+        .groupBy("_c2")
+        .agg(collect_list("_c0").alias("mapping_list"))
+
+      val geneIds = genes.withColumn("mapped_id", explode(col("mapping_list"))).drop("mapping_list")
+
+      val combinationInfo = geneIds.join(df, Seq("mapped_id"), "left")
+      val mapped = combinationInfo.filter(col("gene_id").isNotNull).drop("mapped_id").distinct
+      val mapped_not = combinationInfo.filter(col("gene_id").isNull).drop("gene_id")
+      val geneMapping = mapped_not.join(mapped, Seq("_c2")).select("gene_id", "mapped_id").distinct
+
+      geneMapping
+    }
+
     /** generate the mapping gene_id, mapped_id. It will be used to map the intact entries.
       * df is the implicit dataframe. Target is computed from another module.
       * @param rnaCentral rna central resource
@@ -51,7 +70,8 @@ object InteractionsHelpers extends LazyLogging {
       val targetsProteins = df
         .withColumn("proteins", coalesce(col("proteinAnnotations.accessions"), array()))
         .select("id", "proteins")
-      val targetHGNC = df.filter(col("hgncId").isNotNull).selectExpr("id as gene_id","hgncId as mapped_id")
+      val targetHGNC =
+        df.filter(col("hgncId").isNotNull).selectExpr("id as gene_id", "hgncId as mapped_id")
       val humanMappingDF = humanMapping.transformHumanMapping
       val rnaMappingDF = rnaCentral.transformRnacentral
 
@@ -74,9 +94,10 @@ object InteractionsHelpers extends LazyLogging {
       val mappingExplode =
         mappingHuman.withColumn("mapped_id", explode(col("mapped_id_list"))).drop("mapped_id_list")
 
-      val mapping = mappingExplode.union(rnaMappingDF).union(targetHGNC)
+      val mapGeneIds = mappingExplode.transformGeneIds(humanMapping)
+      val mapping = mappingExplode.union(rnaMappingDF).union(targetHGNC).union(mapGeneIds)
 
-      mapping
+      mapping.distinct
 
     }
 
@@ -88,10 +109,10 @@ object InteractionsHelpers extends LazyLogging {
       * @return a DataFrame
       */
     def generateIntacts(
-        targets: DataFrame,
-        rnacentral: DataFrame,
-        humanmapping: DataFrame
-    ): DataFrame = {
+                         targets: DataFrame,
+                         rnacentral: DataFrame,
+                         humanmapping: DataFrame
+                       ): DataFrame = {
       val mappingDF = targets.generateMapping(rnacentral, humanmapping)
       val intactInteractions = df.generateInteractions(mappingDF)
       intactInteractions
@@ -155,9 +176,12 @@ object InteractionsHelpers extends LazyLogging {
             col("interaction.causal_interaction").cast("boolean")
           )
         )
-        .withColumn("interactionScore",
-          when(col("interaction.interaction_score") > 1,col("interaction.interaction_score")/1000).otherwise(
-            col("interaction.interaction_score"))
+        .withColumn(
+          "interactionScore",
+          when(
+            col("interaction.interaction_score") > 1,
+            col("interaction.interaction_score") / 1000
+          ).otherwise(col("interaction.interaction_score"))
         )
         .selectExpr(
           "interactorA.id as intA",
@@ -305,7 +329,8 @@ object InteractionsHelpers extends LazyLogging {
       */
     def generateEvidences(stringInteractions: DataFrame): DataFrame = {
       val intactInteractionEvidences = df.selectFields
-      val stringInteractionEvidences = stringInteractions.selectFields.withColumn("evidence_score", col("evidence_score")/1000 )
+      val stringInteractionEvidences =
+        stringInteractions.selectFields.withColumn("evidence_score", col("evidence_score") / 1000)
 
       val interactionEvidences = Helpers.unionDataframeDifferentSchema(
         stringInteractionEvidences,
@@ -383,7 +408,7 @@ object Interactions extends LazyLogging {
 
     val outputs = otnetworksDF.keys map (name =>
       name -> Helpers.IOResourceConfig(common.outputFormat, common.output + s"/$name")
-    )
+      )
 
     Helpers.writeTo(outputs.toMap, otnetworksDF)
 
