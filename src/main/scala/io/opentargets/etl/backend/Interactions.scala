@@ -48,14 +48,15 @@ object InteractionsHelpers extends LazyLogging {
       * @return a DataFrame
       */
     def generateMapping(rnaCentral: DataFrame, humanMapping: DataFrame): DataFrame = {
-      val targets = df
+      val targetsProteins = df
         .withColumn("proteins", coalesce(col("proteinAnnotations.accessions"), array()))
         .select("id", "proteins")
+      val targetHGNC = df.filter(col("hgncId").isNotNull).selectExpr("id as gene_id","hgncId as mapped_id")
       val humanMappingDF = humanMapping.transformHumanMapping
       val rnaMappingDF = rnaCentral.transformRnacentral
 
       val mappingHuman = (
-        targets
+        targetsProteins
           .join(humanMappingDF, Seq("id"), "left")
           .withColumn(
             "mapped_id_list",
@@ -73,7 +74,7 @@ object InteractionsHelpers extends LazyLogging {
       val mappingExplode =
         mappingHuman.withColumn("mapped_id", explode(col("mapped_id_list"))).drop("mapped_id_list")
 
-      val mapping = mappingExplode.union(rnaMappingDF)
+      val mapping = mappingExplode.union(rnaMappingDF).union(targetHGNC)
 
       mapping
 
@@ -106,6 +107,7 @@ object InteractionsHelpers extends LazyLogging {
       val stringInteractions = df
         .generateInteractions(mapping)
         .filter(col("evidences.evidence_score") > 0)
+
       stringInteractions
     }
 
@@ -113,10 +115,10 @@ object InteractionsHelpers extends LazyLogging {
 
     /** generate a string truncated at - or _ char.
       * Eg. "URS123-2_992   return URS123"
-      * @param s string with possible _ or _ char
+      * @param s string with possible _, -, .  or spaces chars
       * @return a string
       */
-    val getCodeFcn = udf { s: String => s.split("_")(0).split("-")(0) }
+    val getCodeFcn = udf { s: String => s.trim.split("_")(0).split("-")(0).split(".")(0) }
 
     /** generate the interactions from a common Dataframe schema
       * If causalInteraction is true -> swap (A, B) and add to the dataframe
@@ -153,6 +155,10 @@ object InteractionsHelpers extends LazyLogging {
             col("interaction.causal_interaction").cast("boolean")
           )
         )
+        .withColumn("interactionScore",
+          when(col("interaction.interaction_score") > 1,col("interaction.interaction_score")/1000).otherwise(
+            col("interaction.interaction_score"))
+        )
         .selectExpr(
           "interactorA.id as intA",
           "interactorA.id_source as intA_source",
@@ -165,7 +171,7 @@ object InteractionsHelpers extends LazyLogging {
           "causalInteraction",
           "source_info as interactionResources",
           "interaction.evidence as evidencesList",
-          "interaction.interaction_score as interactionScore"
+          "interactionScore"
         )
 
       val interactionMapLeft = interactions
@@ -299,7 +305,8 @@ object InteractionsHelpers extends LazyLogging {
       */
     def generateEvidences(stringInteractions: DataFrame): DataFrame = {
       val intactInteractionEvidences = df.selectFields
-      val stringInteractionEvidences = stringInteractions.selectFields
+      val stringInteractionEvidences = stringInteractions.selectFields.withColumn("evidence_score", col("evidence_score")/1000 )
+
       val interactionEvidences = Helpers.unionDataframeDifferentSchema(
         stringInteractionEvidences,
         intactInteractionEvidences
