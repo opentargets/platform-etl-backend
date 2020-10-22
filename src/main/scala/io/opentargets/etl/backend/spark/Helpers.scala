@@ -3,9 +3,9 @@ package io.opentargets.etl.backend.spark
 import com.typesafe.scalalogging.LazyLogging
 import io.opentargets.etl.backend.Configuration.OTConfig
 import org.apache.spark.SparkConf
-import org.apache.spark.sql._
-import org.apache.spark.sql.functions._
-import org.apache.spark.sql.types._
+import org.apache.spark.sql.{Column, DataFrame, DataFrameWriter, Row, SparkSession}
+import org.apache.spark.sql.functions.{col, expr, lit, struct, substring_index, udf}
+import org.apache.spark.sql.types.{ArrayType, DataType, StructField, StructType}
 
 import scala.util.Random
 
