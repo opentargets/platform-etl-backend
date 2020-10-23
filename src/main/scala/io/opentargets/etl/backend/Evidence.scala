@@ -17,9 +17,8 @@ object Evidence extends LazyLogging {
     (tokens.head +: tokens.tail.map(_.capitalize)).mkString
   }
 
-  val publicationParseFromURL = (cc: Column) =>
-    when(instr(H.stripIDFromURI(cc), "PMC") > 0, H.stripIDFromURI(cc))
-      .otherwise(concat(lit("PM"), H.stripIDFromURI(cc)))
+  // if it contains '_' then we dont want it (ex: 1_1234_A_ATT)
+  val skipVariantIDs = ((cc: Column) => when(cc.isNotNull and size(split(cc, "_")) === 1, cc)) compose H.stripIDFromURI
 
   val normAndCCase = toCamelCase compose normaliseString
 
@@ -43,7 +42,7 @@ object Evidence extends LazyLogging {
                       c => when(col("sourceID") === "ot_genetics_portal", H.stripIDFromURI(c))),
       H.trans(coalesce(col("variant.rs_id"), col("variant.id")),
               _ => "variantRsId",
-              H.stripIDFromURI),
+              skipVariantIDs),
       flattenC(col("evidence.allelic_requirement")),
       flattenC(col("evidence.biological_model.allelic_composition")),
       flattenC(col("evidence.biological_model.genetic_background")),
@@ -185,9 +184,9 @@ object Evidence extends LazyLogging {
                 ),
                 co => co.isNotNull
               ),
-              cc => publicationParseFromURL(cc)
+              cc => H.stripIDFromURI(cc)
             ))
-        ),
+        ).otherwise(array()),
         _ => "evidenceLiterature"
       )
     )
@@ -196,7 +195,12 @@ object Evidence extends LazyLogging {
       case (z, (name, oper)) => z.withColumn(name, oper)
     }
 
-    tdf.selectExpr(transformations.keys.toSeq: _*)
+    // evidence literature is a bit tricky and this is a temporal thing till the providers clean all
+    // the pending fields that need to be moved, renamed or removed.
+    tdf
+      .withColumn("evidenceLiterature",
+                  when(size(col("evidenceLiterature")) > 0, col("evidenceLiterature")))
+      .selectExpr(transformations.keys.toSeq: _*)
   }
 
   def compute()(implicit context: ETLSessionContext): Map[String, DataFrame] = {
