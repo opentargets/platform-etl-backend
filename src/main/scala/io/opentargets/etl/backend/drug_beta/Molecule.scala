@@ -4,7 +4,9 @@ import com.typesafe.scalalogging.LazyLogging
 import org.apache.spark.sql.expressions.UserDefinedFunction
 import org.apache.spark.sql.functions.{
   array,
+  array_except,
   array_sort,
+  array_union,
   arrays_zip,
   col,
   collect_list,
@@ -24,10 +26,12 @@ object Molecule extends LazyLogging {
 
   private val XREF_COLUMN_NAME = "xref"
 
-  def apply(moleculeRaw: DataFrame, drugbankRaw: DataFrame)(implicit sparkSession: SparkSession): DataFrame = {
+  def apply(moleculeRaw: DataFrame, drugbankChemblIdLookup: DataFrame, drugbankData: DataFrame)(
+      implicit sparkSession: SparkSession): DataFrame = {
     logger.info("Processing molecules.")
-    val mols: DataFrame = moleculePreprocess(moleculeRaw, drugbankRaw)
-    val synonyms: DataFrame = processMoleculeSynonyms(mols)
+    val mols: DataFrame = moleculePreprocess(moleculeRaw, drugbankChemblIdLookup)
+    val dbSynonyms: DataFrame = processDrugBankSynonyms(drugbankData)
+    val synonyms: DataFrame = processMoleculeSynonyms(mols, dbSynonyms)
     val crossReferences: DataFrame = processMoleculeCrossReferences(mols)
     val hierarchy: DataFrame = processMoleculeHierarchy(mols)
     mols
@@ -37,6 +41,7 @@ object Molecule extends LazyLogging {
       .join(hierarchy, Seq("id"), "left_outer")
 
   }
+
   /**
     *
     * @param chemblMoleculeRaw of raw molecule inputs
@@ -86,35 +91,56 @@ object Molecule extends LazyLogging {
   }
 
   /**
+    * @param drugbankData from https://go.drugbank.com/releases/latest#open-data
+    * @return dataframe of: drugbank_id, array[synonym]
+    */
+  def processDrugBankSynonyms(drugbankData: DataFrame): DataFrame = {
+    drugbankData
+      .select(col("DrugBank ID").as("drugbank_id"), split(col("Synonyms"), "\\|").as("db_synonyms"))
+      .filter(col("db_synonyms").isNotNull)
+  }
+
+  /**
     * Method to group synonyms into sorted sets of trade names and others synonyms.
     *
     * @param preProcessedMolecules df prepared with moleculePreprocess method
     * @return dataframe of `id: String, tradeName: Set[String], synonym: Set[String]`
     */
-  private def processMoleculeSynonyms(preProcessedMolecules: DataFrame): DataFrame = {
+  private def processMoleculeSynonyms(preProcessedMolecules: DataFrame,
+                                      drugbankSynonyms: DataFrame): DataFrame = {
     val synonyms: DataFrame = preProcessedMolecules
-      .select(col("id"), explode(col("syns")))
+      .select(col("id"), col("drugbank_id"), explode(col("syns")))
       .withColumn("syn_type", upper(col("col.synonym_type")))
       .withColumn("synonym", col("col.mol_synonyms"))
 
     val tradeName = synonyms
       .filter(col("syn_type") === "TRADE_NAME")
-      .groupBy(col("id"))
+      .groupBy(col("id"), col("drugbank_id"))
       .agg(collect_set(col("synonym")).alias("tradeNames"))
     val synonym = synonyms
       .filter(col("syn_type") =!= "TRADE_NAME")
-      .groupBy(col("id"))
+      .groupBy(col("id"), col("drugbank_id"))
       .agg(collect_set(col("synonym")).alias("synonyms"))
 
     val groupings = Seq("synonyms", "tradeNames")
     val full = tradeName
       .join(synonym, Seq("id"), "fullouter")
+      .join(drugbankSynonyms, Seq("drugbank_id"), "leftouter")
+      // remove db_synonyms which are already in trade names
+      .withColumn("db_synonyms", array_except(col("db_synonyms"), col("tradeNames")))
+      // join remaining db synonyms to chembl ones
+      .withColumn("synonyms",
+                  array_union(when(col("db_synonyms").isNotNull, col("db_synonyms"))
+                                .otherwise(array().cast("array<string>")),
+                              col("synonyms")))
+      .drop("db_synonyms", "drugbank_id")
 
+    // make sure that the arrays aren't left null and are sorted. 
     groupings.foldLeft(full)(
       (df, colName) =>
         df.withColumn(colName,
-          when(col(colName).isNull, array().cast("array<string>"))
-            .otherwise(array_sort(col(colName)))))
+                      when(col(colName).isNull, array().cast("array<string>"))
+                        .otherwise(array_sort(col(colName)))))
 
   }
 
@@ -163,8 +189,8 @@ object Molecule extends LazyLogging {
     // [id: str, refs: Array[src, ref_id]
     val chemblXR = preProcessedMolecules
       .select(col("id"),
-        explode(arrays_zip(col("cross_references.xref_id").as("ref_id"),
-          col("cross_references.xref_src").as("ref_source"))).as("sources"))
+              explode(arrays_zip(col("cross_references.xref_id").as("ref_id"),
+                                 col("cross_references.xref_src").as("ref_source"))).as("sources"))
       .withColumn("ref_id", col("sources.xref_id"))
       .withColumn("ref_src", col("sources.xref_src"))
       .withColumn("refs", array(col("ref_src"), col("ref_id")).as("refs"))

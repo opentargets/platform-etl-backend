@@ -32,9 +32,13 @@ object DrugBeta extends Serializable with LazyLogging {
                                      common.inputs.drugChemblMolecule.path),
       "target" -> IOResourceConfig(common.inputs.drugChemblTarget.format,
                                    common.inputs.drugChemblTarget.path),
+      "drugbankChemblMap" -> IOResourceConfig(common.inputs.drugDrugbankToChembl.format,
+                                              common.inputs.drugDrugbankToChembl.path,
+                                              Some("\\t"),
+                                              Some(true)),
       "drugbank" -> IOResourceConfig(common.inputs.drugDrugbank.format,
                                      common.inputs.drugDrugbank.path,
-                                     Some("\\t"),
+                                     Some(","),
                                      Some(true)),
       // inputs from data-pipeline
       "efo" -> IOResourceConfig(common.inputs.disease.format, common.inputs.disease.path),
@@ -50,9 +54,10 @@ object DrugBeta extends Serializable with LazyLogging {
     lazy val indicationDf: DataFrame = inputDataFrames("indication")
     lazy val targetDf: DataFrame = inputDataFrames("target")
     lazy val geneDf: DataFrame = inputDataFrames("gene")
-    lazy val drugbankData: DataFrame = inputDataFrames("drugbank")
+    lazy val drugbank2ChemblMap: DataFrame = inputDataFrames("drugbankChemblMap")
       .withColumnRenamed("From src:'1'", "id")
       .withColumnRenamed("To src:'2'", "drugbank_id")
+    lazy val drugbankData: DataFrame = inputDataFrames("drugbank")
     lazy val efoDf: DataFrame = inputDataFrames("efo")
     lazy val evidenceDf: DataFrame = inputDataFrames("evidence")
 
@@ -61,7 +66,7 @@ object DrugBeta extends Serializable with LazyLogging {
     logger.info("Processing Drug beta transformations.")
     val mechanismOfActionProcessedDf: DataFrame = MechanismOfAction(mechanismDf, targetDf, geneDf)
     val indicationProcessedDf = Indication(indicationDf, efoDf)
-    val moleculeProcessedDf = Molecule(moleculeDf, drugbankData)
+    val moleculeProcessedDf = Molecule(moleculeDf, drugbank2ChemblMap, drugbankData)
     val targetsAndDiseasesDf =
       DrugCommon.getUniqTargetsAndDiseasesPerDrugId(evidenceDf).withColumnRenamed("drug_id", "id")
 
