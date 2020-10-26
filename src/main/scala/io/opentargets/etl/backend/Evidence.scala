@@ -77,7 +77,7 @@ object Evidence extends LazyLogging {
       flattenCAndSetN(col("evidence.drug2clinic.urls"), _ => "evidenceClinicalUrls"),
       flattenC(col("evidence.experiment_overview")),
       H.trans(col("evidence.gene2variant.functional_consequence"),
-              _ => "evidenceVariantFunctionalConsequence",
+              _ => "evidenceVariantFunctionalConsequenceId",
               H.stripIDFromURI),
       flattenCAndSetN(when(col("sourceID") === "ot_genetics_portal",
                            col("evidence.gene2variant.resource_score.value")),
@@ -141,7 +141,8 @@ object Evidence extends LazyLogging {
                H.stripIDFromURI(c))
             .when(col("sourceID") === "genomics_england", element_at(reverse(split(c, "/")), 2))
       ),
-      flattenC(col("evidence.variant2disease.cases")),
+      flattenCAndSetN(col("evidence.variant2disease.cases"),
+        _ => "evidenceStudyCases"),
       H.trans(
         col("evidence.variant2disease.confidence_interval"),
         _ => "evidenceConfidenceIntervalLower",
@@ -152,13 +153,15 @@ object Evidence extends LazyLogging {
         _ => "evidenceConfidenceIntervalUpper",
         c => when(c.isNotNull, split(c, "-").getItem(1).cast(DoubleType))
       ),
-      flattenC(col("evidence.variant2disease.gwas_sample_size")),
+      flattenCAndSetN(col("evidence.variant2disease.gwas_sample_size"),
+        _ => "evidenceStudySampleSize"),
       H.trans(col("evidence.variant2disease.odds_ratio"),
               _ => "evidenceOddsRatio",
               c => when(c.isNotNull, c.cast(DoubleType))),
       flattenCAndSetN(col("evidence.variant2disease.resource_score.exponent"),
                       _ => "evidenceResourceScoreExponent"),
-      flattenC(col("evidence.variant2disease.resource_score.mantissa")),
+      flattenCAndSetN(col("evidence.variant2disease.resource_score.mantissa"),
+                      _ => "evidenceResourceScoreMantissa"),
       flattenCAndSetN(
         when(
           col("sourceID") =!= "phewas_catalog",
