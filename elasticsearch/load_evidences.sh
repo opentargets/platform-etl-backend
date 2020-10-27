@@ -32,6 +32,7 @@ for folder in $FOLDERS; do
   full_folder="${FOLDER_PREFIX}/${folder}/"
   export INDEX_SETTINGS="index_settings.json"
   export RELEASE=''
+  export ID='id'
   export INDEX_NAME="${token}"
   export TYPE_FIELD="${token}"
   export INPUT="${full_folder}"
