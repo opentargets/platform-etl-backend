@@ -2,11 +2,12 @@ package io.opentargets.etl.backend
 
 import com.typesafe.scalalogging.LazyLogging
 import com.typesafe.config.ConfigFactory
+import pureconfig.ConfigReader.Result
 import pureconfig._
 import pureconfig.generic.auto._
 
 object Configuration extends LazyLogging {
-  lazy val config = load
+  lazy val config: Result[OTConfig] = load
 
   case class DataSource(id: String, weight: Double, dataType: String, propagate: Boolean)
   case class AssociationsSection(
@@ -42,6 +43,9 @@ object Configuration extends LazyLogging {
 
 
   case class InputInfo(format: String, path: String)
+  case class InputExtension(extensionType: String, path: String){
+    require(path.endsWith("json"))
+  }
   case class Inputs(
                      target: InputInfo,
                      disease: InputInfo,
@@ -51,7 +55,7 @@ object Configuration extends LazyLogging {
                      drugChemblMechanism: InputInfo,
                      drugChemblTarget: InputInfo,
                      drugDrugbankToChembl: InputInfo,
-                     drugDrugbank: InputInfo,
+                     drugExtensions: Seq[InputExtension],
                      evidence: InputInfo,
                      ddr: InputInfo,
                      reactome: InputInfo,
@@ -75,6 +79,7 @@ object Configuration extends LazyLogging {
   def load: ConfigReader.Result[OTConfig] = {
     logger.info("load configuration from file")
     val config = ConfigFactory.load()
+
     val obj = ConfigSource.fromConfig(config).load[OTConfig]
     logger.debug(s"configuration properly case classed ${obj.toString}")
 

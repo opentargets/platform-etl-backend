@@ -1,24 +1,9 @@
 package io.opentargets.etl.backend.drug_beta
 
 import com.typesafe.scalalogging.LazyLogging
+import io.opentargets.etl.backend.Configuration.InputExtension
 import org.apache.spark.sql.expressions.UserDefinedFunction
-import org.apache.spark.sql.functions.{
-  array,
-  array_except,
-  array_sort,
-  array_union,
-  arrays_zip,
-  col,
-  collect_list,
-  collect_set,
-  explode,
-  lit,
-  map_concat,
-  split,
-  udf,
-  upper,
-  when
-}
+import org.apache.spark.sql.functions.{array, array_sort, arrays_zip, col, collect_list, collect_set, explode, lit, map_concat, split, udf, upper, when}
 import org.apache.spark.sql.{DataFrame, SparkSession, functions}
 import io.opentargets.etl.backend.spark.Helpers.nest
 
@@ -26,19 +11,22 @@ object Molecule extends LazyLogging {
 
   private val XREF_COLUMN_NAME = "xref"
 
-  def apply(moleculeRaw: DataFrame, drugbankChemblIdLookup: DataFrame, drugbankData: DataFrame)(
+  def apply(moleculeRaw: DataFrame, drugbankChemblIdLookup: DataFrame, drugExtensions: Seq[InputExtension])(
       implicit sparkSession: SparkSession): DataFrame = {
     logger.info("Processing molecules.")
     val mols: DataFrame = moleculePreprocess(moleculeRaw, drugbankChemblIdLookup)
-    val dbSynonyms: DataFrame = processDrugBankSynonyms(drugbankData)
-    val synonyms: DataFrame = processMoleculeSynonyms(mols, dbSynonyms)
+    val synonyms: DataFrame = processMoleculeSynonyms(mols)
     val crossReferences: DataFrame = processMoleculeCrossReferences(mols)
     val hierarchy: DataFrame = processMoleculeHierarchy(mols)
-    mols
-      .drop("cross_references", "syns", "chebi_par_id", "drugbank_id", "molecule_hierarchy")
+    // combine molecule components
+    val molCombined = mols
+      .drop("cross_references", "syns", "chebi_par_id", "molecule_hierarchy")
       .join(synonyms, Seq("id"), "left_outer")
       .join(crossReferences, Seq("id"), "left_outer")
       .join(hierarchy, Seq("id"), "left_outer")
+
+    // add extension methods and remove unneeded fields.
+    DrugExtensions.synonymExtensions(molCombined, drugExtensions).drop("drugbank_id")
 
   }
 
@@ -91,49 +79,29 @@ object Molecule extends LazyLogging {
   }
 
   /**
-    * @param drugbankData from https://go.drugbank.com/releases/latest#open-data
-    * @return dataframe of: drugbank_id, array[synonym]
-    */
-  def processDrugBankSynonyms(drugbankData: DataFrame): DataFrame = {
-    drugbankData
-      .select(col("DrugBank ID").as("drugbank_id"), split(col("Synonyms"), "\\|").as("db_synonyms"))
-      .filter(col("db_synonyms").isNotNull)
-  }
-
-  /**
     * Method to group synonyms into sorted sets of trade names and others synonyms.
     *
     * @param preProcessedMolecules df prepared with moleculePreprocess method
     * @return dataframe of `id: String, tradeName: Set[String], synonym: Set[String]`
     */
-  private def processMoleculeSynonyms(preProcessedMolecules: DataFrame,
-                                      drugbankSynonyms: DataFrame): DataFrame = {
+  private def processMoleculeSynonyms(preProcessedMolecules: DataFrame): DataFrame = {
     val synonyms: DataFrame = preProcessedMolecules
-      .select(col("id"), col("drugbank_id"), explode(col("syns")))
+      .select(col("id"), explode(col("syns")))
       .withColumn("syn_type", upper(col("col.synonym_type")))
       .withColumn("synonym", col("col.mol_synonyms"))
 
     val tradeName = synonyms
       .filter(col("syn_type") === "TRADE_NAME")
-      .groupBy(col("id"), col("drugbank_id"))
+      .groupBy(col("id"))
       .agg(collect_set(col("synonym")).alias("tradeNames"))
     val synonym = synonyms
       .filter(col("syn_type") =!= "TRADE_NAME")
-      .groupBy(col("id"), col("drugbank_id"))
+      .groupBy(col("id"))
       .agg(collect_set(col("synonym")).alias("synonyms"))
 
     val groupings = Seq("synonyms", "tradeNames")
     val full = tradeName
       .join(synonym, Seq("id"), "fullouter")
-      .join(drugbankSynonyms, Seq("drugbank_id"), "leftouter")
-      // remove db_synonyms which are already in trade names
-      .withColumn("db_synonyms", array_except(col("db_synonyms"), col("tradeNames")))
-      // join remaining db synonyms to chembl ones
-      .withColumn("synonyms",
-                  array_union(when(col("db_synonyms").isNotNull, col("db_synonyms"))
-                                .otherwise(array().cast("array<string>")),
-                              col("synonyms")))
-      .drop("db_synonyms", "drugbank_id")
 
     // make sure that the arrays aren't left null and are sorted. 
     groupings.foldLeft(full)(
@@ -167,7 +135,7 @@ object Molecule extends LazyLogging {
   private def processMoleculeCrossReferences(preProcessedMolecules: DataFrame): DataFrame = {
 
     val chemblCrossReferences = processChemblCrossReferences(preProcessedMolecules)
-    val singletonRefs: List[Tuple2[String, String]] = List(
+    val singletonRefs: List[(String, String)] = List(
       ("drugbank_id", "drugbank"),
       ("chebi_par_id", "chEBI")
     )

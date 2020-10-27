@@ -1,10 +1,11 @@
-package io.opentargets.etl.backend
+package io.opentargets.etl.backend.DrugBeta
 
-import io.opentargets.etl.backend.MoleculeTest.{getSampleHierarchyData, getSampleSynonymData}
+import io.opentargets.etl.backend.DrugBeta.MoleculeTest.{getSampleHierarchyData, getSampleSynonymData}
+import io.opentargets.etl.backend.SparkSessionSetup
 import io.opentargets.etl.backend.drug_beta.Molecule
 import org.apache.spark.sql.functions.col
+import org.apache.spark.sql.types._
 import org.apache.spark.sql.{DataFrame, Dataset, Row, SparkSession}
-import org.apache.spark.sql.types.{ArrayType, BooleanType, LongType, MapType, StringType, StructField, StructType}
 import org.scalatest.PrivateMethodTester
 import org.scalatest.flatspec.AnyFlatSpecLike
 import org.scalatest.matchers.must.Matchers
@@ -124,7 +125,7 @@ object MoleculeTest {
     sparkSession.createDataFrame(sparkSession.sparkContext.parallelize(data), schema)
   }
 
-  def getSampleSynonymData(sparkSession: SparkSession): (DataFrame, DataFrame) = {
+  def getSampleSynonymData(sparkSession: SparkSession): DataFrame = {
     import sparkSession.implicits._
     val schema = StructType(
       Array(
@@ -139,11 +140,7 @@ object MoleculeTest {
       Row("id1", "DB01",Seq(Row("Ibuprofil", "UBAN"), Row("U-18573", "research_code"))),
       Row("id2", "DB02",Seq(Row("Quinocort", "trade_name"), Row("Terra-Cortil", "other"))),
     )
-    val synData = sparkSession.createDataFrame(sparkSession.sparkContext.parallelize(data), schema)
-    val dbSyns: DataFrame = Seq(
-    DrugbankSynonym("DB01", List("Advil"))
-    ).toDF
-                              (synData, dbSyns)
+    sparkSession.createDataFrame(sparkSession.sparkContext.parallelize(data), schema)
   }
   case class DrugbankSynonym(drugbank_id: String, db_synonyms: Seq[String] )
 
@@ -267,9 +264,9 @@ class MoleculeTest
 
   it should "separate synonyms into tradeNames and synonyms" in {
     // given
-    val (df, dbDf) = getSampleSynonymData(sparkSession)
+    val df = getSampleSynonymData(sparkSession)
     // when
-    val results = Molecule invokePrivate processMoleculeSynonyms(df, dbDf)
+    val results = Molecule invokePrivate processMoleculeSynonyms(df)
     // then
     val expectedColumns = Set("id", "synonyms", "tradeNames")
     val expectedTradeNameCount = Seq(("id1", 2), ("id2", 1))
