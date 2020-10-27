@@ -223,6 +223,18 @@ If a new cross reference maps one-to-one to a ChEMBL ID (Drugbank for example) i
  per ChEMBL ID will need to be processed manually at this point, see the `ProcessChemblCrossReferences` method for a 
  guide on how this can be done. 
  
+#### Adding additional synonym resources to enrich data
+
+The Drug Beta step supports the addition of additional synonym data sources subject to the following limitations:
+
+- The input file(s) must be: 
+  - in json format
+  - have a field called 'id' which maps 1-to-1 to either a Drugbank ID or ChEMBL ID. The 'id' field must not contain a 
+  mixture of both. If the ID is unknown the data will be discarded silently. 
+  - have a field called 'synonyms' which are either Strings or arrays of Strings linked to the 'id' field. 
+  
+The input files are specified in the configuration file under the field `drug-extensions`.  
+ 
 #### Inputs
 
 Inputs are specified in the `reference.conf` file and include the following: 

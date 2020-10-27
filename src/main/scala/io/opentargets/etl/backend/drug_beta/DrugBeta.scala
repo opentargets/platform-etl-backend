@@ -36,11 +36,6 @@ object DrugBeta extends Serializable with LazyLogging {
                                               common.inputs.drugDrugbankToChembl.path,
                                               Some("\\t"),
                                               Some(true)),
-      "drugbank" -> IOResourceConfig(common.inputs.drugDrugbank.format,
-                                     common.inputs.drugDrugbank.path,
-                                     Some(","),
-                                     Some(true)),
-      // inputs from data-pipeline
       "efo" -> IOResourceConfig(common.inputs.disease.format, common.inputs.disease.path),
       "gene" -> IOResourceConfig(common.inputs.target.format, common.inputs.target.path),
       "evidence" -> IOResourceConfig(common.inputs.evidence.format, common.inputs.evidence.path)
@@ -57,7 +52,6 @@ object DrugBeta extends Serializable with LazyLogging {
     lazy val drugbank2ChemblMap: DataFrame = inputDataFrames("drugbankChemblMap")
       .withColumnRenamed("From src:'1'", "id")
       .withColumnRenamed("To src:'2'", "drugbank_id")
-    lazy val drugbankData: DataFrame = inputDataFrames("drugbank")
     lazy val efoDf: DataFrame = inputDataFrames("efo")
     lazy val evidenceDf: DataFrame = inputDataFrames("evidence")
 
@@ -66,7 +60,7 @@ object DrugBeta extends Serializable with LazyLogging {
     logger.info("Processing Drug beta transformations.")
     val mechanismOfActionProcessedDf: DataFrame = MechanismOfAction(mechanismDf, targetDf, geneDf)
     val indicationProcessedDf = Indication(indicationDf, efoDf)
-    val moleculeProcessedDf = Molecule(moleculeDf, drugbank2ChemblMap, drugbankData)
+    val moleculeProcessedDf = Molecule(moleculeDf, drugbank2ChemblMap, context.configuration.common.inputs.drugExtensions)
     val targetsAndDiseasesDf =
       DrugCommon.getUniqTargetsAndDiseasesPerDrugId(evidenceDf).withColumnRenamed("drug_id", "id")
 
