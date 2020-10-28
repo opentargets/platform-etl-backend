@@ -37,6 +37,7 @@ object Evidence extends LazyLogging {
       flattenC(col("target.id")),
       flattenCAndSetC(col("drug.id"), H.stripIDFromURI),
       flattenCAndSetN(col("scores.association_score"), _ => "score"),
+      flattenCAndSetN(col("target.activity"), _ => "evidenceTargetModulation"),
       flattenC(col("id")),
       flattenCAndSetC(col("variant.id"),
                       c => when(col("sourceID") === "ot_genetics_portal", H.stripIDFromURI(c))),
@@ -95,12 +96,31 @@ object Evidence extends LazyLogging {
         _ => "evidencePublicationYear",
         c => when(col("sourceID") === "ot_genetics_portal", c.getItem(0).getField("year"))
       ),
-      flattenCAndSetN(col("evidence.known_mutations"), _ => "evidenceVariations"),
+      H.trans(
+        col("evidence.known_mutations"),
+        _ => "evidenceVariations",
+        c =>
+          transform(
+            c,
+            co =>
+              struct(
+                H.stripIDFromURI(co.getField("functional_consequence")).as("functionalConsequence"),
+                co.getField("inheritance_pattern").as("inheritancePattern"),
+                co.getField("number_mutated_samples").as("numberMutatedSamples"),
+                co.getField("number_samples_tested").as("numberSamplesTested"),
+                co.getField("number_samples_with_mutation_type").as("numberSamplesWithMutationType"),
+                when(col("sourceID") === "reactome", co.getField("preferred_name")).as("variantAminoacidDescription")
+            )
+        )
+      ),
       flattenCAndSetN(col("evidence.literature_ref.mined_sentences"),
                       _ => "evidenceTextMiningSentences"),
       flattenC(col("evidence.log2_fold_change.value")),
       flattenC(col("evidence.log2_fold_change.percentile_rank")),
       flattenC(col("evidence.resource_score.type")),
+      H.trans(col("evidence.resource_score.method.description"),
+              _ => "evidenceStudyOverview",
+              c => when(col("sourceID") === "sysbio", c)),
       flattenCAndSetN(coalesce(col("evidence.resource_score.value"),
                                col("evidence.variant2disease.resource_score.value")),
                       _ => "evidenceResourceScore"),
@@ -141,8 +161,7 @@ object Evidence extends LazyLogging {
                H.stripIDFromURI(c))
             .when(col("sourceID") === "genomics_england", element_at(reverse(split(c, "/")), 2))
       ),
-      flattenCAndSetN(col("evidence.variant2disease.cases"),
-        _ => "evidenceStudyCases"),
+      flattenCAndSetN(col("evidence.variant2disease.cases"), _ => "evidenceStudyCases"),
       H.trans(
         col("evidence.variant2disease.confidence_interval"),
         _ => "evidenceConfidenceIntervalLower",
@@ -154,7 +173,7 @@ object Evidence extends LazyLogging {
         c => when(c.isNotNull, split(c, "-").getItem(1).cast(DoubleType))
       ),
       flattenCAndSetN(col("evidence.variant2disease.gwas_sample_size"),
-        _ => "evidenceStudySampleSize"),
+                      _ => "evidenceStudySampleSize"),
       H.trans(col("evidence.variant2disease.odds_ratio"),
               _ => "evidenceOddsRatio",
               c => when(c.isNotNull, c.cast(DoubleType))),
@@ -174,11 +193,11 @@ object Evidence extends LazyLogging {
                     array(col("evidence.resource_score.method.reference"))
                   ).otherwise(array()),
                   when(
-                    !col("sourceID").isInCollection(List("slapenrich", "intogen", "progeny", "gene2phenotype")),
-                    transform(
-                      coalesce(col("evidence.provenance_type.literature.references"),
-                        array()),
-                      c => c.getField("lit_id"))
+                    !col("sourceID").isInCollection(
+                      List("slapenrich", "intogen", "progeny", "gene2phenotype")),
+                    transform(coalesce(col("evidence.provenance_type.literature.references"),
+                                       array()),
+                              c => c.getField("lit_id"))
                   ).otherwise(array()),
                   transform(
                     coalesce(col("evidence.gene2variant.provenance_type.literature.references"),
