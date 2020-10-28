@@ -137,17 +137,25 @@ object Helpers extends LazyLogging {
           .option("delimiter", pathInfo.delimiter.get)
           .load(pathInfo.path)
 
-      case IOResourceConfig(_, format, _, _, _) if format.contains("sv") => {
+      case IOResourceConfig(_, format, _, _, _) if format.endsWith("sv") =>
         logger.error(
           s"Separated value filed ${pathInfo.path} selected without specifying header and/or delimiter values"
         )
         // killing program through exception.
-        assert(false, s"Unable to complete pipeline due to bad file configuration for $pathInfo")
+        assert(assertion = false, s"Unable to complete pipeline due to bad file configuration for $pathInfo")
         session.emptyDataFrame
-      }
       // All other formats
       case _ => session.read.format(pathInfo.format).load(pathInfo.path)
     }
+  }
+
+  /**
+    * Helper function to prepare multiple files of the same category to be read by `readFrom`
+    * @param resourceConfigs collection of IOResourceConfig of unknown composition
+    * @return Map with random keys to input resource.
+    */
+  def seqToIOResourceConfigMap(resourceConfigs: Seq[IOResourceConfig]): IOResourceConfs = {
+    (for (rc <- resourceConfigs) yield Random.alphanumeric.take(6).toString -> rc).toMap
   }
 
   def writeTo(outputConfs: IOResourceConfs, outputs: IOResources)(implicit
@@ -178,7 +186,7 @@ object Helpers extends LazyLogging {
     * @param allCols the list of Columns to match
     * @return a sparksession object
     */
-  def columnExpr(myCols: Set[String], allCols: Set[String]) = {
+  def columnExpr(myCols: Set[String], allCols: Set[String]): Set[Column] = {
     val inter = (allCols intersect myCols).map(col)
     val differ = (allCols diff myCols).map(lit(null).as(_))
 
