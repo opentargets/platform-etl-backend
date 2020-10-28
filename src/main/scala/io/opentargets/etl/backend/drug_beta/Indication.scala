@@ -31,7 +31,7 @@ object Indication extends Serializable with LazyLogging {
 
     logger.info("Processing indications.")
     // efoDf for therapeutic areas
-    val efoDf = getEfoDataframe(efoRaw).transform(formatEfoIds)
+    val efoDf = getEfoDataframe(efoRaw)
     val indicationAndEfoDf = processIndicationsRawData(indicationsRaw)
       .join(efoDf, Seq("efo_id"), "leftouter")
 
@@ -61,7 +61,7 @@ object Indication extends Serializable with LazyLogging {
       .select(columnsOfInterest.map(_._1).map(col): _*)
       .withColumn("efo_id", Helpers.stripIDFromURI(col("code")))
     // rename columns
-    columnsOfInterest.foldLeft(df)((d, names) => d.withColumnRenamed(names._1, names._2))
+    columnsOfInterest.foldLeft(df)((d, names) => d.withColumnRenamed(names._1, names._2)).transform(formatEfoIds)
   }
 
   private def processIndicationsRawData(indicationsRaw: DataFrame): DataFrame = {

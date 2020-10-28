@@ -1,11 +1,13 @@
 package io.opentargets.etl.backend.drug_beta
 
 import com.typesafe.scalalogging.LazyLogging
+import io.opentargets.etl.backend.Configuration.InputExtension
 import org.apache.spark.sql.expressions.UserDefinedFunction
 import org.apache.spark.sql.functions.{
   array,
   array_sort,
   arrays_zip,
+  coalesce,
   col,
   collect_list,
   collect_set,
@@ -13,6 +15,7 @@ import org.apache.spark.sql.functions.{
   lit,
   map_concat,
   split,
+  typedLit,
   udf,
   upper,
   when
@@ -24,19 +27,26 @@ object Molecule extends LazyLogging {
 
   private val XREF_COLUMN_NAME = "xref"
 
-  def apply(moleculeRaw: DataFrame, drugbankRaw: DataFrame)(implicit sparkSession: SparkSession): DataFrame = {
+  def apply(moleculeRaw: DataFrame,
+            drugbankChemblIdLookup: DataFrame,
+            drugExtensions: Seq[InputExtension])(implicit sparkSession: SparkSession): DataFrame = {
     logger.info("Processing molecules.")
-    val mols: DataFrame = moleculePreprocess(moleculeRaw, drugbankRaw)
+    val mols: DataFrame = moleculePreprocess(moleculeRaw, drugbankChemblIdLookup)
     val synonyms: DataFrame = processMoleculeSynonyms(mols)
     val crossReferences: DataFrame = processMoleculeCrossReferences(mols)
     val hierarchy: DataFrame = processMoleculeHierarchy(mols)
-    mols
-      .drop("cross_references", "syns", "chebi_par_id", "drugbank_id", "molecule_hierarchy")
+    // combine molecule components
+    val molCombined = mols
+      .drop("cross_references", "syns", "chebi_par_id", "molecule_hierarchy")
       .join(synonyms, Seq("id"), "left_outer")
       .join(crossReferences, Seq("id"), "left_outer")
       .join(hierarchy, Seq("id"), "left_outer")
 
+    // add extension methods and remove unneeded fields.
+    DrugExtensions.synonymExtensions(molCombined, drugExtensions).drop("drugbank_id")
+
   }
+
   /**
     *
     * @param chemblMoleculeRaw of raw molecule inputs
@@ -110,12 +120,10 @@ object Molecule extends LazyLogging {
     val full = tradeName
       .join(synonym, Seq("id"), "fullouter")
 
+    // make sure that the arrays aren't left null and are sorted.
     groupings.foldLeft(full)(
-      (df, colName) =>
-        df.withColumn(colName,
-          when(col(colName).isNull, array().cast("array<string>"))
-            .otherwise(array_sort(col(colName)))))
-
+      (df, colName) => df.withColumn(colName, coalesce(array_sort(col(colName)), typedLit(Seq.empty[String])))
+    )
   }
 
   /**
@@ -141,7 +149,7 @@ object Molecule extends LazyLogging {
   private def processMoleculeCrossReferences(preProcessedMolecules: DataFrame): DataFrame = {
 
     val chemblCrossReferences = processChemblCrossReferences(preProcessedMolecules)
-    val singletonRefs: List[Tuple2[String, String]] = List(
+    val singletonRefs: List[(String, String)] = List(
       ("drugbank_id", "drugbank"),
       ("chebi_par_id", "chEBI")
     )
@@ -163,8 +171,8 @@ object Molecule extends LazyLogging {
     // [id: str, refs: Array[src, ref_id]
     val chemblXR = preProcessedMolecules
       .select(col("id"),
-        explode(arrays_zip(col("cross_references.xref_id").as("ref_id"),
-          col("cross_references.xref_src").as("ref_source"))).as("sources"))
+              explode(arrays_zip(col("cross_references.xref_id").as("ref_id"),
+                                 col("cross_references.xref_src").as("ref_source"))).as("sources"))
       .withColumn("ref_id", col("sources.xref_id"))
       .withColumn("ref_src", col("sources.xref_src"))
       .withColumn("refs", array(col("ref_src"), col("ref_id")).as("refs"))
