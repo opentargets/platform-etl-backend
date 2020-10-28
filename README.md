@@ -230,10 +230,12 @@ The Drug Beta step supports the addition of additional synonym data sources subj
 - The input file(s) must be: 
   - in json format
   - have a field called 'id' which maps 1-to-1 to either a Drugbank ID or ChEMBL ID. The 'id' field must not contain a 
-  mixture of both. If the ID is unknown the data will be discarded silently. 
+  mixture of both. If the ID is unknown the data will be discarded silently. If a mixture of ids are provided, it is
+   indeterminate which of the two will be used. 
   - have a field called 'synonyms' which are either Strings or arrays of Strings linked to the 'id' field. 
   
-The input files are specified in the configuration file under the field `drug-extensions`.  
+The input files are specified in the configuration file under the field `drug-extensions`. The files can contain
+ additional columns; these will be safely ignored.
  
 #### Inputs
 

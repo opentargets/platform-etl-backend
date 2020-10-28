@@ -3,7 +3,23 @@ package io.opentargets.etl.backend.drug_beta
 import com.typesafe.scalalogging.LazyLogging
 import io.opentargets.etl.backend.Configuration.InputExtension
 import org.apache.spark.sql.expressions.UserDefinedFunction
-import org.apache.spark.sql.functions.{array, array_sort, arrays_zip, col, collect_list, collect_set, explode, lit, map_concat, split, udf, upper, when}
+import org.apache.spark.sql.functions.{
+  array,
+  array_sort,
+  arrays_zip,
+  coalesce,
+  col,
+  collect_list,
+  collect_set,
+  explode,
+  lit,
+  map_concat,
+  split,
+  typedLit,
+  udf,
+  upper,
+  when
+}
 import org.apache.spark.sql.{DataFrame, SparkSession, functions}
 import io.opentargets.etl.backend.spark.Helpers.nest
 
@@ -11,8 +27,9 @@ object Molecule extends LazyLogging {
 
   private val XREF_COLUMN_NAME = "xref"
 
-  def apply(moleculeRaw: DataFrame, drugbankChemblIdLookup: DataFrame, drugExtensions: Seq[InputExtension])(
-      implicit sparkSession: SparkSession): DataFrame = {
+  def apply(moleculeRaw: DataFrame,
+            drugbankChemblIdLookup: DataFrame,
+            drugExtensions: Seq[InputExtension])(implicit sparkSession: SparkSession): DataFrame = {
     logger.info("Processing molecules.")
     val mols: DataFrame = moleculePreprocess(moleculeRaw, drugbankChemblIdLookup)
     val synonyms: DataFrame = processMoleculeSynonyms(mols)
@@ -103,13 +120,10 @@ object Molecule extends LazyLogging {
     val full = tradeName
       .join(synonym, Seq("id"), "fullouter")
 
-    // make sure that the arrays aren't left null and are sorted. 
+    // make sure that the arrays aren't left null and are sorted.
     groupings.foldLeft(full)(
-      (df, colName) =>
-        df.withColumn(colName,
-                      when(col(colName).isNull, array().cast("array<string>"))
-                        .otherwise(array_sort(col(colName)))))
-
+      (df, colName) => df.withColumn(colName, coalesce(array_sort(col(colName)), typedLit(Seq.empty[String])))
+    )
   }
 
   /**

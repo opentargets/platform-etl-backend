@@ -4,7 +4,7 @@ import com.typesafe.scalalogging.LazyLogging
 import io.opentargets.etl.backend.Configuration.{InputExtension, OTConfig}
 import io.opentargets.etl.backend.spark.Helpers
 import io.opentargets.etl.backend.spark.Helpers.IOResourceConfig
-import org.apache.spark.sql.functions.{array, array_except, array_union, col, collect_set, explode, translate, trim, when}
+import org.apache.spark.sql.functions.{array, array_except, array_union, coalesce, col, collect_set, explode, translate, trim, typedLit, when}
 import org.apache.spark.sql.types.{ArrayType, DataType, StringType}
 import org.apache.spark.sql.{DataFrame, SparkSession}
 
@@ -39,9 +39,10 @@ object DrugExtensions extends LazyLogging {
     *         provided in the configuration.
     */
   def synonymExtensions(moleculeDf: DataFrame, config: Seq[InputExtension])(
-    implicit sparkSession: SparkSession): DataFrame = {
+      implicit sparkSession: SparkSession): DataFrame = {
     // get extensions from config and read into dataframes.
-    val synonymExtensions: Seq[IOResourceConfig] = DrugExtensions.processExtensions("synonym", config)
+    val synonymExtensions: Seq[IOResourceConfig] =
+      DrugExtensions.processExtensions("synonym", config)
     logger.debug(s"Found ${synonymExtensions.size} synonym extensions.")
 
     val synonymExtensionDataframes: Iterable[DataFrame] =
@@ -53,10 +54,10 @@ object DrugExtensions extends LazyLogging {
 
     // add all synonym extensions to molecules
     logger.info("Adding external synonyms to molecule dataframe.")
-    synonymDFs.foldLeft(moleculeDf)((mols, syns) =>
-      addSynonymsToMolecule(mols, syns))
+    synonymDFs.foldLeft(moleculeDf)((mols, syns) => addSynonymsToMolecule(mols, syns))
 
   }
+
   /**
     * Helper function to ensure that incoming synonyms do not contain special characters and that
     * synonyms are grouped by the id field.
@@ -87,16 +88,21 @@ object DrugExtensions extends LazyLogging {
 
   }
 
+  /**
+    *
+    * @param molecule dataframe of molecules generated from ChEMBL data
+    * @param synonyms must have been standardised!
+    * @return moleculeDf with additional synonyms as specified in `synonyms`
+    */
   private def addSynonymsToMolecule(molecule: DataFrame, synonyms: DataFrame): DataFrame = {
     // prevent ambiguous columns on join
     val synId = "extensionId"
     val synIn = synonyms
-      .withColumnRenamed("synonyms", "synIn")
-      .withColumnRenamed("id", synId)
+      .select(col("synonyms").as("synIn"), col("id").as(synId))
     // identify if we're joining on Drugbank_id or chembl_id
     val joinCol = synIn.first.getAs[String](synId) match {
       case db if db.startsWith("D") => "drugbank_id"
-      case _ => "id"
+      case _                        => "id"
     }
     molecule
       .join(synIn, molecule(joinCol) === synIn(synId), "leftouter")
@@ -104,13 +110,9 @@ object DrugExtensions extends LazyLogging {
       .withColumn("synIn", array_except(col("synIn"), col("tradeNames")))
       // join remaining new synonyms to existing ones
       .withColumn("synonyms",
-        array_union(when(col("synIn").isNotNull, col("synIn"))
-          .otherwise(array().cast("array<string>")),
-          col("synonyms")))
+                  array_union(coalesce(col("synIn"), typedLit(Seq.empty[String])), col("synonyms")))
       .drop("synIn", synId)
 
   }
-
-
 
 }

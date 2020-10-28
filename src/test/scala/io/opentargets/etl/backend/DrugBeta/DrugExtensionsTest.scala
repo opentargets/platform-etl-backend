@@ -1,7 +1,7 @@
 package io.opentargets.etl.backend.DrugBeta
 
 import io.opentargets.etl.backend.Configuration.InputExtension
-import io.opentargets.etl.backend.DrugBeta.SynonymExtensionTest.{Molecule, Synonym, SynonymArr, SynonymBadIdField, SynonymBadSynonymField}
+import io.opentargets.etl.backend.DrugBeta.SynonymExtensionTest.{Molecule, Synonym, SynonymArr, SynonymBadIdField, SynonymBadSynonymField, SynonymLong}
 import io.opentargets.etl.backend.SparkSessionSetup
 import io.opentargets.etl.backend.drug_beta.DrugExtensions
 import io.opentargets.etl.backend.spark.Helpers
@@ -27,6 +27,7 @@ object SynonymExtensionTest {
   case class SynonymBadIdField(ids: String, synonyms: String)
   case class Synonym(id: String, synonyms: String)
   case class SynonymArr(id: String, synonyms: Array[String])
+  case class SynonymLong(id: String, synonyms: String, foo: String, bar: String) // extra columns should not effect result
   // Minimum molecule DF
   case class Molecule(id: String, drugbank_id: String, tradeNames: Array[String], synonyms: Array[String])
 }
@@ -52,6 +53,19 @@ class SynonymExtensionTest extends AnyFlatSpecLike with PrivateMethodTester with
       val inputBad2 =  Seq(SynonymBadIdField("D01", "foo"), SynonymBadIdField("D01", "bar")).toDF
       val result = DrugExtensions invokePrivate stardardiseSynonyms(inputBad2)
     }
+  }
+
+  "Data in input files in unknown columns" should "be discarded" in {
+    import sparkSession.implicits._
+    // given
+    val id = "id"
+    val syn = "syn"
+    val molDf = Seq(Molecule(id, "", Array(), Array(syn))).toDF
+    val synDf = DrugExtensions invokePrivate stardardiseSynonyms(Seq(SynonymLong(id, syn, "foo", "bar")).toDF)
+    // when
+    val results = DrugExtensions invokePrivate addSynonymsToMolecule(molDf, synDf)
+    // then
+    assert(results.columns.length equals molDf.columns.length)
   }
 
   "Synonym extension input files with String field for synonym" should "be grouped by id" in {
