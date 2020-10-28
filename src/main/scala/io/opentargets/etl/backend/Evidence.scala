@@ -173,6 +173,13 @@ object Evidence extends LazyLogging {
                     col("sourceID") isInCollection List("sysbio", "crispr"),
                     array(col("evidence.resource_score.method.reference"))
                   ).otherwise(array()),
+                  when(
+                    !col("sourceID").isInCollection(List("slapenrich", "intogen", "progeny", "gene2phenotype")),
+                    transform(
+                      coalesce(col("evidence.provenance_type.literature.references"),
+                        array()),
+                      c => c.getField("lit_id"))
+                  ).otherwise(array()),
                   transform(
                     coalesce(col("evidence.gene2variant.provenance_type.literature.references"),
                              array()),
