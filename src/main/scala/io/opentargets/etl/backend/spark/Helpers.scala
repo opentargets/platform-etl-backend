@@ -141,7 +141,7 @@ object Helpers extends LazyLogging {
             format: String,
             header: Option[String],
             delimiter: Option[Boolean]
-          ) if format.contains("sv") =>
+          ) if format.endsWith("sv") =>
         logger.error(
           s"Separated value filed ${pathInfo.path} selected without specifying header and/or delimiter values"
         )
