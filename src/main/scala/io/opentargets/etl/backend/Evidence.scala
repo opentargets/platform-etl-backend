@@ -9,6 +9,7 @@ import spark.{Helpers => H}
 object Evidence extends LazyLogging {
   val directStringMapping: (String, Map[String, String]) => String = (n, m) =>
     m.withDefaultValue(n)(n)
+  val removeEvidencePrefix: String => String = c => c.stripPrefix("evidence.")
   val normaliseString: String => String = c => c.replaceAll("[ .-]", "_")
   val toCamelCase: String => String = c => {
     val tokens = c
@@ -20,7 +21,7 @@ object Evidence extends LazyLogging {
   // if it contains '_' then we dont want it (ex: 1_1234_A_ATT)
   val skipVariantIDs = ((cc: Column) => when(cc.isNotNull and size(split(cc, "_")) === 1, cc)) compose H.stripIDFromURI
 
-  val normAndCCase = toCamelCase compose normaliseString
+  val normAndCCase = toCamelCase compose normaliseString compose removeEvidencePrefix
 
   val flattenC = H.trans(_, normAndCCase, identity)
   val flattenCAndSetN = H.trans(_, _, identity)
@@ -37,7 +38,7 @@ object Evidence extends LazyLogging {
       flattenC(col("target.id")),
       flattenCAndSetC(col("drug.id"), H.stripIDFromURI),
       flattenCAndSetN(col("scores.association_score"), _ => "score"),
-      flattenCAndSetN(col("target.activity"), _ => "evidenceTargetModulation"),
+      flattenCAndSetN(col("target.activity"), _ => "targetModulation"),
       flattenC(col("id")),
       flattenCAndSetC(col("variant.id"),
                       c => when(col("sourceID") === "ot_genetics_portal", H.stripIDFromURI(c))),
@@ -49,56 +50,56 @@ object Evidence extends LazyLogging {
       flattenC(col("evidence.biological_model.genetic_background")),
       flattenCAndSetN(coalesce(col("evidence.clinical_significance"),
                                col("evidence.variant2disease.clinical_significance")),
-                      _ => "evidenceClinicalSignificance"),
+                      _ => "clinicalSignificance"),
       flattenCAndSetN(col("evidence.cohort.cohort_description"),
                       n => normAndCCase(n.replaceFirst("\\.cohort", ""))),
       flattenCAndSetN(col("evidence.cohort.cohort_id"),
                       n => normAndCCase(n.replaceFirst("\\.cohort", ""))),
       flattenCAndSetN(col("evidence.cohort.cohort_short_name"),
                       n => normAndCCase(n.replaceFirst("\\.cohort", ""))),
-      flattenCAndSetN(col("evidence.comparison_name"), _ => "evidenceContrast"),
+      flattenCAndSetN(col("evidence.comparison_name"), _ => "contrast"),
       flattenC(col("evidence.confidence")),
       H.trans(
         col("evidence.disease_model_association.human_phenotypes"),
-        newNameFn = _ => "evidenceDiseaseModelAssociatedHumanPhenotypes",
+        newNameFn = _ => "diseaseModelAssociatedHumanPhenotypes",
         columnFn = co =>
           transform(co, c => struct(c.getField("id").as("id"), c.getField("label").as("label")))
       ),
       H.trans(
         col("evidence.disease_model_association.model_phenotypes"),
-        newNameFn = _ => "evidenceDiseaseModelAssociatedModelPhenotypes",
+        newNameFn = _ => "diseaseModelAssociatedModelPhenotypes",
         columnFn = co =>
           transform(co, c => struct(c.getField("id").as("id"), c.getField("label").as("label")))
       ),
       flattenCAndSetN(col("evidence.drug2clinic.clinical_trial_phase.numeric_index"),
-                      _ => "evidenceClinicalPhase"),
+                      _ => "clinicalPhase"),
       H.trans(coalesce(col("evidence.drug2clinic.status"), lit("N/A")),
-              _ => "evidenceClinicalStatus",
+              _ => "clinicalStatus",
               co => when(col("sourceID") === "chembl", co)),
-      flattenCAndSetN(col("evidence.drug2clinic.urls"), _ => "evidenceClinicalUrls"),
+      flattenCAndSetN(col("evidence.drug2clinic.urls"), _ => "clinicalUrls"),
       flattenC(col("evidence.experiment_overview")),
       H.trans(col("evidence.gene2variant.functional_consequence"),
-              _ => "evidenceVariantFunctionalConsequenceId",
+              _ => "variantFunctionalConsequenceId",
               H.stripIDFromURI),
       flattenCAndSetN(when(col("sourceID") === "ot_genetics_portal",
                            col("evidence.gene2variant.resource_score.value")),
-                      _ => "evidenceLocus2GeneScore"),
+                      _ => "locus2GeneScore"),
       flattenCAndSetN(
         when(col("sourceID") === "eva", col("evidence.gene2variant.resource_score.value")),
-        _ => "evidenceVariantFunctionalConsequenceScore"),
+        _ => "variantFunctionalConsequenceScore"),
       H.trans(
         col("evidence.variant2disease.provenance_type.literature.references"),
-        _ => "evidencePublicationFirstAuthor",
+        _ => "publicationFirstAuthor",
         c => when(col("sourceID") === "ot_genetics_portal", c.getItem(0).getField("author"))
       ),
       H.trans(
         col("evidence.variant2disease.provenance_type.literature.references"),
-        _ => "evidencePublicationYear",
+        _ => "publicationYear",
         c => when(col("sourceID") === "ot_genetics_portal", c.getItem(0).getField("year"))
       ),
       H.trans(
         col("evidence.known_mutations"),
-        _ => "evidenceVariations",
+        _ => "variations",
         c =>
           transform(
             c,
@@ -114,37 +115,34 @@ object Evidence extends LazyLogging {
         )
       ),
       flattenCAndSetN(col("evidence.literature_ref.mined_sentences"),
-                      _ => "evidenceTextMiningSentences"),
+                      _ => "textMiningSentences"),
       flattenC(col("evidence.log2_fold_change.value")),
       flattenC(col("evidence.log2_fold_change.percentile_rank")),
       flattenC(col("evidence.resource_score.type")),
       H.trans(col("evidence.resource_score.method.description"),
-              _ => "evidenceStudyOverview",
+              _ => "studyOverview",
               c => when(col("sourceID") === "sysbio", c)),
       flattenCAndSetN(coalesce(col("evidence.resource_score.value"),
                                col("evidence.variant2disease.resource_score.value")),
-                      _ => "evidenceResourceScore"),
+                      _ => "resourceScore"),
       flattenC(col("evidence.significant_driver_methods")),
-      flattenCAndSetN(col("evidence.target2drug.action_type"), _ => "evidenceDrugActionType"),
-      flattenCAndSetN(col("evidence.target2drug.mechanism_of_action"),
-                      _ => "evidenceDrugMechanismOfAction"),
       H.trans(
         coalesce(col("evidence.urls"), col("evidence.variant2disease.urls")),
-        _ => "evidenceRecordId",
+        _ => "recordId",
         c =>
           when(col("sourceID") isInCollection List("eva", "eva_somatic", "clingen"),
                transform(c, co => H.stripIDFromURI(co.getField("url"))).getItem(0))
       ),
       H.trans(
         coalesce(col("evidence.variant2disease.urls"), col("evidence.urls")),
-        _ => "evidencePathwayId",
+        _ => "pathwayId",
         c =>
           when(col("sourceID") isInCollection List("progeny", "reactome", "slapenrich"),
                transform(c, co => ltrim(H.stripIDFromURI(co.getField("url")), "#")).getItem(0))
       ),
       H.trans(
         coalesce(col("evidence.variant2disease.urls"), col("evidence.urls")),
-        _ => "evidencePathwayName",
+        _ => "pathwayName",
         c =>
           when(col("sourceID") isInCollection List("progeny", "reactome", "slapenrich"),
                trim(transform(c, co => co.getField("nice_name")).getItem(0)))
@@ -155,32 +153,32 @@ object Evidence extends LazyLogging {
           col("evidence.urls").getItem(0).getField("url"),
           col("evidence.variant2disease.urls").getItem(0).getField("url")
         ),
-        _ => "evidenceStudyId",
+        _ => "studyId",
         c =>
           when(col("sourceID") isInCollection List("expression_atlas", "ot_genetics_portal"),
                H.stripIDFromURI(c))
             .when(col("sourceID") === "genomics_england", element_at(reverse(split(c, "/")), 2))
       ),
-      flattenCAndSetN(col("evidence.variant2disease.cases"), _ => "evidenceStudyCases"),
+      flattenCAndSetN(col("evidence.variant2disease.cases"), _ => "studyCases"),
       H.trans(
         col("evidence.variant2disease.confidence_interval"),
-        _ => "evidenceConfidenceIntervalLower",
+        _ => "confidenceIntervalLower",
         c => when(c.isNotNull, split(c, "-").getItem(0).cast(DoubleType))
       ),
       H.trans(
         col("evidence.variant2disease.confidence_interval"),
-        _ => "evidenceConfidenceIntervalUpper",
+        _ => "confidenceIntervalUpper",
         c => when(c.isNotNull, split(c, "-").getItem(1).cast(DoubleType))
       ),
       flattenCAndSetN(col("evidence.variant2disease.gwas_sample_size"),
-                      _ => "evidenceStudySampleSize"),
+                      _ => "studySampleSize"),
       H.trans(col("evidence.variant2disease.odds_ratio"),
-              _ => "evidenceOddsRatio",
+              _ => "oddsRatio",
               c => when(c.isNotNull, c.cast(DoubleType))),
       flattenCAndSetN(col("evidence.variant2disease.resource_score.exponent"),
-                      _ => "evidenceResourceScoreExponent"),
+                      _ => "resourceScoreExponent"),
       flattenCAndSetN(col("evidence.variant2disease.resource_score.mantissa"),
-                      _ => "evidenceResourceScoreMantissa"),
+                      _ => "resourceScoreMantissa"),
       flattenCAndSetN(
         when(
           col("sourceID") =!= "phewas_catalog",
@@ -216,19 +214,18 @@ object Evidence extends LazyLogging {
               cc => H.stripIDFromURI(cc)
             ))
         ).otherwise(array()),
-        _ => "evidenceLiterature"
+        _ => "literature"
       )
     )
 
     val tdf = transformations.foldLeft(df) {
       case (z, (name, oper)) => z.withColumn(name, oper)
     }
-
     // evidence literature is a bit tricky and this is a temporal thing till the providers clean all
     // the pending fields that need to be moved, renamed or removed.
     tdf
-      .withColumn("evidenceLiterature",
-                  when(size(col("evidenceLiterature")) > 0, col("evidenceLiterature")))
+      .withColumn("literature",
+                  when(size(col("literature")) > 0, col("literature")))
       .selectExpr(transformations.keys.toSeq: _*)
   }
 
