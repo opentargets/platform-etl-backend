@@ -1,5 +1,0 @@
--server
--Xms1G
--Xmx20G
--Dconfig.file=application.conf
--Dlogback.configurationFile=application.xml
