@@ -14,8 +14,10 @@
 /tmp
 /scratch
 /deprecated/resources/amm.application.conf
-.metals/*
 project/metals.sbt
 .vscode/settings.json
-.bloop/*
-project/.bloop/*
+.bloop/
+project/.bloop/
+.metals/
+.ammonite/
+metals.sbt
