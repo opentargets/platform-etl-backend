@@ -21,3 +21,4 @@ project/.bloop/
 .metals/
 .ammonite/
 metals.sbt
+.sbtopts
