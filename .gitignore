@@ -25,3 +25,5 @@ metals.sbt
 .jvmopts
 *.out
 *.log
+application.conf
+application.xml
