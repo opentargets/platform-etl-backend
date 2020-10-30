@@ -23,3 +23,5 @@ project/.bloop/
 metals.sbt
 .sbtopts
 .jvmopts
+*.out
+*.log
