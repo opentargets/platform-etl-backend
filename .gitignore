@@ -15,3 +15,7 @@
 /scratch
 /deprecated/resources/amm.application.conf
 .metals/*
+project/metals.sbt
+.vscode/settings.json
+.bloop/*
+project/.bloop/*
