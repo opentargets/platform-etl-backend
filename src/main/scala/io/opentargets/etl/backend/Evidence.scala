@@ -38,7 +38,11 @@ object Evidence extends LazyLogging {
       flattenC(col("target.id")),
       flattenCAndSetC(col("drug.id"), H.stripIDFromURI),
       flattenCAndSetN(col("scores.association_score"), _ => "score"),
-      flattenCAndSetN(col("target.activity"), _ => "targetModulation"),
+      H.trans(
+        col("target.activity"),
+        _ => "targetModulation",
+        c => when(col("sourceID") === "reactome", c)
+      ),
       flattenC(col("id")),
       flattenCAndSetC(col("variant.id"),
                       c => when(col("sourceID") === "ot_genetics_portal", H.stripIDFromURI(c))),
@@ -105,23 +109,27 @@ object Evidence extends LazyLogging {
             c,
             co =>
               struct(
-                H.stripIDFromURI(co.getField("functional_consequence")).as("functionalConsequence"),
+                H.stripIDFromURI(co.getField("functional_consequence")).as("functionalConsequenceId"),
                 co.getField("inheritance_pattern").as("inheritancePattern"),
                 co.getField("number_mutated_samples").as("numberMutatedSamples"),
                 co.getField("number_samples_tested").as("numberSamplesTested"),
-                co.getField("number_samples_with_mutation_type").as("numberSamplesWithMutationType"),
-                when(col("sourceID") === "reactome", co.getField("preferred_name")).as("variantAminoacidDescription")
+                co.getField("number_samples_with_mutation_type")
+                  .as("numberSamplesWithMutationType"),
+                when(col("sourceID") === "reactome", co.getField("preferred_name"))
+                  .as("variantAminoacidDescription")
             )
         )
       ),
-      flattenCAndSetN(col("evidence.literature_ref.mined_sentences"),
-                      _ => "textMiningSentences"),
+      flattenCAndSetN(col("evidence.literature_ref.mined_sentences"), _ => "textMiningSentences"),
       flattenC(col("evidence.log2_fold_change.value")),
       flattenC(col("evidence.log2_fold_change.percentile_rank")),
       flattenC(col("evidence.resource_score.type")),
-      H.trans(col("evidence.resource_score.method.description"),
-              _ => "studyOverview",
-              c => when(col("sourceID") === "sysbio", c)),
+      H.trans(
+        coalesce(col("evidence.resource_score.method.description"),
+                 col("evidence.experiment_overview")),
+        _ => "studyOverview",
+        c => when(col("sourceID") isInCollection List("sysbio", "expression_atlas"), c)
+      ),
       flattenCAndSetN(coalesce(col("evidence.resource_score.value"),
                                col("evidence.variant2disease.resource_score.value")),
                       _ => "resourceScore"),
@@ -170,8 +178,7 @@ object Evidence extends LazyLogging {
         _ => "confidenceIntervalUpper",
         c => when(c.isNotNull, split(c, "-").getItem(1).cast(DoubleType))
       ),
-      flattenCAndSetN(col("evidence.variant2disease.gwas_sample_size"),
-                      _ => "studySampleSize"),
+      flattenCAndSetN(col("evidence.variant2disease.gwas_sample_size"), _ => "studySampleSize"),
       H.trans(col("evidence.variant2disease.odds_ratio"),
               _ => "oddsRatio",
               c => when(c.isNotNull, c.cast(DoubleType))),
@@ -224,9 +231,35 @@ object Evidence extends LazyLogging {
     // evidence literature is a bit tricky and this is a temporal thing till the providers clean all
     // the pending fields that need to be moved, renamed or removed.
     tdf
-      .withColumn("literature",
-                  when(size(col("literature")) > 0, col("literature")))
+      .withColumn("literature", when(size(col("literature")) > 0, col("literature")))
       .selectExpr(transformations.keys.toSeq: _*)
+  }
+
+  // TODO trying to improve the evidence step from MrTarget
+  def evidenceValidation(df: DataFrame)(implicit context: ETLSessionContext): Map[String, DataFrame] = {
+    implicit val ss = context.sparkSession
+
+    val evidencesSec = context.configuration.evidences
+
+    val mappedInputs = Map(
+      "rawEvidences" -> H.IOResourceConfig(
+        evidencesSec.input.format,
+        evidencesSec.input.path
+      )
+    )
+    val dfs = H.readFrom(mappedInputs)
+    val transformedDF = dfs("rawEvidences").transform(evidenceOper)
+
+    val namesMap =
+      Map("functional_consequence" -> "functionalConsequenceUri")
+
+    val nestedNames = directStringMapping(_, namesMap)
+
+    val newDF =
+      ss.createDataFrame(transformedDF.rdd,
+        H.renameAllCols(transformedDF.schema, nestedNames compose normAndCCase))
+
+    Map("processedEvidences" -> newDF)
   }
 
   def compute()(implicit context: ETLSessionContext): Map[String, DataFrame] = {

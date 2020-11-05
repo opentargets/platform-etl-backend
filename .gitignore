@@ -21,7 +21,7 @@ project/.bloop/
 .metals/
 .ammonite/
 metals.sbt
-.sbtopts
+tmp/.sbtopts
 .jvmopts
 *.out
 *.log

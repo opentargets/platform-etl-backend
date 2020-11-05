@@ -10,6 +10,13 @@ object Configuration extends LazyLogging {
   lazy val config: Result[OTConfig] = load
 
   case class DataSource(id: String, weight: Double, dataType: String, propagate: Boolean)
+
+  case class EvidenceEntry(id: String, uniqueFields: List[String], scoreSQL: String)
+
+  case class EvidencesSection(input: InputInfo,
+                              requiredFields: List[String],
+                              datasources: List[EvidenceEntry])
+
   case class AssociationsSection(
       defaultWeight: Double,
       defaultPropagate: Boolean,
@@ -38,42 +45,44 @@ object Configuration extends LazyLogging {
       ensproteins: InputInfo,
       intact: InputInfo,
       strings: InputInfo
-   )
-
-
+  )
 
   case class InputInfo(format: String, path: String)
-  case class InputExtension(extensionType: String, path: String){
+
+  case class InputExtension(extensionType: String, path: String) {
     require(path.endsWith("json"))
   }
+
   case class Inputs(
-                     target: InputInfo,
-                     disease: InputInfo,
-                     drug: InputInfo,
-                     drugChemblMolecule: InputInfo,
-                     drugChemblIndication: InputInfo,
-                     drugChemblMechanism: InputInfo,
-                     drugChemblTarget: InputInfo,
-                     drugDrugbankToChembl: InputInfo,
-                     drugExtensions: Seq[InputExtension],
-                     evidence: InputInfo,
-                     ddr: InputInfo,
-                     reactome: InputInfo,
-                     eco: InputInfo,
-                     expression: InputInfo,
-                     tep: InputInfo,
-                     mousephenotypes: InputInfo,
-                     interactions: InteractionsSection
+      target: InputInfo,
+      disease: InputInfo,
+      drug: InputInfo,
+      drugChemblMolecule: InputInfo,
+      drugChemblIndication: InputInfo,
+      drugChemblMechanism: InputInfo,
+      drugChemblTarget: InputInfo,
+      drugDrugbankToChembl: InputInfo,
+      drugExtensions: Seq[InputExtension],
+      evidence: InputInfo,
+      ddr: InputInfo,
+      reactome: InputInfo,
+      eco: InputInfo,
+      expression: InputInfo,
+      tep: InputInfo,
+      mousephenotypes: InputInfo,
+      interactions: InteractionsSection
   )
 
   case class Common(defaultSteps: Seq[String], inputs: Inputs, output: String, outputFormat: String)
+
   case class OTConfig(
       sparkUri: Option[String],
       common: Common,
       clinicalTrials: ClinicalTrials,
       dailymed: Dailymed,
       evidenceProteinFix: EvidenceProteinFix,
-      associations: AssociationsSection
+      associations: AssociationsSection,
+      evidences: EvidencesSection
   )
 
   def load: ConfigReader.Result[OTConfig] = {
