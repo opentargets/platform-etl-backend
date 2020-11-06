@@ -250,8 +250,7 @@ object Evidence extends LazyLogging {
     val dfs = H.readFrom(mappedInputs)
     val transformedDF = dfs("rawEvidences").transform(evidenceOper)
 
-    val namesMap =
-      Map("functional_consequence" -> "functionalConsequenceUri")
+    val namesMap: Map[String, String] = Map.empty
 
     val nestedNames = directStringMapping(_, namesMap)
 
