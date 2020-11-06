@@ -83,7 +83,6 @@ object Molecule extends LazyLogging {
       .drop("mol_synonyms", "synonym_type", "withdrawn_reason")
       .transform(processWithdrawnNotices)
       .join(drugbank, Seq("id"), "full_outer")
-      .withColumn("hasDrugBankId", col("drugbank_id").isNotNull)
 
     columnsOfInterest
   }
