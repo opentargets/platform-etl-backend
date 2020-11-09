@@ -241,7 +241,10 @@ The Drug Beta step supports the addition of additional synonym data sources subj
   - have a field called 'synonyms' which are either Strings or arrays of Strings linked to the 'id' field. 
   
 The input files are specified in the configuration file under the field `drug-extensions`. The files can contain
- additional columns; these will be safely ignored.
+ additional columns; these will be safely ignored. 
+ 
+New synonyms are added to the 'synonyms' field on the object if they are not already present in either 'synonyms' or
+'trade names'. At present it is not possible to add new fields to 'trade names'.
  
 #### Inputs
 
