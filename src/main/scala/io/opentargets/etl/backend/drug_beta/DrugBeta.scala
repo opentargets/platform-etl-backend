@@ -5,6 +5,7 @@ import io.opentargets.etl.backend.ETLSessionContext
 import io.opentargets.etl.backend.drug_beta.DrugCommon._
 import io.opentargets.etl.backend.spark.Helpers
 import io.opentargets.etl.backend.spark.Helpers.IOResourceConfig
+import org.apache.spark.sql.functions.{array_contains, col, map_keys}
 import org.apache.spark.sql.{DataFrame, SparkSession}
 
 /**
@@ -82,11 +83,19 @@ object DrugBeta extends Serializable with LazyLogging {
 
     logger.info(
       "Joining molecules, indications, mechanisms of action, and target and disease linkages.")
-    // using inner joins as we don't want molecules that have no indications and mechanisms of action.
+
+    // We define a drug as having either a drugbank id, a mechanism of action, or an indication.
+    val drugMolecule = array_contains(map_keys(col("crossReferences")), "drugbank") ||
+      col("indications").isNotNull ||
+      col("mechanismsOfAction").isNotNull
+
+    // using left_outer joins as we want to keep all molecules until the filter clause which defines a 'drug' for the
+    // purposes of the index.
     val drugDf: DataFrame = moleculeProcessedDf
-      .join(indicationProcessedDf, Seq("id"))
+      .join(indicationProcessedDf, Seq("id"), "left_outer")
       .join(mechanismOfActionProcessedDf, Seq("id"), "left_outer")
       .join(targetsAndDiseasesDf, Seq("id"), "left_outer")
+      .filter(drugMolecule)
       .transform(addDescription)
 
     val outputs = Seq("drugs-beta")
