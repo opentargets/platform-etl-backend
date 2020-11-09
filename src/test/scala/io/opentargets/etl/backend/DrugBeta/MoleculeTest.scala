@@ -1,9 +1,9 @@
 package io.opentargets.etl.backend.DrugBeta
 
-import io.opentargets.etl.backend.DrugBeta.MoleculeTest.{getSampleHierarchyData, getSampleSynonymData}
+import io.opentargets.etl.backend.DrugBeta.MoleculeTest.{XRef, getSampleHierarchyData, getSampleSynonymData}
 import io.opentargets.etl.backend.SparkSessionSetup
 import io.opentargets.etl.backend.drug_beta.Molecule
-import org.apache.spark.sql.functions.col
+import org.apache.spark.sql.functions.{array_contains, col, map_keys}
 import org.apache.spark.sql.types._
 import org.apache.spark.sql.{DataFrame, Dataset, Row, SparkSession}
 import org.scalatest.PrivateMethodTester
@@ -13,12 +13,6 @@ import org.scalatest.matchers.must.Matchers
 object MoleculeTest {
 
   // Schemas for Spark testing
-  val simpleReferenceSchema: StructType = {
-    StructType(
-      StructField("id", StringType) ::
-        StructField("xref", MapType(StringType, ArrayType(StringType))) :: Nil
-    )
-  }
   val structAfterPreprocessing: StructType = StructType(
     StructField("id", StringType) ::
       StructField("canonical_smiles", StringType, nullable = true) ::
@@ -143,7 +137,7 @@ object MoleculeTest {
     sparkSession.createDataFrame(sparkSession.sparkContext.parallelize(data), schema)
   }
   case class DrugbankSynonym(drugbank_id: String, db_synonyms: Seq[String] )
-
+  case class XRef(id: String, xref: Map[String, Array[String]])
 }
 class MoleculeTest
     extends AnyFlatSpecLike
@@ -196,24 +190,36 @@ class MoleculeTest
 
   it should "successfully merge two maps of references" in {
     // given
-    val x: Seq[Row] = Seq(Row("id1", Map("a" -> Array("b"))))
-    val y: Seq[Row] = Seq(Row("id1", Map("c" -> Array("d"))))
+    import sparkSession.implicits._
+    val refs1 = Seq(XRef("id1", Map("a" -> Array("b")))).toDF
+    val refs2 = Seq(XRef("id1", Map("c" -> Array("d")))).toDF
 
-    val refs1: DataFrame = sparkSession.createDataFrame(sparkSession.sparkContext.parallelize(x),
-                                                        MoleculeTest.simpleReferenceSchema)
-    val refs2: DataFrame = sparkSession.createDataFrame(sparkSession.sparkContext.parallelize(y),
-                                                        MoleculeTest.simpleReferenceSchema)
-    // when
+     // when
     val results: DataFrame = Molecule invokePrivate mergeXRMaps(refs1, refs2)
     // then
     assert(refs1.join(refs2, Seq("id"), "fullouter").select(col("id")).count() == results.count(),
            "All IDs should be returned in combined dataframe.")
     assert(
-      results.filter(col("id") === "id1").head.getMap[String, Array[String]](1).keys.size == 2,
+      results.select(org.apache.spark.sql.functions.size(map_keys(col("xref")))).as("s").head().getInt(0) ==  2,
       "All sources from source references should be included in combined map"
     )
   }
+  it should "successfully merge two maps of references when one column is null" in {
+    // given
+    import sparkSession.implicits._
+    val refs1 = Seq(XRef("id1", Map("a" -> Array("b")))).toDF
+    val refs2 = Seq(XRef("id1", null), XRef("id2", Map("a" -> Array("b")))).toDF
 
+    // when
+    val results: DataFrame = Molecule invokePrivate mergeXRMaps(refs1, refs2)
+    // then
+    assert(refs1.join(refs2, Seq("id"), "fullouter").select(col("id")).count() == results.count(),
+      "All IDs should be returned in combined dataframe.")
+    assert(
+      results.filter(array_contains(map_keys(col("xref")), "a")).count() == 2,
+      "All sources from source references should be included in combined map"
+    )
+  }
   it should "successfully create map of ChEMBL cross references" in {
     // given
     val sources = Set("PubChem", "DailyMed")

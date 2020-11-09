@@ -214,6 +214,12 @@ The majority of the ETL was written to process data which has been prepared by t
 `DrugBeta` will eventually replace the `Drug` step in the pipeline, as well as supersede the step of the same name in
  the `data-pipeline` repository.
  
+The primary input source of the Drug dataset is ChEMBL. ChEMBL contains almost 2 million molecules, most which are are 
+not 'drugs'. We define a drug to be any molecule that meets one or more of the following criteria: 
+ - There is at least 1 known indication;
+ - There is at least 1 known mechanism of action; or
+ - The ChEMBL ID can be mapped to a DrugBank ID.  
+ 
 To run the `DrugBeta` step use the example command under `Create a fat JAR` with `drugBeta` as the step name. 
  
 #### Adding additional cross references
@@ -235,7 +241,10 @@ The Drug Beta step supports the addition of additional synonym data sources subj
   - have a field called 'synonyms' which are either Strings or arrays of Strings linked to the 'id' field. 
   
 The input files are specified in the configuration file under the field `drug-extensions`. The files can contain
- additional columns; these will be safely ignored.
+ additional columns; these will be safely ignored. 
+ 
+New synonyms are added to the 'synonyms' field on the object if they are not already present in either 'synonyms' or
+'trade names'. At present it is not possible to add new fields to 'trade names'.
  
 #### Inputs
 

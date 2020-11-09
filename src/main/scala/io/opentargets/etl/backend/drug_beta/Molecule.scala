@@ -82,7 +82,7 @@ object Molecule extends LazyLogging {
       .withColumn("syns", arrays_zip(col("mol_synonyms"), col("synonym_type")))
       .drop("mol_synonyms", "synonym_type", "withdrawn_reason")
       .transform(processWithdrawnNotices)
-      .join(drugbank, Seq("id"), "left_outer")
+      .join(drugbank, Seq("id"), "full_outer")
 
     columnsOfInterest
   }
@@ -122,7 +122,8 @@ object Molecule extends LazyLogging {
 
     // make sure that the arrays aren't left null and are sorted.
     groupings.foldLeft(full)(
-      (df, colName) => df.withColumn(colName, coalesce(array_sort(col(colName)), typedLit(Seq.empty[String])))
+      (df, colName) =>
+        df.withColumn(colName, coalesce(array_sort(col(colName)), typedLit(Seq.empty[String])))
     )
   }
 
@@ -154,10 +155,12 @@ object Molecule extends LazyLogging {
       ("chebi_par_id", "chEBI")
     )
 
-    singletonRefs
+    val references = singletonRefs
       .map(src => processSingletonCrossReferences(preProcessedMolecules, src._1, src._2))
       .foldLeft(chemblCrossReferences)((agg, a) => mergeCrossReferenceMaps(agg, a))
-      .withColumnRenamed("xref", "crossReferences")
+      .filter(col(XREF_COLUMN_NAME).isNotNull)
+      .withColumnRenamed(XREF_COLUMN_NAME, "crossReferences")
+    references
   }
 
   /**
@@ -219,11 +222,22 @@ object Molecule extends LazyLogging {
   private def mergeCrossReferenceMaps(ref1: DataFrame, ref2: DataFrame): DataFrame = {
     val ref1x = "x"
     val ref2x = "y"
-    val r1 = ref1.withColumnRenamed(XREF_COLUMN_NAME, ref1x)
-    val r2 = ref2.withColumnRenamed(XREF_COLUMN_NAME, ref2x)
-    r1.join(r2, Seq("id"), "full_outer")
-      .withColumn(XREF_COLUMN_NAME, map_concat(col("x"), col("y")))
-      .drop("x", "y")
+    val r1 = ref1.select(
+      col("id"),
+      coalesce(col(XREF_COLUMN_NAME), typedLit(Map.empty[String, Array[String]])).as(ref1x))
+    val r2 = ref2.select(
+      col("id"),
+      coalesce(col(XREF_COLUMN_NAME), typedLit(Map.empty[String, Array[String]])).as(ref2x))
+    val out = r1
+      .join(r2, Seq("id"), "full_outer")
+      .select(
+        col("id"),
+        coalesce(col(ref1x), typedLit(Map.empty[String, Array[String]])).as(ref1x),
+        coalesce(col(ref2x), typedLit(Map.empty[String, Array[String]])).as(ref2x)
+      )
+      .withColumn(XREF_COLUMN_NAME, map_concat(col(ref1x), col(ref2x)))
+      .drop(ref1x, ref2x)
+    out
   }
 
   /**
