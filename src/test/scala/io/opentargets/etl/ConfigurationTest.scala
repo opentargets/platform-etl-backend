@@ -15,8 +15,17 @@ class ConfigurationTest extends AnyFlatSpecLike with Matchers {
   "The parsed configuration" should "include all necessary segments for the drug-beta step" in {
     def checkFormatAndPath(ii: InputInfo): Boolean = (ii.path nonEmpty) && (ii.format nonEmpty)
     val conf = Configuration.config.right.get
-    val inputs = conf.common.inputs
-    val inputsForDrugBetaStep = List(inputs.drugChemblIndication, inputs.drugChemblMechanism, inputs.drugChemblMolecule, inputs.drugChemblTarget)
+    val inputs = conf.common.inputs.drugBeta
+    val inputsForDrugBetaStep = List(
+      inputs.chemblIndication,
+      inputs.chemblMechanism,
+      inputs.chemblMolecule,
+      inputs.chemblTarget,
+      inputs.drugbankToChembl,
+      inputs.diseasePipeline,
+      inputs.targetPipeline,
+      inputs.evidencePipeline
+    )
 
     assert(inputsForDrugBetaStep.forall(checkFormatAndPath))
   }

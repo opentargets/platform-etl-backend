@@ -52,17 +52,23 @@ object Configuration extends LazyLogging {
   case class InputExtension(extensionType: String, path: String) {
     require(path.endsWith("json"))
   }
+  case class DrugConfiguration(
+                                chemblMolecule: InputInfo,
+                                chemblIndication: InputInfo,
+                                chemblMechanism: InputInfo,
+                                chemblTarget: InputInfo,
+                                drugbankToChembl: InputInfo,
+                                drugExtensions: Seq[InputExtension],
+                                diseasePipeline: InputInfo,
+                                targetPipeline: InputInfo,
+                                evidencePipeline: InputInfo,
+  )
 
   case class Inputs(
       target: InputInfo,
       disease: InputInfo,
       drug: InputInfo,
-      drugChemblMolecule: InputInfo,
-      drugChemblIndication: InputInfo,
-      drugChemblMechanism: InputInfo,
-      drugChemblTarget: InputInfo,
-      drugDrugbankToChembl: InputInfo,
-      drugExtensions: Seq[InputExtension],
+      drugBeta: DrugConfiguration,
       evidence: InputInfo,
       ddr: InputInfo,
       reactome: InputInfo,
