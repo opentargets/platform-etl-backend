@@ -21,25 +21,25 @@ object DrugBeta extends Serializable with LazyLogging {
 
     import ss.implicits._
 
-    val common = context.configuration.common
+    val drugInputs = context.configuration.common.inputs.drugBeta
 
     logger.info("Loading raw inputs for Drug beta step.")
     val mappedInputs = Map(
-      "indication" -> IOResourceConfig(common.inputs.drugChemblIndication.format,
-                                       common.inputs.drugChemblIndication.path),
-      "mechanism" -> IOResourceConfig(common.inputs.drugChemblMechanism.format,
-                                      common.inputs.drugChemblMechanism.path),
-      "molecule" -> IOResourceConfig(common.inputs.drugChemblMolecule.format,
-                                     common.inputs.drugChemblMolecule.path),
-      "target" -> IOResourceConfig(common.inputs.drugChemblTarget.format,
-                                   common.inputs.drugChemblTarget.path),
-      "drugbankChemblMap" -> IOResourceConfig(common.inputs.drugDrugbankToChembl.format,
-                                              common.inputs.drugDrugbankToChembl.path,
+      "indication" -> IOResourceConfig(drugInputs.chemblIndication.format,
+                                       drugInputs.chemblIndication.path),
+      "mechanism" -> IOResourceConfig(drugInputs.chemblMechanism.format,
+                                      drugInputs.chemblMechanism.path),
+      "molecule" -> IOResourceConfig(drugInputs.chemblMolecule.format,
+                                     drugInputs.chemblMolecule.path),
+      "target" -> IOResourceConfig(drugInputs.chemblTarget.format,
+                                   drugInputs.chemblTarget.path),
+      "drugbankChemblMap" -> IOResourceConfig(drugInputs.drugbankToChembl.format,
+                                              drugInputs.drugbankToChembl.path,
                                               Some("\\t"),
                                               Some(true)),
-      "efo" -> IOResourceConfig(common.inputs.disease.format, common.inputs.disease.path),
-      "gene" -> IOResourceConfig(common.inputs.target.format, common.inputs.target.path),
-      "evidence" -> IOResourceConfig(common.inputs.evidence.format, common.inputs.evidence.path)
+      "efo" -> IOResourceConfig(drugInputs.diseasePipeline.format, drugInputs.diseasePipeline.path),
+      "gene" -> IOResourceConfig(drugInputs.targetPipeline.format, drugInputs.targetPipeline.path),
+      "evidence" -> IOResourceConfig(drugInputs.evidencePipeline.format, drugInputs.evidencePipeline.path)
     )
 
     val inputDataFrames = Helpers.readFrom(mappedInputs)
@@ -61,7 +61,7 @@ object DrugBeta extends Serializable with LazyLogging {
     logger.info("Processing Drug beta transformations.")
     val mechanismOfActionProcessedDf: DataFrame = MechanismOfAction(mechanismDf, targetDf, geneDf)
     val indicationProcessedDf = Indication(indicationDf, efoDf)
-    val moleculeProcessedDf = Molecule(moleculeDf, drugbank2ChemblMap, context.configuration.common.inputs.drugExtensions)
+    val moleculeProcessedDf = Molecule(moleculeDf, drugbank2ChemblMap, drugInputs.drugExtensions)
     val targetsAndDiseasesDf =
       DrugCommon.getUniqTargetsAndDiseasesPerDrugId(evidenceDf).withColumnRenamed("drug_id", "id")
 

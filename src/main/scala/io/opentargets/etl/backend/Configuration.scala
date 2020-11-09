@@ -38,32 +38,36 @@ object Configuration extends LazyLogging {
       ensproteins: InputInfo,
       intact: InputInfo,
       strings: InputInfo
-   )
-
-
+  )
 
   case class InputInfo(format: String, path: String)
-  case class InputExtension(extensionType: String, path: String){
+  case class InputExtension(extensionType: String, path: String) {
     require(path.endsWith("json"))
   }
+  case class DrugConfiguration(
+                                chemblMolecule: InputInfo,
+                                chemblIndication: InputInfo,
+                                chemblMechanism: InputInfo,
+                                chemblTarget: InputInfo,
+                                drugbankToChembl: InputInfo,
+                                drugExtensions: Seq[InputExtension],
+                                diseasePipeline: InputInfo,
+                                targetPipeline: InputInfo,
+                                evidencePipeline: InputInfo,
+  )
   case class Inputs(
-                     target: InputInfo,
-                     disease: InputInfo,
-                     drug: InputInfo,
-                     drugChemblMolecule: InputInfo,
-                     drugChemblIndication: InputInfo,
-                     drugChemblMechanism: InputInfo,
-                     drugChemblTarget: InputInfo,
-                     drugDrugbankToChembl: InputInfo,
-                     drugExtensions: Seq[InputExtension],
-                     evidence: InputInfo,
-                     ddr: InputInfo,
-                     reactome: InputInfo,
-                     eco: InputInfo,
-                     expression: InputInfo,
-                     tep: InputInfo,
-                     mousephenotypes: InputInfo,
-                     interactions: InteractionsSection
+      target: InputInfo,
+      disease: InputInfo,
+      drug: InputInfo,
+      drugBeta: DrugConfiguration,
+      evidence: InputInfo,
+      ddr: InputInfo,
+      reactome: InputInfo,
+      eco: InputInfo,
+      expression: InputInfo,
+      tep: InputInfo,
+      mousephenotypes: InputInfo,
+      interactions: InteractionsSection
   )
 
   case class Common(defaultSteps: Seq[String], inputs: Inputs, output: String, outputFormat: String)
