@@ -251,11 +251,18 @@ object InteractionsHelpers extends LazyLogging {
       * @return a DataFrame
       */
     def getUnmatch: DataFrame = {
-      df
+      val missedMatchA = df
         .filter(
-          "((targetA = intA) and (speciesA.taxonId = 9606)) or ((targetB = intB) and (speciesB.taxonId = 9606))"
+          "((targetA = intA) and (speciesA.taxonId = 9606))"
         )
-        .select("targetA", "targetB")
+        .selectExpr("targetA as target", "intA as interactor")
+      val missedMatchB = df
+        .filter(
+          "((targetB = intB) and (speciesB.taxonId = 9606))"
+        )
+        .selectExpr("targetB as target", "intB as interactor")
+
+      missedMatchA.unionByName(missedMatchB)
 
     }
 
@@ -297,7 +304,9 @@ object InteractionsHelpers extends LazyLogging {
           "intABiologicalRole",
           "targetB",
           "intB",
-          "intBBiologicalRole"
+          "intBBiologicalRole",
+          "speciesA",
+          "speciesB"
         )
         .agg(
           count(col("evidences")).alias("count"),
