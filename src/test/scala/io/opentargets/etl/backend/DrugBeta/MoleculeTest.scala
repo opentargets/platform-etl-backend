@@ -1,14 +1,11 @@
 package io.opentargets.etl.backend.DrugBeta
 
 import io.opentargets.etl.backend.DrugBeta.MoleculeTest.{XRef, getSampleHierarchyData, getSampleSynonymData}
-import io.opentargets.etl.backend.SparkSessionSetup
+import io.opentargets.etl.backend.EtlSparkUnitTest
 import io.opentargets.etl.backend.drug_beta.Molecule
 import org.apache.spark.sql.functions.{array_contains, col, map_keys}
 import org.apache.spark.sql.types._
 import org.apache.spark.sql.{DataFrame, Dataset, Row, SparkSession}
-import org.scalatest.PrivateMethodTester
-import org.scalatest.flatspec.AnyFlatSpecLike
-import org.scalatest.matchers.must.Matchers
 
 object MoleculeTest {
 
@@ -139,11 +136,7 @@ object MoleculeTest {
   case class DrugbankSynonym(drugbank_id: String, db_synonyms: Seq[String] )
   case class XRef(id: String, xref: Map[String, Array[String]])
 }
-class MoleculeTest
-    extends AnyFlatSpecLike
-    with Matchers
-    with PrivateMethodTester
-    with SparkSessionSetup {
+class MoleculeTest extends EtlSparkUnitTest {
 
   // private methods for testing
   val processSingletonXR: PrivateMethod[Dataset[Row]] =

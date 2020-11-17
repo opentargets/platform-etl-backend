@@ -3,20 +3,13 @@ package io.opentargets.etl.backend.DrugBeta
 import io.opentargets.etl.backend.Configuration.InputExtension
 import io.opentargets.etl.backend.DrugBeta.CrossReferencesExtensionTest.SimpleCrossReference
 import io.opentargets.etl.backend.DrugBeta.SynonymExtensionTest.{Molecule, Synonym, SynonymArr, SynonymBadIdField, SynonymBadSynonymField, SynonymLong}
-import io.opentargets.etl.backend.SparkSessionSetup
+import io.opentargets.etl.backend.EtlSparkUnitTest
 import io.opentargets.etl.backend.drug_beta.DrugExtensions
 import org.apache.spark.sql.functions.{col, element_at, explode, flatten, map_keys, map_values, size => sparkSize}
 import org.apache.spark.sql.types.ArrayType
 import org.apache.spark.sql.{DataFrame, Dataset, Row}
-import org.scalatest.PrivateMethodTester
 import org.scalatest.flatspec.AnyFlatSpecLike
 import org.scalatest.matchers.must.Matchers
-
-trait EtlSparkUnitTest
-    extends AnyFlatSpecLike
-    with PrivateMethodTester
-    with SparkSessionSetup
-    with Matchers
 
 class DrugExtensionsTest extends AnyFlatSpecLike with Matchers {
 
