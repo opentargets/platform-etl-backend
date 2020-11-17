@@ -43,7 +43,7 @@ object Molecule extends LazyLogging {
       .join(hierarchy, Seq("id"), "left_outer")
 
     // add extension methods and remove unneeded fields.
-    DrugExtensions.synonymExtensions(molCombined, drugExtensions).drop("drugbank_id")
+    DrugExtensions(molCombined, drugExtensions).drop("drugbank_id")
 
   }
 
@@ -219,7 +219,7 @@ object Molecule extends LazyLogging {
     * @param ref2 dataframe with columns `id` and `xref`
     * @return
     */
-  private def mergeCrossReferenceMaps(ref1: DataFrame, ref2: DataFrame): DataFrame = {
+  def mergeCrossReferenceMaps(ref1: DataFrame, ref2: DataFrame): DataFrame = {
     val ref1x = "x"
     val ref2x = "y"
     val r1 = ref1.select(
