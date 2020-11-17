@@ -2,6 +2,7 @@ package io.opentargets.etl.backend.drug_beta
 
 import com.typesafe.scalalogging.LazyLogging
 import io.opentargets.etl.backend.Configuration.InputExtension
+import io.opentargets.etl.backend.extractors.JsonFile
 import io.opentargets.etl.backend.spark.Helpers
 import io.opentargets.etl.backend.spark.Helpers.IOResourceConfig
 import org.apache.spark.sql.functions.{array_distinct, array_except, array_union, coalesce, col, collect_list, collect_set, explode, map_entries, map_from_arrays, translate, trim, typedLit}
@@ -110,9 +111,9 @@ object DrugExtensions extends LazyLogging {
                                    extensions: Seq[InputExtension]): Seq[IOResourceConfig] = {
     extensions
       .filter(_.extensionType equalsIgnoreCase extentionType)
-      .flatMap(ext => {
+      .flatMap(ext => { // using optionals so that we don't break the pipeline because of extension files.
         ext.path match {
-          case isJsonPath if isJsonPath.endsWith("json") || isJsonPath.endsWith("jsonl") =>
+          case JsonFile() =>
             Some(IOResourceConfig("json", ext.path))
           case nonJsonPath =>
             logger.error(s"Unable to process extension file $nonJsonPath")

@@ -11,15 +11,6 @@ import org.apache.spark.sql.{DataFrame, Dataset, Row}
 import org.scalatest.flatspec.AnyFlatSpecLike
 import org.scalatest.matchers.must.Matchers
 
-class DrugExtensionsTest extends AnyFlatSpecLike with Matchers {
-
-  "An extension file" should "must be a json file" in {
-    assertThrows[IllegalArgumentException] {
-      val extensionInvalid = InputExtension("synonym", "gs://foo/bar/baz.csv")
-    }
-  }
-}
-
 object CrossReferencesExtensionTest {
   case class SimpleCrossReference(id: String, source: String, reference: String) // an extension file has at least one ref field
 }
