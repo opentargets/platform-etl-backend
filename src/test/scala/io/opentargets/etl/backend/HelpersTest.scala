@@ -3,22 +3,18 @@ package io.opentargets.etl.backend
 import com.typesafe.scalalogging.LazyLogging
 import io.opentargets.etl.backend.Configuration.OTConfig
 import io.opentargets.etl.backend.spark.Helpers
-import org.scalatest.flatspec.AnyFlatSpecLike
-import org.scalatest.matchers.should.Matchers
 import org.apache.spark.sql.types._
 import org.apache.spark.sql.{DataFrame, Row}
-import org.apache.spark.sql.functions.lower
 import org.scalatest.prop.TableDrivenPropertyChecks
 import io.opentargets.etl.backend.spark.Helpers._
 
 import scala.util.Random
 
 class HelpersTest
-    extends AnyFlatSpecLike
+    extends EtlSparkUnitTest
     with TableDrivenPropertyChecks
-    with Matchers
     with LazyLogging
-    with SparkSessionSetup {
+    {
 
 
   // given

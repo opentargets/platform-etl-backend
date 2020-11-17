@@ -222,16 +222,29 @@ not 'drugs'. We define a drug to be any molecule that meets one or more of the f
  
 To run the `DrugBeta` step use the example command under `Create a fat JAR` with `drugBeta` as the step name. 
  
-#### Adding additional cross references
+#### Adding additional resources to enrich data
 
-If a new cross reference maps one-to-one to a ChEMBL ID (Drugbank for example) it can be added by including it in the
- `ProcessMoleculeCrossReferences` method on the `Molecule` object. Cross references which have more than one reference
- per ChEMBL ID will need to be processed manually at this point, see the `ProcessChemblCrossReferences` method for a 
- guide on how this can be done. 
+Addition resources can be specified to enrich the data included in the outputs. The following `extension-type`s are
+ supported: 
  
-#### Adding additional synonym resources to enrich data
+ - `synonyms`
+ - `cross-references`
+ 
+See the sections below for more details on required data structure and limitations. 
 
-The Drug Beta step supports the addition of additional synonym data sources subject to the following limitations:
+Additional resources are specified in the configuration as follows:  
+```
+      drug-extensions = [
+        {
+          extension-type = <extension type>
+          path = <path to file> 
+        }
+      ]
+    }
+```
+##### Synonyms
+
+The Drug Beta step supports the addition of supplementary synonym data sources subject to the following limitations:
 
 - The input file(s) must be: 
   - in json format
@@ -245,6 +258,32 @@ The input files are specified in the configuration file under the field `drug-ex
  
 New synonyms are added to the 'synonyms' field on the object if they are not already present in either 'synonyms' or
 'trade names'. At present it is not possible to add new fields to 'trade names'.
+
+##### Cross references 
+
+The Drug Beta step supports the addition of supplementary cross reference data sources subject to the following
+ limitations:
+
+- The input file(s) must: 
+  - in json format
+  - have a fields: 
+    - 'id' which maps 1-to-1 to a ChEMBL ID.
+    - 'source'
+    - 'reference'  
+
+For example: 
+
+```jsonl
+{"id": ..., "source": ..., "reference": ... }
+```
+  
+The input files are specified in the configuration file under the field `drug-extensions`. The files can contain
+ additional columns; these will be safely ignored. 
+ 
+If the `source` already exists the new references will be appended to the existing ones, provided that the `reference
+` is not already present. If the `source` does not exist it will be created. 
+ 
+
  
 #### Inputs
 

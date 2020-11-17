@@ -1,14 +1,11 @@
 package io.opentargets.etl.backend.DrugBeta
 
-import io.opentargets.etl.backend.SparkSessionSetup
+import io.opentargets.etl.backend.EtlSparkUnitTest
 import io.opentargets.etl.backend.drug_beta.Indication
 import io.opentargets.etl.backend.spark.Helpers
 import org.apache.spark.sql.{DataFrame, Dataset, Row, SparkSession}
 import org.apache.spark.sql.functions.col
 import org.apache.spark.sql.types.{StringType, StructField, StructType}
-import org.scalatest.PrivateMethodTester
-import org.scalatest.flatspec.AnyFlatSpecLike
-import org.scalatest.matchers.must.Matchers
 
 object IndicationTest {
 
@@ -18,11 +15,7 @@ object IndicationTest {
     sparkSession.read.parquet(this.getClass.getResource("/efo_sample.parquet").getPath)
 }
 
-class IndicationTest
-    extends AnyFlatSpecLike
-    with Matchers
-    with PrivateMethodTester
-    with SparkSessionSetup {
+class IndicationTest extends EtlSparkUnitTest {
 
   val getEfoDataFrame: PrivateMethod[Dataset[Row]] = PrivateMethod[Dataset[Row]]('getEfoDataframe)
   import sparkSession.implicits._
