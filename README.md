@@ -267,7 +267,7 @@ The Drug Beta step supports the addition of supplementary cross reference data s
 - The input file(s) must: 
   - in json format
   - have a fields: 
-    - 'id' which maps 1-to-1 to either a Drugbank ID or ChEMBL ID. The 'id' field must not contain a mixture of both. If the ID is unknown the data will be discarded silently. If a mixture of ids are provided, it is indeterminate which of the two will be used.
+    - 'id' which maps 1-to-1 to a ChEMBL ID.
     - 'source'
     - 'reference'  
 
@@ -279,6 +279,9 @@ For example:
   
 The input files are specified in the configuration file under the field `drug-extensions`. The files can contain
  additional columns; these will be safely ignored. 
+ 
+If the `source` already exists the new references will be appended to the existing ones, provided that the `reference
+` is not already present. If the `source` does not exist it will be created. 
  
 
  
