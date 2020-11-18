@@ -75,7 +75,8 @@ object Molecule extends LazyLogging {
         col("withdrawn_country"),
         col("withdrawn_class")
       )
-      .withColumn("blackBoxWarning", when(col("blackBoxWarning") === 1, true).otherwise(false))
+      .withColumn("isApproved", col("maximumClinicalTrialPhase") === 4)
+      .withColumn("blackBoxWarning", col("blackBoxWarning") === 1)
       .withColumn("withdrawn_reason", split(col("withdrawn_reason"), ";"))
       .withColumn("withdrawn_country", split(col("withdrawn_country"), ";"))
       .withColumn("withdrawn_class", split(col("withdrawn_class"), ";"))
