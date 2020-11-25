@@ -350,7 +350,9 @@ object Evidence extends LazyLogging {
         .map(x => col(x).cast(StringType))
     }
 
-    val defaultDts = commonReqFields.toList.sorted.map(x => col(x).cast(StringType))
+    val defaultDts = commonReqFields.toList.sorted.map {
+      x => col(x).cast(StringType)
+    }
 
     val hashes = dts.tail
       .foldLeft(when(dts.head._1, sha1(concat(dts.head._2: _*)))) {
@@ -395,7 +397,7 @@ object Evidence extends LazyLogging {
     import context.sparkSession.implicits._
 
     val sums = sumCols.map {
-      case (n, v) => sum(when(col(n) === v, 1).otherwise(0)).as(s"#$n=$v")
+      case (n, v) => sum(when(col(n) === v, 1).otherwise(0)).as(s"#$n-$v")
     }
 
     val uniqs = uniqueCols.map {
@@ -447,14 +449,14 @@ object Evidence extends LazyLogging {
     Map(
       "evidences/out" -> transformedDF.filter(okFitler).drop(rt, rd, md),
       "evidences/fail" -> transformedDF.filter(not(okFitler)),
-//      "evidences/stats" -> transformedDF.filter(not(okFitler))
-//        .transform(
-//          stats(
-//            _,
-//            Seq((rt, false), (rd, false), (md, true)),
-//            Seq("targetId", "diseaseId")
-//          )
-//        )
+      "evidences/stats" -> transformedDF.filter(not(okFitler))
+        .transform(
+          stats(
+            _,
+            Seq((rt, false), (rd, false), (md, true)),
+            Seq("targetId", "diseaseId")
+          )
+        )
     )
   }
 
