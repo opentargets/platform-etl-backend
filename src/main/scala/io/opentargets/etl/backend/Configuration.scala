@@ -14,7 +14,8 @@ object Configuration extends LazyLogging {
   case class EvidenceEntry(id: String, uniqueFields: List[String], scoreExpr: String)
 
   case class EvidencesSection(input: InputInfo,
-                              requiredFields: List[String],
+                              uniqueFields: List[String],
+                              scoreExpr: String,
                               dataSources: List[EvidenceEntry])
 
   case class AssociationsSection(

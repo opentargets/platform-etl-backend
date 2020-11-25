@@ -7,14 +7,12 @@ import $ivy.`org.apache.spark::spark-mllib:3.0.1`
 import $ivy.`org.apache.spark::spark-sql:3.0.1`
 import $ivy.`com.github.pathikrit::better-files:3.8.0`
 import $ivy.`com.typesafe.play::play-json:2.9.1`
-import $ivy.`com.databricks::spark-xml:0.10.0`
 
 import org.apache.spark.SparkConf
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.functions.col
 import org.apache.spark.sql.types._
 import org.apache.spark.sql._
-import com.databricks.spark.xml._
 
 import com.typesafe.scalalogging.LazyLogging
 
@@ -46,83 +44,57 @@ object ETL extends LazyLogging {
   def loadPublications(uri: String)(implicit sparkSession: SparkSession) = {
     import sparkSession.implicits._
 
-    // case when size(coalesce(transform(filter(PubmedData.ArticleIdList.ArticleId, y -> y._IdType = 'pmc'), x -> x._VALUE),array())) > 0 then element_at(transform(filter(PubmedData.ArticleIdList.ArticleId, y -> y._IdType = 'pmc'), x -> x._VALUE),1) as pmcId
     val columns = List(
-      s"MedlineCitation.PMID as ${pmId}",
-      s"""
-         |case when
-         | size(
-         |   coalesce(
-         |     transform(filter(PubmedData.ArticleIdList.ArticleId, y -> y._IdType = 'pmc'), x -> x._VALUE),
-         |     array())
-         | ) > 0 then
-         | element_at(
-         |   transform(filter(PubmedData.ArticleIdList.ArticleId, y -> y._IdType = 'pmc'), x -> x._VALUE),
-         |   1
-         | )
-         |end as ${pmcId}
-         |""".stripMargin,
-      "MedlineCitation.Article.Abstract.AbstractText",
-      "MedlineCitation.Article.ArticleDate",
-      "MedlineCitation.Article.ArticleTitle",
-      "MedlineCitation.Article.AuthorList",
-      "MedlineCitation.Article.Journal",
-      "MedlineCitation.Article.Pagination",
-      "MedlineCitation.Article.PublicationTypeList",
-      "MedlineCitation.DateCompleted",
-      "MedlineCitation.DateRevised",
-      "MedlineCitation.KeywordList",
-      "PubmedData.ArticleIdList",
-      "PubmedData.History",
-      "PubmedData.ReferenceList"
+      s"PMID.`$$` as ${pmId}",
+      s"element_at(transform(filter(ids, i -> i.IdType = 'pmc'),j -> j.`$$`), 1) as ${pmcId}",
+      "title",
+      "abstract",
+      "authors",
+      "dataCompleted as dateCompleted",
+      "date",
+      "dateHistory",
+      "journal",
+      "pagination",
+      "keywords",
+      "publicationTypes"
     )
 
     // val pubmeds = spark.read.option("rootTag", "PubmedArticleSet").option("rowTag","PubmedArticle").xml("*.xml")
     val data: DataFrame = sparkSession.read
-      .option("rootTag", "PubmedArticleSet")
-      .option("rowTag", "PubmedArticle")
-      .option("excludeAttribute", "true")
-      .xml(uri)
+      .json(uri)
 
     data
       .selectExpr(columns: _*)
+      .withColumn(pmcId, ltrim(col(pmcId), "PMC").cast(LongType))
       .withColumn("segmentId", getSegmentId(input_file_name()))
   }
 
   def loadDeletions(uri: String)(implicit sparkSession: SparkSession) = {
     import sparkSession.implicits._
 
-    val columns = List(
-      "PMID as pmids"
-    )
-
     // val pubmeds = spark.read.option("rootTag", "PubmedArticleSet").option("rowTag","PubmedArticle").xml("*.xml")
     val data: DataFrame = sparkSession.read
-      .option("rootTag", "PubmedArticleSet")
-      .option("rowTag", "DeleteCitation")
-      .option("excludeAttribute", "true")
-      .xml(uri)
+      .option("header", "false")
+      .csv(uri)
+      .toDF(pmId)
+      .withColumn(s"$pmId", col(pmId).cast(LongType))
 
-    data
-      .selectExpr(columns: _*)
-      .withColumn("segmentId", getSegmentId(input_file_name()))
-      .withColumn(pmId, explode($"pmids"))
+    data.orderBy(col(pmId)).repartition(col(pmId))
   }
 
-  def apply(publicationsUri: String, outputUri: String) = {
+  def apply(publicationsUri: String, deletionsUri: String, outputUri: String) = {
     implicit val spark = SparkSessionWrapper.session
     spark.sparkContext.setLogLevel("WARN")
 
     val pmids = loadPublications(publicationsUri)
-    val deletions = loadDeletions(publicationsUri)
+    val deletions = broadcast(loadDeletions(deletionsUri))
 
-    // val resolvedEntities = pmids.join(deletions, Seq("pmid"), "left_anti")
+    val resolvedEntities = pmids.join(deletions, Seq(pmId), "left_anti")
 
-    pmids.write.parquet(outputUri + "/pubmed_index")
-    deletions.write.parquet(outputUri + "/pubmed_index_deleted")
+    resolvedEntities.write.parquet(outputUri + "/pubmed_index")
   }
 }
 
 @main
-  def main(publicationsUri: String, outputUri: String): Unit =
-    ETL(publicationsUri, outputUri)
+  def main(publicationsUri: String, deletionsUri: String, outputUri: String): Unit =
+    ETL(publicationsUri, deletionsUri, outputUri)

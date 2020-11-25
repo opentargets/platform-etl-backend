@@ -3,8 +3,8 @@ package io.opentargets.etl.backend.spark
 import com.typesafe.scalalogging.LazyLogging
 import io.opentargets.etl.backend.Configuration.OTConfig
 import org.apache.spark.SparkConf
-import org.apache.spark.sql.{Column, DataFrame, DataFrameWriter, Row, SparkSession}
-import org.apache.spark.sql.functions.{col, expr, lit, struct, substring_index, udf}
+import org.apache.spark.sql._
+import org.apache.spark.sql.functions._
 import org.apache.spark.sql.types.{ArrayType, DataType, StructField, StructType}
 
 import scala.util.Random
@@ -56,10 +56,11 @@ object Helpers extends LazyLogging {
       files: String*
   )(configuration: OTConfig): IOResourceConfs = {
     (for (n <- files)
-      yield n -> IOResourceConfig(
-        configuration.common.outputFormat,
-        configuration.common.output + s"/$n"
-      )) toMap
+      yield
+        n -> IOResourceConfig(
+          configuration.common.outputFormat,
+          configuration.common.output + s"/$n"
+        )) toMap
 
   }
 
@@ -83,6 +84,20 @@ object Helpers extends LazyLogging {
     * */
   def stripIDFromURI(uri: Column): Column =
     substring_index(uri, "/", -1)
+
+  def mkFlattenArray(col: Column, cols: Column*): Column = {
+    val colss = col +: cols
+    val colV = array(colss: _*)
+
+    filter(
+      array_distinct(
+        flatten(
+          filter(colV, x => x.isNotNull)
+        )
+      ),
+      z => z.isNotNull
+    )
+  }
 
   /** colNames are columns to flat if any inner array and then concatenate them
     * @param colNames list of column names as string
@@ -142,7 +157,8 @@ object Helpers extends LazyLogging {
           s"Separated value filed ${pathInfo.path} selected without specifying header and/or delimiter values"
         )
         // killing program through exception.
-        assert(assertion = false, s"Unable to complete pipeline due to bad file configuration for $pathInfo")
+        assert(assertion = false,
+               s"Unable to complete pipeline due to bad file configuration for $pathInfo")
         session.emptyDataFrame
       // All other formats
       case _ => session.read.format(pathInfo.format).load(pathInfo.path)
@@ -158,9 +174,9 @@ object Helpers extends LazyLogging {
     (for (rc <- resourceConfigs) yield Random.alphanumeric.take(6).toString -> rc).toMap
   }
 
-  def writeTo(outputConfs: IOResourceConfs, outputs: IOResources)(implicit
-      session: SparkSession
-  ): IOResources = {
+  def writeTo(outputConfs: IOResourceConfs, outputs: IOResources)(
+      implicit
+      session: SparkSession): IOResources = {
 
     logger.info(s"Saving data to '${outputConfs.mkString(", ")}'")
 
@@ -205,7 +221,8 @@ object Helpers extends LazyLogging {
 
     // Union between two dataframes with different schema. columnExpr helps to unify the schema
     val unionDF =
-      df.select(columnExpr(cols1, total).toList: _*).unionByName(df2.select(columnExpr(cols2, total).toList: _*))
+      df.select(columnExpr(cols1, total).toList: _*)
+        .unionByName(df2.select(columnExpr(cols2, total).toList: _*))
     unionDF
   }
 
