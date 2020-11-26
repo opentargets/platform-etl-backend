@@ -171,24 +171,28 @@ object Evidence extends LazyLogging {
         _ => "publicationYear",
         c => when(col("sourceID") === "ot_genetics_portal", c.getItem(0).getField("year"))
       ),
+      flattenCAndSetN(
+        when(col("sourceID") === "reactome", col("evidence.known_mutations.preferred_name")),
+        _ => "aminoacidDescriptions"
+      ),
       H.trans(
         col("evidence.known_mutations"),
-        _ => "variants",
+        _ => "mutatedSamples",
         c =>
-          transform(
-            c,
-            co =>
-              struct(
-                H.stripIDFromURI(co.getField("functional_consequence"))
-                  .as("functionalConsequenceId"),
-                co.getField("number_mutated_samples").as("numberMutatedSamples"),
-                co.getField("number_samples_tested").as("numberSamplesTested"),
-                co.getField("number_samples_with_mutation_type")
-                  .as("numberSamplesWithMutationType"),
-                when(col("sourceID") === "reactome", co.getField("preferred_name"))
-                  .as("aminoacidDescription")
+          when(col("sourceID") isInCollection List("intogen", "cancer_gene_census"),
+            transform(
+              c,
+              co =>
+                struct(
+                  when(col("sourceID") === "cancer_gene_census", H.stripIDFromURI(co.getField("functional_consequence")))
+                    .as("functionalConsequenceId"),
+                  co.getField("number_mutated_samples").as("numberMutatedSamples"),
+                  co.getField("number_samples_tested").as("numberSamplesTested"),
+                  co.getField("number_samples_with_mutation_type")
+                    .as("numberSamplesWithMutationType")
+              )
             )
-        )
+          )
       ),
       flattenCAndSetN(col("evidence.literature_ref.mined_sentences"), _ => "textMiningSentences"),
       flattenC(col("evidence.log2_fold_change.value")),
