@@ -41,29 +41,35 @@ object Evidence extends LazyLogging {
       flattenCAndSetN(col("evidence.original_disease_array"), _ => "cohortPhenotypes"),
       flattenCAndSetC(col("disease.id"), H.stripIDFromURI),
       H.trans(col("unique_association_fields.model_gene_id"),
-        _ => "targetInModel",
-        H.stripIDFromURI),
+              _ => "targetInModel",
+              H.stripIDFromURI),
       H.trans(col("unique_association_fields.reaction_id"), _ => "reactionId", H.stripIDFromURI),
       flattenCAndSetN(
         coalesce(
           when(col("sourceID") isInCollection List("genomics_england"),
-            element_at(from_json(col("disease.source_name"), ArrayType(StringType)), 1))
+               element_at(from_json(col("disease.source_name"), ArrayType(StringType)), 1))
             .otherwise(col("disease.source_name")),
           when(col("sourceID") isInCollection List("uniprot_literature", "europepmc", "reactome"),
-            col("disease.name")),
+               col("disease.name")),
           col("disease.reported_trait"),
           col("unique_association_fields.tumor_type")
         ),
         _ => "diseaseFromSource"
       ),
-
       flattenCAndSetC(col("target.id"), H.stripIDFromURI),
       H.trans(col("target.id"), _ => "targetFromSourceId", H.stripIDFromURI),
-      H.trans(coalesce(col("unique_association_fields.disease_phenodigm_id"),
-        col("disease.id")), _ => "diseaseFromSourceId", H.stripIDFromURI),
+      H.trans(coalesce(col("unique_association_fields.disease_phenodigm_id"), col("disease.id")),
+              _ => "diseaseFromSourceId",
+              H.stripIDFromURI),
       flattenCAndSetC(col("drug.id"), H.stripIDFromURI),
-      flattenCAndSetC(col("variant.id"), H.stripIDFromURI),
-      flattenCAndSetC(col("variant.rs_id"), H.stripIDFromURI),
+      flattenCAndSetC(
+        col("variant.id"),
+        c => when(!($"sourceID" isInCollection List("eva", "eva_somatic")), H.stripIDFromURI(c))),
+      flattenCAndSetC(col("variant.rs_id"),
+                      c =>
+                        when($"sourceID" isInCollection List("eva", "eva_somatic"),
+                             H.stripIDFromURI($"variant.id"))
+                          .otherwise(H.stripIDFromURI(c))),
       H.trans(
         col("target.activity"),
         _ => "targetModulation",
@@ -73,25 +79,25 @@ object Evidence extends LazyLogging {
         flatten(
           array(
             coalesce(col("evidence.variant2disease.mode_of_inheritance"),
-              array(col("evidence.allelic_requirement")),
-              typedLit(Seq.empty[String])))),
+                     array(col("evidence.allelic_requirement")),
+                     typedLit(Seq.empty[String])))),
         _ => "allelicRequirements"
       ),
       flattenC(col("evidence.biological_model.allelic_composition")),
       flattenC(col("evidence.biological_model.genetic_background")),
       flattenCAndSetN(coalesce(col("evidence.clinical_significance"),
-        col("evidence.variant2disease.clinical_significance")),
-        _ => "clinicalSignificances"),
+                               col("evidence.variant2disease.clinical_significance")),
+                      _ => "clinicalSignificances"),
       flattenCAndSetN(col("evidence.cohort.cohort_description"),
-        n => normAndCCase(n.replaceFirst("\\.cohort", ""))),
+                      n => normAndCCase(n.replaceFirst("\\.cohort", ""))),
       flattenCAndSetN(col("evidence.cohort.cohort_id"),
-        n => normAndCCase(n.replaceFirst("\\.cohort", ""))),
+                      n => normAndCCase(n.replaceFirst("\\.cohort", ""))),
       flattenCAndSetN(col("evidence.cohort.cohort_short_name"),
-        n => normAndCCase(n.replaceFirst("\\.cohort", ""))),
+                      n => normAndCCase(n.replaceFirst("\\.cohort", ""))),
       flattenCAndSetN(col("evidence.comparison_name"), _ => "contrast"),
       flattenCAndSetN(coalesce(col("evidence.variant2disease.clinvar_rating.review_status"),
-        col("evidence.confidence")),
-        _ => "confidence"),
+                               col("evidence.confidence")),
+                      _ => "confidence"),
       H.trans(
         col("evidence.disease_model_association.human_phenotypes"),
         newNameFn = _ => "diseaseModelAssociatedHumanPhenotypes",
@@ -105,17 +111,17 @@ object Evidence extends LazyLogging {
           transform(co, c => struct(c.getField("id").as("id"), c.getField("label").as("label")))
       ),
       flattenCAndSetN(col("evidence.drug2clinic.clinical_trial_phase.numeric_index"),
-        _ => "clinicalPhase"),
+                      _ => "clinicalPhase"),
       H.trans(coalesce(col("evidence.drug2clinic.status"), lit("N/A")),
-        _ => "clinicalStatus",
-        co => when(col("sourceID") === "chembl", co)),
+              _ => "clinicalStatus",
+              co => when(col("sourceID") === "chembl", co)),
       flattenCAndSetN(col("evidence.drug2clinic.urls"), _ => "clinicalUrls"),
       H.trans(col("evidence.gene2variant.functional_consequence"),
-        _ => "variantFunctionalConsequenceId",
-        H.stripIDFromURI),
+              _ => "variantFunctionalConsequenceId",
+              H.stripIDFromURI),
       flattenCAndSetN(when(col("sourceID") === "ot_genetics_portal",
-        col("evidence.gene2variant.resource_score.value")),
-        _ => "locus2GeneScore"),
+                           col("evidence.gene2variant.resource_score.value")),
+                      _ => "locus2GeneScore"),
       H.trans(
         col("evidence.variant2disease.provenance_type.literature.references"),
         _ => "publicationFirstAuthor",
@@ -142,8 +148,8 @@ object Evidence extends LazyLogging {
                   .as("numberSamplesWithMutationType"),
                 when(col("sourceID") === "reactome", co.getField("preferred_name"))
                   .as("aminoacidDescription")
-              )
-          )
+            )
+        )
       ),
       flattenCAndSetN(col("evidence.literature_ref.mined_sentences"), _ => "textMiningSentences"),
       flattenC(col("evidence.log2_fold_change.value")),
@@ -154,35 +160,35 @@ object Evidence extends LazyLogging {
           when(
             col("sourceID") isInCollection List("sysbio", "expression_atlas"),
             coalesce(col("evidence.experiment_overview"),
-              col("evidence.resource_score.method.description"))
+                     col("evidence.resource_score.method.description"))
           )
         ),
         _ => "studyOverview"
       ),
       flattenCAndSetN(coalesce(col("evidence.resource_score.value"),
-        col("evidence.variant2disease.resource_score.value")),
-        _ => "resourceScore"),
+                               col("evidence.variant2disease.resource_score.value")),
+                      _ => "resourceScore"),
       flattenC(col("evidence.significant_driver_methods")),
       H.trans(
         coalesce(col("evidence.urls"), col("evidence.variant2disease.urls")),
         _ => "recordId",
         c =>
           when(col("sourceID") isInCollection List("eva", "eva_somatic", "clingen"),
-            transform(c, co => H.stripIDFromURI(co.getField("url"))).getItem(0))
+               transform(c, co => H.stripIDFromURI(co.getField("url"))).getItem(0))
       ),
       H.trans(
         coalesce(col("evidence.variant2disease.urls"), col("evidence.urls")),
         _ => "pathwayId",
         c =>
           when(col("sourceID") isInCollection List("progeny", "reactome", "slapenrich"),
-            transform(c, co => ltrim(H.stripIDFromURI(co.getField("url")), "#")).getItem(0))
+               transform(c, co => ltrim(H.stripIDFromURI(co.getField("url")), "#")).getItem(0))
       ),
       H.trans(
         coalesce(col("evidence.variant2disease.urls"), col("evidence.urls")),
         _ => "pathwayName",
         c =>
           when(col("sourceID") isInCollection List("progeny", "reactome", "slapenrich"),
-            trim(transform(c, co => co.getField("nice_name")).getItem(0)))
+               trim(transform(c, co => co.getField("nice_name")).getItem(0)))
       ),
       H.trans(
         coalesce(
@@ -207,12 +213,12 @@ object Evidence extends LazyLogging {
       ),
       flattenCAndSetN(col("evidence.variant2disease.gwas_sample_size"), _ => "studySampleSize"),
       H.trans(col("evidence.variant2disease.odds_ratio"),
-        _ => "oddsRatio",
-        c => when(c.isNotNull, c.cast(DoubleType))),
+              _ => "oddsRatio",
+              c => when(c.isNotNull, c.cast(DoubleType))),
       flattenCAndSetN(col("evidence.variant2disease.resource_score.exponent"),
-        _ => "resourceScoreExponent"),
+                      _ => "resourceScoreExponent"),
       flattenCAndSetN(col("evidence.variant2disease.resource_score.mantissa"),
-        _ => "resourceScoreMantissa"),
+                      _ => "resourceScoreMantissa"),
       flattenCAndSetN(
         when(
           col("sourceID") =!= "phewas_catalog",
@@ -228,19 +234,19 @@ object Evidence extends LazyLogging {
                     !col("sourceID").isInCollection(
                       List("slapenrich", "intogen", "progeny", "gene2phenotype")),
                     transform(coalesce(col("evidence.provenance_type.literature.references"),
-                      array()),
-                      c => c.getField("lit_id"))
+                                       array()),
+                              c => c.getField("lit_id"))
                   ).otherwise(array()),
                   transform(
                     coalesce(col("evidence.gene2variant.provenance_type.literature.references"),
-                      array()),
+                             array()),
                     c => c.getField("lit_id")),
                   transform(
                     coalesce(col("evidence.variant2disease.provenance_type.literature.references"),
-                      array()),
+                             array()),
                     c => c.getField("lit_id")),
                   when(col("evidence.literature_ref.lit_id").isNotNull,
-                    array(col("evidence.literature_ref.lit_id")))
+                       array(col("evidence.literature_ref.lit_id")))
                     .otherwise(array())
                 ),
                 co => co.isNotNull
@@ -260,8 +266,8 @@ object Evidence extends LazyLogging {
       // the pending fields that need to be moved, renamed or removed.
       .withColumn("literature", when(size(col("literature")) > 0, col("literature")))
       .withColumn("allelicRequirements",
-        when(size(filter(col("allelicRequirements"), c => c.isNotNull)) > 0,
-          col("allelicRequirements")))
+                  when(size(filter(col("allelicRequirements"), c => c.isNotNull)) > 0,
+                       col("allelicRequirements")))
       .selectExpr(transformations.keys.toSeq: _*)
 
     val namesMap =
@@ -276,18 +282,18 @@ object Evidence extends LazyLogging {
   }
 
   def resolveTargets(df: DataFrame, columnName: String)(
-    implicit context: ETLSessionContext): DataFrame = {
+      implicit context: ETLSessionContext): DataFrame = {
     def generateTargetsLUT(df: DataFrame): DataFrame = {
       df.select(
-        col("id"),
-        mkFlattenArray(
-          array(col("id")),
-          array(col("proteinAnnotations.id")),
-          col("proteinAnnotations.accessions"),
-          array(col("approvedSymbol")),
-          col("symbolSynonyms")
-        ).as("rIds")
-      )
+          col("id"),
+          mkFlattenArray(
+            array(col("id")),
+            array(col("proteinAnnotations.id")),
+            col("proteinAnnotations.accessions"),
+            array(col("approvedSymbol")),
+            col("symbolSynonyms")
+          ).as("rIds")
+        )
         .withColumn("rId", explode(col("rIds")))
         .select("id", "rId")
     }
@@ -315,7 +321,7 @@ object Evidence extends LazyLogging {
   }
 
   def resolveDiseases(df: DataFrame, columnName: String)(
-    implicit context: ETLSessionContext): DataFrame = {
+      implicit context: ETLSessionContext): DataFrame = {
     logger.info("disease resolution evidences and write to out the ones didn't resolve")
 
     implicit val session = context.sparkSession
@@ -338,7 +344,7 @@ object Evidence extends LazyLogging {
   }
 
   def generateHashes(df: DataFrame, columnName: String)(
-    implicit context: ETLSessionContext): DataFrame = {
+      implicit context: ETLSessionContext): DataFrame = {
     implicit val ss = context.sparkSession
 
     logger.info("validate each evidence generating a hash to check for duplicates")
@@ -350,8 +356,8 @@ object Evidence extends LazyLogging {
         .map(x => col(x).cast(StringType))
     }
 
-    val defaultDts = commonReqFields.toList.sorted.map {
-      x => col(x).cast(StringType)
+    val defaultDts = commonReqFields.toList.sorted.map { x =>
+      col(x).cast(StringType)
     }
 
     val hashes = dts.tail
@@ -383,7 +389,7 @@ object Evidence extends LazyLogging {
   }
 
   def markDuplicates(df: DataFrame, hashColumnName: String, columnName: String)(
-    implicit context: ETLSessionContext): DataFrame = {
+      implicit context: ETLSessionContext): DataFrame = {
     val idC = col(hashColumnName)
     val w = Window.partitionBy(col("sourceId"), idC).orderBy(idC.asc)
 
@@ -392,23 +398,11 @@ object Evidence extends LazyLogging {
       .drop("_idRank")
   }
 
-  def stats(df: DataFrame, sumCols: Seq[(String, Boolean)], uniqueCols: Seq[String])(
-    implicit context: ETLSessionContext): DataFrame = {
+  def stats(df: DataFrame, aggs: Seq[Column])(implicit context: ETLSessionContext): DataFrame = {
     import context.sparkSession.implicits._
 
-    val sums = sumCols.map {
-      case (n, v) => sum(when(col(n) === v, 1).otherwise(0)).as(s"#$n-$v")
-    }
-
-    val uniqs = uniqueCols.map {
-      n => countDistinct(col(n)).as(s"#$n")
-    }
-
-    val aggs = sums ++ uniqs
-
-    df
-      .groupBy($"sourceId")
-      .agg(aggs.head, aggs.tail:_*)
+    df.groupBy($"sourceId")
+      .agg(aggs.head, aggs.tail: _*)
   }
 
   def compute()(implicit context: ETLSessionContext): Map[String, DataFrame] = {
@@ -435,6 +429,14 @@ object Evidence extends LazyLogging {
     val id = "id"
     val sc = "score"
 
+    val statAggs = List(
+      sum(when(col(rt) === false, 1).otherwise(0)).as(s"#$rt-false"),
+      sum(when(col(rd) === false, 1).otherwise(0)).as(s"#$rd-false"),
+      sum(when(col(md) === true, 1).otherwise(0)).as(s"#$md-true"),
+      countDistinct(when(col(rt) === false, col("targetId"))).as(s"#targetId"),
+      countDistinct(when(col(rd) === false, col("diseaseId"))).as(s"#diseaseId")
+    )
+
     val transformedDF = dfs("rawEvidences")
       .transform(reshape)
       .transform(resolveTargets(_, rt))
@@ -449,14 +451,7 @@ object Evidence extends LazyLogging {
     Map(
       "evidences/out" -> transformedDF.filter(okFitler).drop(rt, rd, md),
       "evidences/fail" -> transformedDF.filter(not(okFitler)),
-      "evidences/stats" -> transformedDF.filter(not(okFitler))
-        .transform(
-          stats(
-            _,
-            Seq((rt, false), (rd, false), (md, true)),
-            Seq("targetId", "diseaseId")
-          )
-        )
+      "evidences/stats" -> transformedDF.filter(not(okFitler)).transform(stats(_, statAggs))
     )
   }
 
@@ -468,8 +463,8 @@ object Evidence extends LazyLogging {
 
     val outputs = processedEvidences.keys map (name =>
       name -> H.IOResourceConfig(commonSec.outputFormat,
-        commonSec.output + s"/$name",
-        partitionBy = Seq("sourceId")))
+                                 commonSec.output + s"/$name",
+                                 partitionBy = Seq("sourceId")))
 
     H.writeTo(outputs.toMap, processedEvidences)
   }
