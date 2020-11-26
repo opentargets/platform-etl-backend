@@ -10,6 +10,37 @@ import org.apache.spark.storage.StorageLevel
 import spark.{Helpers => H}
 
 object Evidence extends LazyLogging {
+  object UDFs {
+    /** apply the function f(x) to n using and old (start_range) and a new range.
+      * pValue inRangeMin and inRangeMax have log10 applied before f(x) is calculated
+      * where f(x) = (dNewRange / dOldRange * (n - old_range_lower_bound)) + new_lower
+      * if cap is True then f(n) will be capped to new range boundaries
+      * */
+    def pValueLinearRescaling(pValue: Double,
+                              inRangeMin: Double, inRangeMax: Double,
+                              outRangeMin: Double, outRangeMax: Double): Double = {
+      val pValueLog = Math.log10(pValue)
+      val inRangeMinLog = Math.log10(inRangeMin)
+      val inRangeMaxLog = Math.log10(inRangeMax)
+
+      linearRescaling(pValueLog, inRangeMinLog, inRangeMaxLog, outRangeMin, outRangeMax)
+    }
+
+    def linearRescaling(value: Double, inRangeMin: Double, inRangeMax: Double,
+                        outRangeMin: Double, outRangeMax: Double): Double = {
+      val delta1 = inRangeMax - inRangeMin
+      val delta2 = outRangeMax - outRangeMin
+
+      val score: Double = (delta1, delta2) match {
+        case (d1, d2) if d1 != 0D => (d2 * (value - inRangeMin) / d1) + outRangeMin
+        case (0D, 0D) => value
+        case (0D, _) => outRangeMin
+      }
+
+      Math.max(Math.min(score, outRangeMax), outRangeMin)
+    }
+  }
+
   val directStringMapping: (String, Map[String, String]) => String = (n, m) =>
     m.withDefaultValue(n)(n)
   val removeEvidencePrefix: String => String = c => c.stripPrefix("evidence.")
@@ -32,6 +63,11 @@ object Evidence extends LazyLogging {
 
   def reshape(df: DataFrame)(implicit ss: SparkSession): DataFrame = {
     import ss.implicits._
+
+    ss.sqlContext.udf.register("linear_rescale", UDFs.linearRescaling _)
+    ss.sqlContext.udf.register("pvalue_linear_score", UDFs.pValueLinearRescaling _)
+    ss.sqlContext.udf.register("pvalue_linear_score_default",
+      UDFs.pValueLinearRescaling(_, 1, 1e-10, 0, 1))
 
     val transformations = Map(
       flattenCAndSetN(col("sourceID"), _ => "sourceId"),
@@ -78,7 +114,8 @@ object Evidence extends LazyLogging {
       flattenCAndSetN(
         flatten(
           array(
-            coalesce(col("evidence.variant2disease.mode_of_inheritance"),
+            coalesce(col("evidence.mode_of_inheritance"),
+              col("evidence.variant2disease.mode_of_inheritance"),
                      array(col("evidence.allelic_requirement")),
                      typedLit(Seq.empty[String])))),
         _ => "allelicRequirements"
@@ -95,7 +132,9 @@ object Evidence extends LazyLogging {
       flattenCAndSetN(col("evidence.cohort.cohort_short_name"),
                       n => normAndCCase(n.replaceFirst("\\.cohort", ""))),
       flattenCAndSetN(col("evidence.comparison_name"), _ => "contrast"),
-      flattenCAndSetN(coalesce(col("evidence.variant2disease.clinvar_rating.review_status"),
+      flattenCAndSetN(coalesce(
+        col("evidence.clinvar_rating.review_status"),
+        col("evidence.variant2disease.clinvar_rating.review_status"),
                                col("evidence.confidence")),
                       _ => "confidence"),
       H.trans(
