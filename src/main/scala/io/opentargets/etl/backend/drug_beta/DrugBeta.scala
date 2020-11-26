@@ -5,7 +5,7 @@ import io.opentargets.etl.backend.ETLSessionContext
 import io.opentargets.etl.backend.drug_beta.DrugCommon._
 import io.opentargets.etl.backend.spark.Helpers
 import io.opentargets.etl.backend.spark.Helpers.IOResourceConfig
-import org.apache.spark.sql.functions.{array_contains, col, map_keys}
+import org.apache.spark.sql.functions.{array_contains, coalesce, col, map_keys, typedLit}
 import org.apache.spark.sql.{DataFrame, SparkSession}
 
 /**
@@ -97,6 +97,7 @@ object DrugBeta extends Serializable with LazyLogging {
       .join(targetsAndDiseasesDf, Seq("id"), "left_outer")
       .filter(drugMolecule)
       .transform(addDescription)
+      .transform(cleanup)
 
     val outputs = Seq("drugs-beta")
     logger.info(s"Writing outputs: ${outputs.mkString(",")}")
@@ -107,6 +108,13 @@ object DrugBeta extends Serializable with LazyLogging {
     val outputDFs = (outputs zip Seq(drugDf)).toMap
 
     Helpers.writeTo(outputConfs, outputDFs)
+  }
+
+  /*
+  Final tidying up that aren't business logic but are nice to have for consistent outputs.
+   */
+  def cleanup(df: DataFrame): DataFrame = {
+    Seq("tradeNames", "synonyms").foldLeft(df)((dataF, column)=> { dataF.withColumn(column, coalesce(col(column), typedLit(Seq.empty)))})
   }
 
 }

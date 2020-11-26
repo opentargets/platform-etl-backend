@@ -3,16 +3,13 @@ package io.opentargets.etl.backend.drug_beta
 import com.typesafe.scalalogging.LazyLogging
 import io.opentargets.etl.backend.spark.Helpers.{nest, validateDF}
 import org.apache.spark.sql.functions.{
-  size,
   array_distinct,
   col,
   collect_list,
   collect_set,
   explode,
-  isnull,
   lower,
-  struct,
-  when
+  struct
 }
 import org.apache.spark.sql.{DataFrame, SparkSession}
 
@@ -59,6 +56,15 @@ object MechanismOfAction extends LazyLogging {
       .join(references, Seq("id"), "outer")
       .join(target, Seq("target_chembl_id"), "outer")
       .drop("mechanism_refs", "record_id", "target_chembl_id")
+      // filter to remove rows which don't require further processing. Including them results in a bug in the API.
+      .filter(
+        """
+          |mechanismOfAction is not null
+          |or references is not null
+          |or targetName is not null
+          |or targets is not null
+          |""".stripMargin
+      )
       .transform(nest(_: DataFrame,
                       List("mechanismOfAction", "references", "targetName", "targets"),
                       "rows"))
