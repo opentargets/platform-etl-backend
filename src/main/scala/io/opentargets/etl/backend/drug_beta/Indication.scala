@@ -1,5 +1,6 @@
 package io.opentargets.etl.backend.drug_beta
 
+import Indication.approvedIndications
 import com.typesafe.scalalogging.LazyLogging
 import io.opentargets.etl.backend.spark.Helpers
 import io.opentargets.etl.backend.spark.Helpers.nest
@@ -11,6 +12,7 @@ import org.apache.spark.sql.functions._
   *
   * Output schema:
   * id
+  * approvedIndications
   * indications
   * -- count
   * -- rows
@@ -20,10 +22,6 @@ import org.apache.spark.sql.functions._
   * ------ source
   * ------ ids
   * ------ urls
-  * indication_therapeutic_areas
-  * -- therapeutic_code
-  * -- therapeutic_label
-  * -- count
   */
 object Indication extends Serializable with LazyLogging {
 
@@ -44,6 +42,7 @@ object Indication extends Serializable with LazyLogging {
       .agg(collect_list("struct").as("rows"))
       .withColumn("count", size(col("rows")))
       .transform(nest(_: DataFrame, List("rows", "count"), "indications"))
+      .join(approvedIndications(indicationAndEfoDf), Seq("id"), "left_outer")
 
     indicationDf
   }
@@ -108,5 +107,11 @@ object Indication extends Serializable with LazyLogging {
   private def formatEfoIds(indicationDf: DataFrame): DataFrame = {
     indicationDf.withColumn("efo_id", regexp_replace(col("efo_id"), ":", "_"))
   }
+
+  private def approvedIndications(df: DataFrame): DataFrame =
+    df.select("id", "efo_id", "max_phase_for_indications")
+      .filter("max_phase_for_indications = 4")
+      .groupBy("id")
+      .agg(collect_set(col("efo_id")).as("approvedIndications"))
 
 }
