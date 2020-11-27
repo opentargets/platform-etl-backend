@@ -418,11 +418,11 @@ object Evidence extends LazyLogging {
     val commonReqFields = config.uniqueFields.toSet
     val dts = config.dataSources.map { dt =>
       (col("sourceId") === dt.id) -> (commonReqFields ++ dt.uniqueFields.toSet).toList.sorted
-        .map(x => col(x).cast(StringType))
+        .map(x => when(col(x).isNotNull, col(x).cast(StringType)).otherwise(""))
     }
 
     val defaultDts = commonReqFields.toList.sorted.map { x =>
-      col(x).cast(StringType)
+      when(col(x).isNotNull, col(x).cast(StringType)).otherwise("")
     }
 
     val hashes = dts.tail
