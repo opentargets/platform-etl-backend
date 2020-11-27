@@ -1,10 +1,10 @@
-package io.opentargets.etl.backend.DrugBeta
+package io.opentargets.etl.backend.Drug
 
 import io.opentargets.etl.backend.Configuration.InputExtension
-import io.opentargets.etl.backend.DrugBeta.CrossReferencesExtensionTest.SimpleCrossReference
-import io.opentargets.etl.backend.DrugBeta.SynonymExtensionTest.{Molecule, Synonym, SynonymArr, SynonymBadIdField, SynonymBadSynonymField, SynonymLong}
+import io.opentargets.etl.backend.Drug.CrossReferencesExtensionTest.SimpleCrossReference
+import io.opentargets.etl.backend.Drug.SynonymExtensionTest.{Molecule, Synonym, SynonymArr, SynonymBadIdField, SynonymBadSynonymField, SynonymLong}
 import io.opentargets.etl.backend.EtlSparkUnitTest
-import io.opentargets.etl.backend.drug_beta.DrugExtensions
+import io.opentargets.etl.backend.drug.DrugExtensions
 import io.opentargets.etl.backend.spark.Helpers.IOResourceConfig
 import org.apache.spark.sql.functions.{col, element_at, explode, flatten, map_keys, map_values, size => sparkSize}
 import org.apache.spark.sql.types.ArrayType

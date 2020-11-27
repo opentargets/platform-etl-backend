@@ -56,8 +56,8 @@ object Configuration extends LazyLogging {
   case class Inputs(
       target: InputInfo,
       disease: InputInfo,
-      drug: InputInfo,
-      drugBeta: DrugConfiguration,
+      drugEtl: InputInfo,
+      drug: DrugConfiguration,
       evidence: InputInfo,
       ddr: InputInfo,
       reactome: InputInfo,

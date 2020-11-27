@@ -205,22 +205,19 @@ The majority of the ETL was written to process data which has been prepared by t
  processing. It is intended that this pipeline will be deprecated; because of this some steps do not require inputs
   from the data pipeline to function correctly. These include:
   
-  - Drug-beta
+  - Drug
   
 ## Step notes
 
-### DrugBeta
+### Drug
 
-`DrugBeta` will eventually replace the `Drug` step in the pipeline, as well as supersede the step of the same name in
- the `data-pipeline` repository.
- 
 The primary input source of the Drug dataset is ChEMBL. ChEMBL contains almost 2 million molecules, most which are are 
 not 'drugs'. We define a drug to be any molecule that meets one or more of the following criteria: 
  - There is at least 1 known indication;
  - There is at least 1 known mechanism of action; or
  - The ChEMBL ID can be mapped to a DrugBank ID.  
  
-To run the `DrugBeta` step use the example command under `Create a fat JAR` with `drugBeta` as the step name. 
+To run the `Drug` step use the example command under `Create a fat JAR` with `drug` as the step name. 
  
 #### Adding additional resources to enrich data
 

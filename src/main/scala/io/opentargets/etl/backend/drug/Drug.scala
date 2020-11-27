@@ -1,8 +1,8 @@
-package io.opentargets.etl.backend.drug_beta
+package io.opentargets.etl.backend.drug
 
 import com.typesafe.scalalogging.LazyLogging
 import io.opentargets.etl.backend.ETLSessionContext
-import io.opentargets.etl.backend.drug_beta.DrugCommon._
+import io.opentargets.etl.backend.drug.DrugCommon._
 import io.opentargets.etl.backend.spark.Helpers
 import io.opentargets.etl.backend.spark.Helpers.IOResourceConfig
 import org.apache.spark.sql.functions.{array_contains, col, map_keys}
@@ -14,14 +14,14 @@ import org.apache.spark.sql.{DataFrame, SparkSession}
   * It incorporates processing which was previously done in the `data-pipeline` project and consolidates all the logic in
   * this class.
   */
-object DrugBeta extends Serializable with LazyLogging {
+object Drug extends Serializable with LazyLogging {
 
   def apply()(implicit context: ETLSessionContext): Unit = {
     implicit val ss: SparkSession = context.sparkSession
 
     import ss.implicits._
 
-    val drugInputs = context.configuration.common.inputs.drugBeta
+    val drugInputs = context.configuration.common.inputs.drug
 
     logger.info("Loading raw inputs for Drug beta step.")
     val mappedInputs = Map(

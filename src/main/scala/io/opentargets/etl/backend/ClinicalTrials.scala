@@ -186,7 +186,7 @@ object ClinicalTrials extends LazyLogging {
 
 //    val targets = LoadersCT.loadTargets(commonSec.inputs.target)
 //    val diseases = LoadersCT.loadDiseases(commonSec.inputs.disease)
-    val drugs = LoadersCT.loadDrugs(commonSec.inputs.drug.path)
+    val drugs = LoadersCT.loadDrugs(commonSec.inputs.drugEtl.path)
     val ctMap = LoadersCT.loadClinicalTrials(clinicalTrialsSec)
 
     val studies = ctMap("studies")

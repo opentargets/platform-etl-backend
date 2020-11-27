@@ -1,7 +1,7 @@
-package io.opentargets.etl.backend.DrugBeta
+package io.opentargets.etl.backend.Drug
 
 import io.opentargets.etl.backend.EtlSparkUnitTest
-import io.opentargets.etl.backend.drug_beta.Indication
+import io.opentargets.etl.backend.drug.Indication
 import io.opentargets.etl.backend.spark.Helpers
 import org.apache.spark.sql.{DataFrame, Dataset, Row, SparkSession}
 import org.apache.spark.sql.functions.col
