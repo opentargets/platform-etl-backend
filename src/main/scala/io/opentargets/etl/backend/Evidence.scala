@@ -3,6 +3,7 @@ package io.opentargets.etl.backend
 import com.typesafe.scalalogging.LazyLogging
 import io.opentargets.etl.backend.spark.Helpers.mkFlattenArray
 import org.apache.spark.sql._
+import org.apache.spark.sql.catalyst.analysis.UnresolvedStar
 import org.apache.spark.sql.expressions.Window
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.types._
@@ -209,8 +210,9 @@ object Evidence extends LazyLogging {
         _ => "studyOverview"
       ),
       flattenCAndSetN(coalesce(col("evidence.resource_score.value"),
-                               col("evidence.variant2disease.resource_score.value")),
-                      _ => "resourceScore"),
+        col("evidence.variant2disease.resource_score.value"),
+        col("evidence.disease_model_association.resource_score.value")),
+        _ => "resourceScore"),
       flattenC(col("evidence.significant_driver_methods")),
       H.trans(
         coalesce(col("evidence.urls"), col("evidence.variant2disease.urls")),
@@ -431,6 +433,13 @@ object Evidence extends LazyLogging {
     df.withColumn(columnName, scores)
   }
 
+  def checkNullifiedScores(df: DataFrame, scoreColumnName: String, columnName: String)(
+    implicit context: ETLSessionContext): DataFrame = {
+    val idC = col(scoreColumnName)
+
+    df.withColumn(columnName, idC.isNull)
+  }
+
   def markDuplicates(df: DataFrame, hashColumnName: String, columnName: String)(
       implicit context: ETLSessionContext): DataFrame = {
     val idC = col(hashColumnName)
@@ -471,13 +480,16 @@ object Evidence extends LazyLogging {
     val md = "markedDuplicate"
     val id = "id"
     val sc = "score"
+    val ns = "nullifiedScore"
 
     val statAggs = List(
       sum(when(col(rt) === false, 1).otherwise(0)).as(s"#$rt-false"),
       sum(when(col(rd) === false, 1).otherwise(0)).as(s"#$rd-false"),
       sum(when(col(md) === true, 1).otherwise(0)).as(s"#$md-true"),
+      sum(when(col(ns) === true, 1).otherwise(0)).as(s"#$ns-true"),
       countDistinct(when(col(rt) === false, col("targetId"))).as(s"#targetId"),
-      countDistinct(when(col(rd) === false, col("diseaseId"))).as(s"#diseaseId")
+      countDistinct(when(col(rd) === false, col("diseaseId"))).as(s"#diseaseId"),
+      count(lit(1)).as(s"#counts")
     )
 
     val transformedDF = dfs("rawEvidences")
@@ -486,13 +498,14 @@ object Evidence extends LazyLogging {
       .transform(resolveDiseases(_, rd))
       .transform(generateHashes(_, id))
       .transform(score(_, sc))
+      .transform(checkNullifiedScores(_, sc, ns))
       .transform(markDuplicates(_, id, md))
       .persist(StorageLevel.DISK_ONLY)
 
-    val okFitler = col(rt) and col(rd) and !col(md)
+    val okFitler = col(rt) and col(rd) and !col(md) and !col(ns)
 
     Map(
-      "evidences/out" -> transformedDF.filter(okFitler).drop(rt, rd, md),
+      "evidences/out" -> transformedDF.filter(okFitler).drop(rt, rd, md, ns),
       "evidences/fail" -> transformedDF.filter(not(okFitler)),
       "evidences/stats" -> transformedDF.filter(not(okFitler)).transform(stats(_, statAggs))
     )
