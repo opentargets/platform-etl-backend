@@ -12,14 +12,17 @@ import spark.{Helpers => H}
 
 object Evidence extends LazyLogging {
   object UDFs {
+
     /** apply the function f(x) to n using and old (start_range) and a new range.
       * pValue inRangeMin and inRangeMax have log10 applied before f(x) is calculated
       * where f(x) = (dNewRange / dOldRange * (n - old_range_lower_bound)) + new_lower
       * if cap is True then f(n) will be capped to new range boundaries
       * */
     def pValueLinearRescaling(pValue: Double,
-                              inRangeMin: Double, inRangeMax: Double,
-                              outRangeMin: Double, outRangeMax: Double): Double = {
+                              inRangeMin: Double,
+                              inRangeMax: Double,
+                              outRangeMin: Double,
+                              outRangeMax: Double): Double = {
       val pValueLog = Math.log10(pValue)
       val inRangeMinLog = Math.log10(inRangeMin)
       val inRangeMaxLog = Math.log10(inRangeMax)
@@ -27,15 +30,18 @@ object Evidence extends LazyLogging {
       linearRescaling(pValueLog, inRangeMinLog, inRangeMaxLog, outRangeMin, outRangeMax)
     }
 
-    def linearRescaling(value: Double, inRangeMin: Double, inRangeMax: Double,
-                        outRangeMin: Double, outRangeMax: Double): Double = {
+    def linearRescaling(value: Double,
+                        inRangeMin: Double,
+                        inRangeMax: Double,
+                        outRangeMin: Double,
+                        outRangeMax: Double): Double = {
       val delta1 = inRangeMax - inRangeMin
       val delta2 = outRangeMax - outRangeMin
 
       val score: Double = (delta1, delta2) match {
         case (d1, d2) if d1 != 0D => (d2 * (value - inRangeMin) / d1) + outRangeMin
-        case (0D, 0D) => value
-        case (0D, _) => outRangeMin
+        case (0D, 0D)             => value
+        case (0D, _)              => outRangeMin
       }
 
       Math.max(Math.min(score, outRangeMax), outRangeMin)
@@ -67,8 +73,8 @@ object Evidence extends LazyLogging {
 
     ss.sqlContext.udf.register("linear_rescale", UDFs.linearRescaling _)
     ss.sqlContext.udf.register("pvalue_linear_score", UDFs.pValueLinearRescaling _)
-    ss.sqlContext.udf.register("pvalue_linear_score_default",
-      UDFs.pValueLinearRescaling(_, 1, 1e-10, 0, 1))
+    ss.sqlContext.udf
+      .register("pvalue_linear_score_default", UDFs.pValueLinearRescaling(_, 1, 1e-10, 0, 1))
 
     val transformations = Map(
       flattenCAndSetN(col("sourceID"), _ => "sourceId"),
@@ -102,11 +108,13 @@ object Evidence extends LazyLogging {
       flattenCAndSetC(
         col("variant.id"),
         c => when(!($"sourceID" isInCollection List("eva", "eva_somatic")), H.stripIDFromURI(c))),
-      flattenCAndSetC(col("variant.rs_id"),
-                      c =>
-                        when($"sourceID" isInCollection List("eva", "eva_somatic"),
-                             H.stripIDFromURI($"variant.id"))
-                          .otherwise(H.stripIDFromURI(c))),
+      flattenCAndSetC(
+        col("variant.rs_id"),
+        c =>
+          when($"sourceID" isInCollection List("eva", "eva_somatic") and not($"unique_association_fields.variant_id" like "RCV%"),
+               $"unique_association_fields.variant_id")
+            .otherwise(H.stripIDFromURI(c))
+      ),
       H.trans(
         col("target.activity"),
         _ => "targetModulation",
@@ -114,11 +122,12 @@ object Evidence extends LazyLogging {
       ),
       flattenCAndSetN(
         flatten(
-          array(
-            coalesce(col("evidence.mode_of_inheritance"),
-              col("evidence.variant2disease.mode_of_inheritance"),
-                     array(col("evidence.allelic_requirement")),
-                     typedLit(Seq.empty[String])))),
+          array(coalesce(
+            col("evidence.mode_of_inheritance"),
+            col("evidence.variant2disease.mode_of_inheritance"),
+            array(col("evidence.allelic_requirement")),
+            typedLit(Seq.empty[String])
+          ))),
         _ => "allelicRequirements"
       ),
       flattenC(col("evidence.biological_model.allelic_composition")),
@@ -133,11 +142,12 @@ object Evidence extends LazyLogging {
       flattenCAndSetN(col("evidence.cohort.cohort_short_name"),
                       n => normAndCCase(n.replaceFirst("\\.cohort", ""))),
       flattenCAndSetN(col("evidence.comparison_name"), _ => "contrast"),
-      flattenCAndSetN(coalesce(
-        col("evidence.clinvar_rating.review_status"),
-        col("evidence.variant2disease.clinvar_rating.review_status"),
-                               col("evidence.confidence")),
-                      _ => "confidence"),
+      flattenCAndSetN(
+        coalesce(col("evidence.clinvar_rating.review_status"),
+                 col("evidence.variant2disease.clinvar_rating.review_status"),
+                 col("evidence.confidence")),
+        _ => "confidence"
+      ),
       H.trans(
         col("evidence.disease_model_association.human_phenotypes"),
         newNameFn = _ => "diseaseModelAssociatedHumanPhenotypes",
@@ -159,9 +169,6 @@ object Evidence extends LazyLogging {
       H.trans(col("evidence.gene2variant.functional_consequence"),
               _ => "variantFunctionalConsequenceId",
               H.stripIDFromURI),
-      flattenCAndSetN(when(col("sourceID") === "ot_genetics_portal",
-                           col("evidence.gene2variant.resource_score.value")),
-                      _ => "locus2GeneScore"),
       H.trans(
         col("evidence.variant2disease.provenance_type.literature.references"),
         _ => "publicationFirstAuthor",
@@ -174,18 +181,20 @@ object Evidence extends LazyLogging {
       ),
       flattenCAndSetN(
         when(col("sourceID") === "reactome", col("evidence.known_mutations.preferred_name")),
-        _ => "aminoacidDescriptions"
+        _ => "variantAminoacidDescriptions"
       ),
       H.trans(
         col("evidence.known_mutations"),
         _ => "mutatedSamples",
         c =>
-          when(col("sourceID") isInCollection List("intogen", "cancer_gene_census"),
+          when(
+            col("sourceID") isInCollection List("intogen", "cancer_gene_census"),
             transform(
               c,
               co =>
                 struct(
-                  when(col("sourceID") === "cancer_gene_census", H.stripIDFromURI(co.getField("functional_consequence")))
+                  when(col("sourceID") === "cancer_gene_census",
+                       H.stripIDFromURI(co.getField("functional_consequence")))
                     .as("functionalConsequenceId"),
                   co.getField("number_mutated_samples").as("numberMutatedSamples"),
                   co.getField("number_samples_tested").as("numberSamplesTested"),
@@ -193,7 +202,7 @@ object Evidence extends LazyLogging {
                     .as("numberSamplesWithMutationType")
               )
             )
-          )
+        )
       ),
       flattenCAndSetN(col("evidence.literature_ref.mined_sentences"), _ => "textMiningSentences"),
       flattenC(col("evidence.log2_fold_change.value")),
@@ -209,10 +218,21 @@ object Evidence extends LazyLogging {
         ),
         _ => "studyOverview"
       ),
-      flattenCAndSetN(coalesce(col("evidence.resource_score.value"),
-        col("evidence.variant2disease.resource_score.value"),
-        col("evidence.disease_model_association.resource_score.value")),
-        _ => "resourceScore"),
+      flattenCAndSetN(
+        when(
+          !(col("sourceID") isInCollection List("reactome",
+                                                "clingen",
+                                                "genomics_england",
+                                                "gene2phenotype")),
+          coalesce(
+            when(col("sourceID") === "ot_genetics_platform", col("evidence.gene2variant.resource_score.value")),
+            when(col("sourceID") =!= "ot_genetics_platform", col("evidence.variant2disease.resource_score.value")),
+            col("evidence.resource_score.value"),
+            col("evidence.disease_model_association.resource_score.value")
+          )
+        ),
+        _ => "resourceScore"
+      ),
       flattenC(col("evidence.significant_driver_methods")),
       H.trans(
         coalesce(col("evidence.urls"), col("evidence.variant2disease.urls")),
@@ -261,9 +281,9 @@ object Evidence extends LazyLogging {
               _ => "oddsRatio",
               c => when(c.isNotNull, c.cast(DoubleType))),
       flattenCAndSetN(col("evidence.variant2disease.resource_score.exponent"),
-                      _ => "resourceScoreExponent"),
+                      _ => "pValueExponent"),
       flattenCAndSetN(col("evidence.variant2disease.resource_score.mantissa"),
-                      _ => "resourceScoreMantissa"),
+                      _ => "pValueMantissa"),
       flattenCAndSetN(
         when(
           col("sourceID") =!= "phewas_catalog",
@@ -434,7 +454,7 @@ object Evidence extends LazyLogging {
   }
 
   def checkNullifiedScores(df: DataFrame, scoreColumnName: String, columnName: String)(
-    implicit context: ETLSessionContext): DataFrame = {
+      implicit context: ETLSessionContext): DataFrame = {
     val idC = col(scoreColumnName)
 
     df.withColumn(columnName, idC.isNull)
