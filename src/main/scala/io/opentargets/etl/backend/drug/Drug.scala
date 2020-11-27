@@ -98,7 +98,7 @@ object Drug extends Serializable with LazyLogging {
       .filter(drugMolecule)
       .transform(addDescription)
 
-    val outputs = Seq(drugInputs.output.split("/").last)
+    val outputs = Seq(drugInputs.drugOutput.split("/").last)
     logger.info(s"Writing outputs: ${outputs.mkString(",")}")
 
     val outputConfs =

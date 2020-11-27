@@ -183,9 +183,7 @@ object ClinicalTrials extends LazyLogging {
     implicit val ss = context.sparkSession
     import ss.implicits._
 
-//    val targets = LoadersCT.loadTargets(commonSec.inputs.target)
-//    val diseases = LoadersCT.loadDiseases(commonSec.inputs.disease)
-    val drugs = LoadersCT.loadDrugs(commonSec.inputs.drug.output)
+    val drugs = LoadersCT.loadDrugs(commonSec.inputs.drug.drugOutput)
     val ctMap = LoadersCT.loadClinicalTrials(clinicalTrialsSec)
 
     val studies = ctMap("studies")
