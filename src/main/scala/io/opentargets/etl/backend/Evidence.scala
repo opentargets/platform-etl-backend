@@ -350,21 +350,21 @@ object Evidence extends LazyLogging {
     reshapedDF
   }
 
-  def resolveTargets(df: DataFrame, columnName: String)(
+  def resolveTargets(df: DataFrame, columnName: String, fromId: String, toId: String)(
       implicit context: ETLSessionContext): DataFrame = {
     def generateTargetsLUT(df: DataFrame): DataFrame = {
       df.select(
-          col("id"),
-          mkFlattenArray(
+          col("id").as("dId"),
+          array_distinct(mkFlattenArray(
             array(col("id")),
             array(col("proteinAnnotations.id")),
             col("proteinAnnotations.accessions"),
             array(col("approvedSymbol")),
             col("symbolSynonyms")
-          ).as("rIds")
+          )).as("rIds")
         )
         .withColumn("rId", explode(col("rIds")))
-        .select("id", "rId")
+        .select("dId", "rId")
     }
 
     logger.info("target resolution evidences and write to out the ones didn't resolve")
@@ -380,16 +380,20 @@ object Evidence extends LazyLogging {
         .repartition($"rId")
     )
 
+    val tmpColName = "_tempColName"
+    val tmpCol = if (df.columns.contains(toId)) coalesce(col(toId), col(fromId)) else col(fromId)
+
     val resolved = df
-      .join(lut, col("targetId") === col("rId"), "left_outer")
-      .withColumn(columnName, col("id").isNotNull)
-      .withColumn("targetId", coalesce(col("id"), col("targetId")))
-      .drop("id", "rId")
+      .withColumn(tmpColName, tmpCol)
+      .join(lut, col(tmpColName) === col("rId"), "left_outer")
+      .withColumn(columnName, col("dId").isNotNull)
+      .withColumn(toId, coalesce(col("dId"), col(tmpColName)))
+      .drop("dId", "rId", tmpColName)
 
     resolved
   }
 
-  def resolveDiseases(df: DataFrame, columnName: String)(
+  def resolveDiseases(df: DataFrame, columnName: String, fromId: String, toId: String)(
       implicit context: ETLSessionContext): DataFrame = {
     logger.info("disease resolution evidences and write to out the ones didn't resolve")
 
@@ -404,10 +408,15 @@ object Evidence extends LazyLogging {
         .repartition($"dId")
     )
 
+    val tmpColName = "_tempColName"
+    val tmpCol = if (df.columns.contains(toId)) coalesce(col(toId), col(fromId)) else col(fromId)
+
     val resolved = df
-      .join(lut, col("diseaseId") === col("dId"), "left_outer")
+      .withColumn(tmpColName, tmpCol)
+      .join(lut, col(tmpColName) === col("dId"), "left_outer")
       .withColumn(columnName, col("dId").isNotNull)
-      .drop("dId")
+      .withColumn(toId, coalesce(col("dId"), col(tmpColName)))
+      .drop("dId", tmpColName)
 
     resolved
   }
@@ -505,21 +514,25 @@ object Evidence extends LazyLogging {
     val id = "id"
     val sc = "score"
     val ns = "nullifiedScore"
+    val targetId = "targetId"
+    val diseaseId = "diseaseId"
+    val fromTargetId = "targetFromSourceId"
+    val fromDiseaseId = "diseaseFromSourceId"
 
     val statAggs = List(
       sum(when(col(rt) === false, 1).otherwise(0)).as(s"#$rt-false"),
       sum(when(col(rd) === false, 1).otherwise(0)).as(s"#$rd-false"),
       sum(when(col(md) === true, 1).otherwise(0)).as(s"#$md-true"),
       sum(when(col(ns) === true, 1).otherwise(0)).as(s"#$ns-true"),
-      countDistinct(when(col(rt) === false, col("targetId"))).as(s"#targetId"),
-      countDistinct(when(col(rd) === false, col("diseaseId"))).as(s"#diseaseId"),
+      countDistinct(when(col(rt) === false, col(targetId))).as(s"#$targetId"),
+      countDistinct(when(col(rd) === false, col(diseaseId))).as(s"#$diseaseId"),
       count(lit(1)).as(s"#counts")
     )
 
     val transformedDF = dfs("rawEvidences")
       .transform(reshape)
-      .transform(resolveTargets(_, rt))
-      .transform(resolveDiseases(_, rd))
+      .transform(resolveTargets(_, rt, fromTargetId, targetId))
+      .transform(resolveDiseases(_, rd, fromDiseaseId, diseaseId))
       .transform(generateHashes(_, id))
       .transform(score(_, sc))
       .transform(checkNullifiedScores(_, sc, ns))
