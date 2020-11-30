@@ -11,6 +11,7 @@ import org.apache.spark.storage.StorageLevel
 import spark.{Helpers => H}
 
 object Evidence extends LazyLogging {
+
   object UDFs {
 
     /** apply the function f(x) to n using and old (start_range) and a new range.
@@ -111,14 +112,15 @@ object Evidence extends LazyLogging {
       flattenCAndSetC(
         col("variant.rs_id"),
         c =>
-          when($"sourceID" isInCollection List("eva", "eva_somatic") and not($"unique_association_fields.variant_id" like "RCV%"),
+          when($"sourceID" isInCollection List("eva", "eva_somatic") and not(
+                 $"unique_association_fields.variant_id" like "RCV%"),
                $"unique_association_fields.variant_id")
             .otherwise(H.stripIDFromURI(c))
       ),
       H.trans(
         col("target.activity"),
         _ => "targetModulation",
-        c => when(col("sourceID") === "reactome", c)
+        c => when(col("sourceID") === "reactome", H.stripIDFromURI(c))
       ),
       flattenCAndSetN(
         flatten(
@@ -223,10 +225,13 @@ object Evidence extends LazyLogging {
           !(col("sourceID") isInCollection List("reactome",
                                                 "clingen",
                                                 "genomics_england",
-                                                "gene2phenotype")),
+                                                "gene2phenotype",
+                                                "eva",
+                                                "eva_somatic")),
           coalesce(
-            when(col("sourceID") === "ot_genetics_platform", col("evidence.gene2variant.resource_score.value")),
-            when(col("sourceID") =!= "ot_genetics_platform", col("evidence.variant2disease.resource_score.value")),
+            when(col("sourceID") === "oot_genetics_portal",
+                 col("evidence.gene2variant.resource_score.value"))
+              .otherwise(col("evidence.variant2disease.resource_score.value")),
             col("evidence.resource_score.value"),
             col("evidence.disease_model_association.resource_score.value")
           )
@@ -235,13 +240,6 @@ object Evidence extends LazyLogging {
       ),
       flattenC(col("evidence.significant_driver_methods")),
       H.trans(
-        coalesce(col("evidence.urls"), col("evidence.variant2disease.urls")),
-        _ => "recordId",
-        c =>
-          when(col("sourceID") isInCollection List("eva", "eva_somatic", "clingen"),
-               transform(c, co => H.stripIDFromURI(co.getField("url"))).getItem(0))
-      ),
-      H.trans(
         coalesce(col("evidence.variant2disease.urls"), col("evidence.urls")),
         _ => "pathwayId",
         c =>
@@ -249,18 +247,25 @@ object Evidence extends LazyLogging {
                transform(c, co => ltrim(H.stripIDFromURI(co.getField("url")), "#")).getItem(0))
       ),
       H.trans(
-        coalesce(col("evidence.variant2disease.urls"), col("evidence.urls")),
+        coalesce(
+          col("unique_association_fields.gene_set"),
+          col("evidence.variant2disease.urls"),
+          col("evidence.urls")
+        ),
         _ => "pathwayName",
         c =>
           when(col("sourceID") isInCollection List("progeny", "reactome", "slapenrich"),
                trim(transform(c, co => co.getField("nice_name")).getItem(0)))
       ),
       H.trans(
-        coalesce(
-          col("evidence.study_id"),
-          col("evidence.variant2disease.study_link"),
-          col("evidence.urls").getItem(0).getField("url"),
-          col("evidence.variant2disease.urls").getItem(0).getField("url")
+        when(
+          !(col("sourceID") isInCollection List("progeny", "reactome", "slapenrich")),
+          coalesce(
+            col("evidence.study_id"),
+            col("evidence.variant2disease.study_link"),
+            col("evidence.urls").getItem(0).getField("url"),
+            col("evidence.variant2disease.urls").getItem(0).getField("url")
+          )
         ),
         _ => "studyId",
         H.stripIDFromURI
@@ -296,8 +301,7 @@ object Evidence extends LazyLogging {
                     array(col("evidence.resource_score.method.reference"))
                   ).otherwise(array()),
                   when(
-                    !col("sourceID").isInCollection(
-                      List("slapenrich", "intogen", "progeny", "gene2phenotype")),
+                    !(col("sourceID") isInCollection List("slapenrich", "intogen", "progeny")),
                     transform(coalesce(col("evidence.provenance_type.literature.references"),
                                        array()),
                               c => c.getField("lit_id"))
