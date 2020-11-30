@@ -229,7 +229,7 @@ object Evidence extends LazyLogging {
                                                 "eva",
                                                 "eva_somatic")),
           coalesce(
-            when(col("sourceID") === "oot_genetics_portal",
+            when(col("sourceID") === "ot_genetics_portal",
                  col("evidence.gene2variant.resource_score.value"))
               .otherwise(col("evidence.variant2disease.resource_score.value")),
             col("evidence.resource_score.value"),
