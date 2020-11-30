@@ -248,7 +248,6 @@ object Evidence extends LazyLogging {
       ),
       H.trans(
         coalesce(
-          col("unique_association_fields.gene_set"),
           col("evidence.variant2disease.urls"),
           col("evidence.urls")
         ),
@@ -256,6 +255,7 @@ object Evidence extends LazyLogging {
         c =>
           when(col("sourceID") isInCollection List("progeny", "reactome", "slapenrich"),
                trim(transform(c, co => co.getField("nice_name")).getItem(0)))
+            .when(col("sourceID") === "sysbio", col("unique_association_fields.gene_set"))
       ),
       H.trans(
         when(
