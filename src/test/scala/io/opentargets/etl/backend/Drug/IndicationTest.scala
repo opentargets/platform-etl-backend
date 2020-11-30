@@ -1,10 +1,11 @@
 package io.opentargets.etl.backend.Drug
 
+import io.opentargets.etl.backend.Drug.IndicationTest.IndicationRow
 import io.opentargets.etl.backend.EtlSparkUnitTest
 import io.opentargets.etl.backend.drug.Indication
 import io.opentargets.etl.backend.spark.Helpers
 import org.apache.spark.sql.{DataFrame, Dataset, Row, SparkSession}
-import org.apache.spark.sql.functions.col
+import org.apache.spark.sql.functions.{col, explode}
 import org.apache.spark.sql.types.{StringType, StructField, StructType}
 
 object IndicationTest {
@@ -13,12 +14,28 @@ object IndicationTest {
     sparkSession.read.json(this.getClass.getResource("/indication_test30.jsonl").getPath)
   def efoDf(implicit sparkSession: SparkSession): DataFrame =
     sparkSession.read.parquet(this.getClass.getResource("/efo_sample.parquet").getPath)
+  case class IndicationRow(id: String, efo_id: String, max_phase_for_indications: Int)
 }
 
 class IndicationTest extends EtlSparkUnitTest {
 
   val getEfoDataFrame: PrivateMethod[Dataset[Row]] = PrivateMethod[Dataset[Row]]('getEfoDataframe)
+  val approvedIndications: PrivateMethod[Dataset[Row]] = PrivateMethod[Dataset[Row]]('approvedIndications)
   import sparkSession.implicits._
+
+  "Approved indications" should "filter indications with phase 4 clinical trials" in {
+    // given
+    val df: DataFrame = Seq(
+      IndicationRow("CHEMBL1", "EFO_1", 2),
+      IndicationRow("CHEMBL1", "EFO_2", 2),
+      IndicationRow("CHEMBL1", "EFO_3", 4),
+      IndicationRow("CHEMBL1", "EFO_4", 4),
+    ).toDF
+    // when
+    val results = Indication invokePrivate approvedIndications(df)
+    // then
+    assertResult(2)(results.select(explode(col("approvedIndications"))).count)
+  }
 
   "Processing EFO metadata" should "return a dataframe with the EFO's id, label and uri" in {
     // given
@@ -82,7 +99,7 @@ class IndicationTest extends EtlSparkUnitTest {
     // when
     val results: DataFrame = Indication(indicationDf, efoDf)(sparkSession)
     // then
-    val expectedColumns: Set[String] = Set("id", "indications")
+    val expectedColumns: Set[String] = Set("id", "indications", "approvedIndications")
 
     assert(
       results.columns
