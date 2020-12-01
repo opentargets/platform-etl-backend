@@ -7,6 +7,7 @@
 /target
 /project/project
 /project/target
+/elasticsearch/target
 /src/target
 /input/
 /output

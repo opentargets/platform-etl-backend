@@ -4,7 +4,7 @@ import com.typesafe.scalalogging.LazyLogging
 
 import scala.util._
 import io.opentargets.etl.backend._
-import io.opentargets.etl.backend.drug_beta.DrugBeta
+import io.opentargets.etl.backend.drug.Drug
 
 object ETL extends LazyLogging {
 
@@ -16,9 +16,9 @@ object ETL extends LazyLogging {
       case "clinicalTrials" =>
         logger.info("run step clinicaltrials")
         ClinicalTrials()
-      case "drugBeta" =>
-        logger.info("run step drugBeta")
-        DrugBeta()
+      case "drug" =>
+        logger.info("run step drug")
+        Drug()
       case "evidenceDrug" =>
         logger.info("run step evidenceDrug")
         EvidenceDrug()
@@ -46,9 +46,6 @@ object ETL extends LazyLogging {
       case "eco" =>
         logger.info("run step eco")
         Eco()
-      case "drug" =>
-        logger.info("run step drug")
-        Drug()
       case "interactions" =>
         logger.info("run step interactions")
         Interactions()

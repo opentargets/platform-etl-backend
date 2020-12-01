@@ -52,12 +52,12 @@ object Configuration extends LazyLogging {
                                 diseasePipeline: InputInfo,
                                 targetPipeline: InputInfo,
                                 evidencePipeline: InputInfo,
+                                drugOutput: String
   )
   case class Inputs(
       target: InputInfo,
       disease: InputInfo,
-      drug: InputInfo,
-      drugBeta: DrugConfiguration,
+      drug: DrugConfiguration,
       evidence: InputInfo,
       ddr: InputInfo,
       reactome: InputInfo,

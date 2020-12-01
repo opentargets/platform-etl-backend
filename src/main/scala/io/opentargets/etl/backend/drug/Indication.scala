@@ -1,4 +1,4 @@
-package io.opentargets.etl.backend.drug_beta
+package io.opentargets.etl.backend.drug
 
 import Indication.approvedIndications
 import com.typesafe.scalalogging.LazyLogging

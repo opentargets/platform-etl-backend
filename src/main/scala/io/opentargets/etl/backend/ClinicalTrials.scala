@@ -47,18 +47,17 @@ object LoadersCT extends LazyLogging {
     logger.info("load drugs jsonl")
     val drugs = ss.read
       .json(path)
-      .where($"number_of_mechanisms_of_action" > 0)
+      .where(size(col("mechanismsOfAction.rows")) > 0)
       .withColumn(
         "drug_names",
-        expr("transform(concat(array(pref_name), synonyms, trade_names), x -> lower(x))")
+        expr("transform(concat(array(name), synonyms, tradeNames), x -> lower(x))")
       )
       .selectExpr(
         "id as drug_id",
-        "lower(pref_name) as drug_name",
+        "lower(name) as drug_name",
         "drug_names",
         "indications as drug_indications",
-        "mechanisms_of_action as drug_mechanisms_of_action",
-        "indication_therapeutic_areas as drug_indication_therapeutic_areas"
+        "mechanismsOfAction.rows.mechanismOfAction as drug_mechanisms_of_action"
       )
 
     drugs
@@ -184,9 +183,7 @@ object ClinicalTrials extends LazyLogging {
     implicit val ss = context.sparkSession
     import ss.implicits._
 
-//    val targets = LoadersCT.loadTargets(commonSec.inputs.target)
-//    val diseases = LoadersCT.loadDiseases(commonSec.inputs.disease)
-    val drugs = LoadersCT.loadDrugs(commonSec.inputs.drug.path)
+    val drugs = LoadersCT.loadDrugs(commonSec.inputs.drug.drugOutput)
     val ctMap = LoadersCT.loadClinicalTrials(clinicalTrialsSec)
 
     val studies = ctMap("studies")
@@ -266,6 +263,14 @@ object ClinicalTrials extends LazyLogging {
     val drugsExploded = drugs
       .withColumn("drug_name_exploded", explode($"drug_names"))
 
+    /**
+      * creates DataFrame: {
+      *   nct_id
+      *   drugs
+      *     - drug_id
+      *     - drug_mechanisms_of_action
+    *     }
+      */
     val studiesWithInterventions = studiesWithCitations
       .select("nct_id", "intervention_names")
       .withColumn(
@@ -301,9 +306,9 @@ object ClinicalTrials extends LazyLogging {
       .withColumn(
         "targets",
         expr(
-          "array_distinct(flatten(transform(drug.drug_mechanisms_of_action," +
-            "x -> transform(x.target_components, " +
-            "y -> y.ensembl))))"
+          "array_distinct(flatten(transform(drug.mechanismsOfAction," +
+            "x -> transform(x.rows, " +
+            "y -> y.targets))))"
         )
       )
       .where($"targets".isNotNull and (size($"targets") > 0))

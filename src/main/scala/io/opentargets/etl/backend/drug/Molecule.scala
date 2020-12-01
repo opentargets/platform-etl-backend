@@ -1,4 +1,4 @@
-package io.opentargets.etl.backend.drug_beta
+package io.opentargets.etl.backend.drug
 
 import com.typesafe.scalalogging.LazyLogging
 import io.opentargets.etl.backend.Configuration.InputExtension
@@ -17,8 +17,7 @@ import org.apache.spark.sql.functions.{
   split,
   typedLit,
   udf,
-  upper,
-  when
+  upper
 }
 import org.apache.spark.sql.{DataFrame, SparkSession, functions}
 import io.opentargets.etl.backend.spark.Helpers.nest
