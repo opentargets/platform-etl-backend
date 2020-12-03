@@ -1,0 +1,119 @@
+package io.opentargets.etl.backend
+
+import org.apache.spark.SparkConf
+import com.typesafe.scalalogging.LazyLogging
+import org.apache.spark.sql.functions._
+import org.apache.spark.sql.functions.col
+import org.apache.spark.sql._
+import org.apache.spark.sql.types._
+import com.typesafe.config.Config
+import io.opentargets.etl.backend.spark.Helpers
+import io.opentargets.etl.backend.spark.Helpers.{IOResourceConfig, stripIDFromURI}
+import org.apache.spark.storage.StorageLevel
+
+object KnownDrugsHelpers {
+    def aggregateDrugsByOntology(df: DataFrame)(implicit ss: SparkSession): DataFrame = {
+      import ss.implicits._
+
+      val dfDirect = df
+        .groupBy(
+          col("diseaseId"),
+          col("drugId"),
+          col("clinicalPhase").as("phase"),
+          col("clinicalStatus").as("status"),
+          col("targetId")
+        )
+        .agg(
+          array_distinct(flatten(collect_list(col("clinicalUrls")))).as("urls"),
+          // case class KnownDrug( mechanismOfAction: String,
+          //
+          //                     ctIds: Seq[String])
+          // TODO not sure we have this
+          first(col("evidence.target2drug.mechanism_of_action")).as("mechanism_of_action"), // MOA
+          first(col("targetModulation")).as("activity") // activity
+        )
+
+      dfDirect
+    }
+}
+
+object KnownDrugs extends LazyLogging {
+  def compute(datasources: Seq[String], inputs: Map[String, DataFrame])(implicit context: ETLSessionContext): Map[String, DataFrame] = {
+    implicit val ss = context.sparkSession
+    import ss.implicits._
+    import KnownDrugsHelpers._
+
+    val diseases = inputs("disease")
+      .select(
+        $"id".as("diseaseId"),
+        $"ancestors",
+        $"name".as("label")
+      ).orderBy($"diseaseId".asc).persist(StorageLevel.DISK_ONLY)
+
+    val targets = inputs("target")
+      .select(
+        $"id".as("targetId"),
+        $"approvedSymbol",
+        $"approvedName",
+        array_distinct(transform(expr("proteinAnnotations.classes"),c =>
+          c.getField("l1").getField("label")).as("targetClass")
+        )
+      ).orderBy($"targetId".asc).persist(StorageLevel.DISK_ONLY)
+
+    val drugs = inputs("drug")
+      .select(
+        $"id".as("drugId"),
+        $"prefName",
+        $"drugType"
+      ).orderBy($"drugId".asc).persist(StorageLevel.DISK_ONLY)
+
+    val knownDrugsDF = inputs("evidence")
+      .filter($"sourceId" isInCollection datasources)
+      .transform(aggregateDrugsByOntology)
+      .join(diseases, Seq("diseaseId"))
+      .join(targets, Seq("targetId"))
+      .join(drugs, Seq("drugId"))
+
+    Map(
+      "knownDrugs" -> knownDrugsDF
+    )
+  }
+
+  def apply()(implicit context: ETLSessionContext) = {
+    implicit val ss = context.sparkSession
+    import ss.implicits._
+    import KnownDrugsHelpers._
+
+    val common = context.configuration.common
+    val mappedInputs = Map(
+      "evidence" -> IOResourceConfig(
+        common.outputFormat,
+        common.output + "/evidences/out"
+      ),
+      "disease" -> IOResourceConfig(
+        common.outputFormat,
+        common.output + "/disease"
+      ),
+      "target" -> IOResourceConfig(
+        common.outputFormat,
+        common.output + "/targets"
+      ),
+      "drug" -> IOResourceConfig(
+        common.outputFormat,
+        s"${common.output}/${context.configuration.common.inputs.drug.drugOutput.split("/").last}"
+      )
+    )
+    val inputDataFrame = Helpers.readFrom(mappedInputs)
+
+    val dfDirectInfoAnnotated = compute(List("chembl"), inputDataFrame)
+
+    val outputConfs = dfDirectInfoAnnotated.keys.map {
+      name =>
+        name -> IOResourceConfig(
+          context.configuration.common.outputFormat,
+          s"${context.configuration.common.output}/$name")
+    }
+
+    Helpers.writeTo(outputConfs.toMap, dfDirectInfoAnnotated)
+  }
+}

@@ -3,7 +3,8 @@
 
 FOLDERS="sourceId=cancer_gene_census
 sourceId=chembl
-sourceId=clingen sourceId=crispr
+sourceId=clingen
+sourceId=crispr
 sourceId=europepmc
 sourceId=eva
 sourceId=eva_somatic
@@ -19,10 +20,9 @@ sourceId=reactome
 sourceId=slapenrich
 sourceId=sysbio
 sourceId=uniprot_literature
-sourceId=uniprot_somatic
 "
 
-FOLDER_PREFIX="/home/mkarmona/src/opentargets/platform-etl-backend/out/etl/20.09/iter8/json/processedEvidences"
+FOLDER_PREFIX="/home/mkarmona/src/opentargets/platform-etl-backend/out/etl/20.11/iter13/json/evidences/out"
 
 for folder in $FOLDERS; do
   IFS='=' read -ra tokens <<< "$folder"
