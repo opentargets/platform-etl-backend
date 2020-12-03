@@ -60,6 +60,7 @@ object Transformers {
 
   /** NOTE finding drugs from associations are computed just using direct assocs
     *  otherwise drugs are spread traversing all efo tree.
+    *  returns Dataframe with ["association_id", "drug_ids", "target_id", "disease_id"]
     */
   def findAssociationsWithDrugs(evidence: DataFrame): DataFrame = {
     evidence
@@ -332,6 +333,7 @@ object Transformers {
         .selectExpr(searchFields: _*)
     }
 
+    // uses target_ids, drug_id, target_labels, disease_id, disease_labels
     def setIdAndSelectFromDrugs(
         associatedDrugs: DataFrame,
         targets: DataFrame,
@@ -453,8 +455,8 @@ object Search extends LazyLogging {
         common.inputs.disease.path
       ),
       "drug" -> IOResourceConfig(
-        common.inputs.drug.format,
-        common.inputs.drug.path
+        common.inputs.drug.drugOutput,
+        "json"
       ),
       "evidence" -> IOResourceConfig(
         common.inputs.evidence.format,
@@ -499,15 +501,15 @@ object Search extends LazyLogging {
       .orderBy("disease_id")
       .persist(StorageLevel.DISK_ONLY)
 
-    val drLUT = drugs
-      .withColumn("descriptions", col("mechanisms_of_action.description"))
+    // DataFrame with [drug_id, drug_labels]
+    val drLUT: DataFrame = drugs
       .withColumn(
         "drug_labels",
-        C.flattenCat(
+        flattenCat(
           "synonyms",
-          "trade_names",
-          "array(pref_name)",
-          "descriptions"
+          "tradeNames",
+          "array(name)",
+          "mechanismsOfAction.rows.mechanismOfAction"
         )
       )
       .select("drug_id", "drug_labels")

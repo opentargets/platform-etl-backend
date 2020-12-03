@@ -1,8 +1,8 @@
-package io.opentargets.etl.backend.DrugBeta
+package io.opentargets.etl.backend.Drug
 
-import io.opentargets.etl.backend.DrugBeta.MoleculeTest.{XRef, getSampleHierarchyData, getSampleSynonymData}
+import io.opentargets.etl.backend.Drug.MoleculeTest.{XRef, getSampleHierarchyData, getSampleSynonymData}
 import io.opentargets.etl.backend.EtlSparkUnitTest
-import io.opentargets.etl.backend.drug_beta.Molecule
+import io.opentargets.etl.backend.drug.Molecule
 import org.apache.spark.sql.functions.{array_contains, col, map_keys}
 import org.apache.spark.sql.types._
 import org.apache.spark.sql.{DataFrame, Dataset, Row, SparkSession}

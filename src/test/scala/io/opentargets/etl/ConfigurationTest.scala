@@ -12,11 +12,11 @@ class ConfigurationTest extends AnyFlatSpecLike with Matchers {
     assert(conf.isRight, s"Failed with ${conf.left}")
   }
 
-  "The parsed configuration" should "include all necessary segments for the drug-beta step" in {
+  "The parsed configuration" should "include all necessary segments for the drug step" in {
     def checkFormatAndPath(ii: InputInfo): Boolean = (ii.path nonEmpty) && (ii.format nonEmpty)
     val conf = Configuration.config.right.get
-    val inputs = conf.common.inputs.drugBeta
-    val inputsForDrugBetaStep = List(
+    val inputs = conf.common.inputs.drug
+    val inputsForDrugStep = List(
       inputs.chemblIndication,
       inputs.chemblMechanism,
       inputs.chemblMolecule,
@@ -27,6 +27,6 @@ class ConfigurationTest extends AnyFlatSpecLike with Matchers {
       inputs.evidencePipeline
     )
 
-    assert(inputsForDrugBetaStep.forall(checkFormatAndPath))
+    assert(inputsForDrugStep.forall(checkFormatAndPath))
   }
 }
