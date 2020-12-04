@@ -1,6 +1,5 @@
 package io.opentargets.etl.backend.drug
 
-import Indication.approvedIndications
 import com.typesafe.scalalogging.LazyLogging
 import io.opentargets.etl.backend.spark.Helpers
 import io.opentargets.etl.backend.spark.Helpers.nest

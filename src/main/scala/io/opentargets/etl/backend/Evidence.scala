@@ -541,10 +541,11 @@ object Evidence extends LazyLogging {
 
     val okFitler = col(rt) and col(rd) and !col(md) and !col(ns)
 
+    val outputPath = context.configuration.evidences.output.stripSuffix("/")
     Map(
-      "evidences/out" -> transformedDF.filter(okFitler).drop(rt, rd, md, ns),
-      "evidences/fail" -> transformedDF.filter(not(okFitler)),
-      "evidences/stats" -> transformedDF.filter(not(okFitler)).transform(stats(_, statAggs))
+      outputPath -> transformedDF.filter(okFitler).drop(rt, rd, md, ns),
+      s"${outputPath}_fail" -> transformedDF.filter(not(okFitler)),
+      s"${outputPath}_stats" -> transformedDF.filter(not(okFitler)).transform(stats(_, statAggs))
     )
   }
 
@@ -556,7 +557,7 @@ object Evidence extends LazyLogging {
 
     val outputs = processedEvidences.keys map (name =>
       name -> H.IOResourceConfig(commonSec.outputFormat,
-                                 commonSec.output + s"/$name",
+                                 name,
                                  partitionBy = Seq("sourceId")))
 
     H.writeTo(outputs.toMap, processedEvidences)

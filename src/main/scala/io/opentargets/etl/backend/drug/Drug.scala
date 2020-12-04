@@ -19,9 +19,7 @@ object Drug extends Serializable with LazyLogging {
   def apply()(implicit context: ETLSessionContext): Unit = {
     implicit val ss: SparkSession = context.sparkSession
 
-    import ss.implicits._
-
-    val drugInputs = context.configuration.common.inputs.drug
+    val drugInputs = context.configuration.drug
 
     logger.info("Loading raw inputs for Drug beta step.")
     val mappedInputs = Map(
@@ -99,7 +97,7 @@ object Drug extends Serializable with LazyLogging {
       .transform(addDescription)
       .transform(cleanup)
 
-    val outputs = Seq(drugInputs.drugOutput.split("/").last)
+    val outputs = Seq(drugInputs.output.split("/").last)
     logger.info(s"Writing outputs: ${outputs.mkString(",")}")
 
     val outputConfs =

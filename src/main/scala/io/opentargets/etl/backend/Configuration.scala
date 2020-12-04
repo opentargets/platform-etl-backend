@@ -16,9 +16,11 @@ object Configuration extends LazyLogging {
   case class EvidencesSection(input: InputInfo,
                               uniqueFields: List[String],
                               scoreExpr: String,
-                              dataSources: List[EvidenceEntry])
+                              dataSources: List[EvidenceEntry],
+                              output: String)
 
   case class AssociationsSection(
+      output: String,
       defaultWeight: Double,
       defaultPropagate: Boolean,
       dataSources: List[DataSource]
@@ -50,7 +52,7 @@ object Configuration extends LazyLogging {
 
   case class InputInfo(format: String, path: String)
   case class InputExtension(extensionType: String, path: String)
-  case class DrugConfiguration(
+  case class DrugSection(
                                 chemblMolecule: InputInfo,
                                 chemblIndication: InputInfo,
                                 chemblMechanism: InputInfo,
@@ -60,13 +62,12 @@ object Configuration extends LazyLogging {
                                 diseasePipeline: InputInfo,
                                 targetPipeline: InputInfo,
                                 evidencePipeline: InputInfo,
-                                drugOutput: String
+                                output: String
   )
 
   case class Inputs(
       target: InputInfo,
       disease: InputInfo,
-      drug: DrugConfiguration,
       evidence: InputInfo,
       ddr: InputInfo,
       reactome: InputInfo,
@@ -79,14 +80,18 @@ object Configuration extends LazyLogging {
 
   case class Common(defaultSteps: Seq[String], inputs: Inputs, output: String, outputFormat: String)
 
+  case class KnownDrugsSection(evidencesPath: String, diseasesPath: String, targetsPath: String, drugsPath: String)
+
   case class OTConfig(
-      sparkUri: Option[String],
-      common: Common,
-      clinicalTrials: ClinicalTrials,
-      dailymed: Dailymed,
-      evidenceProteinFix: EvidenceProteinFix,
-      associations: AssociationsSection,
-      evidences: EvidencesSection
+                       sparkUri: Option[String],
+                       common: Common,
+                       clinicalTrials: ClinicalTrials,
+                       dailymed: Dailymed,
+                       evidenceProteinFix: EvidenceProteinFix,
+                       associations: AssociationsSection,
+                       evidences: EvidencesSection,
+                       drug: DrugSection,
+                       knownDrugs: KnownDrugsSection
   )
 
   def load: ConfigReader.Result[OTConfig] = {

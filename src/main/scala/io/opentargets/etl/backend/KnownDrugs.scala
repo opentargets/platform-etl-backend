@@ -25,9 +25,7 @@ object KnownDrugsHelpers {
         )
         .agg(
           array_distinct(flatten(collect_list(col("clinicalUrls")))).as("urls"),
-          // case class KnownDrug( mechanismOfAction: String,
-          //
-          //                     ctIds: Seq[String])
+          // case class KnownDrug( mechanismOfAction: String
           // TODO not sure we have this
           first(col("evidence.target2drug.mechanism_of_action")).as("mechanism_of_action"), // MOA
           first(col("targetModulation")).as("activity") // activity
@@ -63,16 +61,24 @@ object KnownDrugs extends LazyLogging {
     val drugs = inputs("drug")
       .select(
         $"id".as("drugId"),
-        $"prefName",
-        $"drugType"
-      ).orderBy($"drugId".asc).persist(StorageLevel.DISK_ONLY)
+        $"name".as("prefName"),
+        $"drugType",
+        $"mechanismsOfAction".getField("rows").as("moas")
+      )
+      .filter(size($"moas") > 0)
+      .withColumn("moa", explode($"moas"))
+      .select($"drugId", expr("moa.*"))
+      .filter(size($"targets") > 0)
+      .withColumn("targetId", explode($"targets"))
+      .drop("targets")
+      .orderBy($"drugId".asc, $"targetId".asc).persist(StorageLevel.DISK_ONLY)
 
     val knownDrugsDF = inputs("evidence")
       .filter($"sourceId" isInCollection datasources)
       .transform(aggregateDrugsByOntology)
       .join(diseases, Seq("diseaseId"))
       .join(targets, Seq("targetId"))
-      .join(drugs, Seq("drugId"))
+      .join(drugs, Seq("drugId", "targetId"))
 
     Map(
       "knownDrugs" -> knownDrugsDF
@@ -84,23 +90,24 @@ object KnownDrugs extends LazyLogging {
     import ss.implicits._
     import KnownDrugsHelpers._
 
+    // TODO update inputs when prper steps are included
     val common = context.configuration.common
     val mappedInputs = Map(
       "evidence" -> IOResourceConfig(
         common.outputFormat,
-        common.output + "/evidences/out"
+        context.configuration.knownDrugs.evidencesPath
       ),
       "disease" -> IOResourceConfig(
         common.outputFormat,
-        common.output + "/disease"
+        context.configuration.knownDrugs.diseasesPath
       ),
       "target" -> IOResourceConfig(
         common.outputFormat,
-        common.output + "/targets"
+        context.configuration.knownDrugs.targetsPath
       ),
       "drug" -> IOResourceConfig(
         common.outputFormat,
-        s"${common.output}/${context.configuration.common.inputs.drug.drugOutput.split("/").last}"
+        context.configuration.knownDrugs.drugsPath
       )
     )
     val inputDataFrame = Helpers.readFrom(mappedInputs)

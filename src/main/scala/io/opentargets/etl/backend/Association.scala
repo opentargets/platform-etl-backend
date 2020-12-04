@@ -264,10 +264,15 @@ object Association extends LazyLogging {
     import ss.implicits._
     import Helpers.ImplicitExtras
 
-    val commonSec = context.configuration.common
     val associationsSec = context.configuration.associations
 
-    val dfs = Evidence.compute().apply("evidences/out")
+    val mappedInputs = Map(
+      "evidences" -> H.IOResourceConfig(
+        context.configuration.common.inputs.evidence.format,
+        context.configuration.evidences.output
+      ),
+    )
+    val dfs = H.readFrom(mappedInputs).apply("evidences")
 
     val evidenceColumns = Seq(
       dId,
@@ -302,13 +307,15 @@ object Association extends LazyLogging {
     implicit val ss = context.sparkSession
     import ss.implicits._
 
+    val outputPath = context.configuration.associations.output.stripSuffix("/")
+
     val evidenceSet = prepareEvidences().persist(StorageLevel.DISK_ONLY)
     val associationsPerDS = computeAssociationsPerDS(evidenceSet).persist()
     val associationsOverall = computeAssociationsAllDS(associationsPerDS)
 
     Map(
-      "associations/direct/partials" -> associationsPerDS,
-      "associations/direct/overall" -> associationsOverall
+      s"${outputPath}/direct/partials" -> associationsPerDS,
+      s"${outputPath}/direct/overall" -> associationsOverall
     )
   }
 
@@ -316,13 +323,15 @@ object Association extends LazyLogging {
     implicit val ss = context.sparkSession
     import ss.implicits._
 
+    val outputPath = context.configuration.associations.output.stripSuffix("/")
+
     val evidenceSet = prepareEvidences(true).persist()
     val associationsPerDS = computeAssociationsPerDS(evidenceSet).persist()
     val associationsOverall = computeAssociationsAllDS(associationsPerDS)
 
     Map(
-      "associations/indirect/partials" -> associationsPerDS,
-      "associations/indirect/overall" -> associationsOverall
+      s"${outputPath}/indirect/partials" -> associationsPerDS,
+      s"${outputPath}/indirect/overall" -> associationsOverall
     )
   }
 
@@ -392,7 +401,7 @@ object Association extends LazyLogging {
     val outputDFs = directs ++ indirects
 
     val outputs = outputDFs.keys map (name =>
-      name -> H.IOResourceConfig(commonSec.outputFormat, commonSec.output + s"/$name"))
+      name -> H.IOResourceConfig(commonSec.outputFormat, name))
 
     H.writeTo(outputs.toMap, outputDFs)
   }
