@@ -455,8 +455,8 @@ object Search extends LazyLogging {
         common.inputs.disease.path
       ),
       "drug" -> IOResourceConfig(
-        common.inputs.drug.drugOutput,
-        "json"
+        context.configuration.drug.output,
+        common.inputs.disease.path
       ),
       "evidence" -> IOResourceConfig(
         common.inputs.evidence.format,

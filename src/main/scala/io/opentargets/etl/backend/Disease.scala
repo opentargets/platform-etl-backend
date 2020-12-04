@@ -154,7 +154,7 @@ object Disease extends LazyLogging {
     val outputConfs = Map(
       "disease" -> IOResourceConfig(
         context.configuration.common.outputFormat,
-        s"${context.configuration.common.output}/disease"
+        s"${context.configuration.common.output}/diseases"
       )
     )
 

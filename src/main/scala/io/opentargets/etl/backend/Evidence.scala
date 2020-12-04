@@ -90,6 +90,7 @@ object Evidence extends LazyLogging {
       H.trans(col("unique_association_fields.reaction_id"), _ => "reactionId", H.stripIDFromURI),
       flattenCAndSetN(
         coalesce(
+          col("evidence.test_sample"),
           when(col("sourceID") isInCollection List("genomics_england"),
                element_at(from_json(col("disease.source_name"), ArrayType(StringType)), 1))
             .otherwise(col("disease.source_name")),
@@ -261,6 +262,7 @@ object Evidence extends LazyLogging {
         when(
           !(col("sourceID") isInCollection List("progeny", "reactome", "slapenrich")),
           coalesce(
+            col("unique_association_fields.gene_panel"),
             col("evidence.study_id"),
             col("evidence.variant2disease.study_link"),
             col("evidence.urls").getItem(0).getField("url"),

@@ -268,7 +268,7 @@ object Association extends LazyLogging {
 
     val mappedInputs = Map(
       "evidences" -> H.IOResourceConfig(
-        context.configuration.common.inputs.evidence.format,
+        context.configuration.common.outputFormat,
         context.configuration.evidences.output
       ),
     )
