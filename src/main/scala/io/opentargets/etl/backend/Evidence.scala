@@ -352,21 +352,27 @@ object Evidence extends LazyLogging {
     reshapedDF
   }
 
-  def resolveTargets(df: DataFrame, columnName: String, fromId: String, toId: String)(
-      implicit context: ETLSessionContext): DataFrame = {
+  def resolveTargets(df: DataFrame,
+                     targets: DataFrame,
+                     columnName: String,
+                     fromId: String,
+                     toId: String)(implicit context: ETLSessionContext): DataFrame = {
     def generateTargetsLUT(df: DataFrame): DataFrame = {
       df.select(
           col("id").as("dId"),
-          array_distinct(mkFlattenArray(
-            array(col("id")),
-            array(col("proteinAnnotations.id")),
-            col("proteinAnnotations.accessions"),
-            array(col("approvedSymbol")),
-            col("symbolSynonyms")
-          )).as("rIds")
+          col("approvedName").as("targetName"),
+          col("approvedSymbol").as("targetsymbol"),
+          array_distinct(
+            mkFlattenArray(
+              array(col("id")),
+              array(col("proteinAnnotations.id")),
+              col("proteinAnnotations.accessions"),
+              array(col("approvedSymbol")),
+              col("symbolSynonyms")
+            )).as("rIds"),
         )
         .withColumn("rId", explode(col("rIds")))
-        .select("dId", "rId")
+        .select("dId", "rId", "targetsymbol", "targetName")
     }
 
     logger.info("target resolution evidences and write to out the ones didn't resolve")
@@ -375,8 +381,7 @@ object Evidence extends LazyLogging {
     import session.implicits._
 
     val lut = broadcast(
-      Target
-        .compute()
+      targets
         .transform(generateTargetsLUT)
         .orderBy($"rId".asc)
         .repartition($"rId")
@@ -395,17 +400,19 @@ object Evidence extends LazyLogging {
     resolved
   }
 
-  def resolveDiseases(df: DataFrame, columnName: String, fromId: String, toId: String)(
-      implicit context: ETLSessionContext): DataFrame = {
+  def resolveDiseases(df: DataFrame,
+                      diseases: DataFrame,
+                      columnName: String,
+                      fromId: String,
+                      toId: String)(implicit context: ETLSessionContext): DataFrame = {
     logger.info("disease resolution evidences and write to out the ones didn't resolve")
 
     implicit val session = context.sparkSession
     import session.implicits._
 
     val lut = broadcast(
-      Disease
-        .compute()
-        .select(col("id").as("dId"))
+      diseases
+        .select(col("id").as("dId"), $"name".as("diseaseLabel"))
         .orderBy($"dId".asc)
         .repartition($"dId")
     )
@@ -499,9 +506,13 @@ object Evidence extends LazyLogging {
     val evidencesSec = context.configuration.evidences
 
     val mappedInputs = Map(
-      "evidences" -> H.IOResourceConfig(
-        commonSec.inputs.evidence.format,
-        commonSec.inputs.evidence.path
+      "targets" -> H.IOResourceConfig(
+        commonSec.outputFormat,
+        evidencesSec.targetsPath
+      ),
+      "diseases" -> H.IOResourceConfig(
+        commonSec.outputFormat,
+        evidencesSec.diseasesPath
       ),
       "rawEvidences" -> H.IOResourceConfig(
         evidencesSec.input.format,
@@ -533,8 +544,8 @@ object Evidence extends LazyLogging {
 
     val transformedDF = dfs("rawEvidences")
       .transform(reshape)
-      .transform(resolveTargets(_, rt, fromTargetId, targetId))
-      .transform(resolveDiseases(_, rd, fromDiseaseId, diseaseId))
+      .transform(resolveTargets(_, dfs("targets"), rt, fromTargetId, targetId))
+      .transform(resolveDiseases(_, dfs("diseases"), rd, fromDiseaseId, diseaseId))
       .transform(generateHashes(_, id))
       .transform(score(_, sc))
       .transform(checkNullifiedScores(_, sc, ns))
@@ -558,9 +569,7 @@ object Evidence extends LazyLogging {
     val processedEvidences = compute()
 
     val outputs = processedEvidences.keys map (name =>
-      name -> H.IOResourceConfig(commonSec.outputFormat,
-                                 name,
-                                 partitionBy = Seq("sourceId")))
+      name -> H.IOResourceConfig(commonSec.outputFormat, name, partitionBy = Seq("sourceId")))
 
     H.writeTo(outputs.toMap, processedEvidences)
   }

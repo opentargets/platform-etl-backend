@@ -74,6 +74,7 @@ object KnownDrugs extends LazyLogging {
       .orderBy($"drugId".asc, $"targetId".asc).persist(StorageLevel.DISK_ONLY)
 
     val knownDrugsDF = inputs("evidence")
+      .drop("targetName", "targetSymbol", "diseaseLabel")
       .filter($"sourceId" isInCollection datasources)
       .transform(aggregateDrugsByOntology)
       .join(diseases, Seq("diseaseId"))
