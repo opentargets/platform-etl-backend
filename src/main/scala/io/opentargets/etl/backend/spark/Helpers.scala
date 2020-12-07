@@ -2,23 +2,25 @@ package io.opentargets.etl.backend.spark
 
 import com.typesafe.scalalogging.LazyLogging
 import io.opentargets.etl.backend.Configuration.OTConfig
+
 import org.apache.spark.SparkConf
 import org.apache.spark.sql._
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.types.{ArrayType, DataType, StructField, StructType}
 
+import scala.language.postfixOps
 import scala.util.Random
 
 object Helpers extends LazyLogging {
   type IOResourceConfs = Map[String, IOResourceConfig]
   type IOResources = Map[String, DataFrame]
 
+  case class IOResourceConfigOption(k: String, v: String)
   case class IOResourceConfig(
       format: String,
       path: String,
-      delimiter: Option[String] = None,
-      header: Option[Boolean] = None,
-      partitionBy: Seq[String] = Seq.empty
+      options: Option[Seq[IOResourceConfigOption]] = None,
+      partitionBy: Option[Seq[String]] = None
   )
 
   /** generate a spark session given the arguments if sparkUri is None then try to get from env
@@ -55,13 +57,11 @@ object Helpers extends LazyLogging {
   def generateDefaultIoOutputConfiguration(
       files: String*
   )(configuration: OTConfig): IOResourceConfs = {
-    (for (n <- files)
-      yield
-        n -> IOResourceConfig(
-          configuration.common.outputFormat,
-          configuration.common.output + s"/$n"
-        )) toMap
-
+    files.map {
+      n => n -> IOResourceConfig(
+        configuration.common.outputFormat,
+        configuration.common.output + s"/$n")
+    } toMap
   }
 
   /** apply to newNameFn() to the new name for the transformation and columnFn() to the inColumn
@@ -75,7 +75,7 @@ object Helpers extends LazyLogging {
     val name = newNameFn(inColumn.toString)
     val oper = columnFn(inColumn)
 
-    logger.info(s"tranform ${oper.toString} -> ${name}")
+    logger.info(s"tranform ${oper.toString} -> $name")
     name -> oper
   }
 
@@ -120,10 +120,6 @@ object Helpers extends LazyLogging {
 
   type WriterConfigurator = DataFrameWriter[Row] => DataFrameWriter[Row]
 
-  // Return sensible defaults, possibly modified by configuration if necessary in the future. Eg. parquet
-  private def defaultWriterConfigurator(): WriterConfigurator =
-    (writer: DataFrameWriter[Row]) => writer.format("json").mode("overwrite")
-
   /** It creates an hashmap of dataframes.
     *   Es. inputsDataFrame {"disease", Dataframe} , {"target", Dataframe}
     *   Reading is the first step in the pipeline
@@ -139,30 +135,13 @@ object Helpers extends LazyLogging {
 
   def loadFileToDF(pathInfo: IOResourceConfig)(implicit session: SparkSession): DataFrame = {
     logger.info(s"load file ${pathInfo.path} with format ${pathInfo.format} to dataframe")
-    pathInfo match {
-      // CSV, TSV, etc
-      case IOResourceConfig(_, format, header, delimiter, _)
-          if format.contains("sv") && header.isDefined && delimiter.isDefined =>
-        logger.debug(
-          s"Loading separated value file: header - ${pathInfo.header.get}, delimiter - ${pathInfo.delimiter.get}"
-        )
-        session.read
-          .format("csv")
-          .option("header", pathInfo.header.get)
-          .option("delimiter", pathInfo.delimiter.get)
-          .load(pathInfo.path)
 
-      case IOResourceConfig(_, format, _, _, _) if format.endsWith("sv") =>
-        logger.error(
-          s"Separated value filed ${pathInfo.path} selected without specifying header and/or delimiter values"
-        )
-        // killing program through exception.
-        assert(assertion = false,
-               s"Unable to complete pipeline due to bad file configuration for $pathInfo")
-        session.emptyDataFrame
-      // All other formats
-      case _ => session.read.format(pathInfo.format).load(pathInfo.path)
-    }
+    pathInfo.options.foldLeft(session.read.format(pathInfo.format)) {
+      case ops =>
+        logger.debug(s"load file ${pathInfo.path} with options ${ops._2.toString}")
+        val options = ops._2.map(c => c.k -> c.v).toMap
+        ops._1.options(options)
+    }.load(pathInfo.path)
   }
 
   /**
@@ -177,22 +156,38 @@ object Helpers extends LazyLogging {
   def writeTo(outputConfs: IOResourceConfs, outputs: IOResources)(
       implicit
       session: SparkSession): IOResources = {
-
     logger.info(s"Saving data to '${outputConfs.mkString(", ")}'")
 
-    outputConfs foreach {
-      case (n, c) =>
-        logger.debug(s"saving dataframe '$n' into '${c.path}'")
-        if (c.partitionBy.isEmpty)
-          outputs(n).write.format(c.format).save(c.path)
-        else
-          outputs(n).write
-            .partitionBy(c.partitionBy: _*)
-            .format(c.format)
-            .save(c.path)
+    val outs = outputConfs.keySet intersect outputs.keySet map {
+      case k =>
+        val conf = outputConfs(k)
+        val df = outputs(k)
+        logger.debug(s"saving dataframe '$k' into '${conf.path}'")
+
+        val pb = conf.partitionBy.foldLeft(df.write){
+          case ops =>
+            logger.debug(s"enabled partition by ${ops._2.toString}")
+            ops._1.partitionBy(ops._2:_*)
+        }
+
+        conf.options.foldLeft(pb) {
+          case ops =>
+            logger.debug(s"write to ${conf.path} with options ${ops._2.toString}")
+            val options = ops._2.map(c => c.k -> c.v).toMap
+            ops._1.options(options)
+
+        }.save(conf.path)
+
+        k -> df
+    } toMap
+
+    val intersectKs = outputs.keySet intersect outs.keySet
+    val unionKs = outputs.keySet union outs.keySet
+    (unionKs diff intersectKs).foreach {
+      k => logger.warn(s"dataframe $k has not been saved")
     }
 
-    outputs
+    outs
   }
 
   /** generate a set of String with the union of Columns.

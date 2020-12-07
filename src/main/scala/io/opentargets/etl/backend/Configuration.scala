@@ -2,6 +2,7 @@ package io.opentargets.etl.backend
 
 import com.typesafe.scalalogging.LazyLogging
 import com.typesafe.config.ConfigFactory
+import io.opentargets.etl.backend.spark.Helpers.IOResourceConfig
 import pureconfig.ConfigReader.Result
 import pureconfig._
 import pureconfig.generic.auto._
@@ -13,34 +14,36 @@ object Configuration extends LazyLogging {
 
   case class EvidenceEntry(id: String, uniqueFields: List[String], scoreExpr: String)
 
-  case class EvidencesSection(input: InputInfo,
-                              targetsPath: String,
-                              diseasesPath: String,
+  case class EvidenceInputsSection(rawEvidences: IOResourceConfig,
+                                   diseases: IOResourceConfig,
+                                   targets: IOResourceConfig)
+
+  case class EvidenceOutputsSection(succeeded: IOResourceConfig,
+                                    failed: IOResourceConfig,
+                                    stats: IOResourceConfig)
+
+  case class EvidencesSection(inputs: EvidenceInputsSection,
                               uniqueFields: List[String],
                               scoreExpr: String,
                               dataSources: List[EvidenceEntry],
-                              output: String)
+                              outputs: EvidenceOutputsSection)
+
+  case class AssociationInputsSection(evidences: IOResourceConfig,
+                                      diseases: IOResourceConfig,
+                                      targets: IOResourceConfig)
+
+  case class AssociationOutputsSection(directByDatasource: IOResourceConfig,
+                                       directByOverall: IOResourceConfig,
+                                       indirectByDatasource: IOResourceConfig,
+                                       indirectByOverall: IOResourceConfig)
 
   case class AssociationsSection(
-      output: String,
+      outputs: AssociationOutputsSection,
+      inputs: AssociationInputsSection,
       defaultWeight: Double,
       defaultPropagate: Boolean,
       dataSources: List[DataSource]
   )
-
-  case class ClinicalTrials(
-      studies: String,
-      studyReferences: String,
-      countries: String,
-      sponsors: String,
-      interventions: String,
-      interventionsOtherNames: String,
-      interventionsMesh: String,
-      conditions: String,
-      conditionsMesh: String
-  )
-
-  case class Dailymed(rxnormMapping: String, prescriptionData: String)
 
   case class EvidenceProteinFix(input: String, output: String)
 
@@ -53,18 +56,19 @@ object Configuration extends LazyLogging {
   )
 
   case class InputInfo(format: String, path: String)
-  case class InputExtension(extensionType: String, path: String)
+
+  case class InputExtension(extensionType: String, input: IOResourceConfig)
   case class DrugSection(
-      chemblMolecule: InputInfo,
-      chemblIndication: InputInfo,
-      chemblMechanism: InputInfo,
-      chemblTarget: InputInfo,
-      drugbankToChembl: InputInfo,
+      chemblMolecule: IOResourceConfig,
+      chemblIndication: IOResourceConfig,
+      chemblMechanism: IOResourceConfig,
+      chemblTarget: IOResourceConfig,
+      drugbankToChembl: IOResourceConfig,
       drugExtensions: Seq[InputExtension],
-      diseasePipeline: InputInfo,
-      targetPipeline: InputInfo,
-      evidencePipeline: InputInfo,
-      output: String
+      diseasePipeline: IOResourceConfig,
+      targetPipeline: IOResourceConfig,
+      evidencePipeline: IOResourceConfig,
+      output: IOResourceConfig
   )
 
   case class Inputs(
@@ -82,21 +86,30 @@ object Configuration extends LazyLogging {
 
   case class Common(defaultSteps: Seq[String], inputs: Inputs, output: String, outputFormat: String)
 
-  case class KnownDrugsSection(evidencesPath: String,
-                               diseasesPath: String,
-                               targetsPath: String,
-                               drugsPath: String)
+  case class KnownDrugsInputsSection(evidences: IOResourceConfig,
+                                     diseases: IOResourceConfig,
+                                     targets: IOResourceConfig,
+                                     drugs: IOResourceConfig)
+
+  case class KnownDrugsSection(inputs: KnownDrugsInputsSection, output: IOResourceConfig)
+
+  case class SearchInputsSection(evidences: IOResourceConfig,
+                                 diseases: IOResourceConfig,
+                                 targets: IOResourceConfig,
+                                 drugs: IOResourceConfig,
+                                 associations: IOResourceConfig)
+
+  case class SearchSection(inputs: SearchInputsSection, output: IOResourceConfig)
 
   case class OTConfig(
       sparkUri: Option[String],
       common: Common,
-      clinicalTrials: ClinicalTrials,
-      dailymed: Dailymed,
       evidenceProteinFix: EvidenceProteinFix,
       associations: AssociationsSection,
       evidences: EvidencesSection,
       drug: DrugSection,
-      knownDrugs: KnownDrugsSection
+      knownDrugs: KnownDrugsSection,
+      search: SearchSection
   )
 
   def load: ConfigReader.Result[OTConfig] = {

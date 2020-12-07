@@ -1,7 +1,7 @@
 package io.opentargets.etl.backend
 
 import com.typesafe.scalalogging.LazyLogging
-import io.opentargets.etl.backend.spark.Helpers.mkFlattenArray
+import io.opentargets.etl.backend.spark.Helpers.{IOResourceConfig, mkFlattenArray}
 import org.apache.spark.sql._
 import org.apache.spark.sql.catalyst.analysis.UnresolvedStar
 import org.apache.spark.sql.expressions.Window
@@ -499,25 +499,16 @@ object Evidence extends LazyLogging {
       .agg(aggs.head, aggs.tail: _*)
   }
 
-  def compute()(implicit context: ETLSessionContext): Map[String, DataFrame] = {
+  def compute()(implicit context: ETLSessionContext): Map[String, (DataFrame, IOResourceConfig)] = {
     implicit val ss = context.sparkSession
 
     val commonSec = context.configuration.common
     val evidencesSec = context.configuration.evidences
 
     val mappedInputs = Map(
-      "targets" -> H.IOResourceConfig(
-        commonSec.outputFormat,
-        evidencesSec.targetsPath
-      ),
-      "diseases" -> H.IOResourceConfig(
-        commonSec.outputFormat,
-        evidencesSec.diseasesPath
-      ),
-      "rawEvidences" -> H.IOResourceConfig(
-        evidencesSec.input.format,
-        evidencesSec.input.path
-      )
+      "targets" -> evidencesSec.inputs.targets,
+      "diseases" -> evidencesSec.inputs.diseases,
+      "rawEvidences" -> evidencesSec.inputs.rawEvidences
     )
     val dfs = H.readFrom(mappedInputs)
 
@@ -554,23 +545,24 @@ object Evidence extends LazyLogging {
 
     val okFitler = col(rt) and col(rd) and !col(md) and !col(ns)
 
-    val outputPath = context.configuration.evidences.output.stripSuffix("/")
+    val outputPathConf = context.configuration.evidences.outputs
     Map(
-      outputPath -> transformedDF.filter(okFitler).drop(rt, rd, md, ns),
-      s"${outputPath}_fail" -> transformedDF.filter(not(okFitler)),
-      s"${outputPath}_stats" -> transformedDF.filter(not(okFitler)).transform(stats(_, statAggs))
+      "ok" -> (transformedDF.filter(okFitler).drop(rt, rd, md, ns),
+        outputPathConf.succeeded),
+      "failed" -> (transformedDF.filter(not(okFitler)),
+        outputPathConf.failed),
+      "stats" -> (transformedDF.filter(not(okFitler)).transform(stats(_, statAggs)),
+        outputPathConf.stats)
     )
   }
 
   def apply()(implicit context: ETLSessionContext) = {
     implicit val ss = context.sparkSession
-    val commonSec = context.configuration.common
 
     val processedEvidences = compute()
+    val outputs = processedEvidences map (p => p._1 -> p._2._2)
+    val outputDFs = processedEvidences map (p => p._1 -> p._2._1)
 
-    val outputs = processedEvidences.keys map (name =>
-      name -> H.IOResourceConfig(commonSec.outputFormat, name, partitionBy = Seq("sourceId")))
-
-    H.writeTo(outputs.toMap, processedEvidences)
+    H.writeTo(outputs, outputDFs)
   }
 }

@@ -91,25 +91,12 @@ object KnownDrugs extends LazyLogging {
     import ss.implicits._
     import KnownDrugsHelpers._
 
-    // TODO update inputs when prper steps are included
-    val common = context.configuration.common
+    val conf = context.configuration.knownDrugs
     val mappedInputs = Map(
-      "evidence" -> IOResourceConfig(
-        common.outputFormat,
-        context.configuration.knownDrugs.evidencesPath
-      ),
-      "disease" -> IOResourceConfig(
-        common.outputFormat,
-        context.configuration.knownDrugs.diseasesPath
-      ),
-      "target" -> IOResourceConfig(
-        common.outputFormat,
-        context.configuration.knownDrugs.targetsPath
-      ),
-      "drug" -> IOResourceConfig(
-        common.outputFormat,
-        context.configuration.knownDrugs.drugsPath
-      )
+      "evidence" -> conf.inputs.evidences,
+      "disease" -> conf.inputs.diseases,
+      "target" -> conf.inputs.targets,
+      "drug" -> conf.inputs.drugs
     )
     val inputDataFrame = Helpers.readFrom(mappedInputs)
 

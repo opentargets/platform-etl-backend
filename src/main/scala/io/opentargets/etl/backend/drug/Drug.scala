@@ -23,21 +23,14 @@ object Drug extends Serializable with LazyLogging {
 
     logger.info("Loading raw inputs for Drug beta step.")
     val mappedInputs = Map(
-      "indication" -> IOResourceConfig(drugInputs.chemblIndication.format,
-                                       drugInputs.chemblIndication.path),
-      "mechanism" -> IOResourceConfig(drugInputs.chemblMechanism.format,
-                                      drugInputs.chemblMechanism.path),
-      "molecule" -> IOResourceConfig(drugInputs.chemblMolecule.format,
-                                     drugInputs.chemblMolecule.path),
-      "target" -> IOResourceConfig(drugInputs.chemblTarget.format,
-                                   drugInputs.chemblTarget.path),
-      "drugbankChemblMap" -> IOResourceConfig(drugInputs.drugbankToChembl.format,
-                                              drugInputs.drugbankToChembl.path,
-                                              Some("\\t"),
-                                              Some(true)),
-      "efo" -> IOResourceConfig(drugInputs.diseasePipeline.format, drugInputs.diseasePipeline.path),
-      "gene" -> IOResourceConfig(drugInputs.targetPipeline.format, drugInputs.targetPipeline.path),
-      "evidence" -> IOResourceConfig(drugInputs.evidencePipeline.format, drugInputs.evidencePipeline.path)
+      "indication" -> drugInputs.chemblIndication,
+      "mechanism" -> drugInputs.chemblMechanism,
+      "molecule" -> drugInputs.chemblMolecule,
+      "target" -> drugInputs.chemblTarget,
+      "drugbankChemblMap" -> drugInputs.drugbankToChembl,
+      "efo" -> drugInputs.diseasePipeline,
+      "gene" -> drugInputs.targetPipeline,
+      "evidence" -> drugInputs.evidencePipeline
     )
 
     val inputDataFrames = Helpers.readFrom(mappedInputs)
@@ -97,12 +90,8 @@ object Drug extends Serializable with LazyLogging {
       .transform(addDescription)
       .transform(cleanup)
 
-    val outputs = Seq(drugInputs.output.split("/").last)
-    logger.info(s"Writing outputs: ${outputs.mkString(",")}")
-
-    val outputConfs =
-      Helpers.generateDefaultIoOutputConfiguration(outputs: _*)(context.configuration)
-
+    val outputs = Seq(drugInputs.output.path.split("/").last)
+    val outputConfs = outputs.map(_ -> context.configuration.drug.output).toMap
     val outputDFs = (outputs zip Seq(drugDf)).toMap
 
     Helpers.writeTo(outputConfs, outputDFs)

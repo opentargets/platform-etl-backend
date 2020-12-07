@@ -26,37 +26,14 @@ object Transformers {
     "multiplier"
   )
 
-  def processDiseases(efos: DataFrame): DataFrame = {
-    val efosDF = efos
-      .withColumn("disease_id", stripIDFromURI(col("code")))
-      .withColumn("ancestors", flatten(col("path_codes")))
-      .drop("code", "path_codes")
+  def processDiseases(efos: DataFrame): DataFrame =
+    efos.withColumnRenamed("id", "diseaseId")
 
-    // compute descendants
-    val descendants = efosDF
-      .where(size(col("ancestors")) > 0)
-      .withColumn("ancestor", explode(col("ancestors")))
-      // all diseases have an ancestor, at least itself
-      .groupBy("ancestor")
-      .agg(collect_set(col("disease_id")).as("descendants"))
-      .withColumnRenamed("ancestor", "disease_id")
+  def processTargets(genes: DataFrame): DataFrame =
+    genes.withColumnRenamed("id", "targetId")
 
-    val diseases = efosDF.join(descendants, Seq("disease_id"))
-    diseases
-  }
-
-  def processTargets(genes: DataFrame): DataFrame = {
-    val targets = genes
-      .withColumnRenamed("id", "target_id")
-    targets
-  }
-
-  def processDrugs(drugs: DataFrame): DataFrame = {
-    val drugDF = drugs
-      .withColumnRenamed("id", "drug_id")
-
-    drugDF
-  }
+  def processDrugs(drugs: DataFrame): DataFrame =
+    drugs.withColumnRenamed("id", "drugId")
 
   /** NOTE finding drugs from associations are computed just using direct assocs
     *  otherwise drugs are spread traversing all efo tree.
@@ -64,25 +41,23 @@ object Transformers {
     */
   def findAssociationsWithDrugs(evidence: DataFrame): DataFrame = {
     evidence
-      .filter(col("drug.id").isNotNull)
-      .withColumn("drug_id", stripIDFromURI(col("drug.id")))
+      .filter(col("drugId").isNotNull)
       .selectExpr(
-        "drug_id",
-        "target.id as target_id",
-        "disease.id as disease_id"
-      )
-      .withColumn("association_id", concat_ws("-", col("disease_id"), col("target_id")))
-      .groupBy(col("association_id"))
+        "drugId",
+        "targetId",
+        "diseaseId")
+      .withColumn("associationId",
+        concat_ws("-", col("diseaseId"), col("targetId")))
+      .groupBy(col("associationId"))
       .agg(
-        collect_set(col("drug_id")).as("drug_ids"),
-        first(col("target_id")).as("target_id"),
-//           first(col("ancestor_id")).as("disease_id"))
-        first(col("disease_id")).as("disease_id")
+        collect_set(col("drugId")).as("drugIds"),
+        first(col("targetId")).as("targetId"),
+        first(col("diseaseId")).as("diseaseId")
       )
   }
 
+  // TODO mkarmona finish this
   implicit class Implicits(val df: DataFrame) {
-
     def setIdAndSelectFromTargets(
         associations: DataFrame,
         associatedDrugs: DataFrame,
@@ -91,8 +66,8 @@ object Transformers {
     ): DataFrame = {
 
       val drugsByTarget = associatedDrugs
-        .join(drugs, Seq("drug_id"), "inner")
-        .groupBy(col("association_id"))
+        .join(drugs, Seq("drugId"), "inner")
+        .groupBy(col("associationId"))
         .agg(array_distinct(flatten(collect_list(col("drug_labels")))).as("drug_labels"))
 
       /*
@@ -102,13 +77,13 @@ object Transformers {
       val top50 = 50L
       val top25 = 25L
       val top5 = 5L
-      val window = Window.partitionBy(col("target_id")).orderBy(col("score").desc)
+      val window = Window.partitionBy(col("targetId")).orderBy(col("score").desc)
       val assocsWithLabels = associations
-        .join(drugsByTarget, Seq("association_id"), "left_outer")
+        .join(drugsByTarget, Seq("associationId"), "left_outer")
         .withColumn("rank", rank().over(window))
         .where(col("rank") <= top50)
-        .join(diseases, Seq("disease_id"), "inner")
-        .groupBy(col("target_id"))
+        .join(diseases, Seq("diseaseId"), "inner")
+        .groupBy(col("targetId"))
         .agg(
           array_distinct(flatten(collect_list(col("disease_labels")))).as("disease_labels"),
           array_distinct(flatten(collect_list(when(col("rank") <= top25, col("disease_labels")))))
@@ -123,7 +98,7 @@ object Transformers {
           mean(col("score")).as("target_relevance")
         )
 
-      df.join(assocsWithLabels, Seq("target_id"), "left_outer")
+      df.join(assocsWithLabels, Seq("targetId"), "left_outer")
         .withColumn(
           "disease_labels",
           when(col("disease_labels").isNull, Array.empty[String])
@@ -154,36 +129,38 @@ object Transformers {
           when(col("drug_labels_25").isNull, Array.empty[String])
             .otherwise(col("drug_labels_25"))
         )
-        .withColumnRenamed("target_id", "id")
+        .withColumnRenamed("targetId", "id")
         .withColumn(
           "keywords",
           C.flattenCat(
-            "symbol_synonyms",
-            "name_synonyms",
-            "uniprot_accessions",
-            "array(approved_name)",
-            "array(approved_symbol)",
-            "array(hgnc_id)",
+            "symbolSynonyms",
+            "nameSynonyms",
+            "array(proteinAnnotations.id)",
+            "proteinAnnotations.accessions",
+            "array(approvedName)",
+            "array(approvedSymbol)",
+            "array(hgncId)",
             "array(id)"
           )
         )
         .withColumn(
           "prefixes",
           C.flattenCat(
-            "name_synonyms",
-            "symbol_synonyms",
-            "array(approved_name)",
-            "array(approved_symbol)"
+            "nameSynonyms",
+            "symbolSynonyms",
+            "array(approvedName)",
+            "array(approvedSymbol)"
           )
         )
         .withColumn(
           "ngrams",
           C.flattenCat(
-            "uniprot_function",
-            "symbol_synonyms",
-            "symbol_synonyms",
-            "array(approved_name)",
-            "array(approved_symbol)"
+            "array(proteinAnnotations.id)",
+            "proteinAnnotations.accessions",
+            "nameSynonyms",
+            "symbolSynonyms",
+            "array(approvedName)",
+            "array(approvedSymbol)"
           )
         )
         .withColumn(
@@ -341,28 +318,28 @@ object Transformers {
     ): DataFrame = {
       val tluts = targets
         .join(
-          associatedDrugs.withColumn("target_id", explode(col("target_ids"))),
-          Seq("target_id"),
+          associatedDrugs.withColumn("targetId", explode(col("targetIds"))),
+          Seq("targetId"),
           "inner"
         )
-        .groupBy(col("drug_id"))
+        .groupBy(col("drugId"))
         .agg(flatten(collect_list(col("target_labels"))).as("target_labels"))
 
       val dluts = diseases
         .join(
-          associatedDrugs.withColumn("disease_id", explode(col("disease_ids"))),
-          Seq("disease_id"),
+          associatedDrugs.withColumn("diseaseId", explode(col("diseaseIds"))),
+          Seq("diseaseId"),
           "inner"
         )
-        .groupBy(col("drug_id"))
+        .groupBy(col("drugId"))
         .agg(flatten(collect_list(col("disease_labels"))).as("disease_labels"))
 
       val drugEnrichedWithLabels = tluts
-        .join(dluts, Seq("drug_id"), "full_outer")
-        .orderBy(col("drug_id"))
+        .join(dluts, Seq("drugId"), "full_outer")
+        .orderBy(col("drugId"))
 
       val drugs = df
-        .join(associatedDrugs, col("id") === col("drug_id"), "left_outer")
+        .join(associatedDrugs, col("id") === col("drugId"), "left_outer")
         .withColumn(
           "target_ids",
           when(col("target_ids").isNull, Array.empty[String])
@@ -447,58 +424,45 @@ object Search extends LazyLogging {
     import ss.implicits._
     import Transformers.Implicits
 
-    val assocs = Association.computeIndirectAssociations()
-    val common = context.configuration.common
+    val searchSec = context.configuration.search
     val mappedInputs = Map(
-      "disease" -> IOResourceConfig(
-        common.inputs.disease.format,
-        common.inputs.disease.path
-      ),
-      "drug" -> IOResourceConfig(
-        context.configuration.drug.output,
-        common.inputs.disease.path
-      ),
-      "evidence" -> IOResourceConfig(
-        common.inputs.evidence.format,
-        common.inputs.evidence.path
-      ),
-      "target" -> IOResourceConfig(
-        common.inputs.target.format,
-        common.inputs.target.path
-      )
+      "disease" -> searchSec.inputs.diseases,
+      "drug" -> searchSec.inputs.drugs,
+      "evidence" -> searchSec.inputs.evidences,
+      "target" -> searchSec.inputs.targets,
+      "association" -> searchSec.inputs.associations
     )
 
     val inputDataFrame = C.readFrom(mappedInputs)
 
     logger.info("process diseases and compute ancestors and descendants and persist")
-    val diseases = Transformers
-      .processDiseases(inputDataFrame("disease"))
-      .orderBy(col("disease_id"))
+    val diseases = inputDataFrame("disease")
+      .transform(Transformers.processDiseases)
+      .orderBy(col("diseaseId"))
       .persist(StorageLevel.DISK_ONLY)
 
     logger.info("process targets and persist")
-    val targets = Transformers
-      .processTargets(inputDataFrame("target"))
-      .orderBy(col("target_id"))
+    val targets = inputDataFrame("target")
+      .transform(Transformers.processTargets)
+      .orderBy(col("targetId"))
       .persist(StorageLevel.DISK_ONLY)
 
     logger.info("process drugs and persist")
-    val drugs = Transformers
-      .processDrugs(inputDataFrame("drug"))
-      .orderBy(col("drug_id"))
+    val drugs = inputDataFrame("drug")
+      .transform(Transformers.processDrugs)
+      .orderBy(col("drugId"))
       .persist(StorageLevel.DISK_ONLY)
 
     val dLUT = diseases
-    //      .withColumn("phenotype_labels", expr("transform(phenotypes, f -> f.label)"))
       .withColumn(
         "disease_labels",
         C.flattenCat(
-          "array(label)",
-          "efo_synonyms"
+          "array(name)",
+          "synonyms"
         )
       )
-      .select("disease_id", "disease_labels")
-      .orderBy("disease_id")
+      .select("diseaseId", "disease_labels")
+      .orderBy("diseaseId")
       .persist(StorageLevel.DISK_ONLY)
 
     // DataFrame with [drug_id, drug_labels]
@@ -512,73 +476,69 @@ object Search extends LazyLogging {
           "mechanismsOfAction.rows.mechanismOfAction"
         )
       )
-      .select("drug_id", "drug_labels")
-      .orderBy("drug_id")
+      .select("drugId", "drug_labels")
+      .orderBy("drugId")
       .persist(StorageLevel.DISK_ONLY)
 
     val tLUT = targets
       .withColumn(
         "target_labels",
         C.flattenCat(
-          "symbol_synonyms",
-          "name_synonyms",
-          "array(approved_name)",
-          "array(approved_symbol)"
+          "symbolSynonyms",
+          "nameSynonyms",
+          "array(approvedName)",
+          "array(approvedSymbol)"
         )
       )
-      .select("target_id", "target_labels")
-      .orderBy("target_id")
+      .select("targetId", "target_labels")
+      .orderBy("targetId")
       .persist(StorageLevel.DISK_ONLY)
 
     val associationColumns = Seq(
-      "association_id",
-      "target_id",
-      "disease_id",
+      "associationId",
+      "targetId",
+      "diseaseId",
       "score"
     )
+
+    // TODO check the overall score column name
     logger.info("subselect indirect LLR associations just id and score and persist")
-    val associationScores = assocs("associations_overall_indirect")
-      .withColumn("association_id", concat_ws("-", col("disease_id"), col("target_id")))
-      .selectExpr(
-        "overall_ds_score_harmonic as score",
-        "association_id",
-        "target_id",
-        "disease_id"
-      )
+    val associationScores = inputDataFrame("association")
+      .withColumn("associationId", concat_ws("-", col("diseaseId"), col("targetId")))
+      .withColumnRenamed("overallDatasourceHarmonicScore", "score")
       .select(associationColumns.head, associationColumns.tail: _*)
       .persist(StorageLevel.DISK_ONLY)
 
     logger.info("find associated drugs using evidence dataset")
-    val associationsWithDrugsFromEvidences =
-      Transformers
-        .findAssociationsWithDrugs(inputDataFrame("evidence"))
+    val associationsWithDrugsFromEvidences = inputDataFrame("evidence")
+      .transform(Transformers.findAssociationsWithDrugs)
 
     logger.info("compute total counts for associations and associations with drugs")
     val totalAssociationsWithDrugs = associationsWithDrugsFromEvidences.count()
 
     val drugColumns = Seq(
-      "association_id",
-      "drug_id",
-      "drug_ids",
-      "target_id",
-      "disease_id",
+      "associationId",
+      "drugId",
+      "drugIds",
+      "targetId",
+      "diseaseId",
       "score"
     )
     logger.info("associations with at least 1 drug and the overall score per association")
     val associationsWithDrugsFromEvidencesWithScores = associationsWithDrugsFromEvidences
-      .join(associationScores.select("association_id", "score"), Seq("association_id"), "inner")
-      .withColumn("drug_id", explode(col("drug_ids")))
+      .join(associationScores.select("associationId", "score"), Seq("associationId"), "inner")
+      .withColumn("drugId", explode(col("drugIds")))
       .select(drugColumns.head, drugColumns.tail: _*)
       .persist(StorageLevel.DISK_ONLY)
 
     logger.info("collected associations with drugs coming from evidences")
     val associationsWithDrugs = associationsWithDrugsFromEvidencesWithScores
-      .groupBy(col("drug_id"))
+      .groupBy(col("drugId"))
       .agg(
-        collect_set(col("target_id")).as("target_ids"),
-        collect_set("disease_id").as("disease_ids"),
-        mean(col("score")).as("mean_score"),
-        (count(col("association_id")).cast(DoubleType) / lit(totalAssociationsWithDrugs.toDouble))
+        collect_set(col("targetId")).as("targetIds"),
+        collect_set("diseaseId").as("diseaseIds"),
+        mean(col("score")).as("meanScore"),
+        (count(col("associationId")).cast(DoubleType) / lit(totalAssociationsWithDrugs.toDouble))
           .as("drug_relevance")
       )
 

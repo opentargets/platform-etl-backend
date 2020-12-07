@@ -18,9 +18,6 @@ object ETL extends LazyLogging {
       case "search" =>
         logger.info("run step search")
         Search()
-      case "clinicalTrials" =>
-        logger.info("run step clinicaltrials")
-        ClinicalTrials()
       case "drug" =>
         logger.info("run step drug")
         Drug()
@@ -54,9 +51,6 @@ object ETL extends LazyLogging {
       case "cancerBiomarkers" =>
         logger.info("run step cancerBiomarkers")
         CancerBiomarkers()
-      case "dailymed" =>
-        logger.info("run step dailymed")
-        Dailymed()
       case "ddr" =>
         logger.info("run step dataDrivenRelation")
         DataDrivenRelation()

@@ -1,32 +1,22 @@
 package io.opentargets.etl
 
+import com.typesafe.scalalogging.LazyLogging
 import org.scalatest.flatspec.AnyFlatSpecLike
 import io.opentargets.etl.backend.Configuration
 import io.opentargets.etl.backend.Configuration._
 import org.scalatest.matchers.must.Matchers
 import pureconfig.ConfigReader
 
-class ConfigurationTest extends AnyFlatSpecLike with Matchers {
+class ConfigurationTest extends AnyFlatSpecLike with Matchers with LazyLogging {
   "Pureconfig" should "successfully load standard configuration without error" in {
     val conf: ConfigReader.Result[OTConfig] = Configuration.config
-    assert(conf.isRight, s"Failed with ${conf.left}")
-  }
+    val msg = conf match {
+      case Right(_) => logger.info("configuration loaded right")
+        None
+      case Left(ex) => logger.info(s"Failed to load configuration in ${ex.prettyPrint()}")
+        Some(ex.prettyPrint())
+    }
 
-  "The parsed configuration" should "include all necessary segments for the drug step" in {
-    def checkFormatAndPath(ii: InputInfo): Boolean = (ii.path nonEmpty) && (ii.format nonEmpty)
-    val conf = Configuration.config.right.get
-    val inputs = conf.drug
-    val inputsForDrugStep = List(
-      inputs.chemblIndication,
-      inputs.chemblMechanism,
-      inputs.chemblMolecule,
-      inputs.chemblTarget,
-      inputs.drugbankToChembl,
-      inputs.diseasePipeline,
-      inputs.targetPipeline,
-      inputs.evidencePipeline
-    )
-
-    assert(inputsForDrugStep.forall(checkFormatAndPath))
+    assert(conf.isRight, s"Failed with ${msg.getOrElse("")}")
   }
 }
