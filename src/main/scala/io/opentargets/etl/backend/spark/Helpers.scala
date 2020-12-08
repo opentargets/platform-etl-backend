@@ -134,11 +134,10 @@ object Helpers extends LazyLogging {
   }
 
   def loadFileToDF(pathInfo: IOResourceConfig)(implicit session: SparkSession): DataFrame = {
-    logger.info(s"load file ${pathInfo.path} with format ${pathInfo.format} to dataframe")
+    logger.info(s"load dataset ${pathInfo.path} with ${pathInfo.toString}")
 
     pathInfo.options.foldLeft(session.read.format(pathInfo.format)) {
       case ops =>
-        logger.debug(s"load file ${pathInfo.path} with options ${ops._2.toString}")
         val options = ops._2.map(c => c.k -> c.v).toMap
         ops._1.options(options)
     }.load(pathInfo.path)
@@ -156,7 +155,9 @@ object Helpers extends LazyLogging {
   def writeTo(outputConfs: IOResourceConfs, outputs: IOResources)(
       implicit
       session: SparkSession): IOResources = {
-    logger.info(s"Saving data to '${outputConfs.mkString(", ")}'")
+    outputConfs foreach {
+      c => logger.info(s"save dataset ${c._1} with ${c._2.toString}")
+    }
 
     val outs = outputConfs.keySet intersect outputs.keySet map {
       case k =>
@@ -176,7 +177,8 @@ object Helpers extends LazyLogging {
             val options = ops._2.map(c => c.k -> c.v).toMap
             ops._1.options(options)
 
-        }.save(conf.path)
+        }.format(conf.format)
+          .save(conf.path)
 
         k -> df
     } toMap

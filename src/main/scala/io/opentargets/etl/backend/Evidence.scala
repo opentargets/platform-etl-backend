@@ -459,7 +459,7 @@ object Evidence extends LazyLogging {
   def score(df: DataFrame, columnName: String)(implicit context: ETLSessionContext): DataFrame = {
     implicit val ss = context.sparkSession
 
-    logger.info("validate each evidence generating a hash to check for duplicates")
+    logger.info("score each evidence and mark unscored ones")
     val config = context.configuration.evidences
 
     val dts = config.dataSources.map { dt =>

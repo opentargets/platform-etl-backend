@@ -24,11 +24,7 @@ object KnownDrugsHelpers {
           col("targetId")
         )
         .agg(
-          array_distinct(flatten(collect_list(col("clinicalUrls")))).as("urls"),
-          // case class KnownDrug( mechanismOfAction: String
-          // TODO not sure we have this
-          first(col("evidence.target2drug.mechanism_of_action")).as("mechanism_of_action"), // MOA
-          first(col("targetModulation")).as("activity") // activity
+          array_distinct(flatten(collect_list(col("clinicalUrls")))).as("urls")
         )
 
       dfDirect
@@ -54,20 +50,23 @@ object KnownDrugs extends LazyLogging {
         $"approvedSymbol",
         $"approvedName",
         array_distinct(transform(expr("proteinAnnotations.classes"),c =>
-          c.getField("l1").getField("label")).as("targetClass")
-        )
+          c.getField("l1").getField("label"))
+        ).as("targetClass")
       ).orderBy($"targetId".asc).persist(StorageLevel.DISK_ONLY)
 
     val drugs = inputs("drug")
       .select(
         $"id".as("drugId"),
         $"name".as("prefName"),
+        $"tradeNames",
+        $"synonyms",
         $"drugType",
         $"mechanismsOfAction".getField("rows").as("moas")
       )
       .filter(size($"moas") > 0)
       .withColumn("moa", explode($"moas"))
-      .select($"drugId", expr("moa.*"))
+      .select($"*", expr("moa.*"))
+      .drop("moas", "moa")
       .filter(size($"targets") > 0)
       .withColumn("targetId", explode($"targets"))
       .drop("targets")
