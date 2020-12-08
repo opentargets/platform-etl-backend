@@ -23,18 +23,19 @@ import org.apache.spark.sql.functions._
   * ------ urls
   */
 object Indication extends Serializable with LazyLogging {
+  private val efoIdName: String = "efo_id"
 
   def apply(indicationsRaw: DataFrame, efoRaw: DataFrame)(implicit ss: SparkSession): DataFrame = {
 
     logger.info("Processing indications.")
     // efoDf for therapeutic areas
-    val efoDf = getEfoDataframe(efoRaw)
+    val efoDf = getEfoDataframe(efoRaw, "id", efoIdName)
     val indicationAndEfoDf = processIndicationsRawData(indicationsRaw)
-      .join(efoDf, Seq("efo_id"), "leftouter")
+      .join(efoDf, Seq(efoIdName), "leftouter")
 
     val indicationDf: DataFrame = indicationAndEfoDf
       .withColumn("struct",
-        struct(col("efo_id").as("disease"),
+        struct(col(efoIdName).as("disease"),
           col("max_phase_for_indications").as("maxPhaseForIndication"),
           col("references")))
       .groupBy("id")
@@ -48,39 +49,37 @@ object Indication extends Serializable with LazyLogging {
   /**
     *
     * @param rawEfoData taken from the `disease` input data
-    * @return dataframe of `efo_id`, `efo_label`, `efo_uri`, `therapeutic_codes`, `therapeutic_labels`
+    * @return dataframe of `efo_id`
     */
-  private def getEfoDataframe(rawEfoData: DataFrame): DataFrame = {
-    val columnsOfInterest = Seq(("code", "efo_url"),
-      ("label", "efo_label"),
-      ("therapeutic_codes", "therapeutic_codes"),
-      ("therapeutic_labels", "therapeutic_labels"))
-    val df = rawEfoData
-      .select(columnsOfInterest.map(_._1).map(col): _*)
-      .withColumn("efo_id", Helpers.stripIDFromURI(col("code")))
-    // rename columns
-    columnsOfInterest.foldLeft(df)((d, names) => d.withColumnRenamed(names._1, names._2)).transform(formatEfoIds)
+  private def getEfoDataframe(rawEfoData: DataFrame, fromCol: String, toCol: String): DataFrame = {
+    val columnsOfInterest = Seq(
+      col(fromCol).as(toCol)
+    )
+
+    rawEfoData
+      .select(columnsOfInterest: _*)
+      .transform(formatEfoIds(_, toCol))
   }
 
   private def processIndicationsRawData(indicationsRaw: DataFrame): DataFrame = {
 
-    val df = formatEfoIds(indicationsRaw)
+    val df = formatEfoIds(indicationsRaw, efoIdName)
 
     // flatten hierarchy
     df.withColumn("r", explode(col("indication_refs")))
       .select(col("molecule_chembl_id").as("id"),
-        col("efo_id"),
+        col(efoIdName),
         col("max_phase_for_ind"),
         col("r.ref_id"),
         col("r.ref_type"),
         col("r.ref_url"))
       // remove indications we can't link to a disease.
-      .filter(col("efo_id").isNotNull)
+      .filter(col(efoIdName).isNotNull)
       // handle case where clinical trials packs multiple ids into a csv string
       .withColumn("ref_id", split(col("ref_id"), ","))
       .withColumn("ref_id", explode(col("ref_id")))
       // group reference ids and urls by ref_type
-      .groupBy("id", "efo_id", "ref_type")
+      .groupBy("id", efoIdName, "ref_type")
       .agg(max("max_phase_for_ind").as("max_phase_for_ind"),
         collect_list("ref_id").as("ids"),
         collect_list("ref_url").as("urls"))
@@ -91,7 +90,7 @@ object Indication extends Serializable with LazyLogging {
           col("ids"),
           col("urls")
         ))
-      .groupBy("id", "efo_id")
+      .groupBy("id", efoIdName)
       .agg(
         max("max_phase_for_ind").as("max_phase_for_indications"),
         collect_list("references").as("references")
@@ -101,16 +100,17 @@ object Indication extends Serializable with LazyLogging {
   /**
     *
     * @param indicationDf dataframe of ChEMBL indications
+    * @param idCol the column to be used as ID
     * @return dataframe with efo_ids in form EFO_xxxx instead of EFO:xxxx
     */
-  private def formatEfoIds(indicationDf: DataFrame): DataFrame = {
-    indicationDf.withColumn("efo_id", regexp_replace(col("efo_id"), ":", "_"))
+  private def formatEfoIds(indicationDf: DataFrame, idCol: String): DataFrame = {
+    indicationDf.withColumn(efoIdName, translate(col(idCol), ":", "_"))
   }
 
   private def approvedIndications(df: DataFrame): DataFrame =
-    df.select("id", "efo_id", "max_phase_for_indications")
+    df.select("id", efoIdName, "max_phase_for_indications")
       .filter("max_phase_for_indications = 4")
       .groupBy("id")
-      .agg(collect_set(col("efo_id")).as("approvedIndications"))
+      .agg(collect_set(col(efoIdName)).as("approvedIndications"))
 
 }

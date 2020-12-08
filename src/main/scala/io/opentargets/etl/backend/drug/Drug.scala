@@ -54,7 +54,7 @@ object Drug extends Serializable with LazyLogging {
     val indicationProcessedDf = Indication(indicationDf, efoDf)
     val moleculeProcessedDf = Molecule(moleculeDf, drugbank2ChemblMap, drugInputs.drugExtensions)
     val targetsAndDiseasesDf =
-      DrugCommon.getUniqTargetsAndDiseasesPerDrugId(evidenceDf).withColumnRenamed("drug_id", "id")
+      DrugCommon.getUniqTargetsAndDiseasesPerDrugId(evidenceDf).withColumnRenamed("drugId", "id")
 
     logger.whenTraceEnabled {
       val columnString: DataFrame => String = _.columns.mkString("Columns: [", ",", "]")
