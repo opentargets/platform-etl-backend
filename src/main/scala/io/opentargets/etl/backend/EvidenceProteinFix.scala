@@ -9,8 +9,8 @@ import org.apache.spark.sql.types._
 import com.typesafe.config.Config
 import org.apache.spark.storage.StorageLevel
 
-/** It takes all evidences and fix the problem of having same protein accession
-  * and multiple genes. The steps to fix it are
+/** DEPRECATED TO BE DELETED It takes all evidences and fix the problem of having
+  *  same protein accession and multiple genes. The steps to fix it are
   * 1. build the inversed lut for each protein accession the corresponding genes
   * 2. if one evicence belonging to the multigene case is found then replace the
   *    protein id by the gene id

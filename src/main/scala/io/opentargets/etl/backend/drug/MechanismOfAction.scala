@@ -51,7 +51,7 @@ object MechanismOfAction extends LazyLogging {
       .withColumnRenamed("mechanism_of_action", "mechanismOfAction")
     val references = chemblMechanismReferences(mechanism)
     val target = chemblTarget(targetDf, geneDf)
-
+    
     mechanism
       .join(references, Seq("id"), "outer")
       .join(target, Seq("target_chembl_id"), "outer")
@@ -93,11 +93,11 @@ object MechanismOfAction extends LazyLogging {
 
   private def chemblTarget(target: DataFrame, gene: DataFrame): DataFrame = {
     val targetCols = Set("target_components", "pref_name", "target_type", "target_chembl_id")
-    val geneCols = List("ensembl_gene_id", "uniprot_id", "approved_name", "approved_symbol")
+    val geneCols = List(col("id").as("geneId"),
+      col("proteinAnnotations.id").as("uniprot_id"))
 
     // validate incoming dataframes
     validateDF(targetCols, target)
-    validateDF(geneCols.toSet, gene)
 
     // get rid of entries where target components is none
     val targetDf = target
@@ -108,12 +108,12 @@ object MechanismOfAction extends LazyLogging {
         col("target_components.accession").as("uniprot_id"),
         col("target_type"),
         col("target_chembl_id"))
-    val genes = gene.select(geneCols.map(col): _*)
+    val genes = gene.select(geneCols:_*)
 
     targetDf
       .join(genes, Seq("uniprot_id"), "left_outer")
       .groupBy("target_chembl_id", "targetName", "target_type")
-      .agg(array_distinct(collect_list("ensembl_gene_id")).as("targets"))
+      .agg(array_distinct(collect_list("geneId")).as("targets"))
   }
 
 }

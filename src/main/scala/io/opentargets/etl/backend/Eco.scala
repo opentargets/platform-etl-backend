@@ -8,7 +8,7 @@ import org.apache.spark.sql._
 import org.apache.spark.sql.types._
 import com.typesafe.config.Config
 import io.opentargets.etl.backend.spark.Helpers
-import io.opentargets.etl.backend.spark.Helpers.IOResourceConfig
+import io.opentargets.etl.backend.spark.Helpers.{IOResourceConfig, stripIDFromURI}
 
 // This is option/step eco in the config file
 object Eco extends LazyLogging {
@@ -24,7 +24,7 @@ object Eco extends LazyLogging {
     val inputDataFrame = Helpers.readFrom(mappedInputs)
 
     val ecoDF = inputDataFrame(dfName)
-      .withColumn("id", substring_index(col("code"), "/", -1))
+      .withColumn("id", stripIDFromURI(col("code")))
 
     val outputs = Seq(dfName)
     // TODO THIS NEEDS MORE REFACTORING WORK AS IT CAN BE SIMPLIFIED

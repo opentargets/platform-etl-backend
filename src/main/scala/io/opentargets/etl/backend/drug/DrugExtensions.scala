@@ -108,19 +108,9 @@ object DrugExtensions extends LazyLogging {
     * @return filtered list of extensions in format ready to be read into dataframes.
     */
   private def groupExtensionByType(extentionType: String,
-                                   extensions: Seq[InputExtension]): Seq[IOResourceConfig] = {
+                                   extensions: Seq[InputExtension]): Seq[IOResourceConfig] =
     extensions
-      .filter(_.extensionType equalsIgnoreCase extentionType)
-      .flatMap(ext => { // using optionals so that we don't break the pipeline because of extension files.
-        ext.path match {
-          case JsonFile() =>
-            Some(IOResourceConfig("json", ext.path))
-          case nonJsonPath =>
-            logger.error(s"Unable to process extension file $nonJsonPath")
-            None
-        }
-      })
-  }
+      .withFilter(_.extensionType equalsIgnoreCase extentionType).map(_.input)
 
   /**
     * Helper function to ensure that incoming synonyms do not contain special characters and that

@@ -13,7 +13,7 @@ object IndicationTest {
   def indicationDf(implicit sparkSession: SparkSession): DataFrame =
     sparkSession.read.json(this.getClass.getResource("/indication_test30.jsonl").getPath)
   def efoDf(implicit sparkSession: SparkSession): DataFrame =
-    sparkSession.read.parquet(this.getClass.getResource("/efo_sample.parquet").getPath)
+    sparkSession.read.json(this.getClass.getResource("/efo_sample.json.gz").getPath)
   case class IndicationRow(id: String, efo_id: String, max_phase_for_indications: Int)
 }
 
@@ -40,55 +40,14 @@ class IndicationTest extends EtlSparkUnitTest {
   "Processing EFO metadata" should "return a dataframe with the EFO's id, label and uri" in {
     // given
     val inputDF: DataFrame = IndicationTest.efoDf(sparkSession)
-    val expectedColumns = Set("efo_id", "efo_label", "efo_uri")
+    val expectedColumns = Set("efo_id")
     // when
     val results
       : DataFrame = Indication invokePrivate getEfoDataFrame(
-      inputDF)
+      inputDF, "id", "efo_id")
 
     // then
     results.columns.forall(expectedColumns.contains)
-  }
-
-  "The EFO ID" should "be extracted from the URI" in {
-    // given
-    val inputs = Seq(
-      ("http://www.ebi.ac.uk/efo/EFO_1002015", "EFO_1002015"),
-      ("http://www.ebi.ac.uk/efo/EFO_1000777", "EFO_1000777"),
-      ("http://www.ebi.ac.uk/efo/EFO_1001239", "EFO_1001239"),
-      ("http://purl.obolibrary.org/obo/MONDO_0015857", "MONDO_0015857"),
-      ("http://www.ebi.ac.uk/efo/EFO_0008622", "EFO_0008622"),
-      ("http://www.ebi.ac.uk/efo/EFO_1000237", "EFO_1000237"),
-      ("http://www.ebi.ac.uk/efo/EFO_0003859", "EFO_0003859"),
-      ("http://www.ebi.ac.uk/efo/EFO_1000232", "EFO_1000232"),
-      ("http://www.ebi.ac.uk/efo/EFO_1000165", "EFO_1000165"),
-      ("http://www.ebi.ac.uk/efo/EFO_1000134", "EFO_1000134"),
-      ("http://www.ebi.ac.uk/efo/EFO_0008560", "EFO_0008560"),
-      ("http://purl.obolibrary.org/obo/MONDO_0002654", "MONDO_0002654"),
-      ("http://www.ebi.ac.uk/efo/EFO_1000525", "EFO_1000525"),
-      ("http://www.ebi.ac.uk/efo/EFO_1000202", "EFO_1000202"),
-      ("http://www.ebi.ac.uk/efo/EFO_0007442", "EFO_0007442"),
-      ("http://www.ebi.ac.uk/efo/EFO_0003110", "EFO_0003110"),
-      ("http://www.ebi.ac.uk/efo/EFO_1001331", "EFO_1001331"),
-      ("http://www.ebi.ac.uk/efo/EFO_0009524", "EFO_0009524"),
-      ("http://www.ebi.ac.uk/efo/EFO_0009469", "EFO_0009469"),
-      ("http://purl.obolibrary.org/obo/MONDO_0008315", "MONDO_0008315")
-    )
-    val s = StructType(StructField("case", StringType) :: Nil)
-    val df = sparkSession.createDataFrame(
-      sparkSession.sparkContext.parallelize(inputs.map(_._1).map(Row(_))),
-      s)
-    // when
-    val results = df.withColumn("efo_id", Helpers.stripIDFromURI(col("case")))
-    // then
-    val expectedResultSet: Set[String] = inputs.map(_._2).toSet
-    assert(
-      results
-        .select("efo_id")
-        .map(r => r.getString(0))
-        .collect
-        .toList
-        .forall(expectedResultSet.contains))
   }
 
   "Processing ChEMBL indications data" should "correctly process raw ChEMBL data into expected format" in {
@@ -134,7 +93,7 @@ class IndicationTest extends EtlSparkUnitTest {
     // when
     val results
       : DataFrame = Indication invokePrivate formatEfoIdsPM(
-      df)
+      df, "efo_id")
     // then
     assert(
       results

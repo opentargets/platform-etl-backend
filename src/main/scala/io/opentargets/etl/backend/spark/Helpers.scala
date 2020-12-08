@@ -2,22 +2,25 @@ package io.opentargets.etl.backend.spark
 
 import com.typesafe.scalalogging.LazyLogging
 import io.opentargets.etl.backend.Configuration.OTConfig
+
 import org.apache.spark.SparkConf
-import org.apache.spark.sql.{Column, DataFrame, DataFrameWriter, Row, SparkSession}
-import org.apache.spark.sql.functions.{col, expr, lit, struct, substring_index, udf}
+import org.apache.spark.sql._
+import org.apache.spark.sql.functions._
 import org.apache.spark.sql.types.{ArrayType, DataType, StructField, StructType}
 
+import scala.language.postfixOps
 import scala.util.Random
 
 object Helpers extends LazyLogging {
   type IOResourceConfs = Map[String, IOResourceConfig]
   type IOResources = Map[String, DataFrame]
 
+  case class IOResourceConfigOption(k: String, v: String)
   case class IOResourceConfig(
       format: String,
       path: String,
-      delimiter: Option[String] = None,
-      header: Option[Boolean] = None
+      options: Option[Seq[IOResourceConfigOption]] = None,
+      partitionBy: Option[Seq[String]] = None
   )
 
   /** generate a spark session given the arguments if sparkUri is None then try to get from env
@@ -54,12 +57,11 @@ object Helpers extends LazyLogging {
   def generateDefaultIoOutputConfiguration(
       files: String*
   )(configuration: OTConfig): IOResourceConfs = {
-    (for (n <- files)
-      yield n -> IOResourceConfig(
+    files.map {
+      n => n -> IOResourceConfig(
         configuration.common.outputFormat,
-        configuration.common.output + s"/$n"
-      )) toMap
-
+        configuration.common.output + s"/$n")
+    } toMap
   }
 
   /** apply to newNameFn() to the new name for the transformation and columnFn() to the inColumn
@@ -70,7 +72,11 @@ object Helpers extends LazyLogging {
             newNameFn: String => String,
             columnFn: Column => Column): (String, Column) = {
 
-    newNameFn(inColumn.toString) -> columnFn(inColumn)
+    val name = newNameFn(inColumn.toString)
+    val oper = columnFn(inColumn)
+
+    logger.info(s"tranform ${oper.toString} -> $name")
+    name -> oper
   }
 
   /** using the uri get the last token as an ID by example
@@ -78,6 +84,20 @@ object Helpers extends LazyLogging {
     * */
   def stripIDFromURI(uri: Column): Column =
     substring_index(uri, "/", -1)
+
+  def mkFlattenArray(col: Column, cols: Column*): Column = {
+    val colss = col +: cols
+    val colV = array(colss: _*)
+
+    filter(
+      array_distinct(
+        flatten(
+          filter(colV, x => x.isNotNull)
+        )
+      ),
+      z => z.isNotNull
+    )
+  }
 
   /** colNames are columns to flat if any inner array and then concatenate them
     * @param colNames list of column names as string
@@ -100,10 +120,6 @@ object Helpers extends LazyLogging {
 
   type WriterConfigurator = DataFrameWriter[Row] => DataFrameWriter[Row]
 
-  // Return sensible defaults, possibly modified by configuration if necessary in the future. Eg. parquet
-  private def defaultWriterConfigurator(): WriterConfigurator =
-    (writer: DataFrameWriter[Row]) => writer.format("json").mode("overwrite")
-
   /** It creates an hashmap of dataframes.
     *   Es. inputsDataFrame {"disease", Dataframe} , {"target", Dataframe}
     *   Reading is the first step in the pipeline
@@ -118,39 +134,13 @@ object Helpers extends LazyLogging {
   }
 
   def loadFileToDF(pathInfo: IOResourceConfig)(implicit session: SparkSession): DataFrame = {
-    logger.info(s"load file ${pathInfo.path} with format ${pathInfo.format} to dataframe")
-    pathInfo match {
-      // CSV, TSV, etc
-      case IOResourceConfig(
-            _: String,
-            format: String,
-            header: Option[String],
-            delimiter: Option[Boolean]
-          ) if format.contains("sv") && header.isDefined && delimiter.isDefined =>
-        logger.debug(
-          s"Loading separated value file: header - ${pathInfo.header.get}, delimiter - ${pathInfo.delimiter.get}"
-        )
-        session.read
-          .format("csv")
-          .option("header", pathInfo.header.get)
-          .option("delimiter", pathInfo.delimiter.get)
-          .load(pathInfo.path)
+    logger.info(s"load dataset ${pathInfo.path} with ${pathInfo.toString}")
 
-      case IOResourceConfig(
-            _: String,
-            format: String,
-            header: Option[String],
-            delimiter: Option[Boolean]
-          ) if format.endsWith("sv") =>
-        logger.error(
-          s"Separated value filed ${pathInfo.path} selected without specifying header and/or delimiter values"
-        )
-        // killing program through exception.
-        assert(assertion = false, s"Unable to complete pipeline due to bad file configuration for $pathInfo")
-        session.emptyDataFrame
-      // All other formats
-      case _ => session.read.format(pathInfo.format).load(pathInfo.path)
-    }
+    pathInfo.options.foldLeft(session.read.format(pathInfo.format)) {
+      case ops =>
+        val options = ops._2.map(c => c.k -> c.v).toMap
+        ops._1.options(options)
+    }.load(pathInfo.path)
   }
 
   /**
@@ -162,18 +152,44 @@ object Helpers extends LazyLogging {
     (for (rc <- resourceConfigs) yield Random.alphanumeric.take(6).toString -> rc).toMap
   }
 
-  def writeTo(outputConfs: IOResourceConfs, outputs: IOResources)(implicit
-      session: SparkSession
-  ): IOResources = {
-
-    logger.info(s"Saving data to '${outputConfs.mkString(", ")}'")
-
-    outputConfs foreach { case (n, c) =>
-      logger.debug(s"saving dataframe '$n' into '${c.path}'")
-      outputs(n).write.format(c.format).save(c.path)
+  def writeTo(outputConfs: IOResourceConfs, outputs: IOResources)(
+      implicit
+      session: SparkSession): IOResources = {
+    outputConfs foreach {
+      c => logger.info(s"save dataset ${c._1} with ${c._2.toString}")
     }
 
-    outputs
+    val outs = outputConfs.keySet intersect outputs.keySet map {
+      case k =>
+        val conf = outputConfs(k)
+        val df = outputs(k)
+        logger.debug(s"saving dataframe '$k' into '${conf.path}'")
+
+        val pb = conf.partitionBy.foldLeft(df.write){
+          case ops =>
+            logger.debug(s"enabled partition by ${ops._2.toString}")
+            ops._1.partitionBy(ops._2:_*)
+        }
+
+        conf.options.foldLeft(pb) {
+          case ops =>
+            logger.debug(s"write to ${conf.path} with options ${ops._2.toString}")
+            val options = ops._2.map(c => c.k -> c.v).toMap
+            ops._1.options(options)
+
+        }.format(conf.format)
+          .save(conf.path)
+
+        k -> df
+    } toMap
+
+    val intersectKs = outputs.keySet intersect outs.keySet
+    val unionKs = outputs.keySet union outs.keySet
+    (unionKs diff intersectKs).foreach {
+      k => logger.warn(s"dataframe $k has not been saved")
+    }
+
+    outs
   }
 
   /** generate a set of String with the union of Columns.
@@ -202,7 +218,8 @@ object Helpers extends LazyLogging {
 
     // Union between two dataframes with different schema. columnExpr helps to unify the schema
     val unionDF =
-      df.select(columnExpr(cols1, total).toList: _*).unionByName(df2.select(columnExpr(cols2, total).toList: _*))
+      df.select(columnExpr(cols1, total).toList: _*)
+        .unionByName(df2.select(columnExpr(cols2, total).toList: _*))
     unionDF
   }
 
@@ -240,14 +257,15 @@ object Helpers extends LazyLogging {
   def renameAllCols(schema: StructType, fn: String => String): StructType = {
 
     def renameDataType(dt: StructType): StructType =
-      StructType(dt.fields.map { case StructField(name, dataType, nullable, metadata) =>
-        val renamedDT = dataType match {
-          case st: StructType => renameDataType(st)
-          case ArrayType(elementType: StructType, containsNull) =>
-            ArrayType(renameDataType(elementType), containsNull)
-          case rest: DataType => rest
-        }
-        StructField(fn(name), renamedDT, nullable, metadata)
+      StructType(dt.fields.map {
+        case StructField(name, dataType, nullable, metadata) =>
+          val renamedDT = dataType match {
+            case st: StructType => renameDataType(st)
+            case ArrayType(elementType: StructType, containsNull) =>
+              ArrayType(renameDataType(elementType), containsNull)
+            case rest: DataType => rest
+          }
+          StructField(fn(name), renamedDT, nullable, metadata)
       })
 
     renameDataType(schema)

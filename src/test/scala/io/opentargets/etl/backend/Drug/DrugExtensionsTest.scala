@@ -12,24 +12,6 @@ import org.apache.spark.sql.{DataFrame, Dataset, Row}
 import org.scalatest.PrivateMethodTester
 import org.scalatest.flatspec.AnyFlatSpecLike
 
-class DrugExtensionsTest extends AnyFlatSpecLike with PrivateMethodTester {
-  val groupExtensionsByType: PrivateMethod[Seq[IOResourceConfig]] = {
-    PrivateMethod[Seq[IOResourceConfig]]('groupExtensionByType)
-  }
-  "Only json files" should "be loaded as extension files" in {
-    // given
-    val extensionType = "x"
-    val extensions = Seq(
-      InputExtension(extensionType, "bad/path/to/file.csv"),
-      InputExtension(extensionType, "good/path/to/file.json"),
-    )
-    // when
-    val results = DrugExtensions invokePrivate groupExtensionsByType(extensionType, extensions)
-    // then
-    assertResult(1, "Only valid extension files should be processed.")(results.size)
-  }
-}
-
 object CrossReferencesExtensionTest {
   case class SimpleCrossReference(id: String, source: String, reference: String) // an extension file has at least one ref field
 }

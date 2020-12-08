@@ -19,27 +19,18 @@ object Drug extends Serializable with LazyLogging {
   def apply()(implicit context: ETLSessionContext): Unit = {
     implicit val ss: SparkSession = context.sparkSession
 
-    import ss.implicits._
-
-    val drugInputs = context.configuration.common.inputs.drug
+    val drugInputs = context.configuration.drug
 
     logger.info("Loading raw inputs for Drug beta step.")
     val mappedInputs = Map(
-      "indication" -> IOResourceConfig(drugInputs.chemblIndication.format,
-                                       drugInputs.chemblIndication.path),
-      "mechanism" -> IOResourceConfig(drugInputs.chemblMechanism.format,
-                                      drugInputs.chemblMechanism.path),
-      "molecule" -> IOResourceConfig(drugInputs.chemblMolecule.format,
-                                     drugInputs.chemblMolecule.path),
-      "target" -> IOResourceConfig(drugInputs.chemblTarget.format,
-                                   drugInputs.chemblTarget.path),
-      "drugbankChemblMap" -> IOResourceConfig(drugInputs.drugbankToChembl.format,
-                                              drugInputs.drugbankToChembl.path,
-                                              Some("\\t"),
-                                              Some(true)),
-      "efo" -> IOResourceConfig(drugInputs.diseasePipeline.format, drugInputs.diseasePipeline.path),
-      "gene" -> IOResourceConfig(drugInputs.targetPipeline.format, drugInputs.targetPipeline.path),
-      "evidence" -> IOResourceConfig(drugInputs.evidencePipeline.format, drugInputs.evidencePipeline.path)
+      "indication" -> drugInputs.chemblIndication,
+      "mechanism" -> drugInputs.chemblMechanism,
+      "molecule" -> drugInputs.chemblMolecule,
+      "target" -> drugInputs.chemblTarget,
+      "drugbankChemblMap" -> drugInputs.drugbankToChembl,
+      "efo" -> drugInputs.diseasePipeline,
+      "gene" -> drugInputs.targetPipeline,
+      "evidence" -> drugInputs.evidencePipeline
     )
 
     val inputDataFrames = Helpers.readFrom(mappedInputs)
@@ -63,7 +54,7 @@ object Drug extends Serializable with LazyLogging {
     val indicationProcessedDf = Indication(indicationDf, efoDf)
     val moleculeProcessedDf = Molecule(moleculeDf, drugbank2ChemblMap, drugInputs.drugExtensions)
     val targetsAndDiseasesDf =
-      DrugCommon.getUniqTargetsAndDiseasesPerDrugId(evidenceDf).withColumnRenamed("drug_id", "id")
+      DrugCommon.getUniqTargetsAndDiseasesPerDrugId(evidenceDf).withColumnRenamed("drugId", "id")
 
     logger.whenTraceEnabled {
       val columnString: DataFrame => String = _.columns.mkString("Columns: [", ",", "]")
@@ -99,12 +90,8 @@ object Drug extends Serializable with LazyLogging {
       .transform(addDescription)
       .transform(cleanup)
 
-    val outputs = Seq(drugInputs.drugOutput.split("/").last)
-    logger.info(s"Writing outputs: ${outputs.mkString(",")}")
-
-    val outputConfs =
-      Helpers.generateDefaultIoOutputConfiguration(outputs: _*)(context.configuration)
-
+    val outputs = Seq(drugInputs.output.path.split("/").last)
+    val outputConfs = outputs.map(_ -> context.configuration.drug.output).toMap
     val outputDFs = (outputs zip Seq(drugDf)).toMap
 
     Helpers.writeTo(outputConfs, outputDFs)
