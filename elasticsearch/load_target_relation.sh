@@ -1,12 +1,7 @@
 #!/bin/bash
 
-export INDEX_SETTINGS="index_settings.json"
-export RELEASE=''
 export INDEX_NAME="target_relation"
-export TYPE_FIELD="target_relation"
-export INPUT="../out/targetRelation"
-#export INPUT="gs://ot-snapshots/etl/latest/targetRelation"
-export ES="http://localhost:9200"
+export INPUT="${PREFIX}/targetRelation"
 export ID="id"
 
 ./load_jsons.sh

@@ -2,13 +2,12 @@
 
 #An example of command is
 # cat "$1" | elasticsearch_loader --es-host "http://localhost:9200" --index-settings-file "index_settings.json" --bulk-size 5000 --index targets --type target --id-field id json --json-lines -
-echo $INDEX_SETTINGS
-echo $ES
-echo $INPUT
-echo $INDEX_NAME
-echo $TYPE_FIELD
-echo $ID
-echo $RELEASE
+echo INDEX_SETTINGS = $INDEX_SETTINGS
+echo ES = $ES
+echo INPUT = $INPUT
+echo INDEX_NAME = $INDEX_NAME
+echo ID = $ID
+echo RELEASE = $RELEASE
 
 INDEX=$RELEASE$INDEX_NAME
 

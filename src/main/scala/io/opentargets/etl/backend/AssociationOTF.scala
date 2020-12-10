@@ -9,7 +9,7 @@ import better.files.Dsl._
 import better.files._
 import com.typesafe.config.{Config, ConfigFactory, ConfigObject, ConfigRenderOptions}
 import com.typesafe.scalalogging.{LazyLogging, Logger}
-
+import io.opentargets.etl.backend.spark.Helpers.IOResourceConfig
 import org.apache.spark.sql.expressions._
 import spark.{Helpers => H}
 
@@ -128,8 +128,17 @@ object AssociationOTF extends LazyLogging {
     tempDF
   }
 
-  def compute()(implicit context: ETLSessionContext): Map[String, DataFrame] = {
+  def compute()(implicit context: ETLSessionContext): Map[String, (DataFrame, IOResourceConfig)] = {
     implicit val ss = context.sparkSession
+
+    val conf = context.configuration
+    val mappedInputs = Map(
+      "evidences" -> conf.aotf.inputs.evidences,
+      "targets" -> conf.aotf.inputs.targets,
+      "diseases" -> conf.aotf.inputs.diseases
+    )
+
+    val dfs = H.readFrom(mappedInputs)
 
     val diseaseColumns = Seq(
       "id as disease_id",
@@ -144,16 +153,12 @@ object AssociationOTF extends LazyLogging {
       "tractability"
     )
 
-    val commonSec = context.configuration.common
-
-    val diseases = Disease
-      .compute()
+    val diseases = dfs("diseases")
       .selectExpr(diseaseColumns: _*)
       .orderBy(col("disease_id").asc)
       .persist()
 
-    val targets = Target
-      .compute()
+    val targets = dfs("targets")
       .selectExpr(targetColumns: _*)
       .orderBy(col("target_id").asc)
       .persist()
@@ -170,45 +175,48 @@ object AssociationOTF extends LazyLogging {
       .join(targetsFacetReactome, Seq("target_id"), "left_outer")
       .drop("tractability", "reactome")
 
-    val mappedInputs = Map(
-      "evidences" -> H.IOResourceConfig(
-        commonSec.inputs.evidence.format,
-        commonSec.inputs.evidence.path
-      )
+    val columnsToDrop = Seq(
+      "mutatedSamples",
+      "diseaseModelAssociatedModelPhenotypes",
+      "diseaseModelAssociatedHumanPhenotypes",
+      "textMiningSentences",
+      "clinicalUrls"
     )
-    val dfs = H.readFrom(mappedInputs)
 
+    // TODO targetsymbol has to be corrected to camelcase due to a bug in the evidences
     val evidenceColumns = Seq(
       "id as row_id",
-      "disease.id as disease_id",
-      "concat(disease.id, ' ',disease.name) as disease_data",
-      "target.id as target_id",
-      "concat(target.id, ' ', target.gene_info.name, ' ', target.gene_info.symbol) as target_data",
-      "sourceID as datasource_id",
-      "`type` as datatype_id",
-      "scores.association_score as row_score",
-      "unique_association_fields"
+      "diseaseId as disease_id",
+      "concat(diseaseId, ' ',diseaseLabel) as disease_data",
+      "targetId as target_id",
+      "concat(targetId, ' ', targetName, ' ', targetsymbol) as target_data",
+      "datasourceId as datasource_id",
+      "datatypeId as datatype_id",
+      "sourceId",
+      "score as row_score"
     )
 
-    logger.debug(s"number of evidences ${dfs("evidences").count()}")
+    val elasticsearchDF = dfs("evidences")
+      .drop(columnsToDrop:_*)
+      .selectExpr(evidenceColumns: _*)
+      .join(diseasesFacetTAs, Seq("disease_id"), "left_outer")
+      .join(finalTargets, Seq("target_id"), "left_outer")
+
+    val clickhouseDF = dfs("evidences")
+      .drop(columnsToDrop:_*)
+      .selectExpr(evidenceColumns: _*)
 
     Map(
-      "evidencesAOTF" -> dfs("evidences")
-        .selectExpr(evidenceColumns: _*)
-        .repartition()
-        .join(diseasesFacetTAs, Seq("disease_id"), "left_outer")
-        .join(finalTargets, Seq("target_id"), "left_outer"))
+      "aotfsElasticsearch" ->(elasticsearchDF, conf.aotf.outputs.elasticsearch),
+      "aotfsClickhouse" ->(clickhouseDF, conf.aotf.outputs.clickhouse)
+    )
   }
 
   def apply()(implicit context: ETLSessionContext) = {
     implicit val ss = context.sparkSession
-    val commonSec = context.configuration.common
-
     val clickhouseEvidences = compute()
 
-    val outputs = clickhouseEvidences.keys map (name =>
-      name -> H.IOResourceConfig(commonSec.outputFormat, commonSec.output + s"/$name"))
-
-    H.writeTo(outputs.toMap, clickhouseEvidences)
+    H.writeTo(clickhouseEvidences.map(p => p._1 -> p._2._2),
+      clickhouseEvidences.map(p => p._1 -> p._2._1))
   }
 }

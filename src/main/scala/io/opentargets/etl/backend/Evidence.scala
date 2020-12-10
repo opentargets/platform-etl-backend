@@ -361,7 +361,7 @@ object Evidence extends LazyLogging {
       df.select(
           col("id").as("dId"),
           col("approvedName").as("targetName"),
-          col("approvedSymbol").as("targetsymbol"),
+          col("approvedSymbol").as("targetSymbol"),
           array_distinct(
             mkFlattenArray(
               array(col("id")),
