@@ -1,7 +1,15 @@
+# where the ETL output prefix is located as inside it should find each step output
+export PREFIX=${ETL_PREFIX:-"out"}
+# empty prefix release. If you specify it it will be simply prefixed like "20.11_"...
+export RELEASE=${ETL_RELEASE:-""}
+# the default index settings file
+export INDEX_SETTINGS=${ETL_INDEX_SETTINGS:-"index_settings.json"}
+# default ES endpoint
+export ES=${ETL_ES:-"http://localhost:9200"}
+
 ./load_targets.sh
 ./load_diseases.sh
 ./load_drugs.sh
-./load_drugBeta.sh
 ./load_eco.sh
 ./load_so.sh
 ./load_expression.sh
