@@ -45,6 +45,18 @@ object Configuration extends LazyLogging {
       dataSources: List[DataSource]
   )
 
+  case class AOTFInputsSection(evidences: IOResourceConfig,
+                               diseases: IOResourceConfig,
+                               targets: IOResourceConfig)
+
+  case class AOTFOutputsSection(clickhouse: IOResourceConfig,
+                                elasticsearch: IOResourceConfig)
+
+  case class AOTFSection(
+      outputs: AOTFOutputsSection,
+      inputs: AOTFInputsSection
+  )
+
   case class EvidenceProteinFix(input: String, output: String)
 
   case class InteractionsSection(
@@ -99,7 +111,11 @@ object Configuration extends LazyLogging {
                                  drugs: IOResourceConfig,
                                  associations: IOResourceConfig)
 
-  case class SearchSection(inputs: SearchInputsSection, output: IOResourceConfig)
+  case class SearchOutputsSection(targets: IOResourceConfig,
+                                 diseases: IOResourceConfig,
+                                 drugs: IOResourceConfig)
+
+  case class SearchSection(inputs: SearchInputsSection, outputs: SearchOutputsSection)
 
   case class OTConfig(
       sparkUri: Option[String],
@@ -109,7 +125,8 @@ object Configuration extends LazyLogging {
       evidences: EvidencesSection,
       drug: DrugSection,
       knownDrugs: KnownDrugsSection,
-      search: SearchSection
+      search: SearchSection,
+      aotf: AOTFSection
   )
 
   def load: ConfigReader.Result[OTConfig] = {

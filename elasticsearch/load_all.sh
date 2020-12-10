@@ -3,12 +3,13 @@
 ./load_drugs.sh
 ./load_drugBeta.sh
 ./load_eco.sh
+./load_so.sh
 ./load_expression.sh
 ./load_mp.sh
 ./load_cancerbiomarker.sh
 ./load_reactome.sh
 ./load_search.sh
-./load_evidence_direct.sh
+./load_known_drugs.sh
 ./load_openfda_faers.sh
 ./load_disease_relation.sh
 ./load_target_relation.sh
