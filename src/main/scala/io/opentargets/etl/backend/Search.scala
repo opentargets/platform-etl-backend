@@ -186,14 +186,30 @@ object Transformers {
         )
         .withColumn("entity", lit("target"))
         .withColumn("category", array(col("biotype")))
-        .withColumn("name", col("approved_symbol"))
-        .withColumn("description", col("approved_name"))
+        .withColumn("name", col("approvedSymbol"))
+        .withColumn("description", col("approvedName"))
         .withColumn(
           "multiplier",
           when(col("target_relevance").isNotNull, log1p(col("target_relevance")) + lit(1.0d))
             .otherwise(0.01d)
         )
         .selectExpr(searchFields: _*)
+    }
+
+    def resolveTALabels(idColumnName: String, taLabelsColumnName: String): DataFrame = {
+      val tas = df
+        .selectExpr(idColumnName, "therapeuticAreas")
+        .withColumn("therapeuticAreaId", explode(col("therapeuticAreas")))
+        .orderBy(col("therapeuticAreaId"))
+        .join(df.selectExpr(s"${idColumnName} as therapeuticAreaId", "name as therapeuticAreaLabel"),
+          Seq("therapeuticAreaId"),
+          "inner")
+        .drop("therapeuticAreaId", "therapeuticAreas")
+        .groupBy(col(idColumnName))
+        .agg(collect_set(col("therapeuticAreaLabel")).as(taLabelsColumnName))
+        .persist(StorageLevel.DISK_ONLY)
+
+      df.join(tas, Seq(idColumnName), "left_outer")
     }
 
     def setIdAndSelectFromDiseases(
@@ -237,7 +253,8 @@ object Transformers {
           mean(col("score")).as("disease_relevance")
         )
 
-      df.withColumn("phenotype_labels", expr("transform(phenotypes.rows, f -> f.name)"))
+      df
+        .withColumn("phenotype_labels", expr("phenotypes.rows.name"))
         .join(assocsWithLabels, Seq("diseaseId"), "left_outer")
         .withColumn(
           "target_labels",
@@ -296,17 +313,36 @@ object Transformers {
         )
         .withColumn("entity", lit("disease"))
         .withColumn("category", col("therapeutic_labels"))
-        .withColumn(
-          "description",
-          when(length(col("definition")) === 0, lit(null))
-            .otherwise(col("definition"))
-        )
+//        .withColumn(
+//          "description",
+//          when(length(col("description")) === 0, lit(null))
+//            .otherwise(col("description"))
+//        )
         .withColumn(
           "multiplier",
           when(col("disease_relevance").isNotNull, log1p(col("disease_relevance")) + lit(1.0d))
             .otherwise(0.01d)
         )
         .selectExpr(searchFields: _*)
+    }
+
+    def resolveDrugIndications(diseases: DataFrame, outColName: String): DataFrame = {
+      val dLabels = diseases
+        .selectExpr("diseaseId as indicationId", "disease_name")
+        .orderBy(col("indicationId"))
+
+      // indications.efo_label
+      val indications = df
+        .withColumn("indicationIds", expr("indications.rows.disease"))
+        .withColumn("indicationId", explode(col("indicationIds")))
+        .selectExpr("drugId", "indicationId")
+        .join(dLabels, Seq("indicationId"), "inner")
+        .groupBy(col("drugId"))
+        .agg(collect_set(col("disease_name")).as(outColName))
+        .persist(StorageLevel.DISK_ONLY)
+
+      df.join(indications, Seq("drugId"), "left_outer")
+
     }
 
     // uses target_ids, drug_id, target_labels, disease_id, disease_labels
@@ -331,7 +367,10 @@ object Transformers {
           "inner"
         )
         .groupBy(col("drugId"))
-        .agg(flatten(collect_list(col("disease_labels"))).as("disease_labels"))
+        .agg(
+          flatten(collect_list(col("disease_labels"))).as("disease_labels"),
+          flatten(collect_list(col("therapeutic_labels"))).as("therapeutic_labels")
+        )
 
       val drugEnrichedWithLabels = tluts
         .join(dluts, Seq("drugId"), "full_outer")
@@ -349,14 +388,18 @@ object Transformers {
           when(col("diseaseIds").isNull, Array.empty[String])
             .otherwise(col("diseaseIds"))
         )
-        .withColumn("descriptions", col("mechanisms_of_action.description"))
+        .withColumn("descriptions", expr("mechanismsOfAction.rows.mechanismOfAction"))
         .withColumn(
           "keywords",
           C.flattenCat(
             "synonyms",
-            "trade_names",
-            "array(prefName)",
-            "array(id)"
+            "tradeNames",
+            "array(name)",
+            "array(id)",
+            "childChemblIds",
+            "crossReferences.PubChem",
+            "crossReferences.drugbank",
+            "crossReferences.chEBI"
           )
         )
         .withColumn(
@@ -364,14 +407,14 @@ object Transformers {
           C.flattenCat(
             "synonyms",
             "tradeNames",
-            "array(prefName)",
+            "array(name)",
             "descriptions"
           )
         )
         .withColumn(
           "ngrams",
           C.flattenCat(
-            "array(prefName)",
+            "array(name)",
             "synonyms",
             "tradeNames",
             "descriptions"
@@ -379,8 +422,7 @@ object Transformers {
         )
         // put the drug type in another field
         .withColumn("entity", lit("drug"))
-        .withColumn("category", array(col("type")))
-        .withColumn("name", col("prefName"))
+        .withColumn("category", array(col("drugType")))
         .withColumn("description", lit(null))
         .withColumn(
           "multiplier",
@@ -405,8 +447,8 @@ object Transformers {
           C.flattenCat(
             "disease_labels",
             "target_labels",
-            "indications.efo_label",
-            "indication_therapeutic_areas.therapeutic_label"
+            "indicationLabels",
+            "therapeutic_labels"
           )
         )
 
@@ -436,6 +478,7 @@ object Search extends LazyLogging {
     logger.info("process diseases and compute ancestors and descendants and persist")
     val diseases = inputDataFrame("disease")
       .transform(Transformers.processDiseases)
+      .resolveTALabels("diseaseId", "therapeutic_labels")
       .orderBy(col("diseaseId"))
       .persist(StorageLevel.DISK_ONLY)
 
@@ -459,7 +502,7 @@ object Search extends LazyLogging {
           "synonyms"
         )
       )
-      .select("diseaseId", "disease_labels")
+      .selectExpr("diseaseId", "disease_labels", "name as disease_name", "therapeutic_labels")
       .orderBy("diseaseId")
       .persist(StorageLevel.DISK_ONLY)
 
@@ -561,6 +604,10 @@ object Search extends LazyLogging {
 
     logger.info("generate search objects for drug entity")
     val searchDrugs = drugs
+      .resolveDrugIndications(
+        dLUT,
+        "indicationLabels"
+      )
       .withColumnRenamed("drugId", "id")
       .setIdAndSelectFromDrugs(associationsWithDrugs, tLUT, dLUT)
 
