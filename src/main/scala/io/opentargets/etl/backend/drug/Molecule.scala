@@ -29,7 +29,7 @@ object Molecule extends LazyLogging {
     // add extension methods and remove unneeded fields.
     val moleculesExtended = DrugExtensions(molCombined, drugExtensions).drop("drugbank_id")
     // do this last so that any increased coverage brought in by extension methods is captured.
-    moleculesExtended.withColumn("name",coalesce(col("name"), element_at(col("synonyms"), lit(1))))
+    moleculesExtended.withColumn("name",coalesce(col("name"), element_at(col("synonyms"), lit(1)), col("id")))
   }
 
   /**
