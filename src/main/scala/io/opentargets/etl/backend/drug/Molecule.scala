@@ -3,22 +3,7 @@ package io.opentargets.etl.backend.drug
 import com.typesafe.scalalogging.LazyLogging
 import io.opentargets.etl.backend.Configuration.InputExtension
 import org.apache.spark.sql.expressions.UserDefinedFunction
-import org.apache.spark.sql.functions.{
-  array,
-  array_sort,
-  arrays_zip,
-  coalesce,
-  col,
-  collect_list,
-  collect_set,
-  explode,
-  lit,
-  map_concat,
-  split,
-  typedLit,
-  udf,
-  upper
-}
+import org.apache.spark.sql.functions.{array, array_sort, arrays_zip, coalesce, col, collect_list, collect_set, element_at, explode, lit, map_concat, split, typedLit, udf, upper}
 import org.apache.spark.sql.{DataFrame, SparkSession, functions}
 import io.opentargets.etl.backend.spark.Helpers.nest
 
@@ -42,8 +27,9 @@ object Molecule extends LazyLogging {
       .join(hierarchy, Seq("id"), "left_outer")
 
     // add extension methods and remove unneeded fields.
-    DrugExtensions(molCombined, drugExtensions).drop("drugbank_id")
-
+    val moleculesExtended = DrugExtensions(molCombined, drugExtensions).drop("drugbank_id")
+    // do this last so that any increased coverage brought in by extension methods is captured.
+    moleculesExtended.withColumn("name",coalesce(col("name"), element_at(col("synonyms"), lit(1)), col("id")))
   }
 
   /**
