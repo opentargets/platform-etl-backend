@@ -54,27 +54,15 @@ object ETL extends LazyLogging {
 
     val data = sparkSession.read
       .json(uri)
-      // .withColumn("terms", concat($"GP", $"DS"))
-      .withColumn("normalised_gp",
-                  transform($"GP",
-                            c =>
-                              struct(normalise(c).as("term_norm"),
-                                     c.as("term_raw"),
-                                     lit("target").as("term_type"))))
-      .withColumn("normalised_ds",
-                  transform($"DS",
-                            c =>
-                              struct(normalise(c).as("term_norm"),
-                                     c.as("term_raw"),
-                                     lit("disease").as("term_type"))))
-      .withColumn(
-        "normalised_cd",
-        transform(
-          $"CD",
-          c => struct(normalise(c).as("term_norm"), c.as("term_raw"), lit("drug").as("term_type"))))
-      .withColumn("normalised_terms", concat($"normalised_gp", $"normalised_ds", $"normalised_cd"))
-      .withColumn("normalised_term", explode($"normalised_terms"))
-      .selectExpr("*", "normalised_term.*")
+      .withColumn("sentence", explode($"sentences"))
+      .drop("sentences")
+      .selectExpr("*", "sentence.*")
+      .drop("sentence")
+      .withColumn("match", explode($"matches"))
+      .drop("matches")
+      .selectExpr("*", "match.*")
+      .drop("match")
+      .withColumn("labelN", normalise($"label"))
 
     data
   }
@@ -83,21 +71,22 @@ object ETL extends LazyLogging {
     import sparkSession.implicits._
 
     val selectedColumns = Seq(
-      "id",
-      "name",
-      "entity",
-      "keywords"
+      $"id".as("keywordId"),
+      $"name",
+      when($"entity" === "target", lit("GP"))
+        .when($"entity" === "disease", lit("DS"))
+        .when($"entity" === "drug", lit("CD"))
+        .as("type"),
+      $"keywords"
     )
 
     val data = sparkSession.read
       .json(uri)
-      .selectExpr(selectedColumns: _*)
-      .withColumn("normalised_keywords",
-                  transform($"keywords",
-                            c => struct(normalise(c).as("keyword_norm"), c.as("keyword_raw"))))
-      .withColumn("normalised_keyword", explode(col("normalised_keywords")))
-      .withColumnRenamed("entity", "keyword_type")
-      .selectExpr("*", "normalised_keyword.*")
+      .select(selectedColumns: _*)
+      .withColumn("keyword", explode($"keywords"))
+      .withColumn("labelN", normalise($"keyword"))
+      .drop("keywords")
+      .orderBy($"type", $"labelN")
 
     data
   }
@@ -106,35 +95,42 @@ object ETL extends LazyLogging {
       implicit sparkSession: SparkSession): DataFrame = {
     import sparkSession.implicits._
 
-    val dict = entities
-      .join(luts, $"term_norm" === $"keyword_norm", "left_outer")
+    val merged = entities
+      .join(luts, Seq("type", "labelN"),"left_outer")
+      .groupBy($"pmid", $"text")
+      .agg(
+        first($"organisms").as("organisms"),
+        first($"pubDate").as("pubDate"),
+        first($"section").as("section"),
+        first($"co-occurrence").as("co-occurrence"),
+        collect_list(
+          struct(
+            $"endInSentence",
+            $"label",
+            $"sectionEnd",
+            $"sectionStart",
+            $"startInSentence",
+            $"type",
+            $"labelN",
+            $"keywordId")
+        ).as("matches")
+      )
+      // TODO process co-occurrence with the resolved matches
       .groupBy($"pmid")
       .agg(
-        collect_set(struct($"term_raw", $"term_norm", $"id", $"term_type", $"keyword_type")).as(
-          "terms")
+        first($"organisms").as("organisms"),
+        first($"pubDate").as("pubDate"),
+        collect_list(
+          struct(
+            $"co-occurrence",
+            $"matches",
+            $"section",
+            $"text"
+          )
+        ).as("sentences")
       )
-      .withColumn("terms_mapped", filter($"terms", c => c.getField("id").isNotNull))
-      .withColumn("terms_not_mapped", filter($"terms", c => c.getField("id").isNull))
-      .withColumn("targets_mapped",
-                  filter($"terms_mapped",
-                         c =>
-                           c.getField("term_type") === c.getField("keyword_type") and c.getField(
-                             "keyword_type") === "target"))
-      .withColumn("diseases_mapped",
-                  filter($"terms_mapped",
-                         c =>
-                           c.getField("term_type") === c.getField("keyword_type") and c.getField(
-                             "keyword_type") === "disease"))
-      .withColumn(
-        "drugs_mapped",
-        filter($"terms_mapped",
-               c => c.getField("term_type") === "drug" and c.getField("keyword_type") === "drug"))
-      .withColumn(
-        "cross_mapped",
-        filter($"terms_mapped", c => c.getField("term_type") =!= c.getField("keyword_type")))
-      .drop("terms")
 
-    dict
+    merged
   }
 
   def apply(entitiesUri: String, lutsUri: String, outputUri: String) = {
@@ -144,9 +140,8 @@ object ETL extends LazyLogging {
       ss
     }
 
+    val luts = broadcast(loadLUTs(lutsUri))
     val entities = loadEntities(entitiesUri)
-    val luts = loadLUTs(lutsUri)
-
     val resolvedEntities = resolveEntities(entities, luts)
 
     resolvedEntities.write.json(outputUri)
