@@ -38,6 +38,7 @@ object SparkSessionWrapper extends LazyLogging {
 }
 
 object ETL extends LazyLogging {
+
   import ColumnTransformationHelpers._
 
   object ColumnTransformationHelpers {
@@ -96,7 +97,7 @@ object ETL extends LazyLogging {
     import sparkSession.implicits._
 
     val merged = entities
-      .join(luts, Seq("type", "labelN"),"left_outer")
+      .join(luts, Seq("type", "labelN"), "left_outer")
       .groupBy($"pmid", $"text")
       .agg(
         first($"organisms").as("organisms"),
@@ -104,24 +105,69 @@ object ETL extends LazyLogging {
         first($"section").as("section"),
         first($"co-occurrence").as("co-occurrence"),
         collect_list(
-          struct(
-            $"endInSentence",
-            $"label",
-            $"sectionEnd",
-            $"sectionStart",
-            $"startInSentence",
-            $"type",
-            $"labelN",
-            $"keywordId")
+          struct($"endInSentence",
+                 $"label",
+                 $"sectionEnd",
+                 $"sectionStart",
+                 $"startInSentence",
+                 $"type",
+                 $"labelN",
+                 $"keywordId")
         ).as("matches")
       )
-      // TODO process co-occurrence with the resolved matches
+      .withColumn(
+        "_filteredMatches",
+        array_distinct(
+          transform(
+            filter($"matches", c => c.getField("keywordId").isNotNull),
+            a =>
+              struct(
+                a.getField("label").as("label"),
+                a.getField("keywordId").as("keywordId")
+            )
+          ))
+      )
+      .withColumn(
+        "_matches",
+        when(
+          $"_filteredMatches".isNotNull and size($"_filteredMatches") > 0,
+          map_from_entries($"_filteredMatches")
+        )
+      )
+      .withColumn(
+        "coos",
+        when(
+          $"_matches".isNotNull,
+          transform(
+            $"co-occurrence",
+            f =>
+              struct(
+                f.getField("association"),
+                f.getField("end1"),
+                f.getField("end2"),
+                f.getField("evidence_score"),
+                f.getField("label1"),
+                f.getField("label2"),
+                f.getField("relation"),
+                f.getField("start1"),
+                f.getField("start2"),
+                f.getField("type"),
+                element_at($"_matches", f.getField("label1")).as("keywordId1"),
+                element_at($"_matches", f.getField("label2")).as("keywordId2"),
+                (element_at($"_matches", f.getField("label1")).isNotNull &&
+                  element_at($"_matches", f.getField("label2")).isNotNull).as("mapped")
+            )
+          )
+        )
+      )
+      .drop("_matches", "_filteredMatches")
       .groupBy($"pmid")
       .agg(
         first($"organisms").as("organisms"),
         first($"pubDate").as("pubDate"),
         collect_list(
           struct(
+            $"coos",
             $"co-occurrence",
             $"matches",
             $"section",
