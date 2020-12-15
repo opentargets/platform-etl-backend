@@ -1,6 +1,7 @@
 import $ivy.`ch.qos.logback:logback-classic:1.2.3`
 import $ivy.`com.typesafe.scala-logging::scala-logging:3.9.2`
 import $ivy.`com.typesafe:config:1.4.0`
+import org.apache.spark.storage.StorageLevel
 // import $ivy.`com.github.fommil.netlib:all:1.1.2`
 import $ivy.`org.apache.spark::spark-core:3.0.1`
 import $ivy.`org.apache.spark::spark-mllib:3.0.1`
@@ -26,6 +27,7 @@ object SparkSessionWrapper extends LazyLogging {
   lazy val sparkConf = new SparkConf()
     .set("spark.driver.maxResultSize", "0")
     .set("spark.debug.maxToStringFields", "2000")
+    .set("spark.sql.mapKeyDedupPolicy", "LAST_WIN")
     .setAppName("etl-generation")
     .setMaster("local[*]")
 
@@ -59,11 +61,6 @@ object ETL extends LazyLogging {
       .drop("sentences")
       .selectExpr("*", "sentence.*")
       .drop("sentence")
-      .withColumn("match", explode($"matches"))
-      .drop("matches")
-      .selectExpr("*", "match.*")
-      .drop("match")
-      .withColumn("labelN", normalise($"label"))
 
     data
   }
@@ -96,14 +93,19 @@ object ETL extends LazyLogging {
       implicit sparkSession: SparkSession): DataFrame = {
     import sparkSession.implicits._
 
-    val merged = entities
+    val mergedMatches = entities
+      .withColumn("match", explode($"matches"))
+      .drop("matches")
+      .selectExpr("*", "match.*")
+      .drop("match")
+      .withColumn("labelN", normalise($"label"))
       .join(luts, Seq("type", "labelN"), "left_outer")
+      .withColumn("isMapped", $"keywordId".isNotNull)
       .groupBy($"pmid", $"text")
       .agg(
         first($"organisms").as("organisms"),
         first($"pubDate").as("pubDate"),
         first($"section").as("section"),
-        first($"co-occurrence").as("co-occurrence"),
         collect_list(
           struct($"endInSentence",
                  $"label",
@@ -112,62 +114,61 @@ object ETL extends LazyLogging {
                  $"startInSentence",
                  $"type",
                  $"labelN",
-                 $"keywordId")
+                 $"keywordId",
+                 $"isMapped")
         ).as("matches")
-      )
-      .withColumn(
-        "_filteredMatches",
-        array_distinct(
-          transform(
-            filter($"matches", c => c.getField("keywordId").isNotNull),
-            a =>
-              struct(
-                a.getField("label").as("label"),
-                a.getField("keywordId").as("keywordId")
-            )
-          ))
-      )
-      .withColumn(
-        "_matches",
-        when(
-          $"_filteredMatches".isNotNull and size($"_filteredMatches") > 0,
-          map_from_entries($"_filteredMatches")
-        )
-      )
-      .withColumn(
-        "coos",
-        when(
-          $"_matches".isNotNull,
-          transform(
-            $"co-occurrence",
-            f =>
-              struct(
-                f.getField("association"),
-                f.getField("end1"),
-                f.getField("end2"),
-                f.getField("evidence_score"),
-                f.getField("label1"),
-                f.getField("label2"),
-                f.getField("relation"),
-                f.getField("start1"),
-                f.getField("start2"),
-                f.getField("type"),
-                element_at($"_matches", f.getField("label1")).as("keywordId1"),
-                element_at($"_matches", f.getField("label2")).as("keywordId2"),
-                (element_at($"_matches", f.getField("label1")).isNotNull &&
-                  element_at($"_matches", f.getField("label2")).isNotNull).as("mapped")
-            )
+      ).persist(StorageLevel.DISK_ONLY)
+
+    val mergedCooc = entities
+      .withColumn("cooc", explode($"co-occurrence"))
+      .drop("co-occurrence")
+      .selectExpr("*", "cooc.*")
+      .drop("cooc")
+      .withColumn("label1N", normalise($"label1"))
+      .withColumn("label2N", normalise($"label2"))
+      .withColumn("type1", substring_index($"type", "-", 1))
+      .withColumn("type2", substring_index($"type", "-", -1))
+      .drop("type")
+      .join(luts, $"type1" === $"type" and $"label1N" === $"labelN", "left_outer")
+      .withColumnRenamed("keywordId", "keywordId1")
+      .drop("type", "labelN")
+      .join(luts, $"type2" === $"type" and $"label2N" === $"labelN", "left_outer")
+      .withColumnRenamed("keywordId", "keywordId2")
+      .drop("type", "labelN")
+      .withColumn("isMapped", $"keywordId1".isNotNull and $"keywordId2".isNotNull)
+      .groupBy($"pmid", $"text")
+      .agg(
+        collect_list(
+          struct(
+            $"association",
+            $"end1",
+            $"end2",
+            $"evidence_score",
+            $"label1",
+            $"keywordId1",
+            $"label2",
+            $"keywordId1",
+            $"relation",
+            $"start1",
+            $"start2",
+            concat_ws("-", $"type1", $"type2").as("type"),
+            $"type1",
+            $"type2",
+            $"isMapped"
           )
-        )
+        ).as("co-occurrence")
       )
-      .drop("_matches", "_filteredMatches")
+      .persist(StorageLevel.DISK_ONLY)
+
+
+    val merged =
+      mergedMatches.join(mergedCooc, Seq("pmid", "text"), "left_outer")
       .groupBy($"pmid")
       .agg(
         first($"organisms").as("organisms"),
         first($"pubDate").as("pubDate"),
         collect_list(
           struct(
-            $"coos",
             $"co-occurrence",
             $"matches",
             $"section",
