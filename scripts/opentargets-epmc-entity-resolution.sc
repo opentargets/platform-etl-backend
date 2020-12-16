@@ -117,7 +117,7 @@ object ETL extends LazyLogging {
                  $"keywordId",
                  $"isMapped")
         ).as("matches")
-      ).persist(StorageLevel.DISK_ONLY)
+      )
 
     val mergedCooc = entities
       .withColumn("cooc", explode($"co-occurrence"))
@@ -158,8 +158,6 @@ object ETL extends LazyLogging {
           )
         ).as("co-occurrence")
       )
-      .persist(StorageLevel.DISK_ONLY)
-
 
     val merged =
       mergedMatches.join(mergedCooc, Seq("pmid", "text"), "left_outer")
