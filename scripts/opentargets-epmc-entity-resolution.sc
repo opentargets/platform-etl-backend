@@ -147,7 +147,7 @@ object ETL extends LazyLogging {
             $"label1",
             $"keywordId1",
             $"label2",
-            $"keywordId1",
+            $"keywordId2",
             $"relation",
             $"start1",
             $"start2",
