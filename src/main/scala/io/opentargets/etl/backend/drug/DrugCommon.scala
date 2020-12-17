@@ -24,7 +24,7 @@ object DrugCommon extends Serializable with LazyLogging {
   def addDescription(dataFrame: DataFrame): DataFrame = {
     dataFrame
       .withColumn("_indication_phases", col("indications.rows.maxPhaseForIndication"))
-      .withColumn("_indication_labels", col("indications.rows.disease"))
+      .withColumn("_indication_labels", col("indications.rows.efoName"))
       .transform(addDescriptionField)
       .drop("_indication_phases", "_indication_labels")
   }
