@@ -40,11 +40,9 @@ class IndicationTest extends EtlSparkUnitTest {
   "Processing EFO metadata" should "return a dataframe with the EFO's id, label and uri" in {
     // given
     val inputDF: DataFrame = IndicationTest.efoDf(sparkSession)
-    val expectedColumns = Set("efo_id")
+    val expectedColumns = Set("efo_id", "efoName")
     // when
-    val results
-      : DataFrame = Indication invokePrivate getEfoDataFrame(
-      inputDF, "id", "efo_id")
+    val results: DataFrame = Indication invokePrivate getEfoDataFrame(inputDF)
 
     // then
     results.columns.forall(expectedColumns.contains)
