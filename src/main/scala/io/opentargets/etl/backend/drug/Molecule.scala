@@ -3,7 +3,7 @@ package io.opentargets.etl.backend.drug
 import com.typesafe.scalalogging.LazyLogging
 import io.opentargets.etl.backend.Configuration.InputExtension
 import org.apache.spark.sql.expressions.UserDefinedFunction
-import org.apache.spark.sql.functions.{array, array_sort, arrays_zip, coalesce, col, collect_list, collect_set, element_at, explode, lit, map_concat, split, typedLit, udf, upper}
+import org.apache.spark.sql.functions.{array, array_sort, arrays_zip, coalesce, col, collect_list, collect_set, element_at, explode, lit, map_concat, split, typedLit, udf, upper, when}
 import org.apache.spark.sql.{DataFrame, SparkSession, functions}
 import io.opentargets.etl.backend.spark.Helpers.nest
 
@@ -79,6 +79,7 @@ object Molecule extends LazyLogging {
       .withColumnRenamed("withdrawn_class", "classes")
       .withColumnRenamed("withdrawn_year", "year")
     nest(df, List("countries", "classes", "year"), "withdrawnNotice")
+      .withColumn("withdrawnNotice", when(col("hasBeenWithdrawn") === false, null).otherwise(col("withdrawnNotice")))
   }
 
   /**

@@ -1,6 +1,6 @@
 package io.opentargets.etl.backend.Drug
 
-import io.opentargets.etl.backend.Drug.MoleculeTest.{XRef, getSampleHierarchyData, getSampleSynonymData}
+import io.opentargets.etl.backend.Drug.MoleculeTest.{XRef, getSampleHierarchyData, getSampleSynonymData, getSampleWithdrawnNoticeData}
 import io.opentargets.etl.backend.EtlSparkUnitTest
 import io.opentargets.etl.backend.drug.Molecule
 import org.apache.spark.sql.functions.{array_contains, col, map_keys}
@@ -133,6 +133,26 @@ object MoleculeTest {
     )
     sparkSession.createDataFrame(sparkSession.sparkContext.parallelize(data), schema)
   }
+
+  def getSampleWithdrawnNoticeData(sparkSession: SparkSession): DataFrame = {
+    import sparkSession.implicits._
+    val schema = StructType(Array(
+      StructField("id", StringType),
+      StructField("hasBeenWithdrawn", BooleanType),
+      StructField("withdrawn_class", ArrayType(StringType)),
+      StructField("withdrawn_country", ArrayType(StringType)),
+      StructField("withdrawn_year", LongType)
+      )
+    )
+
+    val data: Seq[Row] = Seq(
+      Row("id1", true, Seq(), Seq("United States"),1965L),
+      Row("id2", false, null, null, null),
+      Row("id3", false, null, null, null)
+    )
+    sparkSession.createDataFrame(sparkSession.sparkContext.parallelize(data), schema)
+  }
+
   case class DrugbankSynonym(drugbank_id: String, db_synonyms: Seq[String] )
   case class XRef(id: String, xref: Map[String, Array[String]])
 }
@@ -150,6 +170,7 @@ class MoleculeTest extends EtlSparkUnitTest {
   val processMoleculeSynonyms: PrivateMethod[Dataset[Row]] =
     PrivateMethod[Dataset[Row]]('processMoleculeSynonyms)
   val processMoleculeHierarchy: PrivateMethod[Dataset[Row]] = PrivateMethod[Dataset[Row]]('processMoleculeHierarchy)
+  val processWithdrawnNotice: PrivateMethod[Dataset[Row]] = PrivateMethod[Dataset[Row]]('processWithdrawnNotices)
 
   "The Molecule class" should "given a preprocessed molecule successfully prepare all cross references" in {
     // given
@@ -289,5 +310,14 @@ class MoleculeTest extends EtlSparkUnitTest {
     assert(testcounts("synonyms", expectedSynonymCount),
            "The correct number of synonyms are grouped.")
 
+  }
+
+  it should "only include a withdrawn notice struct when the drug is withdrawn" in {
+    // given
+    val df = getSampleWithdrawnNoticeData(sparkSession)
+    // when
+    val results = Molecule invokePrivate processWithdrawnNotice(df)
+    // then
+    assertResult(2L)(results.filter(col("withdrawnNotice").isNull).count())
   }
 }

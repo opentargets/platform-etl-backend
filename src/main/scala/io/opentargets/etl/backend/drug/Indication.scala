@@ -29,13 +29,14 @@ object Indication extends Serializable with LazyLogging {
 
     logger.info("Processing indications.")
     // efoDf for therapeutic areas
-    val efoDf = getEfoDataframe(efoRaw, "id", efoIdName)
+    val efoDf = getEfoDataframe(efoRaw)
     val indicationAndEfoDf = processIndicationsRawData(indicationsRaw)
-      .join(efoDf, Seq(efoIdName), "leftouter")
+      .join(efoDf, Seq(efoIdName))
 
     val indicationDf: DataFrame = indicationAndEfoDf
       .withColumn("struct",
         struct(col(efoIdName).as("disease"),
+          col("efoName"),
           col("max_phase_for_indications").as("maxPhaseForIndication"),
           col("references")))
       .groupBy("id")
@@ -51,14 +52,13 @@ object Indication extends Serializable with LazyLogging {
     * @param rawEfoData taken from the `disease` input data
     * @return dataframe of `efo_id`
     */
-  private def getEfoDataframe(rawEfoData: DataFrame, fromCol: String, toCol: String): DataFrame = {
-    val columnsOfInterest = Seq(
-      col(fromCol).as(toCol)
-    )
+  private def getEfoDataframe(rawEfoData: DataFrame): DataFrame = {
 
     rawEfoData
-      .select(columnsOfInterest: _*)
-      .transform(formatEfoIds(_, toCol))
+      .select(
+        col("id").as(efoIdName),
+        trim(lower(col("name"))).as("efoName"))
+      .transform(formatEfoIds(_, efoIdName))
   }
 
   private def processIndicationsRawData(indicationsRaw: DataFrame): DataFrame = {

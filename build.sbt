@@ -14,7 +14,7 @@ lazy val root = (project in file("."))
       )
     ),
     name := "io-opentargets-etl-backend",
-    version := "0.4.2",
+    version := "0.4.4",
     resolvers ++= buildResolvers,
     libraryDependencies ++= sparkDeps,
     libraryDependencies ++= aoyi,
