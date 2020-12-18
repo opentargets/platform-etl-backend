@@ -31,7 +31,7 @@ object Indication extends Serializable with LazyLogging {
     // efoDf for therapeutic areas
     val efoDf = getEfoDataframe(efoRaw)
     val indicationAndEfoDf = processIndicationsRawData(indicationsRaw)
-      .join(efoDf, Seq(efoIdName), "leftouter")
+      .join(efoDf, Seq(efoIdName))
 
     val indicationDf: DataFrame = indicationAndEfoDf
       .withColumn("struct",
