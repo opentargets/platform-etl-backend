@@ -1,3 +1,5 @@
+import $file.resolvers
+
 import $ivy.`ch.qos.logback:logback-classic:1.2.3`
 import $ivy.`com.typesafe.scala-logging::scala-logging:3.9.2`
 import $ivy.`com.typesafe:config:1.4.0`
@@ -8,6 +10,8 @@ import $ivy.`org.apache.spark::spark-mllib:3.0.1`
 import $ivy.`org.apache.spark::spark-sql:3.0.1`
 import $ivy.`com.github.pathikrit::better-files:3.8.0`
 import $ivy.`com.typesafe.play::play-json:2.9.1`
+import $ivy.`graphframes:graphframes:0.8.1-spark3.0-s_2.12`
+
 import org.apache.spark.SparkConf
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.functions.col
@@ -17,12 +21,11 @@ import org.apache.spark.ml._
 import org.apache.spark.ml.fpm._
 import com.typesafe.scalalogging.LazyLogging
 
+import org.graphframes._
+
+
 /**
   * export JAVA_OPTS="-Xms1G -Xmx24G"
-  * time amm opentargets-epmc-entity-resolution.sc
-  * --entitiesUri ../etl/mkarmona/association/tags_Annot_PMC1240624_PMC1474480_v01.jsonl
-  * --lutsUri ../etl/mkarmona/association/search_\\*\\*\/part\\*.json
-  * --outputUri mapped_entities/
   */
 object SparkSessionWrapper extends LazyLogging {
   logger.info("Spark Session init")
@@ -49,7 +52,8 @@ object SparkSessionWrapper extends LazyLogging {
       (c1, c2) => c1 + c2
     )
 
-  /**
+  /** compute a model to calculate suggestions based on FGrowth AR and then the model can be used to
+    * generate suggestions to an array of ids (targets, diseases, drugs)
     *
     * @param df
     * @param groupCols
@@ -73,7 +77,7 @@ object SparkSessionWrapper extends LazyLogging {
                                 minSupport: Double = 0.1,
                                 minConfidence: Double = 0.3,
                                 outputColName: String = "prediction"): FPGrowthModel = {
-    logger.info(s"compute association rules model for group cols ${groupCols.mkString("(", ", ", ")")}")
+    logger.info(s"compute FPGrowthModel for group cols ${groupCols.mkString("(", ", ", ")")}")
     val ar = df
       .groupBy(groupCols:_*)
       .agg(agg._2.as(agg._1))
@@ -92,6 +96,19 @@ object SparkSessionWrapper extends LazyLogging {
     model.associationRules.show(25, false)
 
     model
+  }
+
+  def makeStatsPerTerm(df: DataFrame, groupCols: Seq[Column]): DataFrame = {
+    import session.implicits._
+    logger.info(s"compute few stats per match in the matches DF grouping by ${groupCols.mkString("(", ", ", ")")}")
+    val groups = df.groupBy(groupCols:_*)
+      .agg(
+        first($"label").as("label"),
+        countDistinct($"pmid").as("f"),
+        count($"pmid").as("N")
+      )
+
+    groups
   }
 
   def makeAssociations(df: DataFrame, groupCols: Seq[Column]): DataFrame = {
@@ -127,25 +144,15 @@ object ETL extends LazyLogging {
 
     val mDF = session.read.parquet(matches)
     val matchesModel = makeAssociationRulesModel(mDF.filter($"isMapped" === true),
-      Seq($"pmid"),
-      "items" -> array_distinct(collect_list($"keywordId")),
-      0.01,
-      0.03
+      groupCols = Seq($"pmid"),
+      agg = "items" -> array_distinct(collect_list($"keywordId")),
+      minSupport = 0.01,
+      minConfidence = 0.03,
+      outputColName = "predictions"
     )
 
     logger.info("saving the generated model for FPGrowth Association Rules")
     matchesModel.save(output + "/matchesFPM")
-
-    val transformedMatches = matchesModel
-      .transform(
-        mDF.filter($"isMapped" === true)
-          .select($"type", $"keywordId", $"label")
-          .dropDuplicates("type", "keywordId")
-          .withColumn("items", array($"keywordId"))
-      )
-
-    logger.info("perdict consequents using the fitted model for each match")
-    transformedMatches.write.parquet(output + "/matchesARPredictions")
 
     val groupedKeys = Seq($"type1", $"type2", $"keywordId1", $"keywordId2")
     val df = session.read.parquet(coocs)
@@ -156,18 +163,41 @@ object ETL extends LazyLogging {
       .withColumn("evidence_score", array_min(array($"evidence_score" / 10D, lit(1D))))
       .transform(makeAssociations(_, groupedKeys))
 
+    logger.info("saving associations dataset")
     assocs.write.parquet(output + "/associations")
 
-    val groupedKeysWithDate = Seq($"year", $"month", $"type1", $"type2", $"keywordId1", $"keywordId2")
-    val assocsPerYear = df
+    logger.info("compute the predictions to the associations DF with the precomputed model FPGrowth")
+    val assocsWithPredictions = matchesModel
+      .transform(
+        assocs.select(groupedKeys:_*)
+          .withColumn("items", array($"keywordId1", $"keywordId2"))
+      )
+
+    logger.info("saving computed predictions to the associations df")
+    assocsWithPredictions.write.parquet(output + "/associationsWithPredictions")
+
+    logger.info("generate assocs but group also per year and month")
+    val groupedKeysWithDate = Seq($"year", $"type1", $"type2", $"keywordId1", $"keywordId2")
+    val assocsPerYearMonth = df
       .withColumn("year", year($"pubDate"))
       .withColumn("month", month($"pubDate"))
       .filter($"isMapped" === true and $"year".isNotNull and $"month".isNotNull)
       .withColumn("evidence_score", array_min(array($"evidence_score" / 10D, lit(1D))))
       .transform(makeAssociations(_, groupedKeysWithDate))
 
-    logger.info("generate assocs but group also per year")
-    assocsPerYear.write.parquet(output + "/associationsWithPublicationYearMonth")
+    logger.info("save associations by time (year, month)")
+    assocsPerYearMonth.write.parquet(output + "/associationsWithTimeSeries")
+
+    logger.info("generate match stats but group also per year and month")
+    val groupedKeysWithDateForMatches = Seq($"year", $"type", $"keywordId")
+    val matchesPerYearMonth = mDF
+      .withColumn("year", year($"pubDate"))
+      .withColumn("month", month($"pubDate"))
+      .filter($"isMapped" === true and $"year".isNotNull and $"month".isNotNull)
+      .transform(makeStatsPerTerm(_, groupedKeysWithDateForMatches))
+
+    logger.info("save matches stats per (year month)")
+    matchesPerYearMonth.write.parquet(output + "/matchesWithTimeSeries")
   }
 }
 
