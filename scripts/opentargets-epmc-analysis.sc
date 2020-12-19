@@ -13,6 +13,8 @@ import org.apache.spark.sql.functions._
 import org.apache.spark.sql.functions.col
 import org.apache.spark.sql.types._
 import org.apache.spark.sql._
+import org.apache.spark.ml._
+import org.apache.spark.ml.fpm._
 import com.typesafe.scalalogging.LazyLogging
 
 /**
@@ -47,9 +49,54 @@ object SparkSessionWrapper extends LazyLogging {
       (c1, c2) => c1 + c2
     )
 
+  /**
+    *
+    * @param df
+    * @param groupCols
+    * @param agg
+    * @param minSupport the minimum support for an itemset to be identified as frequent.
+    *                   For example, if an item appears 3 out of 5 transactions,
+    *                   it has a support of 3/5=0.6.
+    * @param minConfidence minimum confidence for generating Association Rule.
+    *                      Confidence is an indication of how often an association
+    *                      rule has been found to be true. For example, if in the transactions
+    *                      itemset X appears 4 times, X and Y co-occur only 2 times,
+    *                      the confidence for the rule X => Y is then 2/4 = 0.5. The
+    *                      parameter will not affect the mining for frequent itemsets, but
+    *                      specify the minimum confidence for generating association rules from
+    *                      frequent itemsets.
+    * @return the generated FPGrowthModel
+    */
+  def makeAssociationRulesModel(df: DataFrame,
+                                groupCols: Seq[Column],
+                                agg: (String, Column),
+                                minSupport: Double = 0.1,
+                                minConfidence: Double = 0.3,
+                                outputColName: String = "prediction"): FPGrowthModel = {
+    logger.info(s"compute association rules model for group cols ${groupCols.mkString("(", ", ", ")")}")
+    val ar = df
+      .groupBy(groupCols:_*)
+      .agg(agg._2.as(agg._1))
+
+
+    val fpgrowth = new FPGrowth()
+      .setItemsCol(agg._1)
+      .setMinSupport(minSupport)
+      .setMinConfidence(minConfidence)
+      .setPredictionCol(outputColName)
+
+    val model = fpgrowth.fit(ar)
+
+    // Display frequent itemsets.
+    model.freqItemsets.show(25, false)
+    model.associationRules.show(25, false)
+
+    model
+  }
+
   def makeAssociations(df: DataFrame, groupCols: Seq[Column]): DataFrame = {
     import session.implicits._
-    logger.info("compute associations with desc. stats and harmonic (type1 type2 keyword1 keyword2)")
+    logger.info(s"compute associations with desc. stats and harmonic ${groupCols.mkString("(", ", ", ")")}")
     val assocs = df.groupBy(groupCols:_*)
       .agg(
         first($"label1").as("label1"),
@@ -74,18 +121,41 @@ object SparkSessionWrapper extends LazyLogging {
 }
 
 object ETL extends LazyLogging {
-  def apply(coocs: String, output: String) = {
+  def apply(matches: String, coocs: String, output: String) = {
     import SparkSessionWrapper._
     import session.implicits._
 
+    val mDF = session.read.parquet(matches)
+    val matchesModel = makeAssociationRulesModel(mDF.filter($"isMapped" === true),
+      Seq($"pmid"),
+      "items" -> array_distinct(collect_list($"keywordId")),
+      0.01,
+      0.03
+    )
+
+    logger.info("saving the generated model for FPGrowth Association Rules")
+    matchesModel.save(output + "/matchesFPM")
+
+    val transformedMatches = matchesModel
+      .transform(
+        mDF.filter($"isMapped" === true)
+          .select($"type", $"keywordId", $"label")
+          .dropDuplicates("type", "keywordId")
+          .withColumn("items", array($"keywordId"))
+      )
+
+    logger.info("perdict consequents using the fitted model for each match")
+    transformedMatches.write.parquet(output + "/matchesARPredictions")
+
     val groupedKeys = Seq($"type1", $"type2", $"keywordId1", $"keywordId2")
     val df = session.read.parquet(coocs)
+
+    logger.info("read EPMC co-occurrences dataset, filter only mapped ones and rescale score between 0..1")
     val assocs = df
       .filter($"isMapped" === true)
       .withColumn("evidence_score", array_min(array($"evidence_score" / 10D, lit(1D))))
       .transform(makeAssociations(_, groupedKeys))
 
-    logger.info("read EPMC co-occurrences dataset, filter only mapped ones and rescale score between 0..1")
     assocs.write.parquet(output + "/associations")
 
     val groupedKeysWithDate = Seq($"year", $"month", $"type1", $"type2", $"keywordId1", $"keywordId2")
@@ -102,5 +172,5 @@ object ETL extends LazyLogging {
 }
 
 @main
-  def main(coocs: String, output: String): Unit =
-    ETL(coocs, output)
+  def main(matches: String, coocs: String, output: String): Unit =
+    ETL(matches, coocs, output)
