@@ -23,25 +23,7 @@ import com.typesafe.scalalogging.LazyLogging
 
 import org.graphframes._
 
-
-//
 // export JAVA_OPTS="-Xms1G -Xmx24G"
-// generate parquet matches and co-occurrences
-// val epmcCooc = spark.read.json("\/data\/json\/*_mapped\/")
-// .withColumn("sentence", explode($"sentences"))
-// .selectExpr("*", "sentence.*").drop("sentence", "sentences", "matches")
-// .filter($"co-occurrence".isNotNull)
-// .withColumn("cooc", explode($"co-occurrence"))
-// .selectExpr("*", "cooc.*").drop("cooc", "co-occurrence")
-// .write.parquet("bla")
-//
-// val epmcMatches = spark.read.json("\/data\/json\/*_mapped\/")
-// .withColumn("sentence", explode($"sentences"))
-// .selectExpr("*", "sentence.*").drop("sentence", "sentences", "co-occurrence")
-// .filter($"matches".isNotNull).withColumn("match", explode($"matches"))
-// .selectExpr("*", "match.*").drop("match", "matches")
-// .write.parquet("foo")
-//
 object SparkSessionWrapper extends LazyLogging {
   logger.info("Spark Session init")
   lazy val sparkConf = new SparkConf()

@@ -23,25 +23,6 @@ import com.typesafe.scalalogging.LazyLogging
 
 import org.graphframes._
 
-
-//
-// export JAVA_OPTS="-Xms1G -Xmx24G"
-// generate parquet matches and co-occurrences
-// val epmcCooc = spark.read.json("\/data\/json\/*_mapped\/")
-// .withColumn("sentence", explode($"sentences"))
-// .selectExpr("*", "sentence.*").drop("sentence", "sentences", "matches")
-// .filter($"co-occurrence".isNotNull)
-// .withColumn("cooc", explode($"co-occurrence"))
-// .selectExpr("*", "cooc.*").drop("cooc", "co-occurrence")
-// .write.parquet("bla")
-//
-// val epmcMatches = spark.read.json("\/data\/json\/*_mapped\/")
-// .withColumn("sentence", explode($"sentences"))
-// .selectExpr("*", "sentence.*").drop("sentence", "sentences", "co-occurrence")
-// .filter($"matches".isNotNull).withColumn("match", explode($"matches"))
-// .selectExpr("*", "match.*").drop("match", "matches")
-// .write.parquet("foo")
-//
 object SparkSessionWrapper extends LazyLogging {
   logger.info("Spark Session init")
   lazy val sparkConf = new SparkConf()
@@ -58,20 +39,15 @@ object SparkSessionWrapper extends LazyLogging {
       .getOrCreate
 
   def makeWord2VecModel(df: DataFrame,
-                                groupCols: Seq[Column],
-                                agg: (String, Column),
-                                outputColName: String = "prediction"): Word2VecModel = {
-    logger.info(s"compute FPGrowthModel for group cols ${groupCols.mkString("(", ", ", ")")}")
-    val ar = df
-      .groupBy(groupCols:_*)
-      .agg(agg._2.as(agg._1))
-
+                        inputColName: String,
+                        outputColName: String = "prediction"): Word2VecModel = {
+    logger.info(s"compute Word2Vec model for input col ${inputColName} into ${outputColName}")
 
     val w2vModel = new Word2Vec()
-      .setInputCol(agg._1)
+      .setInputCol(inputColName)
       .setOutputCol(outputColName)
 
-    val model = w2vModel.fit(ar)
+    val model = w2vModel.fit(df)
 
     // Display frequent itemsets.
     model.getVectors.show(25, false)
@@ -81,42 +57,56 @@ object SparkSessionWrapper extends LazyLogging {
 }
 
 object ETL extends LazyLogging {
-  def apply(matches: String, coocs: String, output: String) = {
+  def apply(matches: String, output: String) = {
     import SparkSessionWrapper._
     import session.implicits._
 
     logger.info("fit the parametrised model and generate it to apply later to another DF")
-    val mDF = session.read.parquet(matches)
-    val matchesModel = makeWord2VecModel(mDF.filter($"isMapped" === true),
-      groupCols = Seq($"pmid"),
-      agg = "items" -> array_distinct(collect_list($"keywordId")),
-      outputColName = "predictions"
+    val mDF = session.read.parquet(matches).filter($"isMapped" === true)
+    val matchesPerPMID = mDF
+      .groupBy($"pmid")
+      .agg(collect_list($"keywordId").as("terms"))
+
+    val matchesModel = makeWord2VecModel(matchesPerPMID,
+      inputColName = "terms",
+      outputColName = "synonyms"
     )
 
     logger.info("saving the generated model for Word2Vec")
-    matchesModel.save(output + "/matchesW2V")
+    matchesModel.save(output + "/matchesW2VModel")
 
-    // TODO HERE PROPER AGGREGATION
-    logger.info("load the co occurrences from parquet")
-    val groupedKeys = Seq($"type1", $"type2", $"keywordId1", $"keywordId2")
-    val df = session.read.parquet(coocs)
+    logger.info("produce the list of unique terms (GP, DS, CD)")
+    val keywords = mDF
+      .select($"keywordId")
+      .distinct()
 
-    logger.info("filter co occurrences only mapped ones and rescale 'evidence_score' between 0..1")
-    val assocs = df
-      .filter($"isMapped" === true)
-
+    val bcModel = session.sparkContext.broadcast(matchesModel)
     logger.info("compute the predictions to the associations DF with the precomputed model FPGrowth")
-    val assocsWithPredictions = matchesModel
-      .transform(
-        assocs.select(groupedKeys:_*)
-          .withColumn("items", array($"keywordId1", $"keywordId2"))
-      )
+    val matchesWithSynonymsFn = udf((word: String) => {
+      try {
+        bcModel.value.findSynonymsArray(word, 50)
+      } catch {
+        case _ => Array.empty[(String, Double)]
+      }
+    })
 
-    logger.info("saving computed predictions to the associations df")
-    assocsWithPredictions.write.parquet(output + "/associationsWithPredictions")
+    val matchesWithSynonyms = keywords
+      .withColumn("synonym", explode(matchesWithSynonymsFn($"keywordId")))
+      .withColumn("synonymId", $"synonym".getField("_1"))
+      .withColumn("synonymType", when($"synonymId" rlike "^ENSG.*", "GP")
+        .when($"synonymId" rlike "^CHEMBL.*", "CD")
+        .otherwise("DS"))
+      .withColumn("keywordType", when($"keywordId" rlike "^ENSG.*", "GP")
+        .when($"keywordId" rlike "^CHEMBL.*", "CD")
+      .otherwise("DS"))
+      .withColumn("synonymScore", $"synonym".getField("_2"))
+      .drop("synonym")
+
+    logger.info("saving computed synonyms for each unique match")
+    matchesWithSynonyms.write.parquet(output + "/matchesWithSynonyms")
   }
 }
 
 @main
-  def main(matches: String, coocs: String, output: String): Unit =
-    ETL(matches, coocs, output)
+  def main(matches: String, output: String): Unit =
+    ETL(matches, output)

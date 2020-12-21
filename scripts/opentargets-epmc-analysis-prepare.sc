@@ -134,66 +134,28 @@ object SparkSessionWrapper extends LazyLogging {
 }
 
 object ETL extends LazyLogging {
-  def apply(matches: String, coocs: String, output: String) = {
+  def apply(mapped: String, output: String) = {
     import SparkSessionWrapper._
     import session.implicits._
 
-    val mDF = session.read.parquet(matches)
-    val matchesModel = makeAssociationRulesModel(mDF.filter($"isMapped" === true),
-      groupCols = Seq($"pmid"),
-      agg = "items" -> array_distinct(collect_list($"keywordId")),
-      minSupport = 0.01,
-      minConfidence = 0.03,
-      outputColName = "predictions"
-    )
+    val data = session.read.json(mapped)
+    logger.info("generate parquet co-occurrences")
+     data
+     .withColumn("sentence", explode($"sentences"))
+     .selectExpr("*", "sentence.*").drop("sentence", "sentences", "matches")
+     .filter($"co-occurrence".isNotNull)
+     .withColumn("cooc", explode($"co-occurrence"))
+     .selectExpr("*", "cooc.*").drop("cooc", "co-occurrence")
+     .write.parquet(output + "/epmc-cooccurrences")
 
-    logger.info("saving the generated model for FPGrowth Association Rules")
-    matchesModel.save(output + "/matchesFPM")
+    logger.info("generate parquet matches")
+     data
+     .withColumn("sentence", explode($"sentences"))
+     .selectExpr("*", "sentence.*").drop("sentence", "sentences", "co-occurrence")
+     .filter($"matches".isNotNull).withColumn("match", explode($"matches"))
+     .selectExpr("*", "match.*").drop("match", "matches")
+     .write.parquet(output + "/epmc-matches")
 
-    val groupedKeys = Seq($"type1", $"type2", $"keywordId1", $"keywordId2")
-    val df = session.read.parquet(coocs)
-
-    logger.info("read EPMC co-occurrences dataset, filter only mapped ones and rescale score between 0..1")
-    val assocs = df
-      .filter($"isMapped" === true)
-      .withColumn("evidence_score", array_min(array($"evidence_score" / 10D, lit(1D))))
-      .transform(makeAssociations(_, groupedKeys))
-
-    logger.info("saving associations dataset")
-    assocs.write.parquet(output + "/associations")
-
-    logger.info("compute the predictions to the associations DF with the precomputed model FPGrowth")
-    val assocsWithPredictions = matchesModel
-      .transform(
-        assocs.select(groupedKeys:_*)
-          .withColumn("items", array($"keywordId1", $"keywordId2"))
-      )
-
-    logger.info("saving computed predictions to the associations df")
-    assocsWithPredictions.write.parquet(output + "/associationsWithPredictions")
-
-    logger.info("generate assocs but group also per year and month")
-    val groupedKeysWithDate = Seq($"year", $"type1", $"type2", $"keywordId1", $"keywordId2")
-    val assocsPerYearMonth = df
-      .withColumn("year", year($"pubDate"))
-      .withColumn("month", month($"pubDate"))
-      .filter($"isMapped" === true and $"year".isNotNull and $"month".isNotNull)
-      .withColumn("evidence_score", array_min(array($"evidence_score" / 10D, lit(1D))))
-      .transform(makeAssociations(_, groupedKeysWithDate))
-
-    logger.info("save associations by time (year, month)")
-    assocsPerYearMonth.write.parquet(output + "/associationsWithTimeSeries")
-
-    logger.info("generate match stats but group also per year and month")
-    val groupedKeysWithDateForMatches = Seq($"year", $"type", $"keywordId")
-    val matchesPerYearMonth = mDF
-      .withColumn("year", year($"pubDate"))
-      .withColumn("month", month($"pubDate"))
-      .filter($"isMapped" === true and $"year".isNotNull and $"month".isNotNull)
-      .transform(makeStatsPerTerm(_, groupedKeysWithDateForMatches))
-
-    logger.info("save matches stats per (year month)")
-    matchesPerYearMonth.write.parquet(output + "/matchesWithTimeSeries")
   }
 }
 
