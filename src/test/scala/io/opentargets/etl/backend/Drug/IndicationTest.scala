@@ -56,7 +56,7 @@ class IndicationTest extends EtlSparkUnitTest {
     // when
     val results: DataFrame = Indication(indicationDf, efoDf)(sparkSession)
     // then
-    val expectedColumns: Set[String] = Set("id", "indications", "approvedIndications")
+    val expectedColumns: Set[String] = Set("id", "indications", "count", "approvedIndications")
 
     assert(
       results.columns
@@ -73,7 +73,7 @@ class IndicationTest extends EtlSparkUnitTest {
     val indication: DataFrame = Indication(indicationDf, efoDf)
     // when
     val results: DataFrame = indication.select(
-      col("indications.rows.disease").as("efoId"))
+      col("indications.disease").as("efoId"))
       .filter(col("efoId").isNull)
     // then
     assert(results.count() == 0L)
