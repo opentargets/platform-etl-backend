@@ -4,7 +4,7 @@ import com.typesafe.scalalogging.LazyLogging
 import io.opentargets.etl.backend.ETLSessionContext
 import io.opentargets.etl.backend.drug.DrugCommon._
 import io.opentargets.etl.backend.spark.Helpers
-import io.opentargets.etl.backend.spark.Helpers.{IOResourceConfs, IOResources}
+import io.opentargets.etl.backend.spark.Helpers.{IOResourceConfs, IOResources, nest}
 import org.apache.spark.sql.functions.{array_contains, coalesce, col, map_keys, typedLit}
 import org.apache.spark.sql.{DataFrame, SparkSession}
 
@@ -52,7 +52,8 @@ object Drug extends Serializable with LazyLogging {
     logger.info("Processing Drug beta transformations.")
     val mechanismOfActionProcessedDf: DataFrame = MechanismOfAction(mechanismDf, targetDf, geneDf)
     val indicationProcessedDf = Indication(indicationDf, efoDf)
-    val moleculeProcessedDf = Molecule(moleculeDf, drugbank2ChemblMap, drugConfiguration.drugExtensions)
+    val moleculeProcessedDf =
+      Molecule(moleculeDf, drugbank2ChemblMap, drugConfiguration.drugExtensions)
     val targetsAndDiseasesDf =
       DrugCommon.getUniqTargetsAndDiseasesPerDrugId(evidenceDf).withColumnRenamed("drugId", "id")
 
@@ -84,7 +85,15 @@ object Drug extends Serializable with LazyLogging {
     // purposes of the index.
     val drugDf: DataFrame = moleculeProcessedDf
       .join(indicationProcessedDf, Seq("id"), "left_outer")
-      .join(mechanismOfActionProcessedDf, Seq("id"), "left_outer")
+      .join(
+        mechanismOfActionProcessedDf
+          .transform(
+            nest(_: DataFrame,
+                 List("rows", "uniqueActionTypes", "uniqueTargetTypes"),
+                 "mechanismsOfAction")),
+        Seq("id"),
+        "left_outer"
+      )
       .join(targetsAndDiseasesDf, Seq("id"), "left_outer")
       .filter(drugMolecule)
       .transform(addDescription)
@@ -96,9 +105,8 @@ object Drug extends Serializable with LazyLogging {
       "mechanism_of_action" -> mechanismOfActionProcessedDf,
       "indication" -> indicationProcessedDf
     )
-    val saveConfigs: IOResourceConfs = dataframesToSave.keySet map {
-      k =>
-        k -> drugConfiguration.output.copy(path = s"${drugConfiguration.output.path}/$k")
+    val saveConfigs: IOResourceConfs = dataframesToSave.keySet map { k =>
+      k -> drugConfiguration.output.copy(path = s"${drugConfiguration.output.path}/$k")
     } toMap
 
     Helpers.writeTo(saveConfigs, dataframesToSave)
@@ -108,7 +116,9 @@ object Drug extends Serializable with LazyLogging {
   Final tidying up that aren't business logic but are nice to have for consistent outputs.
    */
   def cleanup(df: DataFrame): DataFrame = {
-    Seq("tradeNames", "synonyms").foldLeft(df)((dataF, column)=> { dataF.withColumn(column, coalesce(col(column), typedLit(Seq.empty)))})
+    Seq("tradeNames", "synonyms").foldLeft(df)((dataF, column) => {
+      dataF.withColumn(column, coalesce(col(column), typedLit(Seq.empty)))
+    })
   }
 
 }
