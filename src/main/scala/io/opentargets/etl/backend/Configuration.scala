@@ -71,16 +71,16 @@ object Configuration extends LazyLogging {
 
   case class InputExtension(extensionType: String, input: IOResourceConfig)
   case class DrugSection(
-      chemblMolecule: IOResourceConfig,
-      chemblIndication: IOResourceConfig,
-      chemblMechanism: IOResourceConfig,
-      chemblTarget: IOResourceConfig,
-      drugbankToChembl: IOResourceConfig,
-      drugExtensions: Seq[InputExtension],
-      diseasePipeline: IOResourceConfig,
-      targetPipeline: IOResourceConfig,
-      evidencePipeline: IOResourceConfig,
-      output: IOResourceConfig
+                          chemblMolecule: IOResourceConfig,
+                          chemblIndication: IOResourceConfig,
+                          chemblMechanism: IOResourceConfig,
+                          chemblTarget: IOResourceConfig,
+                          drugbankToChembl: IOResourceConfig,
+                          drugExtensions: Seq[InputExtension],
+                          diseaseEtl: IOResourceConfig,
+                          targetEtl: IOResourceConfig,
+                          evidenceEtl: IOResourceConfig,
+                          output: IOResourceConfig
   )
 
   case class Inputs(
