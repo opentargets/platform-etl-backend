@@ -38,43 +38,25 @@ object SparkSessionWrapper extends LazyLogging {
       .config(sparkConf)
       .getOrCreate
 
-  def harmonicFn(c: Column): Column =
-    aggregate(
-      zip_with(
-        sort_array(c, asc = false),
-        sequence(lit(1), size(c)),
-        (e1, e2)  => e1 / pow(e2, 2D)),
-      lit(0D),
-      (c1, c2) => c1 + c2
-    )
 }
 
 object ETL extends LazyLogging {
-  def apply(mapped: String, output: String) = {
+  def apply(matches: String, coocs: String, output: String) = {
     import SparkSessionWrapper._
     import session.implicits._
 
-    val data = session.read.json(mapped)
-    logger.info("generate parquet co-occurrences")
-     data
-     .withColumn("sentence", explode($"sentences"))
-     .selectExpr("*", "sentence.*").drop("sentence", "sentences", "matches")
-     .filter($"co-occurrence".isNotNull)
-     .withColumn("cooc", explode($"co-occurrence"))
-     .selectExpr("*", "cooc.*").drop("cooc", "co-occurrence")
-     .write.parquet(output + "/epmc-cooccurrences")
+    val mDF = session.read.parquet(matches)
+    logger.info("save matches stats per (year month)")
 
-    logger.info("generate parquet matches")
-     data
-     .withColumn("sentence", explode($"sentences"))
-     .selectExpr("*", "sentence.*").drop("sentence", "sentences", "co-occurrence")
-     .filter($"matches".isNotNull).withColumn("match", explode($"matches"))
-     .selectExpr("*", "match.*").drop("match", "matches")
-     .write.parquet(output + "/epmc-matches")
-
+    /*
+      compute direct associations for the new ones coocs
+      compute the AUC per disease and then
+      sum per TA and compute the delta new - old AUC and
+      see per TA if doing better sistematically
+     */
   }
 }
 
 @main
-  def main(mapped: String, output: String): Unit =
-    ETL(mapped, output)
+  def main(matches: String, coocs: String, output: String): Unit =
+    ETL(matches, coocs, output)

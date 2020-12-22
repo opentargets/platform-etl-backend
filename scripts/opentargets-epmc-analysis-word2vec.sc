@@ -1,4 +1,6 @@
 import $file.resolvers
+import $file.opentargetsFunctions.OpentargetsFunctions._
+
 import $ivy.`ch.qos.logback:logback-classic:1.2.3`
 import $ivy.`com.typesafe.scala-logging::scala-logging:3.9.2`
 import $ivy.`com.typesafe:config:1.4.0`
@@ -37,25 +39,6 @@ object SparkSessionWrapper extends LazyLogging {
       .builder()
       .config(sparkConf)
       .getOrCreate
-
-  def makeWord2VecModel(df: DataFrame,
-                        inputColName: String,
-                        outputColName: String = "prediction"): Word2VecModel = {
-    logger.info(s"compute Word2Vec model for input col ${inputColName} into ${outputColName}")
-
-    val w2vModel = new Word2Vec()
-      .setNumPartitions(32)
-      .setMaxIter(10)
-      .setInputCol(inputColName)
-      .setOutputCol(outputColName)
-
-    val model = w2vModel.fit(df)
-
-    // Display frequent itemsets.
-    model.getVectors.show(25, false)
-
-    model
-  }
 }
 
 object ETL extends LazyLogging {

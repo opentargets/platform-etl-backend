@@ -1,4 +1,5 @@
 import $file.resolvers
+import $file.opentargetsFunctions.OpentargetsFunctions._
 
 import $ivy.`ch.qos.logback:logback-classic:1.2.3`
 import $ivy.`com.typesafe.scala-logging::scala-logging:3.9.2`
@@ -37,52 +38,6 @@ object SparkSessionWrapper extends LazyLogging {
       .builder()
       .config(sparkConf)
       .getOrCreate
-
-  /** compute a model to calculate suggestions based on FGrowth AR and then the model can be used to
-    * generate suggestions to an array of ids (targets, diseases, drugs)
-    *
-    * @param df
-    * @param groupCols
-    * @param agg
-    * @param minSupport the minimum support for an itemset to be identified as frequent.
-    *                   For example, if an item appears 3 out of 5 transactions,
-    *                   it has a support of 3/5=0.6.
-    * @param minConfidence minimum confidence for generating Association Rule.
-    *                      Confidence is an indication of how often an association
-    *                      rule has been found to be true. For example, if in the transactions
-    *                      itemset X appears 4 times, X and Y co-occur only 2 times,
-    *                      the confidence for the rule X => Y is then 2/4 = 0.5. The
-    *                      parameter will not affect the mining for frequent itemsets, but
-    *                      specify the minimum confidence for generating association rules from
-    *                      frequent itemsets.
-    * @return the generated FPGrowthModel
-    */
-  def makeAssociationRulesModel(df: DataFrame,
-                                groupCols: Seq[Column],
-                                agg: (String, Column),
-                                minSupport: Double = 0.1,
-                                minConfidence: Double = 0.3,
-                                outputColName: String = "prediction"): FPGrowthModel = {
-    logger.info(s"compute FPGrowthModel for group cols ${groupCols.mkString("(", ", ", ")")}")
-    val ar = df
-      .groupBy(groupCols:_*)
-      .agg(agg._2.as(agg._1))
-
-
-    val fpgrowth = new FPGrowth()
-      .setItemsCol(agg._1)
-      .setMinSupport(minSupport)
-      .setMinConfidence(minConfidence)
-      .setPredictionCol(outputColName)
-
-    val model = fpgrowth.fit(ar)
-
-    // Display frequent itemsets.
-    model.freqItemsets.show(25, false)
-    model.associationRules.show(25, false)
-
-    model
-  }
 }
 
 object ETL extends LazyLogging {
