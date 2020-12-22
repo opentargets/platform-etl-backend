@@ -44,6 +44,8 @@ object SparkSessionWrapper extends LazyLogging {
     logger.info(s"compute Word2Vec model for input col ${inputColName} into ${outputColName}")
 
     val w2vModel = new Word2Vec()
+      .setNumPartitions(32)
+      .setMaxIter(10)
       .setInputCol(inputColName)
       .setOutputCol(outputColName)
 
