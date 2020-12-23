@@ -1,5 +1,5 @@
 import $file.resolvers
-import $file.opentargetsFunctions.OpentargetsFunctions._
+import $file.opentargetsFunctions
 
 import $ivy.`ch.qos.logback:logback-classic:1.2.3`
 import $ivy.`com.typesafe.scala-logging::scala-logging:3.9.2`
@@ -22,6 +22,8 @@ import org.apache.spark.sql._
 import org.apache.spark.ml._
 import org.apache.spark.ml.fpm._
 import com.typesafe.scalalogging.LazyLogging
+
+import opentargetsFunctions.OpentargetsFunctions._
 
 import org.graphframes._
 
@@ -49,36 +51,60 @@ object ETL extends LazyLogging {
     val syns = session.read.parquet(synonyms)
     val dis = session.read.json(diseases)
     val tar = session.read.json(targets)
-
     val dr = session.read.json(drugs)
 
+    logger.info("get all drugs with at least one MOA whether it has indication or not")
     val rawDrugs = dr
-      .selectExpr("id as drugId",
+      .selectExpr("id as dId",
         "indications.rows.disease as diseases",
         "flatten(mechanismsOfAction.rows.targets) as targets")
-      .withColumn("diseaseId", explode_outer($"diseases"))
-      .withColumn("targetId", explode_outer($"targets"))
+      .withColumn("indication", explode_outer($"diseases"))
+      .withColumn("moa", explode_outer($"targets"))
       .drop("targets", "diseases")
-      .withColumn("id", concat_ws("-", $"diseaseId", $"drugId", $"targetId"))
+      .filter($"moa".isNotNull)
+      .cache()
 
-    val leftDrugs = syns
+    logger.info("get all suggested genes per disease matched")
+    val indicationsFromDS = syns
+      .filter($"keywordType" === "DS" and $"synonymType" === "GP")
+      .selectExpr("keywordId as diseaseId", "synonymId as targetId", "synonymScore as score")
+      .join(rawDrugs, $"targetId" === $"moa" and $"diseaseId" =!= $"indication")
+      .withColumn("type", lit("DS->GP<-Drug"))
+      .select("diseaseId", "dId", "score", "type")
+
+    logger.info("get all suggested diseases per drug matched")
+    val diseasesFromCD = syns
+      .filter($"keywordType" === "CD" and $"synonymType" === "DS")
+      .selectExpr("keywordId as drugId", "synonymId as diseaseId", "synonymScore as score")
+      .join(rawDrugs, $"drugId" === $"dId" and $"diseaseId" =!= $"indication")
+      .withColumn("type", lit("Drug->CD->DS"))
+      .select("diseaseId", "dId", "score", "type")
+
+    logger.info("get all suggested drugs per disease matched")
+    val drugsFromDS = syns
       .filter($"keywordType" === "DS" and $"synonymType" === "CD")
-      .selectExpr("keywordId as diseaseId", "synonymId as drugId", "synonymScore as diseaseDrugScore")
-    val rightDrugs = syns
-      .filter($"keywordType" === "CD" and $"synonymType" === "GP")
-      .selectExpr("keywordId as drugId", "synonymId as targetId", "synonymScore as drugTargetScore")
+      .selectExpr("keywordId as diseaseId", "synonymId as drugId", "synonymScore as score")
+      .join(rawDrugs, $"drugId" === $"dId" and $"diseaseId" =!= $"indication")
+      .withColumn("type", lit("DS->CD<-Drug"))
+      .select("diseaseId", "dId", "score", "type")
 
-    val jointDrugs = leftDrugs
-      .join(rightDrugs, Seq("drugId"))
-      .withColumn("score", ($"diseaseDrugScore" + $"drugTargetScore" ) / 2D)
-      .withColumn("id", concat_ws("-", $"diseaseId", $"drugId", $"targetId"))
-      .join(rawDrugs, Seq("id"), "left_anti")
-      .join(tar.selectExpr("id as targetId", "approvedSymbol as symbol"), Seq("targetId"))
-      .join(dr.selectExpr("id as drugId", "name as drugName"), Seq("drugId"))
+    val mergedDF = Seq(diseasesFromCD, drugsFromDS)
+      .foldLeft(indicationsFromDS){
+        (B, df) => B.unionByName(df)
+      }
+      .groupBy($"diseaseId", $"dId")
+      .agg(
+        collect_set($"type").as("types"),
+        collect_list($"score").as("scores")
+      )
+      .withColumn("harmonic", harmonicFn($"scores"))
+      .drop("scores")
       .join(dis.selectExpr("id as diseaseId", "name as label"), Seq("diseaseId"))
+      .join(dr.selectExpr("id as dId", "name as name"), Seq("dId"))
       .drop("id")
+      .orderBy($"harmonic".desc)
 
-    jointDrugs.write.parquet(output + "/retaskFromSynonyms")
+    mergedDF.write.json(output + "/retaskFromSynonyms")
   }
 }
 

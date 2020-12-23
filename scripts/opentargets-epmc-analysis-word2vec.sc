@@ -1,5 +1,5 @@
 import $file.resolvers
-import $file.opentargetsFunctions.OpentargetsFunctions._
+import $file.opentargetsFunctions
 
 import $ivy.`ch.qos.logback:logback-classic:1.2.3`
 import $ivy.`com.typesafe.scala-logging::scala-logging:3.9.2`
@@ -24,6 +24,8 @@ import org.apache.spark.ml.fpm._
 import com.typesafe.scalalogging.LazyLogging
 
 import org.graphframes._
+
+import opentargetsFunctions.OpentargetsFunctions._
 
 object SparkSessionWrapper extends LazyLogging {
   logger.info("Spark Session init")
