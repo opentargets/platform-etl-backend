@@ -50,7 +50,7 @@ object ETL extends LazyLogging {
 
     val syns = session.read.parquet(synonyms)
     val dis = session.read.json(diseases)
-    val tar = session.read.json(targets)
+//    val tar = session.read.json(targets)
     val dr = session.read.json(drugs)
 
     logger.info("get all drugs with at least one MOA whether it has indication or not")
@@ -60,17 +60,21 @@ object ETL extends LazyLogging {
         "flatten(mechanismsOfAction.rows.targets) as targets")
       .withColumn("indication", explode_outer($"diseases"))
       .withColumn("moa", explode_outer($"targets"))
-      .drop("targets", "diseases")
-      .filter($"moa".isNotNull)
+      .join(dis.selectExpr("id as diseaseId", "therapeuticAreas"),
+        $"indication" === $"diseaseId",
+      "left_outer")
+      .withColumn("drugTAs", coalesce($"therapeuticAreas", typedLit(Seq.empty[String])))
+      .drop("targets", "diseases", "diseaseId", "therapeuticAreas")
       .cache()
 
     logger.info("get all suggested genes per disease matched")
     val indicationsFromDS = syns
       .filter($"keywordType" === "DS" and $"synonymType" === "GP")
       .selectExpr("keywordId as diseaseId", "synonymId as targetId", "synonymScore as score")
-      .join(rawDrugs, $"targetId" === $"moa" and $"diseaseId" =!= $"indication")
+      .join(rawDrugs.filter($"moa".isNotNull),
+        $"targetId" === $"moa" and $"diseaseId" =!= $"indication")
       .withColumn("type", lit("DS->GP<-Drug"))
-      .select("diseaseId", "dId", "score", "type")
+      .select("diseaseId", "dId", "score", "type", "drugTAs")
 
     logger.info("get all suggested diseases per drug matched")
     val diseasesFromCD = syns
@@ -78,7 +82,7 @@ object ETL extends LazyLogging {
       .selectExpr("keywordId as drugId", "synonymId as diseaseId", "synonymScore as score")
       .join(rawDrugs, $"drugId" === $"dId" and $"diseaseId" =!= $"indication")
       .withColumn("type", lit("Drug->CD->DS"))
-      .select("diseaseId", "dId", "score", "type")
+      .select("diseaseId", "dId", "score", "type", "drugTAs")
 
     logger.info("get all suggested drugs per disease matched")
     val drugsFromDS = syns
@@ -86,7 +90,7 @@ object ETL extends LazyLogging {
       .selectExpr("keywordId as diseaseId", "synonymId as drugId", "synonymScore as score")
       .join(rawDrugs, $"drugId" === $"dId" and $"diseaseId" =!= $"indication")
       .withColumn("type", lit("DS->CD<-Drug"))
-      .select("diseaseId", "dId", "score", "type")
+      .select("diseaseId", "dId", "score", "type", "drugTAs")
 
     val mergedDF = Seq(diseasesFromCD, drugsFromDS)
       .foldLeft(indicationsFromDS){
@@ -94,15 +98,20 @@ object ETL extends LazyLogging {
       }
       .groupBy($"diseaseId", $"dId")
       .agg(
+        count($"type").as("counts"),
         collect_set($"type").as("types"),
-        collect_list($"score").as("scores")
+        collect_list($"score").as("scores"),
+        array_distinct(flatten(collect_list($"drugTAs"))).as("drugTAs")
       )
       .withColumn("harmonic", harmonicFn($"scores"))
       .drop("scores")
-      .join(dis.selectExpr("id as diseaseId", "name as label"), Seq("diseaseId"))
+      .join(dis.selectExpr("id as diseaseId", "name as label", "coalesce(therapeuticAreas, array()) as diseaseTAs"),
+        Seq("diseaseId"))
       .join(dr.selectExpr("id as dId", "name as name"), Seq("dId"))
-      .drop("id")
-      .orderBy($"harmonic".desc)
+      .withColumn("newTAs", array_except( $"diseaseTAs", $"drugTAs"))
+      .withColumn("hasNewTA", size($"newTAs") > 0)
+      .drop("id", "diseaseTAs", "drugTAs")
+      .orderBy($"dId".asc, $"harmonic".desc)
 
     mergedDF.write.json(output + "/retaskFromSynonyms")
   }
