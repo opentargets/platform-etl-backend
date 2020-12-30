@@ -93,12 +93,24 @@ object OpentargetsFunctions extends LazyLogging {
     groups
   }
 
+  def makeIndirect(df: DataFrame, dfId: String, disease: DataFrame, diseaseId: String): DataFrame = {
+    val dis = disease.selectExpr(s"${diseaseId} as _id", "ancestors")
+      .withColumn("ids",
+        array_union(
+          array(col("_id")),
+          coalesce(col("ancestors"), typedLit(Seq.empty[String]))))
+      .withColumn(dfId, explode(col("ids")))
+      .drop("ancestors")
+
+    df.join(dis, Seq(dfId))
+      .drop("_id", dfId)
+      .withColumnRenamed("_id", dfId)
+  }
+
   def makeAssociations(df: DataFrame, groupCols: Seq[Column]): DataFrame = {
     logger.info(s"compute associations with desc. stats and harmonic ${groupCols.mkString("(", ", ", ")")}")
     val assocs = df.groupBy(groupCols:_*)
       .agg(
-        first(col("label1")).as("label1"),
-        first(col("label2")).as("label2"),
         countDistinct(col("pmid")).as("f"),
         mean(col("evidence_score")).as("mean"),
         stddev(col("evidence_score")).as("std"),
@@ -111,6 +123,7 @@ object OpentargetsFunctions extends LazyLogging {
       .withColumn("median", element_at(col("q"), 2))
       .withColumn("q1", element_at(col("q"), 1))
       .withColumn("q3", element_at(col("q"), 3))
+      .withColumn("qDiff", col("q3") - col("q1"))
       .withColumn("harmonic", harmonicFn(col("evidenceScores")))
       .drop("evidenceScores", "q")
 

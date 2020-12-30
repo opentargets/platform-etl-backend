@@ -44,15 +44,30 @@ object SparkSessionWrapper extends LazyLogging {
 }
 
 object ETL extends LazyLogging {
-  def apply(coocs: String, diseases: String, targets: String, output: String) = {
+  def apply(coocs: String, drugs: String, diseases: String, targets: String, output: String) = {
     import SparkSessionWrapper._
     import session.implicits._
 
     val coos = session.read.parquet(coocs)
-    val dis = broadcast(session.read.json(diseases)
-      .withColumnRenamed("id", "diseaseId"))
-    val tar = broadcast(session.read.json(targets)
-      .withColumnRenamed("id", "targetId"))
+    val dis = session.read.json(diseases).withColumnRenamed("id", "diseaseId")
+    val tar = session.read.json(targets).withColumnRenamed("id", "targetId")
+    val dr = session.read.json(drugs).withColumnRenamed("id", "drugId")
+
+    logger.info("get all drugs with at least one MOA whether it has indication or not")
+    val rawDrugs = dr
+      .selectExpr(
+        "drugId",
+        "indications.rows.disease as diseases",
+        "flatten(mechanismsOfAction.rows.targets) as targets"
+      )
+      .withColumn("indication", explode_outer($"diseases"))
+      .withColumn("moa", explode_outer($"targets"))
+      .join(dis.selectExpr("diseaseId", "therapeuticAreas"),
+        $"indication" === $"diseaseId",
+      "left_outer")
+      .withColumn("drugTAs", coalesce($"therapeuticAreas", typedLit(Seq.empty[String])))
+      .drop("targets", "diseases", "diseaseId", "therapeuticAreas")
+      .cache()
 
     val evidenceColumns = Seq(
       "type1",
@@ -96,61 +111,25 @@ object ETL extends LazyLogging {
 
     val A = preA
       .transform(makeAssociations(_, groupedKeys))
-      .withColumnRenamed("keywordId1", "targetId")
-      .withColumnRenamed("keywordId2", "diseaseId")
-      .join(dis.selectExpr("diseaseId", "name as label", "coalesce(therapeuticAreas, array()) as diseaseTAs"),
-        Seq("diseaseId"))
-      .join(tar.selectExpr("targetId", "approvedSymbol as symbol"),
-        Seq("targetId"))
 
     val B = preB
       .transform(makeAssociations(_, groupedKeys))
-      .withColumnRenamed("keywordId1", "targetId")
-      .withColumnRenamed("keywordId2", "diseaseId")
-      .join(dis.selectExpr("diseaseId", "name as label", "coalesce(therapeuticAreas, array()) as diseaseTAs"),
-        Seq("diseaseId"))
-      .join(tar.selectExpr("targetId", "approvedSymbol as symbol"),
-        Seq("targetId"))
 
     val AB = preA.unionByName(preB)
       .transform(makeAssociations(_, groupedKeys))
-      .withColumnRenamed("keywordId1", "targetId")
-      .withColumnRenamed("keywordId2", "diseaseId")
-      .join(dis.selectExpr("diseaseId", "name as label", "coalesce(therapeuticAreas, array()) as diseaseTAs"),
-        Seq("diseaseId"))
-      .join(tar.selectExpr("targetId", "approvedSymbol as symbol"),
-        Seq("targetId"))
 
     val assocDisId = "keywordId2"
     val indA = preA
       .transform(makeIndirect(_, assocDisId, dis, "diseaseId"))
       .transform(makeAssociations(_, groupedKeys))
-      .withColumnRenamed("keywordId1", "targetId")
-      .withColumnRenamed("keywordId2", "diseaseId")
-      .join(dis.selectExpr("diseaseId", "name as label", "coalesce(therapeuticAreas, array()) as diseaseTAs"),
-        Seq("diseaseId"))
-      .join(tar.selectExpr("targetId", "approvedSymbol as symbol"),
-        Seq("targetId"))
 
     val indB = preB
       .transform(makeIndirect(_, assocDisId, dis, "diseaseId"))
       .transform(makeAssociations(_, groupedKeys))
-      .withColumnRenamed("keywordId1", "targetId")
-      .withColumnRenamed("keywordId2", "diseaseId")
-      .join(dis.selectExpr("diseaseId", "name as label", "coalesce(therapeuticAreas, array()) as diseaseTAs"),
-        Seq("diseaseId"))
-      .join(tar.selectExpr("targetId", "approvedSymbol as symbol"),
-        Seq("targetId"))
 
     val indAB = preA.unionByName(preB)
       .transform(makeIndirect(_, assocDisId, dis, "diseaseId"))
       .transform(makeAssociations(_, groupedKeys))
-      .withColumnRenamed("keywordId1", "targetId")
-      .withColumnRenamed("keywordId2", "diseaseId")
-      .join(dis.selectExpr("diseaseId", "name as label", "coalesce(therapeuticAreas, array()) as diseaseTAs"),
-        Seq("diseaseId"))
-      .join(tar.selectExpr("targetId", "approvedSymbol as symbol"),
-        Seq("targetId"))
 
     logger.info("generating associations for datasets A (GP - DS")
     A.write.parquet(output + "/associationsFromCoocsA")
@@ -174,5 +153,5 @@ object ETL extends LazyLogging {
 }
 
 @main
-  def main(coocs: String, diseases: String, targets: String, output: String): Unit =
-    ETL(coocs, diseases, targets, output)
+  def main(coocs: String, drugs: String, diseases: String, targets: String, output: String): Unit =
+    ETL(coocs, drugs, diseases, targets, output)
