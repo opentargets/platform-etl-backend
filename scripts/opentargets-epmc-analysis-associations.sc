@@ -82,7 +82,7 @@ object ETL extends LazyLogging {
     val coosBRight = coos.filter($"isMapped" === true and $"type" === "DS-CD")
       .withColumn("evidence_score", array_min(array($"evidence_score" / 10D, lit(1D))))
       .selectExpr(
-        "type2 as type1",
+        "type2",
         "type1 as CD",
         "keywordId1 as keywordId2",
         "evidence_score as evidence_scoreR"
