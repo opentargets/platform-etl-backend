@@ -55,6 +55,7 @@ object ETL extends LazyLogging {
       .withColumnRenamed("id", "targetId"))
 
     val evidenceColumns = Seq(
+      "pmid",
       "type1",
       "type2",
       "keywordId1",
@@ -73,6 +74,7 @@ object ETL extends LazyLogging {
     val coosBLeft = coos.filter($"isMapped" === true and $"type" === "GP-CD")
       .withColumn("evidence_score", array_min(array($"evidence_score" / 10D, lit(1D))))
       .selectExpr(
+        "pmid as pmidL",
         "type1",
         "type2 as CD",
         "keywordId1",
@@ -82,6 +84,7 @@ object ETL extends LazyLogging {
     val coosBRight = coos.filter($"isMapped" === true and $"type" === "DS-CD")
       .withColumn("evidence_score", array_min(array($"evidence_score" / 10D, lit(1D))))
       .selectExpr(
+        "pmid as pmidR",
         "type2",
         "type1 as CD",
         "keywordId1 as keywordId2",
@@ -91,6 +94,7 @@ object ETL extends LazyLogging {
     val preB = coosBLeft.join(coosBRight, Seq("CD"))
       .withColumn("evidence_score", ($"evidence_scoreL" + $"evidence_scoreR") / 2D)
       .drop("evidence_scoreL", "evidence_scoreR", "CD")
+      .withColumn("pmid", concat($"pmidL", $"pmidR"))
       .selectExpr(evidenceColumns:_*)
 
 
@@ -112,7 +116,9 @@ object ETL extends LazyLogging {
       .join(tar.selectExpr("targetId", "approvedSymbol as symbol"),
         Seq("targetId"))
 
-    val AB = preA.unionByName(preB)
+    val preAB = preA.unionByName(preB)
+
+    val AB = preAB
       .transform(makeAssociations(_, groupedKeys))
       .withColumnRenamed("keywordId1", "targetId")
       .withColumnRenamed("keywordId2", "diseaseId")
@@ -142,7 +148,7 @@ object ETL extends LazyLogging {
       .join(tar.selectExpr("targetId", "approvedSymbol as symbol"),
         Seq("targetId"))
 
-    val indAB = preA.unionByName(preB)
+    val indAB = preAB
       .transform(makeIndirect(_, assocDisId, dis, "diseaseId"))
       .transform(makeAssociations(_, groupedKeys))
       .withColumnRenamed("keywordId1", "targetId")
@@ -152,23 +158,23 @@ object ETL extends LazyLogging {
       .join(tar.selectExpr("targetId", "approvedSymbol as symbol"),
         Seq("targetId"))
 
-    logger.info("generating associations for datasets A (GP - DS")
-    A.write.parquet(output + "/associationsFromCoocsA")
+    logger.info("generating associations for datasets A (GP - DS)")
+    A.write.json(output + "/associationsFromCoocsA")
 
     logger.info("generating associations for datasets B (GP - CD - DS)")
-    B.write.parquet(output + "/associationsFromCoocsB")
+    B.write.json(output + "/associationsFromCoocsB")
 
     logger.info("generating associations for datasets A + B")
-    AB.write.parquet(output + "/associationsFromCoocsAB")
+    AB.write.json(output + "/associationsFromCoocsAB")
 
-    logger.info("generating associations for datasets A (GP - DS")
-    indA.write.parquet(output + "/associationsFromCoocsIndrectA")
+    logger.info("generating associations for datasets indirect A (GP - DS)")
+    indA.write.json(output + "/associationsFromCoocsIndrectA")
 
-    logger.info("generating associations for datasets B (GP - CD - DS)")
-    indB.write.parquet(output + "/associationsFromCoocsIndirectB")
+    logger.info("generating associations for datasets indirect B (GP - CD - DS)")
+    indB.write.json(output + "/associationsFromCoocsIndirectB")
 
-    logger.info("generating associations for datasets A + B")
-    indAB.write.parquet(output + "/associationsFromCoocsIndirectAB")
+    logger.info("generating associations for datasets indirect A + B")
+    indAB.write.json(output + "/associationsFromCoocsIndirectAB")
 
   }
 }

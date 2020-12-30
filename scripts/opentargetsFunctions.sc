@@ -100,11 +100,12 @@ object OpentargetsFunctions extends LazyLogging {
           array(col("_id")),
           coalesce(col("ancestors"), typedLit(Seq.empty[String]))))
       .withColumn(dfId, explode(col("ids")))
-      .drop("ancestors")
+      .drop("ancestors", "ids")
 
     df.join(dis, Seq(dfId))
-      .drop("_id", dfId)
+      .withColumnRenamed(dfId, "__del")
       .withColumnRenamed("_id", dfId)
+      .drop("__del")
   }
 
   def makeAssociations(df: DataFrame, groupCols: Seq[Column]): DataFrame = {
