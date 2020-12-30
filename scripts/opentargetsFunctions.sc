@@ -124,7 +124,6 @@ object OpentargetsFunctions extends LazyLogging {
       .withColumn("median", element_at(col("q"), 2))
       .withColumn("q1", element_at(col("q"), 1))
       .withColumn("q3", element_at(col("q"), 3))
-      .withColumn("qDiff", col("q3") - col("q1"))
       .withColumn("harmonic", harmonicFn(col("evidenceScores")))
       .drop("evidenceScores", "q")
 

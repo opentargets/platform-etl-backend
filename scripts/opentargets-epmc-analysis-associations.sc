@@ -63,7 +63,7 @@ object ETL extends LazyLogging {
       "evidence_score"
     )
 
-    val groupedKeys = Seq($"type1", $"type2", $"keywordId1", $"keywordId2")
+    val groupedKeys = Seq($"keywordId1", $"keywordId2")
 
     logger.info("read EPMC co-occurrences dataset, filter only mapped ones and rescale score between 0..1")
     val preA = coos
@@ -167,15 +167,14 @@ object ETL extends LazyLogging {
     logger.info("generating associations for datasets A + B")
     AB.write.json(output + "/associationsFromCoocsAB")
 
-    logger.info("generating associations for datasets indirect A (GP - DS)")
-    indA.write.json(output + "/associationsFromCoocsIndrectA")
-
-    logger.info("generating associations for datasets indirect B (GP - CD - DS)")
-    indB.write.json(output + "/associationsFromCoocsIndirectB")
-
-    logger.info("generating associations for datasets indirect A + B")
-    indAB.write.json(output + "/associationsFromCoocsIndirectAB")
-
+//    logger.info("generating associations for datasets indirect A (GP - DS)")
+//    indA.write.json(output + "/associationsFromCoocsIndrectA")
+//
+//    logger.info("generating associations for datasets indirect B (GP - CD - DS)")
+//    indB.write.json(output + "/associationsFromCoocsIndirectB")
+//
+//    logger.info("generating associations for datasets indirect A + B")
+//    indAB.write.json(output + "/associationsFromCoocsIndirectAB")
   }
 }
 
