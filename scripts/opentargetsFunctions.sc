@@ -119,13 +119,12 @@ object OpentargetsFunctions extends LazyLogging {
         min(col("evidence_score")).as("min"),
         expr("approx_percentile(evidence_score, array(0.25, 0.5, 0.75))").as("q"),
         count(col("pmid")).as("N"),
-        collect_list(col("evidence_score")).as("evidenceScores")
+        harmonicFn(collect_list(col("evidence_score"))).as("harmonic")
       )
       .withColumn("median", element_at(col("q"), 2))
       .withColumn("q1", element_at(col("q"), 1))
       .withColumn("q3", element_at(col("q"), 3))
-      .withColumn("harmonic", harmonicFn(col("evidenceScores")))
-      .drop("evidenceScores", "q")
+      .drop("q")
 
     assocs
   }
