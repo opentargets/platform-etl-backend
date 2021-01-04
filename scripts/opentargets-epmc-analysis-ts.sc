@@ -44,114 +44,53 @@ object SparkSessionWrapper extends LazyLogging {
 }
 
 object ETL extends LazyLogging {
-  def apply(coocs: String, drugs: String, diseases: String, targets: String, output: String) = {
+  def apply(coocs: String, diseases: String, targets: String, output: String): Unit = {
     import SparkSessionWrapper._
     import session.implicits._
 
     val coos = session.read.parquet(coocs)
-    val dis = session.read.json(diseases).withColumnRenamed("id", "diseaseId")
-    val tar = session.read.json(targets).withColumnRenamed("id", "targetId")
-    val dr = session.read.json(drugs).withColumnRenamed("id", "drugId")
-
-    logger.info("get all drugs with at least one MOA whether it has indication or not")
-    val rawDrugs = dr
-      .selectExpr(
-        "drugId",
-        "indications.rows.disease as diseases",
-        "flatten(mechanismsOfAction.rows.targets) as targets"
-      )
-      .withColumn("indication", explode_outer($"diseases"))
-      .withColumn("moa", explode_outer($"targets"))
-      .join(dis.selectExpr("diseaseId", "therapeuticAreas"),
-        $"indication" === $"diseaseId",
-      "left_outer")
-      .withColumn("drugTAs", coalesce($"therapeuticAreas", typedLit(Seq.empty[String])))
-      .drop("targets", "diseases", "diseaseId", "therapeuticAreas")
-      .cache()
+    val dis = broadcast(session.read.json(diseases)
+      .withColumnRenamed("id", "diseaseId"))
+    val tar = broadcast(session.read.json(targets)
+      .withColumnRenamed("id", "targetId"))
 
     val evidenceColumns = Seq(
-      "type1",
-      "type2",
+      "year",
+      "month",
+      "day",
+      "pmid",
       "keywordId1",
       "keywordId2",
       "evidence_score"
     )
 
-    val groupedKeys = Seq($"type1", $"type2", $"keywordId1", $"keywordId2")
+    val groupedKeys = Seq($"year", $"month", $"day", $"keywordId1", $"keywordId2")
 
+    // TODO Copy the time column selection from the original file before computing the aggregation and use the Y/M
     logger.info("read EPMC co-occurrences dataset, filter only mapped ones and rescale score between 0..1")
     val preA = coos
-      .filter($"isMapped" === true and $"type" === "GP-DS")
+      .withColumn("year", year($"pubDate"))
+      .withColumn("month", month($"pubDate"))
+      .withColumn("day", typedLit[Int](1))
+      .filter($"isMapped" === true and $"type" === "GP-DS" and $"year".isNotNull and $"month".isNotNull)
       .withColumn("evidence_score", array_min(array($"evidence_score" / 10D, lit(1D))))
       .selectExpr(evidenceColumns:_*)
 
-    val coosBLeft = coos.filter($"isMapped" === true and $"type" === "GP-CD")
-      .withColumn("evidence_score", array_min(array($"evidence_score" / 10D, lit(1D))))
-      .selectExpr(
-        "type1",
-        "type2 as CD",
-        "keywordId1",
-        "evidence_score as evidence_scoreL"
-      )
-
-    val coosBRight = coos.filter($"isMapped" === true and $"type" === "DS-CD")
-      .withColumn("evidence_score", array_min(array($"evidence_score" / 10D, lit(1D))))
-      .selectExpr(
-        "type2 as type1",
-        "type1 as CD",
-        "keywordId1 as keywordId2",
-        "evidence_score as evidence_scoreR"
-      )
-
-    val preB = coosBLeft.join(coosBRight, Seq("CD"))
-      .withColumn("evidence_score", ($"evidence_scoreL" + $"evidence_scoreR") / 2D)
-      .drop("evidence_scoreL", "evidence_scoreR", "CD")
-      .selectExpr(evidenceColumns:_*)
-
-
+    logger.info("preparing coos A")
     val A = preA
       .transform(makeAssociations(_, groupedKeys))
+      .withColumnRenamed("keywordId1", "targetId")
+      .withColumnRenamed("keywordId2", "diseaseId")
+      .join(dis.selectExpr("diseaseId", "name as label"),
+        Seq("diseaseId"))
+      .join(tar.selectExpr("targetId", "approvedSymbol as symbol"),
+        Seq("targetId"))
 
-    val B = preB
-      .transform(makeAssociations(_, groupedKeys))
-
-    val AB = preA.unionByName(preB)
-      .transform(makeAssociations(_, groupedKeys))
-
-    val assocDisId = "keywordId2"
-    val indA = preA
-      .transform(makeIndirect(_, assocDisId, dis, "diseaseId"))
-      .transform(makeAssociations(_, groupedKeys))
-
-    val indB = preB
-      .transform(makeIndirect(_, assocDisId, dis, "diseaseId"))
-      .transform(makeAssociations(_, groupedKeys))
-
-    val indAB = preA.unionByName(preB)
-      .transform(makeIndirect(_, assocDisId, dis, "diseaseId"))
-      .transform(makeAssociations(_, groupedKeys))
-
-    logger.info("generating associations for datasets A (GP - DS")
+    logger.info("generating associations for datasets A (GP - DS)")
     A.write.parquet(output + "/associationsFromCoocsA")
-
-    logger.info("generating associations for datasets B (GP - CD - DS)")
-    B.write.parquet(output + "/associationsFromCoocsB")
-
-    logger.info("generating associations for datasets A + B")
-    AB.write.parquet(output + "/associationsFromCoocsAB")
-
-    logger.info("generating associations for datasets A (GP - DS")
-    indA.write.parquet(output + "/associationsFromCoocsIndrectA")
-
-    logger.info("generating associations for datasets B (GP - CD - DS)")
-    indB.write.parquet(output + "/associationsFromCoocsIndirectB")
-
-    logger.info("generating associations for datasets A + B")
-    indAB.write.parquet(output + "/associationsFromCoocsIndirectAB")
-
   }
 }
 
 @main
-  def main(coocs: String, drugs: String, diseases: String, targets: String, output: String): Unit =
-    ETL(coocs, drugs, diseases, targets, output)
+def main(coocs: String, diseases: String, targets: String, output: String): Unit =
+  ETL(coocs, diseases, targets, output)

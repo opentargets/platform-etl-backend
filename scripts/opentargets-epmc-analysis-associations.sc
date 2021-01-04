@@ -44,7 +44,7 @@ object SparkSessionWrapper extends LazyLogging {
 }
 
 object ETL extends LazyLogging {
-  def apply(coocs: String, diseases: String, targets: String, output: String) = {
+  def apply(coocs: String, diseases: String, targets: String, output: String): Unit = {
     import SparkSessionWrapper._
     import session.implicits._
 
@@ -70,37 +70,6 @@ object ETL extends LazyLogging {
       .filter($"isMapped" === true and $"type" === "GP-DS")
       .withColumn("evidence_score", array_min(array($"evidence_score" / 10D, lit(1D))))
       .selectExpr(evidenceColumns:_*)
-      .orderBy(groupedKeys:_*)
-      .persist(StorageLevel.DISK_ONLY)
-
-    logger.info("preparing coos B left side from CD")
-    val coosBLeft = coos.filter($"isMapped" === true and $"type" === "GP-CD")
-      .withColumn("evidence_score", array_min(array($"evidence_score" / 10D, lit(1D))))
-      .selectExpr(
-        "pmid",
-        "type1",
-        "type2 as CD",
-        "keywordId1",
-        "evidence_score as evidence_scoreL")
-      .orderBy($"pmid", $"CD")
-
-    logger.info("preparing coos B right side from CD")
-    val coosBRight = coos.filter($"isMapped" === true and $"type" === "DS-CD")
-      .withColumn("evidence_score", array_min(array($"evidence_score" / 10D, lit(1D))))
-      .selectExpr(
-        "pmid",
-        "type1 as type2",
-        "type2 as CD",
-        "keywordId1 as keywordId2",
-        "evidence_score as evidence_scoreR")
-      .orderBy($"pmid", $"CD")
-
-    logger.info("preparing coos pre B join from (pmid, CD)")
-    val preB = coosBLeft.join(coosBRight, Seq("pmid", "CD"))
-      .withColumn("evidence_score", ($"evidence_scoreL" + $"evidence_scoreR") / 2D)
-      .selectExpr(evidenceColumns:_*)
-      .orderBy(groupedKeys:_*)
-      .persist(StorageLevel.DISK_ONLY)
 
     logger.info("preparing coos A")
     val A = preA
@@ -112,77 +81,8 @@ object ETL extends LazyLogging {
       .join(tar.selectExpr("targetId", "approvedSymbol as symbol"),
         Seq("targetId"))
 
-    logger.info("preparing coos B")
-    val B = preB
-      .transform(makeAssociations(_, groupedKeys))
-      .withColumnRenamed("keywordId1", "targetId")
-      .withColumnRenamed("keywordId2", "diseaseId")
-      .join(dis.selectExpr("diseaseId", "name as label"),
-        Seq("diseaseId"))
-      .join(tar.selectExpr("targetId", "approvedSymbol as symbol"),
-        Seq("targetId"))
-
-    logger.info("preparing coos pre AB union by name")
-    val preAB = preA.unionByName(preB)
-
-    logger.info("preparing coos AB")
-    val AB = preAB
-      .transform(makeAssociations(_, groupedKeys))
-      .withColumnRenamed("keywordId1", "targetId")
-      .withColumnRenamed("keywordId2", "diseaseId")
-      .join(dis.selectExpr("diseaseId", "name as label"),
-        Seq("diseaseId"))
-      .join(tar.selectExpr("targetId", "approvedSymbol as symbol"),
-        Seq("targetId"))
-
-    val assocDisId = "keywordId2"
-//    val indA = preA
-//      .transform(makeIndirect(_, assocDisId, dis, "diseaseId"))
-//      .transform(makeAssociations(_, groupedKeys))
-//      .withColumnRenamed("keywordId1", "targetId")
-//      .withColumnRenamed("keywordId2", "diseaseId")
-//      .join(dis.selectExpr("diseaseId", "name as label", "coalesce(therapeuticAreas, array()) as diseaseTAs"),
-//        Seq("diseaseId"))
-//      .join(tar.selectExpr("targetId", "approvedSymbol as symbol"),
-//        Seq("targetId"))
-//
-//    val indB = preB
-//      .transform(makeIndirect(_, assocDisId, dis, "diseaseId"))
-//      .transform(makeAssociations(_, groupedKeys))
-//      .withColumnRenamed("keywordId1", "targetId")
-//      .withColumnRenamed("keywordId2", "diseaseId")
-//      .join(dis.selectExpr("diseaseId", "name as label", "coalesce(therapeuticAreas, array()) as diseaseTAs"),
-//        Seq("diseaseId"))
-//      .join(tar.selectExpr("targetId", "approvedSymbol as symbol"),
-//        Seq("targetId"))
-//
-//    val indAB = preAB
-//      .transform(makeIndirect(_, assocDisId, dis, "diseaseId"))
-//      .transform(makeAssociations(_, groupedKeys))
-//      .withColumnRenamed("keywordId1", "targetId")
-//      .withColumnRenamed("keywordId2", "diseaseId")
-//      .join(dis.selectExpr("diseaseId", "name as label", "coalesce(therapeuticAreas, array()) as diseaseTAs"),
-//        Seq("diseaseId"))
-//      .join(tar.selectExpr("targetId", "approvedSymbol as symbol"),
-//        Seq("targetId"))
-
     logger.info("generating associations for datasets A (GP - DS)")
     A.write.parquet(output + "/associationsFromCoocsA")
-
-    logger.info("generating associations for datasets B (GP - CD - DS)")
-    B.write.parquet(output + "/associationsFromCoocsB")
-
-    logger.info("generating associations for datasets A + B")
-    AB.write.parquet(output + "/associationsFromCoocsAB")
-
-//    logger.info("generating associations for datasets indirect A (GP - DS)")
-//    indA.write.parquet(output + "/associationsFromCoocsIndrectA")
-//
-//    logger.info("generating associations for datasets indirect B (GP - CD - DS)")
-//    indB.write.parquet(output + "/associationsFromCoocsIndirectB")
-//
-//    logger.info("generating associations for datasets indirect A + B")
-//    indAB.write.parquet(output + "/associationsFromCoocsIndirectAB")
   }
 }
 

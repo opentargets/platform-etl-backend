@@ -134,7 +134,7 @@ object SparkSessionWrapper extends LazyLogging {
 }
 
 object ETL extends LazyLogging {
-  def apply(matches: String, coocs: String, output: String) = {
+  def apply(matches: String, coocs: String, output: String): Unit = {
     import SparkSessionWrapper._
     import session.implicits._
 
