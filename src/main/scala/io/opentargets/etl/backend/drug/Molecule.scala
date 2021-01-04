@@ -3,7 +3,24 @@ package io.opentargets.etl.backend.drug
 import com.typesafe.scalalogging.LazyLogging
 import io.opentargets.etl.backend.Configuration.InputExtension
 import org.apache.spark.sql.expressions.UserDefinedFunction
-import org.apache.spark.sql.functions.{array, array_sort, arrays_zip, coalesce, col, collect_list, collect_set, element_at, explode, lit, map_concat, split, typedLit, udf, upper, when}
+import org.apache.spark.sql.functions.{
+  array,
+  array_sort,
+  arrays_zip,
+  coalesce,
+  col,
+  collect_list,
+  collect_set,
+  element_at,
+  explode,
+  lit,
+  map_concat,
+  split,
+  typedLit,
+  udf,
+  upper,
+  when
+}
 import org.apache.spark.sql.{DataFrame, SparkSession, functions}
 import io.opentargets.etl.backend.spark.Helpers.nest
 
@@ -21,7 +38,7 @@ object Molecule extends LazyLogging {
     val hierarchy: DataFrame = processMoleculeHierarchy(mols)
     // combine molecule components
     val molCombined = mols
-      .drop("cross_references", "syns", "chebi_par_id", "molecule_hierarchy")
+      .drop("cross_references", "syns", "chebi_par_id")
       .join(synonyms, Seq("id"), "left_outer")
       .join(crossReferences, Seq("id"), "left_outer")
       .join(hierarchy, Seq("id"), "left_outer")
@@ -29,7 +46,9 @@ object Molecule extends LazyLogging {
     // add extension methods and remove unneeded fields.
     val moleculesExtended = DrugExtensions(molCombined, drugExtensions).drop("drugbank_id")
     // do this last so that any increased coverage brought in by extension methods is captured.
-    moleculesExtended.withColumn("name",coalesce(col("name"), element_at(col("synonyms"), lit(1)), col("id")))
+    moleculesExtended.withColumn(
+      "name",
+      coalesce(col("name"), element_at(col("synonyms"), lit(1)), col("id")))
   }
 
   /**
@@ -51,7 +70,7 @@ object Molecule extends LazyLogging {
         col("cross_references"),
         col("first_approval").as("yearOfFirstApproval"),
         col("max_phase").as("maximumClinicalTrialPhase"),
-        col("molecule_hierarchy"),
+        col("molecule_hierarchy.parent_chembl_id").as("parentId"),
         col("molecule_synonyms.molecule_synonym").as("mol_synonyms"),
         col("molecule_synonyms.syn_type").as("synonym_type"),
         col("withdrawn_flag").as("hasBeenWithdrawn"),
@@ -66,6 +85,9 @@ object Molecule extends LazyLogging {
       .withColumn("withdrawn_country", split(col("withdrawn_country"), ";"))
       .withColumn("withdrawn_class", split(col("withdrawn_class"), ";"))
       .withColumn("syns", arrays_zip(col("mol_synonyms"), col("synonym_type")))
+      // this removes circular references so if we look up by parent we don't recurse.
+      .withColumn("parentId",
+                  when(col("parentId") === col("id"), typedLit(null)).otherwise(col("parentId")))
       .drop("mol_synonyms", "synonym_type", "withdrawn_reason")
       .transform(processWithdrawnNotices)
       .join(drugbank, Seq("id"), "full_outer")
@@ -79,7 +101,8 @@ object Molecule extends LazyLogging {
       .withColumnRenamed("withdrawn_class", "classes")
       .withColumnRenamed("withdrawn_year", "year")
     nest(df, List("countries", "classes", "year"), "withdrawnNotice")
-      .withColumn("withdrawnNotice", when(col("hasBeenWithdrawn") === false, null).otherwise(col("withdrawnNotice")))
+      .withColumn("withdrawnNotice",
+                  when(col("hasBeenWithdrawn") === false, null).otherwise(col("withdrawnNotice")))
   }
 
   /**
@@ -121,11 +144,11 @@ object Molecule extends LazyLogging {
     */
   private def processMoleculeHierarchy(preProcessedMolecules: DataFrame): DataFrame = {
     preProcessedMolecules
-      .select(col("id"), col("molecule_hierarchy.parent_chembl_id").as("parent_id"))
-      .filter(col("id") =!= col("parent_id"))
-      .groupBy("parent_id")
+      .select("id", "parentId")
+      .filter(col("id") =!= col("parentId"))
+      .groupBy("parentId")
       .agg(collect_list(col("id")).as("childChemblIds"))
-      .withColumnRenamed("parent_id", "id")
+      .withColumnRenamed("parentId", "id")
   }
 
   /**
