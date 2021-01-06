@@ -194,10 +194,18 @@ a preconfigured ElasticSearch instance.
 1. Python utility `elasticsearch_loader` must be installed and on your `PATH`
 2. An open port of the ES instance must be forwarded to your local machine and execute the relevant script.
 
-```
-gcloud beta compute ssh --zone "europe-west1-d" "es7-20-09" --project "open-targets-eu-dev" -- -L 9200:localhost:9200
-```  
-3. Update the scripts with the relevant input/output directories
+    ```
+    gcloud beta compute ssh --zone "europe-west1-d" "es7-20-09" --project "open-targets-eu-dev" -- -L 9200:localhost:9200
+    ```  
+
+3. Update the `env.sh` script:
+    - `PREFIX` refers to the path to the data to be loaded into Elasticsearch
+    - `ES` is the url of Elasticsearch
+    - `INDEX_SETTINGS` is the index configuration file. Typically this will be the `index_settings.json` file provided
+   in the _elasticsearch_ directory.
+
+4. Export the necessary environment variables by running `source [path to file]env.sh`
+4. Run scripts relevant to the index you wish to create, or `load_all.sh` to load all of them.  
 
 ## Steps independent of the Data Pipeline
 
