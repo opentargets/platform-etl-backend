@@ -1,3 +1,4 @@
+# https://github.com/asidlo/sparkprophet/blob/master/sparkprophet.py
 # https://databricks.com/blog/2020/01/27/time-series-forecasting-prophet-spark.html
 # https://www.kaggle.com/c/demand-forecasting-kernels-only/data
 #
@@ -14,14 +15,12 @@ from random import choice
 
 # from collections import OrderedDict
 from functools import partial
-# import numpy as np
-# import pandas as pd
-# from fbprophet import Prophet
-# from pyspark import SparkConf
-# from pyspark.sql import SparkSession
+import numpy as np
+import pandas as pd
+from fbprophet import Prophet
 from pyspark import *
 from pyspark.sql import *
-# from pyspark.sql.types import *
+from pyspark.sql.types import *
 from pyspark.sql.window import Window
 from pyspark.sql.functions import (
     lit,
@@ -47,11 +46,44 @@ from pyspark.sql.functions import (
     row_number,
     sum as sum_fn,
     first,
-    element_at
+    element_at,
+    concat_ws,
+    current_date,
+    pandas_udf,
+    PandasUDFType
 )
 
-# Make spark session global so any function can access it and use it
+# Make some readonly global so any function can access it and use it
 global spark
+harmonic_col = "harmonic"
+
+prediction_schema = StructType([
+    StructField("targetId", StringType(), True),
+    StructField("diseaseId", StringType(), True),
+    StructField("ds", TimestampType(), True),
+    StructField("yhat", FloatType(), True),
+    StructField("yhat_lower", FloatType(), True),
+    StructField("yhat_upper", FloatType(), True)
+])
+
+
+@pandas_udf(prediction_schema, PandasUDFType.GROUPED_MAP)
+def make_predictions(df):
+    """ create the model with a month frequency and cap and floor for a logistic growth """
+    periods = 12
+    growth_mode = 'logistic'
+
+    m = Prophet(growth=growth_mode)
+    m.fit(df)
+
+    future = m.make_future_dataframe(periods=periods, freq="M", include_history=True)
+    future['cap'] = 1.66
+    future['floor'] = 0.0
+    forecast = m.predict(future)
+    # fig = m.plot(forecast)
+    # fig2 = m.plot_components(forecast)
+
+    return forecast
 
 
 def make_random_string(length=5):
@@ -80,7 +112,6 @@ def harmonic_fn(df: DataFrame, partition_cols, over_col, output_col) -> DataFram
 
 
 def assoc_fn(df: DataFrame, group_by_cols):
-    harmonic_col = "harmonic"
     gbc = [col(x) for x in group_by_cols]
     h_fn = partial(harmonic_fn,
                    partition_cols=group_by_cols,
@@ -197,10 +228,35 @@ def main(args):
     )
 
     # write the processed data out to out_parquet arg
-    (aggregated.write.json(f"{args.out_prefix}/associationsFromCoocsByYM"))
+    aggregated.write.json(f"{args.out_prefix}/associationsFromCoocsByYM")
 
-    print('Completed in {:.1f} secs'.format(time() - start_time))
+    print('Completed aggregated data in {:.1f} secs'.format(time() - start_time))
 
+    # generate the models
+    start_time = time()
+
+    predictions_selection_keys = [
+        "targetId",
+        "diseaseId",
+        "ds",
+        "y"
+    ]
+    predictions_grouped_keys = [
+        "targetId",
+        "diseaseId"
+    ]
+
+    fbp = (
+        aggregated
+            .withColumn("ds", concat_ws("-", col("year"), col("month"), col("day")))
+            .withColumn("y", col(harmonic_col))
+            .select(*predictions_selection_keys)
+            .groupBy(*predictions_grouped_keys)
+            .apply(make_predictions)
+    )
+
+    fbp.write.json(f"{args.out_prefix}/associationsFromCoocsByYMPredictions")
+    print('Completed TS analysis (FB Prophet) data in {:.1f} secs'.format(time() - start_time))
     return 0
 
 
