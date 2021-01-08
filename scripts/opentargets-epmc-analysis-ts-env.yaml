@@ -12,5 +12,3 @@ dependencies:
     - pystan
     - fbprophet
     - pyspark
-      #    - pip:
-      #  - dsub
