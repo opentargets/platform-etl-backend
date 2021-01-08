@@ -9,6 +9,7 @@ channels:
     - conda-forge
 dependencies:
     - python=3
+    - pystan
     - fbprophet
     - pyspark
       #    - pip:
