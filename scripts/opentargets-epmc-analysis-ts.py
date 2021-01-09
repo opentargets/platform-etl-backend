@@ -233,14 +233,14 @@ def main(args):
 
     # load co-occurrences from parquet dataset coming from path
     coocs = (spark.read.parquet(args.in_cooccurrences))
-    targets = (broadcast(spark.read.json(args.in_targets)
-                         .withColumnRenamed("id", "targetId")
-                         .orderBy(col("targetId")))
-               )
-    diseases = (broadcast(spark.read.json(args.in_diseases)
-                          .withColumnRenamed("id", "diseaseId")
-                          .orderBy(col("diseaseId")))
-                )
+    # targets = (broadcast(spark.read.json(args.in_targets)
+    #                      .withColumnRenamed("id", "targetId")
+    #                      .orderBy(col("targetId")))
+    #            )
+    # diseases = (broadcast(spark.read.json(args.in_diseases)
+    #                       .withColumnRenamed("id", "diseaseId")
+    #                       .orderBy(col("diseaseId")))
+    #             )
 
     # curry function to pass to transform with the keys to group by
     tfn = partial(assoc_fn, group_by_cols=grouped_keys)
