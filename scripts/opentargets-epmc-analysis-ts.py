@@ -211,7 +211,6 @@ def main(args):
                  .set("spark.driver.memory", "10g")
                  .set("spark.driver.maxResultSize", "0")
                  .set("spark.debug.maxToStringFields", "2000")
-                 .set("spark.sql.mapKeyDedupPolicy", "LAST_WIN")
                  )
 
     if args.local:
@@ -280,12 +279,6 @@ def main(args):
             .repartition(*predictions_grouped_keys)
             .groupBy(*predictions_grouped_keys)
             .applyInPandas(make_predictions, prediction_schema)
-            .withColumnRenamed("keywordId1", "targetId")
-            .withColumnRenamed("keywordId2", "diseaseId")
-            .join(diseases.selectExpr("diseaseId", "name as label"),
-                  on=["diseaseId"])
-            .join(targets.selectExpr("targetId", "approvedSymbol as symbol"),
-                  on=["targetId"])
     )
 
     fbp.write.json(f"{args.out_prefix}/associationsFromCoocsPredictions")
