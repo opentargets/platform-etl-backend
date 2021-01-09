@@ -3,22 +3,26 @@
 # https://pages.databricks.com/rs/094-YMS-629/images/Fine-Grained-Time-Series-Forecasting.html
 # https://www.kaggle.com/c/demand-forecasting-kernels-only/data
 #
+# export JAVA_HOME=/usr/lib/jvm/java-1.8.0-openjdk-amd64/
+# export JAVA_OPTS="-server -Xms1G -Xmx20G -Dlogback.configurationFile=logback.xml"
+# conda activate opentargets-epmc-analisys-ts
 # python opentargets-epmc-analysis-ts.py \
 #   --in_cooccurrences epmc-cooccurrences \
 #   --in_diseases etl/diseases \
 #   --in_targets etl/targets \
 #   --out_prefix epmc-analysis
 
-from time import time
 import argparse
 import string
-from random import choice
+import logging
 
-# from collections import OrderedDict
+from time import time
+from random import choice
 from functools import partial
-import numpy as np
+
 import pandas as pd
 from fbprophet import Prophet
+
 from pyspark import *
 from pyspark.sql import *
 from pyspark.sql.types import *
@@ -78,8 +82,8 @@ grouped_keys = [
 ]
 
 predictions_selection_keys = [
-    "targetId",
-    "diseaseId",
+    "keywordId1",
+    "keywordId2",
     "ds",
     "y"
 ]
@@ -92,13 +96,13 @@ predictions_new_keys = [
 ]
 
 predictions_grouped_keys = [
-    "targetId",
-    "diseaseId"
+    "keywordId1",
+    "keywordId2",
 ]
 
 prediction_schema = StructType([
-    StructField("targetId", StringType()),
-    StructField("diseaseId", StringType()),
+    StructField("keywordId1", StringType()),
+    StructField("keywordId2", StringType()),
     StructField("ds", DateType()),
     StructField('y', FloatType()),
     StructField("yhat", FloatType()),
@@ -129,8 +133,8 @@ def make_predictions(pdf: pd.DataFrame) -> pd.DataFrame:
 
     results = fpd.join(hpd, how='left')
     results.reset_index(level=0, inplace=True)
-    results['targetId'] = pdf['targetId'].iloc[0]
-    results['diseaseId'] = pdf['diseaseId'].iloc[0]
+    results['keywordId1'] = pdf['keywordId1'].iloc[0]
+    results['keywordId2'] = pdf['keywordId2'].iloc[0]
 
     return results[predictions_selection_keys + predictions_new_keys[1:]]
 
@@ -204,6 +208,7 @@ def parse_args():
 
 def main(args):
     sparkConf = (SparkConf()
+                 .set("spark.driver.memory", "10g")
                  .set("spark.driver.maxResultSize", "0")
                  .set("spark.debug.maxToStringFields", "2000")
                  .set("spark.sql.mapKeyDedupPolicy", "LAST_WIN")
@@ -249,14 +254,6 @@ def main(args):
             (coocs.isMapped == True) & (coocs.type == "GP-DS") & col("year").isNotNull() & col("month").isNotNull())
             .selectExpr(*coocs_columns)
             .transform(tfn)
-            .withColumnRenamed("keywordId1", "targetId")
-            .withColumnRenamed("keywordId2", "diseaseId")
-            .join(diseases.selectExpr("diseaseId", "name as label"),
-                  on=["diseaseId"])
-            .join(targets.selectExpr("targetId", "approvedSymbol as symbol"),
-                  on=["targetId"])
-            .persist()
-
     )
 
     # write the processed data out to out_parquet arg
@@ -283,6 +280,8 @@ def main(args):
             .repartition(*predictions_grouped_keys)
             .groupBy(*predictions_grouped_keys)
             .applyInPandas(make_predictions, prediction_schema)
+            .withColumnRenamed("keywordId1", "targetId")
+            .withColumnRenamed("keywordId2", "diseaseId")
             .join(diseases.selectExpr("diseaseId", "name as label"),
                   on=["diseaseId"])
             .join(targets.selectExpr("targetId", "approvedSymbol as symbol"),
