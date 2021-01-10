@@ -14,7 +14,6 @@
 
 import argparse
 import string
-import logging
 
 from time import time
 from random import choice
@@ -59,6 +58,8 @@ from pyspark.sql.functions import (
     to_date
 )
 
+from pyspark.ml.regression import LinearRegression
+
 # Make some readonly global so any function can access it and use it
 global spark
 harmonic_col = "harmonic"
@@ -81,6 +82,11 @@ grouped_keys = [
     "keywordId2"
 ]
 
+predictions_grouped_keys = [
+    "keywordId1",
+    "keywordId2",
+]
+
 predictions_selection_keys = [
     "keywordId1",
     "keywordId2",
@@ -91,52 +97,53 @@ predictions_selection_keys = [
 predictions_new_keys = [
     "ds",
     "yhat",
+    "yhat_lower",
     "yhat_upper",
-    "yhat_lower"
-]
-
-predictions_grouped_keys = [
-    "keywordId1",
-    "keywordId2",
+    "trend",
+    "trend_lower",
+    "trend_upper"
 ]
 
 prediction_schema = StructType([
     StructField("keywordId1", StringType()),
     StructField("keywordId2", StringType()),
     StructField("ds", DateType()),
-    StructField('y', FloatType()),
     StructField("yhat", FloatType()),
     StructField("yhat_lower", FloatType()),
-    StructField("yhat_upper", FloatType())
+    StructField("yhat_upper", FloatType()),
+    StructField("trend", FloatType()),
+    StructField("trend_lower", FloatType()),
+    StructField("trend_upper", FloatType())
 ])
 
 
-# @pandas_udf(prediction_schema, PandasUDFType.GROUPED_MAP)
+@pandas_udf(prediction_schema, PandasUDFType.GROUPED_MAP)
 def make_predictions(pdf: pd.DataFrame) -> pd.DataFrame:
     """ create the model with a month frequency and cap and floor for a logistic growth """
     periods = 12
     growth_mode = 'logistic'
 
-    pdf = pdf.dropna()
-    pdf['cap'] = 1.66
-    pdf['floor'] = 0.0
+    df_in = pdf.assign(ds=lambda x: pd.to_datetime(x["ds"])) \
+        .sort_values('ds') \
+        .assign(cap=1.66)
+
     m = Prophet(growth=growth_mode)
-    m.fit(pdf)
+    m.fit(df_in)
 
-    future = m.make_future_dataframe(periods=periods, freq="M", include_history=True)
-    future['cap'] = 1.66
-    future['floor'] = 0.0
-    forecast = m.predict(future)
+    future = m.make_future_dataframe(periods=periods, freq="M", include_history=False)\
+        .assign(ds=lambda x: pd.to_datetime(x["ds"])) \
+        .assign(cap=1.66)
 
-    fpd = forecast[predictions_new_keys].set_index('ds')
-    hpd = pdf[predictions_selection_keys].set_index('ds')
+    # print(future.head())
 
-    results = fpd.join(hpd, how='left')
-    results.reset_index(level=0, inplace=True)
-    results['keywordId1'] = pdf['keywordId1'].iloc[0]
-    results['keywordId2'] = pdf['keywordId2'].iloc[0]
+    df_out = m.predict(future)[predictions_new_keys] \
+        .assign(ds=lambda x: pd.to_datetime(x["ds"])) \
+        .merge(future, on=["ds"], how="left") \
+        .assign(keywordId1=df_in["keywordId1"][0]) \
+        .assign(keywordId2=df_in["keywordId2"][0]) \
+        .drop("cap", axis=1)
 
-    return results[predictions_selection_keys + predictions_new_keys[1:]]
+    return pd.DataFrame(df_out, columns=prediction_schema.fieldNames())
 
 
 def make_random_string(length=5):
@@ -233,14 +240,11 @@ def main(args):
 
     # load co-occurrences from parquet dataset coming from path
     coocs = (spark.read.parquet(args.in_cooccurrences))
-    # targets = (broadcast(spark.read.json(args.in_targets)
-    #                      .withColumnRenamed("id", "targetId")
-    #                      .orderBy(col("targetId")))
-    #            )
-    # diseases = (broadcast(spark.read.json(args.in_diseases)
-    #                       .withColumnRenamed("id", "diseaseId")
-    #                       .orderBy(col("diseaseId")))
-    #             )
+
+    # we need some filtering; not all data is ready to be used
+    # 1. at least 2 data points per month
+    # 2. there must be data for the year 2020
+    w2 = Window.partitionBy(*predictions_grouped_keys)
 
     # curry function to pass to transform with the keys to group by
     tfn = partial(assoc_fn, group_by_cols=grouped_keys)
@@ -253,33 +257,29 @@ def main(args):
             (coocs.isMapped == True) & (coocs.type == "GP-DS") & col("year").isNotNull() & col("month").isNotNull())
             .selectExpr(*coocs_columns)
             .transform(tfn)
+            .withColumn("ds", to_date(concat_ws("-", col("year"), col("month"), col("day"))))
+            .withColumn("y", col(harmonic_col))
+            .withColumn("dtMaxYear", max(col("year")).over(w2))
+            .filter((col("year") >= 2010) & (col("dtMaxYear") == 2020))
+            .withColumn("dtCount", count(col("y")).over(w2))
+            .filter(col("dtCount") > 1)
+            .select(*predictions_selection_keys)
+            .repartition(*predictions_grouped_keys)
+            .persist()
     )
-
-    # write the processed data out to out_parquet arg
-    # aggregated.write.json(f"{args.out_prefix}/associationsFromCoocsByYM")
 
     print('Completed aggregated data in {:.1f} secs'.format(time() - start_time))
 
     # generate the models
     start_time = time()
 
-    # we need some filtering; not all data is ready to be used
-    # 1. at least 2 data points per month
-    # 2. there must be data for the year 2020
-    w2 = Window.partitionBy(*predictions_grouped_keys)
-
     fbp = (
         aggregated
-            .withColumn("ds", to_date(concat_ws("-", col("year"), col("month"), col("day"))))
-            .withColumn("y", col(harmonic_col))
-            .withColumn("dtCount", count(col("y")).over(w2))
-            .withColumn("dtMaxYear", max(col("year")).over(w2))
-            .filter((col("dtCount") > 1) & (col("dtMaxYear") == 2020))
-            .select(*predictions_selection_keys)
-            .repartition(*predictions_grouped_keys)
             .groupBy(*predictions_grouped_keys)
-            .applyInPandas(make_predictions, prediction_schema)
+            .apply(make_predictions)
     )
+
+    # fbp.show(20, False)
 
     fbp.write.json(f"{args.out_prefix}/associationsFromCoocsPredictions")
     print('Completed TS analysis (FB Prophet) data in {:.1f} secs'.format(time() - start_time))
