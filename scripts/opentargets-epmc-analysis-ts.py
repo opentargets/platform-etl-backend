@@ -2,6 +2,7 @@
 # https://databricks.com/blog/2020/01/27/time-series-forecasting-prophet-spark.html
 # https://pages.databricks.com/rs/094-YMS-629/images/Fine-Grained-Time-Series-Forecasting.html
 # https://www.kaggle.com/c/demand-forecasting-kernels-only/data
+# https://towardsdatascience.com/pyspark-forecasting-with-pandas-udf-and-fb-prophet-e9d70f86d802
 #
 # export JAVA_HOME=/usr/lib/jvm/java-1.8.0-openjdk-amd64/
 # export JAVA_OPTS="-server -Xms1G -Xmx20G -Dlogback.configurationFile=logback.xml"
