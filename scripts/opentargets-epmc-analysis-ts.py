@@ -125,37 +125,34 @@ def make_predictions(pdf: pd.DataFrame) -> pd.DataFrame:
     periods = 12
     growth_mode = "linear" # 'logistic'
 
-    try:
-        df_in = pdf.assign(ds=lambda x: pd.to_datetime(x["ds"])) \
-            .sort_values('ds') \
-            .assign(cap=1.66)
+    df_in = pdf.assign(ds=lambda x: pd.to_datetime(x["ds"])) \
+        .sort_values('ds') \
+        .assign(cap=1.66)
 
-        print(df_in.head())
-        m = Prophet(growth=growth_mode)  # , uncertainty_samples=0)
-        m.fit(df_in)
+    # print(df_in.head())
 
-        future = m.make_future_dataframe(periods=periods, freq="M", include_history=False)\
-            .assign(ds=lambda x: pd.to_datetime(x["ds"])) \
-            .assign(cap=1.66)
+    m = Prophet(growth=growth_mode)  # , uncertainty_samples=0)
+    m.fit(df_in)
 
-        # print(future.head())
+    future = m.make_future_dataframe(periods=periods, freq="M", include_history=True)\
+        .assign(ds=lambda x: pd.to_datetime(x["ds"])) \
+        .assign(cap=1.66)
 
-        forecast = m.predict(future)
+    # print(future.head())
 
-        print(forecast.head())
+    forecast = m.predict(future)
 
-        df_out = forecast[predictions_new_keys] \
-            .assign(ds=lambda x: pd.to_datetime(x["ds"])) \
-            .merge(future, on=["ds"], how="left") \
-            .assign(keywordId1=df_in["keywordId1"][0]) \
-            .assign(keywordId2=df_in["keywordId2"][0]) \
-            .drop("cap", axis=1)
+    # print(forecast.head())
 
-        # print(df_out.head())
-    except Exception as e:
-        print(f" fbprophet exception captured: {e} {forecast.head()}")
-    finally:
-        return pd.DataFrame(df_out, columns=prediction_schema.fieldNames())
+    df_out = forecast[predictions_new_keys] \
+        .assign(ds=lambda x: pd.to_datetime(x["ds"])) \
+        .merge(future, on=["ds"], how="left") \
+        .assign(keywordId1=df_in["keywordId1"][0]) \
+        .assign(keywordId2=df_in["keywordId2"][0]) \
+        .drop("cap", axis=1)
+
+    # print(df_out.head())
+    return pd.DataFrame(df_out, columns=prediction_schema.fieldNames())
 
 
 def make_random_string(length=5):
@@ -272,7 +269,7 @@ def main(args):
             .withColumn("y", col(harmonic_col))
             .dropna(subset=predictions_selection_keys)
             .withColumn("dtMaxYear", max(col("year")).over(w2))
-            .filter((col("year") >= 2010) & (col("dtMaxYear") == 2020))
+            .filter((col("year") >= 2000) & (col("dtMaxYear") == 2020))
             .withColumn("dtCount", count(col("y")).over(w3))
             .filter(col("dtCount") >= 2)
             .select(*predictions_selection_keys)
@@ -280,6 +277,7 @@ def main(args):
             .persist()
     )
 
+    aggregated.write.parquet(f"{args.out_prefix}/associationsFromCoocsTS")
     print('Completed aggregated data in {:.1f} secs'.format(time() - start_time))
 
     # generate the models
@@ -293,7 +291,7 @@ def main(args):
 
     # fbp.show(20, False)
 
-    fbp.write.json(f"{args.out_prefix}/associationsFromCoocsPredictions")
+    fbp.write.parquet(f"{args.out_prefix}/associationsFromCoocsTSPredictions")
     print('Completed TS analysis (FB Prophet) data in {:.1f} secs'.format(time() - start_time))
 
     # clean all up just in case
