@@ -4,11 +4,11 @@
 # conda-env remove -n <env>
 
 channels:
-    - defaults
-    - bioconda
     - conda-forge
+    - bioconda
+    - defaults
 dependencies:
     - python=3
-    - pystan
-    - fbprophet
-    - pyspark
+    - conda-forge::pyspark=3.0.1
+    - conda-forge::pystan
+    - conda-forge::fbprophet

@@ -3,6 +3,7 @@
 # https://pages.databricks.com/rs/094-YMS-629/images/Fine-Grained-Time-Series-Forecasting.html
 # https://www.kaggle.com/c/demand-forecasting-kernels-only/data
 # https://towardsdatascience.com/pyspark-forecasting-with-pandas-udf-and-fb-prophet-e9d70f86d802
+# https://tgsmith61591.github.io/2018-07-02-conda-spark/
 #
 # export JAVA_HOME=/usr/lib/jvm/java-1.8.0-openjdk-amd64/
 # export JAVA_OPTS="-server -Xms1G -Xmx20G -Dlogback.configurationFile=logback.xml"
@@ -118,33 +119,43 @@ prediction_schema = StructType([
 ])
 
 
-@pandas_udf(prediction_schema, PandasUDFType.GROUPED_MAP)
+# @pandas_udf(prediction_schema, PandasUDFType.GROUPED_MAP)
 def make_predictions(pdf: pd.DataFrame) -> pd.DataFrame:
     """ create the model with a month frequency and cap and floor for a logistic growth """
     periods = 12
-    growth_mode = 'logistic'
+    growth_mode = "linear" # 'logistic'
 
-    df_in = pdf.assign(ds=lambda x: pd.to_datetime(x["ds"])) \
-        .sort_values('ds') \
-        .assign(cap=1.66)
+    try:
+        df_in = pdf.assign(ds=lambda x: pd.to_datetime(x["ds"])) \
+            .sort_values('ds') \
+            .assign(cap=1.66)
 
-    m = Prophet(growth=growth_mode)
-    m.fit(df_in)
+        print(df_in.head())
+        m = Prophet(growth=growth_mode)  # , uncertainty_samples=0)
+        m.fit(df_in)
 
-    future = m.make_future_dataframe(periods=periods, freq="M", include_history=False)\
-        .assign(ds=lambda x: pd.to_datetime(x["ds"])) \
-        .assign(cap=1.66)
+        future = m.make_future_dataframe(periods=periods, freq="M", include_history=False)\
+            .assign(ds=lambda x: pd.to_datetime(x["ds"])) \
+            .assign(cap=1.66)
 
-    # print(future.head())
+        # print(future.head())
 
-    df_out = m.predict(future)[predictions_new_keys] \
-        .assign(ds=lambda x: pd.to_datetime(x["ds"])) \
-        .merge(future, on=["ds"], how="left") \
-        .assign(keywordId1=df_in["keywordId1"][0]) \
-        .assign(keywordId2=df_in["keywordId2"][0]) \
-        .drop("cap", axis=1)
+        forecast = m.predict(future)
 
-    return pd.DataFrame(df_out, columns=prediction_schema.fieldNames())
+        print(forecast.head())
+
+        df_out = forecast[predictions_new_keys] \
+            .assign(ds=lambda x: pd.to_datetime(x["ds"])) \
+            .merge(future, on=["ds"], how="left") \
+            .assign(keywordId1=df_in["keywordId1"][0]) \
+            .assign(keywordId2=df_in["keywordId2"][0]) \
+            .drop("cap", axis=1)
+
+        # print(df_out.head())
+    except Exception as e:
+        print(f" fbprophet exception captured: {e} {forecast.head()}")
+    finally:
+        return pd.DataFrame(df_out, columns=prediction_schema.fieldNames())
 
 
 def make_random_string(length=5):
@@ -204,10 +215,6 @@ def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument('--in_cooccurrences', metavar="<path>", help=('Input co-occurrences parquet dataset'), type=str,
                         required=True)
-    parser.add_argument('--in_diseases', metavar="<path>", help=('Input diseases json dataset from beta ETL'), type=str,
-                        required=True)
-    parser.add_argument('--in_targets', metavar="<path>", help=('Input targets json dataset from beta ETL'), type=str,
-                        required=True)
     parser.add_argument('--out_prefix', metavar="<path>", help=("Output path prefix"), type=str, required=True)
     parser.add_argument('--local', help="run local[*]", action='store_true', required=False, default=True)
     args = parser.parse_args()
@@ -217,8 +224,10 @@ def parse_args():
 def main(args):
     sparkConf = (SparkConf()
                  .set("spark.driver.memory", "10g")
+                 .set("spark.executor.memory", "10g")
                  .set("spark.driver.maxResultSize", "0")
                  .set("spark.debug.maxToStringFields", "2000")
+                 .set("spark.sql.execution.arrow.maxRecordsPerBatch", "500000")
                  )
 
     if args.local:
@@ -246,6 +255,7 @@ def main(args):
     # 1. at least 2 data points per month
     # 2. there must be data for the year 2020
     w2 = Window.partitionBy(*predictions_grouped_keys)
+    w3 = Window.partitionBy(*(predictions_grouped_keys + ["year"]))
 
     # curry function to pass to transform with the keys to group by
     tfn = partial(assoc_fn, group_by_cols=grouped_keys)
@@ -260,10 +270,11 @@ def main(args):
             .transform(tfn)
             .withColumn("ds", to_date(concat_ws("-", col("year"), col("month"), col("day"))))
             .withColumn("y", col(harmonic_col))
+            .dropna(subset=predictions_selection_keys)
             .withColumn("dtMaxYear", max(col("year")).over(w2))
             .filter((col("year") >= 2010) & (col("dtMaxYear") == 2020))
-            .withColumn("dtCount", count(col("y")).over(w2))
-            .filter(col("dtCount") > 1)
+            .withColumn("dtCount", count(col("y")).over(w3))
+            .filter(col("dtCount") >= 2)
             .select(*predictions_selection_keys)
             .repartition(*predictions_grouped_keys)
             .persist()
@@ -277,13 +288,16 @@ def main(args):
     fbp = (
         aggregated
             .groupBy(*predictions_grouped_keys)
-            .apply(make_predictions)
+            .applyInPandas(make_predictions, prediction_schema)
     )
 
     # fbp.show(20, False)
 
     fbp.write.json(f"{args.out_prefix}/associationsFromCoocsPredictions")
     print('Completed TS analysis (FB Prophet) data in {:.1f} secs'.format(time() - start_time))
+
+    # clean all up just in case
+    spark.stop()
     return 0
 
 
