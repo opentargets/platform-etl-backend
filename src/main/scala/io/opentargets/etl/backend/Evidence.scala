@@ -1,7 +1,7 @@
 package io.opentargets.etl.backend
 
 import com.typesafe.scalalogging.LazyLogging
-import io.opentargets.etl.backend.spark.Helpers.{IOResourceConfig, mkFlattenArray}
+import io.opentargets.etl.backend.spark.Helpers.{IOResourceConfig, IOResources, mkFlattenArray}
 import org.apache.spark.sql._
 import org.apache.spark.sql.catalyst.analysis.UnresolvedStar
 import org.apache.spark.sql.expressions.Window
@@ -500,9 +500,8 @@ object Evidence extends LazyLogging {
   }
 
   def compute()(implicit context: ETLSessionContext): Map[String, (DataFrame, IOResourceConfig)] = {
-    implicit val ss = context.sparkSession
+    implicit val ss: SparkSession = context.sparkSession
 
-    val commonSec = context.configuration.common
     val evidencesSec = context.configuration.evidences
 
     val mappedInputs = Map(
@@ -556,7 +555,7 @@ object Evidence extends LazyLogging {
     )
   }
 
-  def apply()(implicit context: ETLSessionContext) = {
+  def apply()(implicit context: ETLSessionContext): IOResources = {
     implicit val ss = context.sparkSession
 
     val processedEvidences = compute()

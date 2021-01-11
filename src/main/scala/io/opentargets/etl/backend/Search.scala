@@ -201,7 +201,7 @@ object Transformers {
         .selectExpr(idColumnName, "therapeuticAreas")
         .withColumn("therapeuticAreaId", explode(col("therapeuticAreas")))
         .orderBy(col("therapeuticAreaId"))
-        .join(df.selectExpr(s"${idColumnName} as therapeuticAreaId", "name as therapeuticAreaLabel"),
+        .join(df.selectExpr(s"$idColumnName as therapeuticAreaId", "name as therapeuticAreaLabel"),
           Seq("therapeuticAreaId"),
           "inner")
         .drop("therapeuticAreaId", "therapeuticAreas")
@@ -459,15 +459,17 @@ object Transformers {
 }
 
 object Search extends LazyLogging {
-  def apply()(implicit context: ETLSessionContext) = {
-    implicit val ss = context.sparkSession
+  def apply()(implicit context: ETLSessionContext): IOResources = {
+    implicit val ss: SparkSession = context.sparkSession
     import ss.implicits._
     import Transformers.Implicits
 
     val searchSec = context.configuration.search
     val mappedInputs = Map(
       "disease" -> searchSec.inputs.diseases,
-      "drug" -> searchSec.inputs.drugs,
+      "drug" -> searchSec.inputs.drugs.drug,
+      "mechanism" -> searchSec.inputs.drugs.mechanismOfAction,
+      "indication" -> searchSec.inputs.drugs.indications,
       "evidence" -> searchSec.inputs.evidences,
       "target" -> searchSec.inputs.targets,
       "association" -> searchSec.inputs.associations
@@ -490,6 +492,8 @@ object Search extends LazyLogging {
 
     logger.info("process drugs and persist")
     val drugs = inputDataFrame("drug")
+      .join(inputDataFrame("mechanism"), Seq("id"), "left_outer")
+      .join(inputDataFrame("indication"), Seq("id"), "left_outer")
       .transform(Transformers.processDrugs)
       .orderBy(col("drugId"))
       .persist(StorageLevel.DISK_ONLY)

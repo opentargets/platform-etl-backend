@@ -159,7 +159,8 @@ object Helpers extends LazyLogging {
       c => logger.info(s"save dataset ${c._1} with ${c._2.toString}")
     }
 
-    val outs = outputConfs.keySet intersect outputs.keySet map {
+    // WARNING: SIDE-EFFECTING
+    val outputsSaved = outputConfs.keySet intersect outputs.keySet map {
       case k =>
         val conf = outputConfs(k)
         val df = outputs(k)
@@ -183,13 +184,13 @@ object Helpers extends LazyLogging {
         k -> df
     } toMap
 
-    val intersectKs = outputs.keySet intersect outs.keySet
-    val unionKs = outputs.keySet union outs.keySet
-    (unionKs diff intersectKs).foreach {
+    val savedKeys = outputs.keySet intersect outputsSaved.keySet
+    val allKeys = outputs.keySet union outputsSaved.keySet
+    (allKeys diff savedKeys).foreach {
       k => logger.warn(s"dataframe $k has not been saved")
     }
 
-    outs
+    outputsSaved
   }
 
   /** generate a set of String with the union of Columns.

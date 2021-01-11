@@ -40,9 +40,8 @@ object Indication extends Serializable with LazyLogging {
           col("max_phase_for_indications").as("maxPhaseForIndication"),
           col("references")))
       .groupBy("id")
-      .agg(collect_list("struct").as("rows"))
-      .withColumn("count", size(col("rows")))
-      .transform(nest(_: DataFrame, List("rows", "count"), "indications"))
+      .agg(collect_list("struct").as("indications"))
+      .withColumn("count", size(col("indications")))
       .join(approvedIndications(indicationAndEfoDf), Seq("id"), "left_outer")
 
     indicationDf

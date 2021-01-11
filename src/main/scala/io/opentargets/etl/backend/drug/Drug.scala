@@ -4,7 +4,7 @@ import com.typesafe.scalalogging.LazyLogging
 import io.opentargets.etl.backend.ETLSessionContext
 import io.opentargets.etl.backend.drug.DrugCommon._
 import io.opentargets.etl.backend.spark.Helpers
-import io.opentargets.etl.backend.spark.Helpers.IOResourceConfig
+import io.opentargets.etl.backend.spark.Helpers.{IOResourceConfig, IOResourceConfs, IOResources, nest}
 import org.apache.spark.sql.functions.{array_contains, coalesce, col, map_keys, typedLit}
 import org.apache.spark.sql.{DataFrame, SparkSession}
 
@@ -19,18 +19,19 @@ object Drug extends Serializable with LazyLogging {
   def apply()(implicit context: ETLSessionContext): Unit = {
     implicit val ss: SparkSession = context.sparkSession
 
-    val drugInputs = context.configuration.drug
+    val drugConfiguration = context.configuration.drug
+    val outputs = drugConfiguration.outputs
 
     logger.info("Loading raw inputs for Drug beta step.")
     val mappedInputs = Map(
-      "indication" -> drugInputs.chemblIndication,
-      "mechanism" -> drugInputs.chemblMechanism,
-      "molecule" -> drugInputs.chemblMolecule,
-      "target" -> drugInputs.chemblTarget,
-      "drugbankChemblMap" -> drugInputs.drugbankToChembl,
-      "efo" -> drugInputs.diseasePipeline,
-      "gene" -> drugInputs.targetPipeline,
-      "evidence" -> drugInputs.evidencePipeline
+      "indication" -> drugConfiguration.chemblIndication,
+      "mechanism" -> drugConfiguration.chemblMechanism,
+      "molecule" -> drugConfiguration.chemblMolecule,
+      "target" -> drugConfiguration.chemblTarget,
+      "drugbankChemblMap" -> drugConfiguration.drugbankToChembl,
+      "efo" -> drugConfiguration.diseaseEtl,
+      "gene" -> drugConfiguration.targetEtl,
+      "evidence" -> drugConfiguration.evidenceEtl
     )
 
     val inputDataFrames = Helpers.readFrom(mappedInputs)
@@ -52,7 +53,8 @@ object Drug extends Serializable with LazyLogging {
     logger.info("Processing Drug beta transformations.")
     val mechanismOfActionProcessedDf: DataFrame = MechanismOfAction(mechanismDf, targetDf, geneDf)
     val indicationProcessedDf = Indication(indicationDf, efoDf)
-    val moleculeProcessedDf = Molecule(moleculeDf, drugbank2ChemblMap, drugInputs.drugExtensions)
+    val moleculeProcessedDf =
+      Molecule(moleculeDf, drugbank2ChemblMap, drugConfiguration.drugExtensions)
     val targetsAndDiseasesDf =
       DrugCommon.getUniqTargetsAndDiseasesPerDrugId(evidenceDf).withColumnRenamed("drugId", "id")
 
@@ -84,24 +86,40 @@ object Drug extends Serializable with LazyLogging {
     // purposes of the index.
     val drugDf: DataFrame = moleculeProcessedDf
       .join(indicationProcessedDf, Seq("id"), "left_outer")
-      .join(mechanismOfActionProcessedDf, Seq("id"), "left_outer")
+      .join(
+        mechanismOfActionProcessedDf
+          .transform(
+            nest(_: DataFrame,
+                 List("rows", "uniqueActionTypes", "uniqueTargetTypes"),
+                 "mechanismsOfAction")),
+        Seq("id"),
+        "left_outer"
+      )
       .join(targetsAndDiseasesDf, Seq("id"), "left_outer")
       .filter(drugMolecule)
       .transform(addDescription)
+      .drop("indications", "mechanismsOfAction")
       .transform(cleanup)
 
-    val outputs = Seq(drugInputs.output.path.split("/").last)
-    val outputConfs = outputs.map(_ -> context.configuration.drug.output).toMap
-    val outputDFs = (outputs zip Seq(drugDf)).toMap
+    val dataframesToSave: Map[String, (DataFrame, IOResourceConfig)] = Map(
+      "drug" -> (drugDf, outputs.drug),
+      "mechanism_of_action" -> (mechanismOfActionProcessedDf, outputs.mechanismOfAction),
+      "indication" -> (indicationProcessedDf, outputs.indications)
+    )
 
-    Helpers.writeTo(outputConfs, outputDFs)
+    val ioResources: IOResources = dataframesToSave mapValues(_._1)
+    val saveConfigs: IOResourceConfs = dataframesToSave mapValues(_._2)
+
+    Helpers.writeTo(saveConfigs, ioResources)
   }
 
   /*
   Final tidying up that aren't business logic but are nice to have for consistent outputs.
    */
   def cleanup(df: DataFrame): DataFrame = {
-    Seq("tradeNames", "synonyms").foldLeft(df)((dataF, column)=> { dataF.withColumn(column, coalesce(col(column), typedLit(Seq.empty)))})
+    Seq("tradeNames", "synonyms").foldLeft(df)((dataF, column) => {
+      dataF.withColumn(column, coalesce(col(column), typedLit(Seq.empty)))
+    })
   }
 
 }
