@@ -8,7 +8,7 @@ import org.apache.spark.sql._
 import org.apache.spark.sql.types._
 import com.typesafe.config.Config
 import io.opentargets.etl.backend.spark.Helpers
-import io.opentargets.etl.backend.spark.Helpers.{IOResourceConfig, stripIDFromURI}
+import io.opentargets.etl.backend.spark.Helpers.{IOResourceConfig, IOResources, stripIDFromURI}
 import org.apache.spark.storage.StorageLevel
 
 object KnownDrugsHelpers {
@@ -33,7 +33,7 @@ object KnownDrugsHelpers {
 
 object KnownDrugs extends LazyLogging {
   def compute(datasources: Seq[String], inputs: Map[String, DataFrame])(implicit context: ETLSessionContext): Map[String, DataFrame] = {
-    implicit val ss = context.sparkSession
+    implicit val ss: SparkSession = context.sparkSession
     import ss.implicits._
     import KnownDrugsHelpers._
 
@@ -54,7 +54,7 @@ object KnownDrugs extends LazyLogging {
         ).as("targetClass")
       ).orderBy($"targetId".asc).persist(StorageLevel.DISK_ONLY)
 
-    val drugs = inputs("drug")
+    val drugs = inputs("drug").join(inputs("mechanism"), Seq("id"))
       .select(
         $"id".as("drugId"),
         $"name".as("prefName"),
@@ -85,8 +85,8 @@ object KnownDrugs extends LazyLogging {
     )
   }
 
-  def apply()(implicit context: ETLSessionContext) = {
-    implicit val ss = context.sparkSession
+  def apply()(implicit context: ETLSessionContext): IOResources = {
+    implicit val ss: SparkSession = context.sparkSession
     import ss.implicits._
     import KnownDrugsHelpers._
 
@@ -95,7 +95,8 @@ object KnownDrugs extends LazyLogging {
       "evidence" -> conf.inputs.evidences,
       "disease" -> conf.inputs.diseases,
       "target" -> conf.inputs.targets,
-      "drug" -> conf.inputs.drugs
+      "drug" -> conf.inputs.drugs.drug,
+      "mechanism" -> conf.inputs.drugs.mechanismOfAction
     )
     val inputDataFrame = Helpers.readFrom(mappedInputs)
 

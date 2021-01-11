@@ -4,7 +4,7 @@ import com.typesafe.scalalogging.LazyLogging
 import io.opentargets.etl.backend.ETLSessionContext
 import io.opentargets.etl.backend.drug.DrugCommon._
 import io.opentargets.etl.backend.spark.Helpers
-import io.opentargets.etl.backend.spark.Helpers.{IOResourceConfs, IOResources, nest}
+import io.opentargets.etl.backend.spark.Helpers.{IOResourceConfig, IOResourceConfs, IOResources, nest}
 import org.apache.spark.sql.functions.{array_contains, coalesce, col, map_keys, typedLit}
 import org.apache.spark.sql.{DataFrame, SparkSession}
 
@@ -20,6 +20,7 @@ object Drug extends Serializable with LazyLogging {
     implicit val ss: SparkSession = context.sparkSession
 
     val drugConfiguration = context.configuration.drug
+    val outputs = drugConfiguration.outputs
 
     logger.info("Loading raw inputs for Drug beta step.")
     val mappedInputs = Map(
@@ -100,16 +101,16 @@ object Drug extends Serializable with LazyLogging {
       .drop("indications", "mechanismsOfAction")
       .transform(cleanup)
 
-    val dataframesToSave: IOResources = Map(
-      "drug" -> drugDf,
-      "mechanism_of_action" -> mechanismOfActionProcessedDf,
-      "indication" -> indicationProcessedDf
+    val dataframesToSave: Map[String, (DataFrame, IOResourceConfig)] = Map(
+      "drug" -> (drugDf, outputs.drug),
+      "mechanism_of_action" -> (mechanismOfActionProcessedDf, outputs.mechanismOfAction),
+      "indication" -> (indicationProcessedDf, outputs.indications)
     )
-    val saveConfigs: IOResourceConfs = dataframesToSave.keySet map { k =>
-      k -> drugConfiguration.output.copy(path = s"${drugConfiguration.output.path}/$k")
-    } toMap
 
-    Helpers.writeTo(saveConfigs, dataframesToSave)
+    val ioResources: IOResources = dataframesToSave mapValues(_._1)
+    val saveConfigs: IOResourceConfs = dataframesToSave mapValues(_._2)
+
+    Helpers.writeTo(saveConfigs, ioResources)
   }
 
   /*
