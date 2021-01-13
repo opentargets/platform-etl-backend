@@ -34,6 +34,7 @@ from pyspark.sql.functions import (
     year,
     month,
     array_min,
+    array_max,
     array,
     broadcast,
     countDistinct,
@@ -268,10 +269,13 @@ def main(args):
             .withColumn("ds", to_date(concat_ws("-", col("year"), col("month"), col("day"))))
             .withColumn("y", col(harmonic_col))
             .dropna(subset=predictions_selection_keys)
-            .withColumn("dtMaxYear", max(col("year")).over(w2))
-            .filter((col("year") >= 2000) & (col("dtMaxYear") == 2020))
+            .withColumn("years", collect_set(col("year")).over(w2))
+            .withColumn("nYears", array_size(col("years")))
+            .withColumn("minYear", array_min(col("years")))
+            .withColumn("maxYear", array_max(col("years")))
             .withColumn("dtCount", count(col("y")).over(w3))
-            .filter(col("dtCount") >= 2)
+            .withColumn("dtMaxYear", max(col("year")).over(w2))
+            .filter((col("maxYear") >= 2019) & (col("nYears") >= 3) & (col("dtCount") >= 2))
             .select(*predictions_selection_keys)
             .repartition(*predictions_grouped_keys)
             .persist()
