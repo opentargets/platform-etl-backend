@@ -8,7 +8,7 @@
 # export JAVA_HOME=/usr/lib/jvm/java-1.8.0-openjdk-amd64/
 # export JAVA_OPTS="-server -Xms1G -Xmx20G -Dlogback.configurationFile=logback.xml"
 # conda activate opentargets-epmc-analisys-ts
-# python opentargets-epmc-analysis-ts.py \
+# python opentargets-epmc-analysis-ts-matches.py \
 #   --in_cooccurrences epmc-cooccurrences \
 #   --in_diseases etl/diseases \
 #   --in_targets etl/targets \
@@ -65,34 +65,29 @@ from pyspark.ml.regression import LinearRegression
 
 # Make some readonly global so any function can access it and use it
 global spark
-harmonic_col = "harmonic"
+y_col = "f"
 
-coocs_columns = [
+matches_columns = [
     "year",
     "month",
     "day",
     "pmid",
-    "keywordId1",
-    "keywordId2",
-    "evidence_score"
+    "keywordId"
 ]
 
 grouped_keys = [
     "year",
     "month",
     "day",
-    "keywordId1",
-    "keywordId2"
+    "keywordId"
 ]
 
 predictions_grouped_keys = [
-    "keywordId1",
-    "keywordId2",
+    "keywordId",
 ]
 
 predictions_selection_keys = [
-    "keywordId1",
-    "keywordId2",
+    "keywordId",
     "ds",
     "y"
 ]
@@ -108,8 +103,7 @@ predictions_new_keys = [
 ]
 
 prediction_schema = StructType([
-    StructField("keywordId1", StringType()),
-    StructField("keywordId2", StringType()),
+    StructField("keywordId", StringType()),
     StructField("ds", DateType()),
     StructField("yhat", FloatType()),
     StructField("yhat_lower", FloatType()),
@@ -120,7 +114,6 @@ prediction_schema = StructType([
 ])
 
 
-# @pandas_udf(prediction_schema, PandasUDFType.GROUPED_MAP)
 def make_predictions(pdf: pd.DataFrame) -> pd.DataFrame:
     """ create the model with a month frequency and cap and floor for a logistic growth """
     periods = 12
@@ -148,8 +141,7 @@ def make_predictions(pdf: pd.DataFrame) -> pd.DataFrame:
     df_out = forecast[predictions_new_keys] \
         .assign(ds=lambda x: pd.to_datetime(x["ds"])) \
         .merge(future, on=["ds"], how="left") \
-        .assign(keywordId1=df_in["keywordId1"][0]) \
-        .assign(keywordId2=df_in["keywordId2"][0]) \
+        .assign(keywordId1=df_in["keywordId"][0]) \
         .drop("cap", axis=1)
 
     # print(df_out.head())
@@ -162,47 +154,14 @@ def make_random_string(length=5):
     return tmp_name
 
 
-def harmonic_fn(df: DataFrame, partition_cols, over_col, output_col) -> DataFrame:
-    prefix = make_random_string()
-    i_harmonic = f"{prefix}_harmonic_i"
-    partial_harmonic = f"{prefix}_harmonic_dx"
-
-    pcols = [col(x) for x in partition_cols]
-    overcol: Column = col(over_col)
-    w = Window.partitionBy(*pcols)
-
-    harmonic_df = (
-        df.withColumn(i_harmonic, row_number().over(w.orderBy(overcol.desc())))
-            .withColumn(partial_harmonic, overcol / pow_fn(i_harmonic, 2.0))
-            .withColumn(output_col, sum_fn(col(partial_harmonic)).over(w))
-            .drop(i_harmonic, partial_harmonic)
-    )
-
-    return harmonic_df
-
-
-def assoc_fn(df: DataFrame, group_by_cols):
+def agg_fn(df: DataFrame, group_by_cols):
     gbc = [col(x) for x in group_by_cols]
-    h_fn = partial(harmonic_fn,
-                   partition_cols=group_by_cols,
-                   over_col="evs_score",
-                   output_col=harmonic_col)
+
     assoc_df = (
-        df.withColumn("evs_score", array_min(array(col("evidence_score") / 10.0, lit(1.0))))
-            .transform(h_fn)
+        df
             .groupBy(*gbc)
             .agg(countDistinct(col("pmid")).alias("f"),
-                 mean(col("evidence_score")).alias("mean"),
-                 stddev(col("evidence_score")).alias("std"),
-                 max(col("evidence_score")).alias("max"),
-                 min(col("evidence_score")).alias("min"),
-                 expr("approx_percentile(evidence_score, array(0.25, 0.5, 0.75))").alias("q"),
-                 count(col("pmid")).alias("N"),
-                 first(col(harmonic_col)).alias(harmonic_col))
-            .withColumn("median", element_at(col("q"), 2))
-            .withColumn("q1", element_at(col("q"), 1))
-            .withColumn("q3", element_at(col("q"), 3))
-            .drop("q")
+                 count(col("pmid")).alias("N"))
     )
 
     return assoc_df
@@ -211,7 +170,7 @@ def assoc_fn(df: DataFrame, group_by_cols):
 def parse_args():
     """ Load command line args """
     parser = argparse.ArgumentParser()
-    parser.add_argument('--in_cooccurrences', metavar="<path>", help=('Input co-occurrences parquet dataset'), type=str,
+    parser.add_argument('--in_matches', metavar="<path>", help=('Input co-occurrences parquet dataset'), type=str,
                         required=True)
     parser.add_argument('--out_prefix', metavar="<path>", help=("Output path prefix"), type=str, required=True)
     parser.add_argument('--local', help="run local[*]", action='store_true', required=False, default=True)
@@ -247,7 +206,7 @@ def main(args):
     start_time = time()
 
     # load co-occurrences from parquet dataset coming from path
-    coocs = (spark.read.parquet(args.in_cooccurrences))
+    matches = (spark.read.parquet(args.in_matches))
 
     # we need some filtering; not all data is ready to be used
     # 1. at least 2 data points per month
@@ -256,18 +215,18 @@ def main(args):
     w3 = Window.partitionBy(*(predictions_grouped_keys + ["year"]))
 
     # curry function to pass to transform with the keys to group by
-    tfn = partial(assoc_fn, group_by_cols=grouped_keys)
+    tfn = partial(agg_fn, group_by_cols=grouped_keys)
     aggregated = (
-        coocs
-            .withColumn("year", year(coocs.pubDate))
-            .withColumn("month", month(coocs.pubDate))
+        matches
+            .withColumn("year", year(matches.pubDate))
+            .withColumn("month", month(matches.pubDate))
             .withColumn("day", lit(1))
             .filter(
-            (coocs.isMapped == True) & (coocs.type == "GP-DS") & col("year").isNotNull() & col("month").isNotNull())
-            .selectExpr(*coocs_columns)
+            (matches.isMapped == True) & col("year").isNotNull() & col("month").isNotNull())
+            .selectExpr(*matches_columns)
             .transform(tfn)
             .withColumn("ds", to_date(concat_ws("-", col("year"), col("month"), col("day"))))
-            .withColumn("y", col(harmonic_col))
+            .withColumn("y", col(y_col))
             .dropna(subset=predictions_selection_keys)
             .withColumn("years", collect_set(col("year")).over(w2))
             .withColumn("nYears", array_size(col("years")))
@@ -275,13 +234,13 @@ def main(args):
             .withColumn("maxYear", array_max(col("years")))
             .withColumn("dtCount", count(col("y")).over(w3))
             .withColumn("dtMaxYear", max(col("year")).over(w2))
-            .filter((col("maxYear") >= 2019) & (col("nYears") >= 3) & (col("dtCount") >= 2))
+            .filter((col("maxYear") >= 2019) & (col("nYears") >= 1) & (col("dtCount") >= 2))
             .select(*predictions_selection_keys)
             .repartition(*predictions_grouped_keys)
             .persist()
     )
 
-    aggregated.write.parquet(f"{args.out_prefix}/associationsFromCoocsTS")
+    aggregated.write.parquet(f"{args.out_prefix}/associationsFromMatchesTS")
     print('Completed aggregated data in {:.1f} secs'.format(time() - start_time))
 
     # generate the models
@@ -295,7 +254,7 @@ def main(args):
 
     # fbp.show(20, False)
 
-    fbp.write.parquet(f"{args.out_prefix}/associationsFromCoocsTSPredictions")
+    fbp.write.parquet(f"{args.out_prefix}/associationsFromMatchesTSPredictions")
     print('Completed TS analysis (FB Prophet) data in {:.1f} secs'.format(time() - start_time))
 
     # clean all up just in case
