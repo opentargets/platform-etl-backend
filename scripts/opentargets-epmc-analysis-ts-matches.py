@@ -141,7 +141,7 @@ def make_predictions(pdf: pd.DataFrame) -> pd.DataFrame:
     df_out = forecast[predictions_new_keys] \
         .assign(ds=lambda x: pd.to_datetime(x["ds"])) \
         .merge(future, on=["ds"], how="left") \
-        .assign(keywordId1=df_in["keywordId"][0]) \
+        .assign(keywordId=df_in["keywordId"][0]) \
         .drop("cap", axis=1)
 
     # print(df_out.head())
