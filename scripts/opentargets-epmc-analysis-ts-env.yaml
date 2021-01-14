@@ -12,3 +12,4 @@ dependencies:
     - conda-forge::pyspark=3.0.1
     - conda-forge::pystan
     - conda-forge::fbprophet
+    - conda-forge::scipy

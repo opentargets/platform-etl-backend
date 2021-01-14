@@ -25,7 +25,9 @@ from time import time
 from random import choice
 from functools import partial
 
+import numpy as np
 import pandas as pd
+import scipy.stats as sci_stats
 from fbprophet import Prophet
 
 from pyspark import *
@@ -114,14 +116,18 @@ prediction_schema = StructType([
     StructField("yhat_upper", FloatType()),
     StructField("trend", FloatType()),
     StructField("trend_lower", FloatType()),
-    StructField("trend_upper", FloatType())
+    StructField("trend_upper", FloatType()),
+    StructField("lr_slope", FloatType()),
+    StructField("lr_coeff", FloatType()),
+    StructField("lr_pvalue", FloatType()),
+    StructField("lr_stderr", FloatType())
 ])
 
 
 def make_predictions(pdf: pd.DataFrame) -> pd.DataFrame:
     """ create the model with a month frequency and cap and floor for a logistic growth """
     periods = 12
-    growth_mode = "linear" # 'logistic'
+    growth_mode = "linear"  # 'logistic'
 
     df_in = pdf.assign(ds=lambda x: pd.to_datetime(x["ds"])) \
         .sort_values('ds') \
@@ -129,10 +135,10 @@ def make_predictions(pdf: pd.DataFrame) -> pd.DataFrame:
 
     # print(df_in.head())
 
-    m = Prophet(growth=growth_mode)  # , uncertainty_samples=0)
+    m = Prophet(growth=growth_mode, uncertainty_samples=10)
     m.fit(df_in)
 
-    future = m.make_future_dataframe(periods=periods, freq="M", include_history=True)\
+    future = m.make_future_dataframe(periods=periods, freq="M", include_history=True) \
         .assign(ds=lambda x: pd.to_datetime(x["ds"])) \
         .assign(cap=1.66)
 
@@ -148,12 +154,24 @@ def make_predictions(pdf: pd.DataFrame) -> pd.DataFrame:
         .assign(keywordId=df_in["keywordId"][0]) \
         .drop("cap", axis=1)
 
+    # compute linear regression to get the slope
     # print(df_out.head())
+
+    xi = np.arange(len(df_out))
+
+    slope, _, r_value, p_value, std_err = sci_stats.linregress(xi, df_out['trend'])
+
+    df_out = df_out \
+        .assign(lr_slope=slope) \
+        .assign(lr_coeff=r_value) \
+        .assign(lr_pvalue=p_value) \
+        .assign(lr_stderr=std_err)
+
     return pd.DataFrame(df_out, columns=prediction_schema.fieldNames())
 
 
 def make_random_string(length=5):
-    allowed_chars = string.ascii_letters  # + string.punctuation
+    allowed_chars = string.ascii_letters
     tmp_name = ''.join(choice(allowed_chars) for _ in range(length))
     return tmp_name
 
@@ -237,7 +255,7 @@ def main(args):
             .withColumn("maxYear", array_max(col("years")))
             .withColumn("dtCount", count(col("y")).over(w2))
             .withColumn("dtMaxYear", max(col("year")).over(w2))
-            .filter((col("maxYear") >= 2019) & (col("nYears") >= 1) & (col("dtCount") >= 2))
+            .filter((col("maxYear") >= 2019) & (col("nYears") >= 1) & (col("dtCount") >= 12))
             .select(*predictions_selection_keys)
             .repartition(*predictions_grouped_keys)
             .persist()

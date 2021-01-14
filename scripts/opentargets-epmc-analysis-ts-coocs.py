@@ -21,6 +21,9 @@ from time import time
 from random import choice
 from functools import partial
 
+import numpy as np
+import pandas as pd
+import scipy.stats as sci_stats
 import pandas as pd
 from fbprophet import Prophet
 
@@ -116,7 +119,11 @@ prediction_schema = StructType([
     StructField("yhat_upper", FloatType()),
     StructField("trend", FloatType()),
     StructField("trend_lower", FloatType()),
-    StructField("trend_upper", FloatType())
+    StructField("trend_upper", FloatType()),
+    StructField("lr_slope", FloatType()),
+    StructField("lr_coeff", FloatType()),
+    StructField("lr_pvalue", FloatType()),
+    StructField("lr_stderr", FloatType())
 ])
 
 
@@ -124,7 +131,7 @@ prediction_schema = StructType([
 def make_predictions(pdf: pd.DataFrame) -> pd.DataFrame:
     """ create the model with a month frequency and cap and floor for a logistic growth """
     periods = 12
-    growth_mode = "linear" # 'logistic'
+    growth_mode = "linear"  # 'logistic'
 
     df_in = pdf.assign(ds=lambda x: pd.to_datetime(x["ds"])) \
         .sort_values('ds') \
@@ -135,7 +142,7 @@ def make_predictions(pdf: pd.DataFrame) -> pd.DataFrame:
     m = Prophet(growth=growth_mode)  # , uncertainty_samples=0)
     m.fit(df_in)
 
-    future = m.make_future_dataframe(periods=periods, freq="M", include_history=True)\
+    future = m.make_future_dataframe(periods=periods, freq="M", include_history=True) \
         .assign(ds=lambda x: pd.to_datetime(x["ds"])) \
         .assign(cap=1.66)
 
@@ -151,6 +158,16 @@ def make_predictions(pdf: pd.DataFrame) -> pd.DataFrame:
         .assign(keywordId1=df_in["keywordId1"][0]) \
         .assign(keywordId2=df_in["keywordId2"][0]) \
         .drop("cap", axis=1)
+
+    xi = np.arange(len(df_out))
+
+    slope, _, r_value, p_value, std_err = sci_stats.linregress(xi, df_out['trend'])
+
+    df_out = df_out \
+        .assign(lr_slope=slope) \
+        .assign(lr_coeff=r_value) \
+        .assign(lr_pvalue=p_value) \
+        .assign(lr_stderr=std_err)
 
     # print(df_out.head())
     return pd.DataFrame(df_out, columns=prediction_schema.fieldNames())
@@ -253,7 +270,6 @@ def main(args):
     # 1. at least 2 data points per month
     # 2. there must be data for the year 2020
     w2 = Window.partitionBy(*predictions_grouped_keys)
-    w3 = Window.partitionBy(*(predictions_grouped_keys + ["year"]))
 
     # curry function to pass to transform with the keys to group by
     tfn = partial(assoc_fn, group_by_cols=grouped_keys)
@@ -273,9 +289,9 @@ def main(args):
             .withColumn("nYears", array_size(col("years")))
             .withColumn("minYear", array_min(col("years")))
             .withColumn("maxYear", array_max(col("years")))
-            .withColumn("dtCount", count(col("y")).over(w3))
+            .withColumn("dtCount", count(col("y")).over(w2))
             .withColumn("dtMaxYear", max(col("year")).over(w2))
-            .filter((col("maxYear") >= 2019) & (col("nYears") >= 3) & (col("dtCount") >= 2))
+            .filter((col("maxYear") >= 2019) & (col("nYears") >= 3) & (col("dtCount") >= 12))
             .select(*predictions_selection_keys)
             .repartition(*predictions_grouped_keys)
             .persist()
@@ -291,6 +307,7 @@ def main(args):
         aggregated
             .groupBy(*predictions_grouped_keys)
             .applyInPandas(make_predictions, prediction_schema)
+            .persist()
     )
 
     # fbp.show(20, False)
