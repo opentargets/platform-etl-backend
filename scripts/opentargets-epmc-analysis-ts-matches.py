@@ -135,7 +135,7 @@ def make_predictions(pdf: pd.DataFrame) -> pd.DataFrame:
 
     # print(df_in.head())
 
-    m = Prophet(growth=growth_mode, uncertainty_samples=10)
+    m = Prophet(growth=growth_mode) # , uncertainty_samples=10)
     m.fit(df_in)
 
     future = m.make_future_dataframe(periods=periods, freq="M", include_history=True) \
