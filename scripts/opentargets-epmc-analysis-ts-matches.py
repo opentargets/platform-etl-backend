@@ -4,6 +4,10 @@
 # https://www.kaggle.com/c/demand-forecasting-kernels-only/data
 # https://towardsdatascience.com/pyspark-forecasting-with-pandas-udf-and-fb-prophet-e9d70f86d802
 # https://tgsmith61591.github.io/2018-07-02-conda-spark/
+# uncertanty and full bayesian pb with mcmc > 0 https://github.com/facebook/prophet/issues/1197
+#   https://github.com/facebook/prophet/issues/1145#issuecomment-537746564 and
+#   https://www.mikulskibartosz.name/understanding-uncertainty-intervals-generated-by-prophet/
+#   and here MAP https://www.probabilitycourse.com/chapter9/9_1_2_MAP_estimation.php
 #
 # export JAVA_HOME=/usr/lib/jvm/java-1.8.0-openjdk-amd64/
 # export JAVA_OPTS="-server -Xms1G -Xmx20G -Dlogback.configurationFile=logback.xml"
@@ -212,7 +216,6 @@ def main(args):
     # 1. at least 2 data points per month
     # 2. there must be data for the year 2020
     w2 = Window.partitionBy(*predictions_grouped_keys)
-    w3 = Window.partitionBy(*(predictions_grouped_keys + ["year"]))
 
     # curry function to pass to transform with the keys to group by
     tfn = partial(agg_fn, group_by_cols=grouped_keys)
@@ -232,7 +235,7 @@ def main(args):
             .withColumn("nYears", array_size(col("years")))
             .withColumn("minYear", array_min(col("years")))
             .withColumn("maxYear", array_max(col("years")))
-            .withColumn("dtCount", count(col("y")).over(w3))
+            .withColumn("dtCount", count(col("y")).over(w2))
             .withColumn("dtMaxYear", max(col("year")).over(w2))
             .filter((col("maxYear") >= 2019) & (col("nYears") >= 1) & (col("dtCount") >= 2))
             .select(*predictions_selection_keys)
