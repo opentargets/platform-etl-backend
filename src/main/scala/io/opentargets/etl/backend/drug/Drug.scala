@@ -4,9 +4,22 @@ import com.typesafe.scalalogging.LazyLogging
 import io.opentargets.etl.backend.ETLSessionContext
 import io.opentargets.etl.backend.drug.DrugCommon._
 import io.opentargets.etl.backend.spark.Helpers
-import io.opentargets.etl.backend.spark.Helpers.{IOResourceConfig, IOResourceConfs, IOResources, nest}
-import org.apache.spark.sql.functions.{array_contains, coalesce, col, map_keys, typedLit}
-import org.apache.spark.sql.{DataFrame, SparkSession}
+import io.opentargets.etl.backend.spark.Helpers.{
+  IOResourceConfig,
+  IOResourceConfs,
+  IOResources,
+  nest
+}
+import org.apache.spark.sql.functions.{
+  array_contains,
+  coalesce,
+  col,
+  explode,
+  lit,
+  map_keys,
+  typedLit
+}
+import org.apache.spark.sql.{Column, DataFrame, SparkSession}
 
 /**
   * This step will eventually replace the existing Drug step.
@@ -51,10 +64,11 @@ object Drug extends Serializable with LazyLogging {
     // processed dataframes
     logger.info("Raw inputs for Drug beta loaded.")
     logger.info("Processing Drug beta transformations.")
-    val mechanismOfActionProcessedDf: DataFrame = MechanismOfAction(mechanismDf, targetDf, geneDf)
     val indicationProcessedDf = Indication(indicationDf, efoDf)
     val moleculeProcessedDf =
       Molecule(moleculeDf, drugbank2ChemblMap, drugConfiguration.drugExtensions)
+    val mechanismOfActionProcessedDf: DataFrame =
+      MechanismOfAction(mechanismDf, targetDf, geneDf, moleculeProcessedDf)
     val targetsAndDiseasesDf =
       DrugCommon.getUniqTargetsAndDiseasesPerDrugId(evidenceDf).withColumnRenamed("drugId", "id")
 
@@ -78,7 +92,7 @@ object Drug extends Serializable with LazyLogging {
       "Joining molecules, indications, mechanisms of action, and target and disease linkages.")
 
     // We define a drug as having either a drugbank id, a mechanism of action, or an indication.
-    val drugMolecule = array_contains(map_keys(col("crossReferences")), "drugbank") ||
+    val drugMolecule: Column = array_contains(map_keys(col("crossReferences")), "drugbank") ||
       col("indications").isNotNull ||
       col("mechanismsOfAction").isNotNull
 
@@ -88,10 +102,8 @@ object Drug extends Serializable with LazyLogging {
       .join(indicationProcessedDf, Seq("id"), "left_outer")
       .join(
         mechanismOfActionProcessedDf
-          .transform(
-            nest(_: DataFrame,
-                 List("rows", "uniqueActionTypes", "uniqueTargetTypes"),
-                 "mechanismsOfAction")),
+          .select(explode(col("chemblIds")).as("id"))
+          .withColumn("mechanismsOfAction", lit(true)),
         Seq("id"),
         "left_outer"
       )
@@ -107,8 +119,8 @@ object Drug extends Serializable with LazyLogging {
       "indication" -> (indicationProcessedDf, outputs.indications)
     )
 
-    val ioResources: IOResources = dataframesToSave mapValues(_._1)
-    val saveConfigs: IOResourceConfs = dataframesToSave mapValues(_._2)
+    val ioResources: IOResources = dataframesToSave mapValues (_._1)
+    val saveConfigs: IOResourceConfs = dataframesToSave mapValues (_._2)
 
     Helpers.writeTo(saveConfigs, ioResources)
   }
