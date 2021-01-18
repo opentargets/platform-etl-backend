@@ -168,7 +168,7 @@ object Evidence extends LazyLogging {
       H.trans(coalesce(col("evidence.drug2clinic.status"), lit("N/A")),
               _ => "clinicalStatus",
               co => when(col("sourceID") === "chembl", co)),
-      flattenCAndSetN(col("evidence.drug2clinic.urls"), _ => "clinicalUrls"),
+      flattenCAndSetN(col("evidence.drug2clinic.urls"), _ => "urls"),
       H.trans(col("evidence.gene2variant.functional_consequence"),
               _ => "variantFunctionalConsequenceId",
               H.stripIDFromURI),
