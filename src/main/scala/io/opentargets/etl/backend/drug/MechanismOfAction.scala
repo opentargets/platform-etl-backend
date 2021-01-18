@@ -116,11 +116,10 @@ object MechanismOfAction extends LazyLogging {
 
   def chemblHierarchy(molecule: DataFrame): DataFrame = {
     molecule
+      .filter(col("parentId").isNull) // only want the parents
       .withColumn("children", coalesce(col("childChemblIds"), typedLit(Array.empty)))
-      .withColumn("chemblIds", array_union(array(col("id"), col("parentId")), col("children")))
-      .select(col("id"), explode(col("chemblIds")).as("x"))
-      .groupBy("id")
-      .agg(collect_set("x").as("chemblIds"))
+      .withColumn("chemblIds", array_union(array(col("id")), col("children")))
+      .select(col("id"), col("chemblIds"))
       .dropDuplicates()
   }
 
