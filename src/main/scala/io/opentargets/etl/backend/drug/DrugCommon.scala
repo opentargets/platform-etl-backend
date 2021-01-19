@@ -23,8 +23,8 @@ object DrugCommon extends Serializable with LazyLogging {
   // columns doesn't clutter logic in the apply method. Note: this should be applied after all other transformations!
   def addDescription(dataFrame: DataFrame): DataFrame = {
     dataFrame
-      .withColumn("_indication_phases", col("indications.rows.maxPhaseForIndication"))
-      .withColumn("_indication_labels", col("indications.rows.efoName"))
+      .withColumn("_indication_phases", col("indications.maxPhaseForIndication"))
+      .withColumn("_indication_labels", col("indications.efoName"))
       .transform(addDescriptionField)
       .drop("_indication_phases", "_indication_labels")
   }

@@ -70,17 +70,19 @@ object Configuration extends LazyLogging {
   case class InputInfo(format: String, path: String)
 
   case class InputExtension(extensionType: String, input: IOResourceConfig)
+
+  case class DrugOutputs(drug: IOResourceConfig, mechanismOfAction: IOResourceConfig, indications: IOResourceConfig)
   case class DrugSection(
-      chemblMolecule: IOResourceConfig,
-      chemblIndication: IOResourceConfig,
-      chemblMechanism: IOResourceConfig,
-      chemblTarget: IOResourceConfig,
-      drugbankToChembl: IOResourceConfig,
-      drugExtensions: Seq[InputExtension],
-      diseasePipeline: IOResourceConfig,
-      targetPipeline: IOResourceConfig,
-      evidencePipeline: IOResourceConfig,
-      output: IOResourceConfig
+                          chemblMolecule: IOResourceConfig,
+                          chemblIndication: IOResourceConfig,
+                          chemblMechanism: IOResourceConfig,
+                          chemblTarget: IOResourceConfig,
+                          drugbankToChembl: IOResourceConfig,
+                          drugExtensions: Seq[InputExtension],
+                          diseaseEtl: IOResourceConfig,
+                          targetEtl: IOResourceConfig,
+                          evidenceEtl: IOResourceConfig,
+                          outputs: DrugOutputs
   )
 
   case class Inputs(
@@ -101,14 +103,14 @@ object Configuration extends LazyLogging {
   case class KnownDrugsInputsSection(evidences: IOResourceConfig,
                                      diseases: IOResourceConfig,
                                      targets: IOResourceConfig,
-                                     drugs: IOResourceConfig)
+                                     drugs: DrugOutputs)
 
   case class KnownDrugsSection(inputs: KnownDrugsInputsSection, output: IOResourceConfig)
 
   case class SearchInputsSection(evidences: IOResourceConfig,
                                  diseases: IOResourceConfig,
                                  targets: IOResourceConfig,
-                                 drugs: IOResourceConfig,
+                                 drugs: DrugOutputs,
                                  associations: IOResourceConfig)
 
   case class SearchOutputsSection(targets: IOResourceConfig,

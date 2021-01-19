@@ -1,6 +1,11 @@
 package io.opentargets.etl.backend.Drug
 
-import io.opentargets.etl.backend.Drug.MoleculeTest.{XRef, getSampleHierarchyData, getSampleSynonymData, getSampleWithdrawnNoticeData}
+import io.opentargets.etl.backend.Drug.MoleculeTest.{
+  XRef,
+  getSampleHierarchyData,
+  getSampleSynonymData,
+  getSampleWithdrawnNoticeData
+}
 import io.opentargets.etl.backend.EtlSparkUnitTest
 import io.opentargets.etl.backend.drug.Molecule
 import org.apache.spark.sql.functions.{array_contains, col, map_keys}
@@ -99,19 +104,15 @@ object MoleculeTest {
     val schema = StructType(
       Array(
         StructField("id", StringType),
-        StructField("molecule_hierarchy",
-          StructType(Array(
-            StructField("molecule_chembl_id", StringType),
-            StructField("parent_chembl_id", StringType)))
-        )
+        StructField("parentId", StringType)
       )
     )
 
     val data: Seq[Row] = Seq(
-      Row("a", Row("a", "a")),
-      Row("b", Row("b", "a")),
-      Row("c", Row("c", "a")),
-      Row("d", Row("d", "c"))
+      Row("a", "a"),
+      Row("b", "a"),
+      Row("c", "a"),
+      Row("d", "c")
     )
     sparkSession.createDataFrame(sparkSession.sparkContext.parallelize(data), schema)
   }
@@ -127,33 +128,33 @@ object MoleculeTest {
                                                StructField("synonym_type", StringType)))))
       ))
     val data: Seq[Row] = Seq(
-      Row("id1", "DB01",Seq(Row("Aches-N-Pain", "trade_name"), Row("Advil", "trade_name"))),
-      Row("id1", "DB01",Seq(Row("Ibuprofil", "UBAN"), Row("U-18573", "research_code"))),
-      Row("id2", "DB02",Seq(Row("Quinocort", "trade_name"), Row("Terra-Cortil", "other"))),
+      Row("id1", "DB01", Seq(Row("Aches-N-Pain", "trade_name"), Row("Advil", "trade_name"))),
+      Row("id1", "DB01", Seq(Row("Ibuprofil", "UBAN"), Row("U-18573", "research_code"))),
+      Row("id2", "DB02", Seq(Row("Quinocort", "trade_name"), Row("Terra-Cortil", "other"))),
     )
     sparkSession.createDataFrame(sparkSession.sparkContext.parallelize(data), schema)
   }
 
   def getSampleWithdrawnNoticeData(sparkSession: SparkSession): DataFrame = {
     import sparkSession.implicits._
-    val schema = StructType(Array(
-      StructField("id", StringType),
-      StructField("hasBeenWithdrawn", BooleanType),
-      StructField("withdrawn_class", ArrayType(StringType)),
-      StructField("withdrawn_country", ArrayType(StringType)),
-      StructField("withdrawn_year", LongType)
-      )
-    )
+    val schema = StructType(
+      Array(
+        StructField("id", StringType),
+        StructField("hasBeenWithdrawn", BooleanType),
+        StructField("withdrawn_class", ArrayType(StringType)),
+        StructField("withdrawn_country", ArrayType(StringType)),
+        StructField("withdrawn_year", LongType)
+      ))
 
     val data: Seq[Row] = Seq(
-      Row("id1", true, Seq(), Seq("United States"),1965L),
+      Row("id1", true, Seq(), Seq("United States"), 1965L),
       Row("id2", false, null, null, null),
       Row("id3", false, null, null, null)
     )
     sparkSession.createDataFrame(sparkSession.sparkContext.parallelize(data), schema)
   }
 
-  case class DrugbankSynonym(drugbank_id: String, db_synonyms: Seq[String] )
+  case class DrugbankSynonym(drugbank_id: String, db_synonyms: Seq[String])
   case class XRef(id: String, xref: Map[String, Array[String]])
 }
 class MoleculeTest extends EtlSparkUnitTest {
@@ -169,8 +170,10 @@ class MoleculeTest extends EtlSparkUnitTest {
     PrivateMethod[Dataset[Row]]('processMoleculeCrossReferences)
   val processMoleculeSynonyms: PrivateMethod[Dataset[Row]] =
     PrivateMethod[Dataset[Row]]('processMoleculeSynonyms)
-  val processMoleculeHierarchy: PrivateMethod[Dataset[Row]] = PrivateMethod[Dataset[Row]]('processMoleculeHierarchy)
-  val processWithdrawnNotice: PrivateMethod[Dataset[Row]] = PrivateMethod[Dataset[Row]]('processWithdrawnNotices)
+  val processMoleculeHierarchy: PrivateMethod[Dataset[Row]] =
+    PrivateMethod[Dataset[Row]]('processMoleculeHierarchy)
+  val processWithdrawnNotice: PrivateMethod[Dataset[Row]] =
+    PrivateMethod[Dataset[Row]]('processWithdrawnNotices)
 
   "The Molecule class" should "given a preprocessed molecule successfully prepare all cross references" in {
     // given
@@ -208,13 +211,17 @@ class MoleculeTest extends EtlSparkUnitTest {
     val refs1 = Seq(XRef("id1", Map("a" -> Array("b")))).toDF
     val refs2 = Seq(XRef("id1", Map("c" -> Array("d")))).toDF
 
-     // when
+    // when
     val results: DataFrame = Molecule invokePrivate mergeXRMaps(refs1, refs2)
     // then
     assert(refs1.join(refs2, Seq("id"), "fullouter").select(col("id")).count() == results.count(),
            "All IDs should be returned in combined dataframe.")
     assert(
-      results.select(org.apache.spark.sql.functions.size(map_keys(col("xref")))).as("s").head().getInt(0) ==  2,
+      results
+        .select(org.apache.spark.sql.functions.size(map_keys(col("xref"))))
+        .as("s")
+        .head()
+        .getInt(0) == 2,
       "All sources from source references should be included in combined map"
     )
   }
@@ -228,7 +235,7 @@ class MoleculeTest extends EtlSparkUnitTest {
     val results: DataFrame = Molecule invokePrivate mergeXRMaps(refs1, refs2)
     // then
     assert(refs1.join(refs2, Seq("id"), "fullouter").select(col("id")).count() == results.count(),
-      "All IDs should be returned in combined dataframe.")
+           "All IDs should be returned in combined dataframe.")
     assert(
       results.filter(array_contains(map_keys(col("xref")), "a")).count() == 2,
       "All sources from source references should be included in combined map"
@@ -277,9 +284,11 @@ class MoleculeTest extends EtlSparkUnitTest {
     // then
     val expectedColumns = Set("id", "childChemblIds")
     assert(results.count == 2, "Two inputs had children so two rows should be returned.")
-    assert(results.columns.length == expectedColumns.size && results.columns.forall(expectedColumns.contains),
-      "All expected columns should be present")
-    assert(results.filter(col("id") === "a").head.getList[String](1).size == 2, "Id 'a' should have two children.")
+    assert(results.columns.length == expectedColumns.size && results.columns.forall(
+             expectedColumns.contains),
+           "All expected columns should be present")
+    assert(results.filter(col("id") === "a").head.getList[String](1).size == 2,
+           "Id 'a' should have two children.")
   }
 
   it should "separate synonyms into tradeNames and synonyms" in {

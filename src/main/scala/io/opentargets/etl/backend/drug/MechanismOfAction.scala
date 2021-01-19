@@ -72,9 +72,7 @@ object MechanismOfAction extends LazyLogging {
       .agg(collect_list("rows") as "rows",
            collect_set("action_type") as "uniqueActionTypes",
            collect_set("target_type") as "uniqueTargetTypes")
-      .transform(nest(_: DataFrame,
-                      List("rows", "uniqueActionTypes", "uniqueTargetTypes"),
-                      "mechanismsOfAction"))
+
   }
 
   private def chemblMechanismReferences(dataFrame: DataFrame): DataFrame = {
