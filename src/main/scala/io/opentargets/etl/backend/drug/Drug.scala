@@ -103,6 +103,7 @@ object Drug extends Serializable with LazyLogging {
       .join(
         mechanismOfActionProcessedDf
           .select(explode(col("chemblIds")).as("id"))
+          .distinct
           .withColumn("mechanismsOfAction", lit(true)),
         Seq("id"),
         "left_outer"

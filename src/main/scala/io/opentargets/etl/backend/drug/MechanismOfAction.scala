@@ -1,20 +1,8 @@
 package io.opentargets.etl.backend.drug
 
 import com.typesafe.scalalogging.LazyLogging
-import io.opentargets.etl.backend.spark.Helpers.{nest, validateDF}
-import org.apache.spark.sql.functions.{
-  array,
-  array_distinct,
-  array_union,
-  coalesce,
-  col,
-  collect_list,
-  collect_set,
-  explode,
-  lower,
-  struct,
-  typedLit
-}
+import io.opentargets.etl.backend.spark.Helpers.validateDF
+import org.apache.spark.sql.functions._
 import org.apache.spark.sql.{DataFrame, SparkSession}
 
 /**
@@ -35,7 +23,7 @@ import org.apache.spark.sql.{DataFrame, SparkSession}
   * -- uniqueActiontype
   * -- unqueTargetType
   *
-
+  *
   */
 object MechanismOfAction extends LazyLogging {
 
@@ -118,7 +106,7 @@ object MechanismOfAction extends LazyLogging {
     molecule
       .filter(col("parentId").isNull) // only want the parents
       .withColumn("children", coalesce(col("childChemblIds"), typedLit(Array.empty)))
-      .withColumn("chemblIds", array_union(array(col("id")), col("children")))
+      .withColumn("chemblIds", array_distinct(array_union(array(col("id")), col("children"))))
       .select(col("id"), col("chemblIds"))
       .dropDuplicates()
   }

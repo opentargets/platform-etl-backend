@@ -49,6 +49,7 @@ object Molecule extends LazyLogging {
     moleculesExtended.withColumn(
       "name",
       coalesce(col("name"), element_at(col("synonyms"), lit(1)), col("id")))
+      .dropDuplicates("id")
   }
 
   /**
@@ -147,7 +148,7 @@ object Molecule extends LazyLogging {
       .select("id", "parentId")
       .filter(col("id") =!= col("parentId"))
       .groupBy("parentId")
-      .agg(collect_list(col("id")).as("childChemblIds"))
+      .agg(collect_set(col("id")).as("childChemblIds"))
       .withColumnRenamed("parentId", "id")
   }
 
