@@ -1,13 +1,12 @@
 package io.opentargets.etl.backend
 
 import com.typesafe.scalalogging.LazyLogging
-import io.opentargets.etl.backend.spark.{Helpers => C}
 import io.opentargets.etl.backend.spark.Helpers._
-
+import io.opentargets.etl.backend.spark.{Helpers => C}
 import org.apache.spark.sql._
 import org.apache.spark.sql.expressions._
-import org.apache.spark.sql.types._
 import org.apache.spark.sql.functions._
+import org.apache.spark.sql.types._
 import org.apache.spark.storage.StorageLevel
 
 object Transformers {
@@ -32,9 +31,6 @@ object Transformers {
   def processTargets(genes: DataFrame): DataFrame =
     genes.withColumnRenamed("id", "targetId")
 
-  def processDrugs(drugs: DataFrame): DataFrame =
-    drugs.withColumnRenamed("id", "drugId")
-
   /** NOTE finding drugs from associations are computed just using direct assocs
     *  otherwise drugs are spread traversing all efo tree.
     *  returns Dataframe with ["associationId", "drugIds", "targetId", "diseaseId"]
@@ -42,12 +38,8 @@ object Transformers {
   def findAssociationsWithDrugs(evidence: DataFrame): DataFrame = {
     evidence
       .filter(col("drugId").isNotNull)
-      .selectExpr(
-        "drugId",
-        "targetId",
-        "diseaseId")
-      .withColumn("associationId",
-        concat_ws("-", col("diseaseId"), col("targetId")))
+      .selectExpr("drugId", "targetId", "diseaseId")
+      .withColumn("associationId", concat_ws("-", col("diseaseId"), col("targetId")))
       .groupBy(col("associationId"))
       .agg(
         collect_set(col("drugId")).as("drugIds"),
@@ -253,8 +245,7 @@ object Transformers {
           mean(col("score")).as("disease_relevance")
         )
 
-      df
-        .withColumn("phenotype_labels", expr("phenotypes.rows.name"))
+      df.withColumn("phenotype_labels", expr("phenotypes.rows.name"))
         .join(assocsWithLabels, Seq("diseaseId"), "left_outer")
         .withColumn(
           "target_labels",
@@ -327,11 +318,12 @@ object Transformers {
     }
 
     def resolveDrugIndications(diseases: DataFrame, outColName: String): DataFrame = {
+      // dataframe [indicationId, disease_name]
       val dLabels = diseases
         .selectExpr("diseaseId as indicationId", "disease_name")
         .orderBy(col("indicationId"))
 
-      // indications.efo_label
+      // dataframe [drugId, indicationId, disease_name]
       val indications = df
         .withColumn("indicationIds", expr("indications.rows.disease"))
         .withColumn("indicationId", explode(col("indicationIds")))
@@ -340,7 +332,7 @@ object Transformers {
         .groupBy(col("drugId"))
         .agg(collect_set(col("disease_name")).as(outColName))
         .persist(StorageLevel.DISK_ONLY)
-
+      // df is drug returns dataframe [drugId, indicationId, disease_name ... drug fields]
       df.join(indications, Seq("drugId"), "left_outer")
 
     }
@@ -461,8 +453,8 @@ object Transformers {
 object Search extends LazyLogging {
   def apply()(implicit context: ETLSessionContext): IOResources = {
     implicit val ss: SparkSession = context.sparkSession
-    import ss.implicits._
     import Transformers.Implicits
+    import ss.implicits._
 
     val searchSec = context.configuration.search
     val mappedInputs = Map(
@@ -492,9 +484,24 @@ object Search extends LazyLogging {
 
     logger.info("process drugs and persist")
     val drugs = inputDataFrame("drug")
-      .join(inputDataFrame("mechanism"), Seq("id"), "left_outer")
-      .join(inputDataFrame("indication"), Seq("id"), "left_outer")
-      .transform(Transformers.processDrugs)
+      .join(inputDataFrame("mechanism").withColumn("id", explode($"chemblIds"))
+        .transform(nest(_: DataFrame, List("mechanismOfAction", "references", "targetName", "targets"), "rows"))
+        .groupBy("id")
+        .agg(
+          collect_list("rows") as "rows",
+          collect_set("actionType") as "uniqueActionTypes",
+          collect_set("targetType") as "uniqueTargetType")
+        ,
+        Seq("id"),
+        "left_outer")
+      .join(
+        inputDataFrame("indication")
+          .withColumnRenamed("indications", "rows")
+          .transform(nest(_: DataFrame, List("rows", "count"), "indications")),
+        Seq("id"),
+        "left_outer"
+      )
+      .withColumnRenamed("id", "drugId")
       .orderBy(col("drugId"))
       .persist(StorageLevel.DISK_ONLY)
 
@@ -549,8 +556,7 @@ object Search extends LazyLogging {
     // TODO check the overall score column name
     logger.info("subselect indirect LLR associations just id and score and persist")
     val associationScores = inputDataFrame("association")
-      .withColumn("associationId",
-        concat_ws("-", col("diseaseId"), col("targetId")))
+      .withColumn("associationId", concat_ws("-", col("diseaseId"), col("targetId")))
       .withColumnRenamed("overallDatasourceHarmonicScore", "score")
       .select(associationColumns.head, associationColumns.tail: _*)
       .persist(StorageLevel.DISK_ONLY)
