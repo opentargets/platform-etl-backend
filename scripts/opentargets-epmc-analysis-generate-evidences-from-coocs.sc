@@ -49,9 +49,21 @@ object ETL extends LazyLogging {
 
     val coos = session.read.parquet(coocs)
     val dis = broadcast(session.read.json(diseases)
-      .withColumnRenamed("id", "diseaseId"))
-    val tar = broadcast(session.read.json(targets)
-      .withColumnRenamed("id", "targetId"))
+      .selectExpr(
+        "id as diseaseId",
+        "name as diseaseName"
+      )
+      .orderBy($"diseaseId".desc)
+    )
+    val tar = broadcast(
+      session.read.json(targets)
+        .selectExpr(
+          "id as targetId",
+          "approvedName as targetName",
+          "approvedSymbol as targetSymbol"
+        )
+        .orderBy($"targetId".desc)
+    )
 
     val uniqColumns = Seq(
       "pmid",
@@ -87,11 +99,11 @@ object ETL extends LazyLogging {
       .withColumn("literature", array($"pmid"))
       .select(evidenceColumns.head, evidenceColumns.tail:_*)
       .dropDuplicates(uniqColumns)
-
-    // TODO JOIN TARGET AND DISEASE
+      .join(dis, Seq("diseaseId"))
+      .join(tar, Seq("targetId"))
 
     logger.info("generating evidences for dataset (GP - DS)")
-    evidences.write.parquet(output + "/evidencesFromCoocs")
+    evidences.write.json(output + "/evidencesFromCoocs")
   }
 }
 
