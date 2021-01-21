@@ -1,12 +1,16 @@
 {
   "mappings": {
-    "nesteds": {
-      "match_mapping_type": "object",
-      "match": "facet_*",
-      "mapping": {
-        "type": "nested"
+    "dynamic_templates": [
+      {
+        "nesteds": {
+          "match_mapping_type": "object",
+          "match": "facet_*",
+          "mapping": {
+            "type": "nested"
+          }
+        }
       }
-    }
+    ]
   },
   "settings": {
     "index": {
