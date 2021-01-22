@@ -101,6 +101,8 @@ object ETL extends LazyLogging {
       .dropDuplicates(uniqColumns)
       .join(dis, Seq("diseaseId"))
       .join(tar, Seq("targetId"))
+      .withColumn("datatypeId", lit("literature"))
+      .withColumn("datasourceId", lit("europepmc-ml"))
 
     logger.info("generating evidences for dataset (GP - DS)")
     evidences.write.json(output + "/evidencesFromCoocs")
