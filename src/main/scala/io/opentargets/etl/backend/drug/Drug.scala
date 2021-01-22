@@ -68,7 +68,7 @@ object Drug extends Serializable with LazyLogging {
     val moleculeProcessedDf =
       Molecule(moleculeDf, drugbank2ChemblMap, drugConfiguration.drugExtensions)
     val mechanismOfActionProcessedDf: DataFrame =
-      MechanismOfAction(mechanismDf, targetDf, geneDf, moleculeProcessedDf)
+      MechanismOfAction(mechanismDf, targetDf, geneDf)
     val targetsAndDiseasesDf =
       DrugCommon.getUniqTargetsAndDiseasesPerDrugId(evidenceDf).withColumnRenamed("drugId", "id")
 
