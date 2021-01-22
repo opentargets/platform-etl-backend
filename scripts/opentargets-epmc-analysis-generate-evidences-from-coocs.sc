@@ -82,14 +82,16 @@ object ETL extends LazyLogging {
       "score",
       "targetFromSource",
       "diseaseFromSource",
-      "literature"
+      "literature",
+      "datatypeId",
+      "datasourceId"
     )
 
     val evidenceColumns = uniqColumns ++ restOfColumns
 
     logger.info("read EPMC co-occurrences dataset, filter only unique evidences and map field names")
     val evidences = coos
-      .filter($"isMapped" === true and $"type" === "GP-DS")
+      .filter($"isMapped" === true and $"type" === "GP-DS" and length($"pmid") > 0)
       .withColumnRenamed("evidence_score", "resourceScore")
       .withColumnRenamed("label1", "targetFromSource")
       .withColumnRenamed("label2", "diseaseFromSource")
@@ -97,12 +99,13 @@ object ETL extends LazyLogging {
       .withColumnRenamed("keywordId2", "diseaseId")
       .withColumn("score", array_min(array($"resourceScore" / 10D, lit(1D))))
       .withColumn("literature", array($"pmid"))
+      .withColumn("datatypeId", lit("literature"))
+      .withColumn("datasourceId", lit("europepmc-ml"))
       .selectExpr(evidenceColumns:_*)
       .dropDuplicates(uniqColumns)
       .join(dis, Seq("diseaseId"))
       .join(tar, Seq("targetId"))
-      .withColumn("datatypeId", lit("literature"))
-      .withColumn("datasourceId", lit("europepmc-ml"))
+
 
     logger.info("generating evidences for dataset (GP - DS)")
     evidences.write.json(output + "/evidencesFromCoocs")
