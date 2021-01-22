@@ -87,6 +87,10 @@ object ETL extends LazyLogging {
       "datasourceId"
     )
 
+    val endDropColumns = Seq(
+      "pmid"
+    )
+
     val evidenceColumns = uniqColumns ++ restOfColumns
 
     logger.info("read EPMC co-occurrences dataset, filter only unique evidences and map field names")
@@ -105,6 +109,7 @@ object ETL extends LazyLogging {
       .dropDuplicates(uniqColumns)
       .join(dis, Seq("diseaseId"))
       .join(tar, Seq("targetId"))
+      .drop(endDropColumns:_*)
 
 
     logger.info("generating evidences for dataset (GP - DS)")
