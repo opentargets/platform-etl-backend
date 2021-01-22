@@ -32,7 +32,7 @@ object SparkSessionWrapper extends LazyLogging {
   lazy val sparkConf = new SparkConf()
     .set("spark.driver.maxResultSize", "0")
     .set("spark.debug.maxToStringFields", "2000")
-    .setAppName("etl-generation")
+    .setAppName("etl-epmc-coocs-evidence-generation")
     .setMaster("local[*]")
 
   lazy val session: SparkSession =
@@ -51,7 +51,7 @@ object ETL extends LazyLogging {
     val dis = broadcast(session.read.json(diseases)
       .selectExpr(
         "id as diseaseId",
-        "name as diseaseName"
+        "name as diseaseLabel"
       )
       .orderBy($"diseaseId".desc)
     )
@@ -92,12 +92,12 @@ object ETL extends LazyLogging {
       .filter($"isMapped" === true and $"type" === "GP-DS")
       .withColumnRenamed("evidence_score", "resourceScore")
       .withColumnRenamed("label1", "targetFromSource")
-      .withColumnRenamed("label2", "targetFromDisease")
+      .withColumnRenamed("label2", "diseaseFromSource")
       .withColumnRenamed("keywordId1", "targetId")
       .withColumnRenamed("keywordId2", "diseaseId")
       .withColumn("score", array_min(array($"resourceScore" / 10D, lit(1D))))
       .withColumn("literature", array($"pmid"))
-      .select(evidenceColumns.head, evidenceColumns.tail:_*)
+      .selectExpr(evidenceColumns:_*)
       .dropDuplicates(uniqColumns)
       .join(dis, Seq("diseaseId"))
       .join(tar, Seq("targetId"))
