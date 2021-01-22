@@ -10,39 +10,19 @@ import com.typesafe.config.Config
 import better.files._
 import better.files.File._
 import io.opentargets.etl.backend.spark.Helpers
-import io.opentargets.etl.backend.spark.Helpers.{IOResourceConfig, stripIDFromURI}
-
+import io.opentargets.etl.backend.spark.Helpers.{
+  IOResourceConfig,
+  IOResourceConfs,
+  IOResources
+}
 object DiseaseHelpers {
   implicit class AggregationHelpers(df: DataFrame)(implicit ss: SparkSession) {
     import Configuration._
     import ss.implicits._
 
     def setIdAndSelectFromDiseases: DataFrame = {
-      val getParents = udf((codes: Seq[Seq[String]]) =>
-        codes
-          .flatMap{
-            path => if (path.size < 2) None else Some(path.reverse.slice(1, 2).head)
-          }.distinct
-      )
 
-      val dfPhenotypeId = df
-        .drop("type")
-        .withColumn(
-          "sourcePhenotypes",
-          when(
-            size(col("phenotypes")) > 0,
-            transform($"phenotypes", c => {
-              val idC = stripIDFromURI(c.getField("uri")).as("disease")
-              val nameC = c.getField("label").as("name")
-              val urlC = c.getField("uri").as("url")
-
-              struct(urlC, nameC, idC)
-            })
-          )
-        )
-
-      val efosSummary = dfPhenotypeId
-        .withColumn("id", stripIDFromURI(col("code")))
+      val efosSummary = df
         .withColumn(
           "ancestors",
           array_except(
@@ -50,49 +30,20 @@ object DiseaseHelpers {
             array(col("id"))
           )
         )
-        .withColumn("parents", getParents(col("path_codes")))
-        .drop("paths", "private", "_private", "path")
-        .withColumn(
-          "phenotypes",
-          when(size(col("sourcePhenotypes")) > 0, struct(col("sourcePhenotypes").as("rows")))
-            .otherwise(lit(null))
-        )
-        .withColumn("isTherapeuticArea", size(flatten(col("path_codes"))) === 1)
-        .as("isTherapeuticArea")
-        .withColumn("leaf", size(col("children")) === 0)
-        .withColumn(
-          "sources",
-          struct(
-            (col("code")).as("url"),
-            col("id").as("name")
-          )
-        )
-        .withColumn(
-          "ontology",
-          struct(
-            (col("isTherapeuticArea")).as("isTherapeuticArea"),
-            col("leaf").as("leaf"),
-            col("sources").as("sources")
-          )
-        )
-        // Change the value of children from array struct to array of code.
-        .withColumn(
-          "children",
-          array_distinct(expr("transform(children, child -> child.code)"))
-        )
 
       val descendants = efosSummary
         .where(size(col("ancestors")) > 0)
-        .withColumn("ancestor",
-          explode(concat(array(col("id")), col("ancestors"))))
+        .withColumn("ancestor", explode(concat(array(col("id")), col("ancestors"))))
         .groupBy("ancestor")
         .agg(collect_set(col("id")).as("descendants"))
         .withColumnRenamed("ancestor", "id")
-        .withColumn("descendants",
+        .withColumn(
+          "descendants",
           array_except(
             col("descendants"),
             array(col("id"))
-          ))
+          )
+        )
 
       val efos = efosSummary
         .join(descendants, Seq("id"), "left")
@@ -100,18 +51,11 @@ object DiseaseHelpers {
       val efosRenamed = efos
         .withColumnRenamed("label", "name")
         .withColumnRenamed("definition", "description")
-        .withColumnRenamed("efo_synonyms", "synonyms")
         .withColumnRenamed("therapeutic_codes", "therapeuticAreas")
-        .drop(
-          "definition_alternatives",
-          "path_codes",
-          "isTherapeuticArea",
-          "leaf",
-          "path_labels",
-          "therapeutic_labels",
-          "sources",
-          "phenotypesCount",
-          "sourcePhenotypes"
+        .withColumnRenamed("obsolete_terms", "obsoleteTerms")
+        .drop("path_codes",
+              "definition_alternatives",
+              "therapeutic_codes"
         )
 
       efosRenamed
@@ -126,16 +70,16 @@ object Disease extends LazyLogging {
     import ss.implicits._
     import DiseaseHelpers._
 
-    val common = context.configuration.common
-    val mappedInputs = Map(
-      "disease" -> IOResourceConfig(
-        common.inputs.disease.format,
-        common.inputs.disease.path
-      )
-    )
-    val inputDataFrame = Helpers.readFrom(mappedInputs)
+    val diseaseConfiguration = context.configuration.disease
 
-    val diseaseDF = inputDataFrame("disease").setIdAndSelectFromDiseases
+    logger.info("Loading raw inputs for Disease step.")
+    val mappedInputs = Map(
+      "disease" -> diseaseConfiguration.efoOntology
+    )
+
+    val inputDataFrames = Helpers.readFrom(mappedInputs)
+
+    val diseaseDF = inputDataFrames("disease").setIdAndSelectFromDiseases
 
     diseaseDF
   }
@@ -145,37 +89,20 @@ object Disease extends LazyLogging {
     import ss.implicits._
     import DiseaseHelpers._
 
-    val common = context.configuration.common
+    val outputs = context.configuration.disease.outputs
 
     logger.info("transform disease dataset")
     val diseaseDF = compute()
 
     logger.info(s"write to ${context.configuration.common.output}/disease")
-    val outputConfs = Map(
-      "disease" -> IOResourceConfig(
-        context.configuration.common.outputFormat,
-        s"${context.configuration.common.output}/diseases"
-      )
+    val dataframesToSave: Map[String, (DataFrame, IOResourceConfig)] = Map(
+      "disease" -> (diseaseDF, outputs.diseases)
     )
 
-    Helpers.writeTo(outputConfs, Map("disease" -> diseaseDF))
+    val ioResources: IOResources = dataframesToSave mapValues (_._1)
+    val saveConfigs: IOResourceConfs = dataframesToSave mapValues (_._2)
 
-    val therapeticAreaList = diseaseDF
-      .filter(col("ontology.isTherapeuticArea") === true)
-      .select("id")
+    Helpers.writeTo(saveConfigs, ioResources)
 
-    therapeticAreaList
-      .coalesce(1)
-      .write
-      .option("header", "false")
-      .csv(common.output + "/diseasesStaticTherapeuticarea")
-
-    val efoBasicInfoDF =
-      diseaseDF.select("id", "name", "parents").withColumnRenamed("parents", "parentIds")
-
-    efoBasicInfoDF
-      .coalesce(1)
-      .write
-      .json(common.output + "/diseasesStaticEfos")
   }
 }
