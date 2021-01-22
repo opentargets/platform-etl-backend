@@ -59,9 +59,8 @@ object MechanismOfAction extends LazyLogging {
           |or targets is not null
           |""".stripMargin
       )
-      .join(hierarchy, Seq("id"), "left_outer")
-      .drop("id")
-      .dropDuplicates("chemblIds")
+      .join(hierarchy, expr("array_contains(chemblIds, id)"))
+      .drop("id", "parentId")
   }
 
   private def chemblMechanismReferences(dataFrame: DataFrame): DataFrame = {
@@ -107,7 +106,7 @@ object MechanismOfAction extends LazyLogging {
       .filter(col("parentId").isNull) // only want the parents
       .withColumn("children", coalesce(col("childChemblIds"), typedLit(Array.empty)))
       .withColumn("chemblIds", array_distinct(array_union(array(col("id")), col("children"))))
-      .select(col("id"), col("chemblIds"))
+      .select(col("id").as("parentId"), col("chemblIds"))
       .dropDuplicates()
   }
 
