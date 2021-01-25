@@ -90,6 +90,7 @@ object Disease extends LazyLogging {
     import DiseaseHelpers._
 
     logger.info("transform disease dataset")
+    // compute is mandatory for running Connection.
     val diseaseDF = compute()
 
     val outputs = context.configuration.disease.outputs
