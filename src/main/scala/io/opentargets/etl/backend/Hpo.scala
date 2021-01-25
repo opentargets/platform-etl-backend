@@ -81,10 +81,6 @@ object HpoHelpers {
             "resource"
           )
 
-      //val reverse = hpoDiseaseMapping.join(df, col("id") ===  col("phenotypeId"), "left")
-
-      //reverse.write.json("reverse")
-
       hpoDiseaseMapping
 
     }
@@ -116,7 +112,7 @@ object HpoHelpers {
 
 object Hpo extends LazyLogging {
 
-  def compute(disease: DataFrame)(implicit context: ETLSessionContext): Map[String, DataFrame] = {
+  def compute()(implicit context: ETLSessionContext): Map[String, DataFrame] = {
     implicit val ss = context.sparkSession
     import ss.implicits._
     import HpoHelpers._
@@ -125,6 +121,7 @@ object Hpo extends LazyLogging {
 
     logger.info("Loading raw inputs for HP and DiseaseHPO step.")
     val mappedInputs = Map(
+      "disease" -> hpoConfiguration.diseaseEtl,
       "mondo" -> hpoConfiguration.mondoOntology,
       "hpo"-> hpoConfiguration.hpoOntology,
       "diseasehpo" -> hpoConfiguration.hpoPhenotype,
@@ -132,10 +129,12 @@ object Hpo extends LazyLogging {
 
     val inputDataFrames = Helpers.readFrom(mappedInputs)
 
-    val diseaseXRefs = disease
+    val diseaseXRefs = inputDataFrames("disease")
+      .selectExpr("id as disease", "name", "dbXRefs")
       .withColumn("dbXRefId", explode(col("dbXRefs")))
       .withColumnRenamed("id", "disease")
       .select("dbXRefId", "disease", "name")
+
     val mondo = inputDataFrames("mondo").getMondo(diseaseXRefs)
     val diseasehpo = inputDataFrames("diseasehpo").getDiseaseHpo(diseaseXRefs)
     val unionDiseaseHpo = unionDataframeDifferentSchema(diseasehpo, mondo).createEvidence
@@ -152,8 +151,7 @@ object Hpo extends LazyLogging {
     implicit val ss = context.sparkSession
     import ss.implicits._
 
-    val diseases = Disease.compute().selectExpr("id as disease", "name", "dbXRefs")
-    val hpoInfo = compute(diseases)
+    val hpoInfo = compute()
 
     logger.info(s"write to ${context.configuration.common.output}/hpo")
     val outputs = context.configuration.hpo.outputs

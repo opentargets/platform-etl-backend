@@ -89,11 +89,10 @@ object Disease extends LazyLogging {
     import ss.implicits._
     import DiseaseHelpers._
 
-    val outputs = context.configuration.disease.outputs
-
     logger.info("transform disease dataset")
     val diseaseDF = compute()
 
+    val outputs = context.configuration.disease.outputs
     logger.info(s"write to ${context.configuration.common.output}/disease")
     val dataframesToSave: Map[String, (DataFrame, IOResourceConfig)] = Map(
       "disease" -> (diseaseDF, outputs.diseases)

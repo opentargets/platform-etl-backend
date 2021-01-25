@@ -87,6 +87,7 @@ object Configuration extends LazyLogging {
 
   case class HpoOutputs(hpo: IOResourceConfig, diseaseHpo: IOResourceConfig)
   case class HpoSection(
+                        diseaseEtl: IOResourceConfig,
                         mondoOntology: IOResourceConfig,
                         hpoOntology: IOResourceConfig,
                         hpoPhenotype: IOResourceConfig,
