@@ -372,7 +372,7 @@ object Evidence extends LazyLogging {
             )).as("rIds"),
         )
         .withColumn("rId", explode(col("rIds")))
-        .select("dId", "rId", "targetsymbol", "targetName")
+        .select("dId", "rId", "targetSymbol", "targetName")
     }
 
     logger.info("target resolution evidences and write to out the ones didn't resolve")

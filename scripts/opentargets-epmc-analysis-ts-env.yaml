@@ -1,0 +1,15 @@
+# conda-env create --name <env> --file <this file>
+# conda activate <env>
+# conda deactivate
+# conda-env remove -n <env>
+
+channels:
+    - conda-forge
+    - bioconda
+    - defaults
+dependencies:
+    - python=3
+    - conda-forge::pyspark=3.0.1
+    - conda-forge::pystan
+    - conda-forge::fbprophet
+    - conda-forge::scipy

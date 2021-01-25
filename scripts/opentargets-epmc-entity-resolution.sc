@@ -1,6 +1,7 @@
 import $ivy.`ch.qos.logback:logback-classic:1.2.3`
 import $ivy.`com.typesafe.scala-logging::scala-logging:3.9.2`
 import $ivy.`com.typesafe:config:1.4.0`
+import org.apache.spark.storage.StorageLevel
 // import $ivy.`com.github.fommil.netlib:all:1.1.2`
 import $ivy.`org.apache.spark::spark-core:3.0.1`
 import $ivy.`org.apache.spark::spark-mllib:3.0.1`
@@ -26,6 +27,7 @@ object SparkSessionWrapper extends LazyLogging {
   lazy val sparkConf = new SparkConf()
     .set("spark.driver.maxResultSize", "0")
     .set("spark.debug.maxToStringFields", "2000")
+    .set("spark.sql.mapKeyDedupPolicy", "LAST_WIN")
     .setAppName("etl-generation")
     .setMaster("local[*]")
 
@@ -38,6 +40,7 @@ object SparkSessionWrapper extends LazyLogging {
 }
 
 object ETL extends LazyLogging {
+
   import ColumnTransformationHelpers._
 
   object ColumnTransformationHelpers {
@@ -54,27 +57,10 @@ object ETL extends LazyLogging {
 
     val data = sparkSession.read
       .json(uri)
-      // .withColumn("terms", concat($"GP", $"DS"))
-      .withColumn("normalised_gp",
-                  transform($"GP",
-                            c =>
-                              struct(normalise(c).as("term_norm"),
-                                     c.as("term_raw"),
-                                     lit("target").as("term_type"))))
-      .withColumn("normalised_ds",
-                  transform($"DS",
-                            c =>
-                              struct(normalise(c).as("term_norm"),
-                                     c.as("term_raw"),
-                                     lit("disease").as("term_type"))))
-      .withColumn(
-        "normalised_cd",
-        transform(
-          $"CD",
-          c => struct(normalise(c).as("term_norm"), c.as("term_raw"), lit("drug").as("term_type"))))
-      .withColumn("normalised_terms", concat($"normalised_gp", $"normalised_ds", $"normalised_cd"))
-      .withColumn("normalised_term", explode($"normalised_terms"))
-      .selectExpr("*", "normalised_term.*")
+      .withColumn("sentence", explode($"sentences"))
+      .drop("sentences")
+      .selectExpr("*", "sentence.*")
+      .drop("sentence")
 
     data
   }
@@ -83,21 +69,22 @@ object ETL extends LazyLogging {
     import sparkSession.implicits._
 
     val selectedColumns = Seq(
-      "id",
-      "name",
-      "entity",
-      "keywords"
+      $"id".as("keywordId"),
+      $"name",
+      when($"entity" === "target", lit("GP"))
+        .when($"entity" === "disease", lit("DS"))
+        .when($"entity" === "drug", lit("CD"))
+        .as("type"),
+      $"keywords"
     )
 
     val data = sparkSession.read
       .json(uri)
-      .selectExpr(selectedColumns: _*)
-      .withColumn("normalised_keywords",
-                  transform($"keywords",
-                            c => struct(normalise(c).as("keyword_norm"), c.as("keyword_raw"))))
-      .withColumn("normalised_keyword", explode(col("normalised_keywords")))
-      .withColumnRenamed("entity", "keyword_type")
-      .selectExpr("*", "normalised_keyword.*")
+      .select(selectedColumns: _*)
+      .withColumn("keyword", explode($"keywords"))
+      .withColumn("labelN", normalise($"keyword"))
+      .drop("keywords")
+      .orderBy($"type", $"labelN")
 
     data
   }
@@ -106,35 +93,89 @@ object ETL extends LazyLogging {
       implicit sparkSession: SparkSession): DataFrame = {
     import sparkSession.implicits._
 
-    val dict = entities
-      .join(luts, $"term_norm" === $"keyword_norm", "left_outer")
+    val mergedMatches = entities
+      .withColumn("match", explode($"matches"))
+      .drop("matches")
+      .selectExpr("*", "match.*")
+      .drop("match")
+      .withColumn("labelN", normalise($"label"))
+      .join(luts, Seq("type", "labelN"), "left_outer")
+      .withColumn("isMapped", $"keywordId".isNotNull)
+      .groupBy($"pmid", $"text")
+      .agg(
+        first($"organisms").as("organisms"),
+        first($"pubDate").as("pubDate"),
+        first($"section").as("section"),
+        collect_list(
+          struct($"endInSentence",
+                 $"label",
+                 $"sectionEnd",
+                 $"sectionStart",
+                 $"startInSentence",
+                 $"type",
+                 $"labelN",
+                 $"keywordId",
+                 $"isMapped")
+        ).as("matches")
+      )
+
+    val mergedCooc = entities
+      .withColumn("cooc", explode($"co-occurrence"))
+      .drop("co-occurrence")
+      .selectExpr("*", "cooc.*")
+      .drop("cooc")
+      .withColumn("label1N", normalise($"label1"))
+      .withColumn("label2N", normalise($"label2"))
+      .withColumn("type1", substring_index($"type", "-", 1))
+      .withColumn("type2", substring_index($"type", "-", -1))
+      .drop("type")
+      .join(luts, $"type1" === $"type" and $"label1N" === $"labelN", "left_outer")
+      .withColumnRenamed("keywordId", "keywordId1")
+      .drop("type", "labelN")
+      .join(luts, $"type2" === $"type" and $"label2N" === $"labelN", "left_outer")
+      .withColumnRenamed("keywordId", "keywordId2")
+      .drop("type", "labelN")
+      .withColumn("isMapped", $"keywordId1".isNotNull and $"keywordId2".isNotNull)
+      .groupBy($"pmid", $"text")
+      .agg(
+        collect_list(
+          struct(
+            $"association",
+            $"end1",
+            $"end2",
+            $"evidence_score",
+            $"label1",
+            $"keywordId1",
+            $"label2",
+            $"keywordId2",
+            $"relation",
+            $"start1",
+            $"start2",
+            concat_ws("-", $"type1", $"type2").as("type"),
+            $"type1",
+            $"type2",
+            $"isMapped"
+          )
+        ).as("co-occurrence")
+      )
+
+    val merged =
+      mergedMatches.join(mergedCooc, Seq("pmid", "text"), "left_outer")
       .groupBy($"pmid")
       .agg(
-        collect_set(struct($"term_raw", $"term_norm", $"id", $"term_type", $"keyword_type")).as(
-          "terms")
+        first($"organisms").as("organisms"),
+        first($"pubDate").as("pubDate"),
+        collect_list(
+          struct(
+            $"co-occurrence",
+            $"matches",
+            $"section",
+            $"text"
+          )
+        ).as("sentences")
       )
-      .withColumn("terms_mapped", filter($"terms", c => c.getField("id").isNotNull))
-      .withColumn("terms_not_mapped", filter($"terms", c => c.getField("id").isNull))
-      .withColumn("targets_mapped",
-                  filter($"terms_mapped",
-                         c =>
-                           c.getField("term_type") === c.getField("keyword_type") and c.getField(
-                             "keyword_type") === "target"))
-      .withColumn("diseases_mapped",
-                  filter($"terms_mapped",
-                         c =>
-                           c.getField("term_type") === c.getField("keyword_type") and c.getField(
-                             "keyword_type") === "disease"))
-      .withColumn(
-        "drugs_mapped",
-        filter($"terms_mapped",
-               c => c.getField("term_type") === "drug" and c.getField("keyword_type") === "drug"))
-      .withColumn(
-        "cross_mapped",
-        filter($"terms_mapped", c => c.getField("term_type") =!= c.getField("keyword_type")))
-      .drop("terms")
 
-    dict
+    merged
   }
 
   def apply(entitiesUri: String, lutsUri: String, outputUri: String) = {
@@ -144,9 +185,8 @@ object ETL extends LazyLogging {
       ss
     }
 
+    val luts = broadcast(loadLUTs(lutsUri))
     val entities = loadEntities(entitiesUri)
-    val luts = loadLUTs(lutsUri)
-
     val resolvedEntities = resolveEntities(entities, luts)
 
     resolvedEntities.write.json(outputUri)
