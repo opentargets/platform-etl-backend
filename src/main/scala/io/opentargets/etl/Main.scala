@@ -33,6 +33,9 @@ object ETL extends LazyLogging {
       case "disease" =>
         logger.info("run step disease")
         Disease()
+      case "hpo" =>
+        logger.info("run step HP and disease-HPO")
+        Hpo()
       case "target" =>
         logger.info("run step target")
         Target()
