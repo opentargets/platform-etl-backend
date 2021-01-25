@@ -1,5 +1,6 @@
 package io.opentargets.etl.backend.drug
 
+import MechanismOfAction.{chemblMechanismReferences, chemblTarget}
 import com.typesafe.scalalogging.LazyLogging
 import io.opentargets.etl.backend.spark.Helpers.validateDF
 import org.apache.spark.sql.functions._
@@ -34,7 +35,7 @@ object MechanismOfAction extends LazyLogging {
     * @param geneDf: gene parquet file listed under target in configuration
     * @param sparkSession implicit
     */
-  def apply(mechanismDf: DataFrame, targetDf: DataFrame, geneDf: DataFrame, molecule: DataFrame)(
+  def apply(mechanismDf: DataFrame, targetDf: DataFrame, geneDf: DataFrame)(
       implicit sparkSession: SparkSession): DataFrame = {
 
     logger.info("Processing mechanisms of action")
@@ -42,9 +43,11 @@ object MechanismOfAction extends LazyLogging {
       .withColumnRenamed("molecule_chembl_id", "id")
       .withColumnRenamed("mechanism_of_action", "mechanismOfAction")
       .withColumnRenamed("action_type", "actionType")
+      .withColumn("chemblIds", col("_metadata.all_molecule_chembl_ids"))
+      .drop("_metadata", "parent_molecule_chembl_id")
+
     val references = chemblMechanismReferences(mechanism)
     val target = chemblTarget(targetDf, geneDf)
-    val hierarchy = chemblHierarchy(molecule)
 
     mechanism
       .join(references, Seq("id"), "outer")
@@ -59,9 +62,8 @@ object MechanismOfAction extends LazyLogging {
           |or targets is not null
           |""".stripMargin
       )
-      .join(hierarchy, Seq("id"), "left_outer")
       .drop("id")
-      .dropDuplicates("chemblIds")
+      .filter("chemblIds is not null")
   }
 
   private def chemblMechanismReferences(dataFrame: DataFrame): DataFrame = {
@@ -101,14 +103,4 @@ object MechanismOfAction extends LazyLogging {
       .groupBy("target_chembl_id", "targetName", "targetType")
       .agg(array_distinct(collect_list("geneId")).as("targets"))
   }
-
-  def chemblHierarchy(molecule: DataFrame): DataFrame = {
-    molecule
-      .filter(col("parentId").isNull) // only want the parents
-      .withColumn("children", coalesce(col("childChemblIds"), typedLit(Array.empty)))
-      .withColumn("chemblIds", array_distinct(array_union(array(col("id")), col("children"))))
-      .select(col("id"), col("chemblIds"))
-      .dropDuplicates()
-  }
-
 }
