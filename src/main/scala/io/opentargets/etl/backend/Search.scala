@@ -505,14 +505,11 @@ object Search extends LazyLogging {
       .orderBy(col("drugId"))
       .persist(StorageLevel.DISK_ONLY)
 
-    val dLUT = diseases
-      .withColumn(
-        "disease_labels",
-        C.flattenCat(
-          "array(name)",
-          "synonyms"
-        )
-      )
+    val dLUT = diseases.withColumn("disease_labels",
+       array_union(coalesce(col("synonyms.hasBroadSynonym"), typedLit(Seq.empty[String])) ,
+         array_union(coalesce(col("synonyms.hasExactSynonym"), typedLit(Seq.empty[String])) ,
+           array_union(coalesce(col("synonyms.hasNarrowSynonym"), typedLit(Seq.empty[String])),
+             coalesce(col("synonyms.hasRelatedSynonym"), typedLit(Seq.empty[String]))))))
       .selectExpr("diseaseId", "disease_labels", "name as disease_name", "therapeutic_labels")
       .orderBy("diseaseId")
       .persist(StorageLevel.DISK_ONLY)
