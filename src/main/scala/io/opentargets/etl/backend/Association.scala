@@ -169,28 +169,31 @@ object Association extends LazyLogging {
         rankedScores.drop("weight")
       }
 
+      /**
+        * join weight per datasource from configuration section `otc`
+        * @param otc from ETL configuration section
+        * @return the modified dataframe
+        */
+      def leftJoinWeights(otc: AssociationsSection): DataFrame = {
+        val wC = "weight"
+        // obtain weights per datasource table
+        val datasourceWeights =
+          broadcast(otc.dataSources.toDS()).toDF
+            .withColumnRenamed("id", dsId)
+            .select(dsId, wC)
+            .orderBy(col(dsId).asc)
+
+        df.join(datasourceWeights, Seq(dsId), "left_outer")
+          // fill null for weight to default weight in case we have new datasources
+          .na
+          .fill(otc.defaultWeight, Seq(wC))
+      }
+
+      // TODO REMOVE COLLECTION AND JUST ONE PARAM OUT
       def harmonicOver(pairColNames: Seq[String],
                        scoreColNames: Seq[String],
                        prefixOutput: String,
-                       otc: Option[AssociationsSection],
                        keepScoreOverColumn: Option[String]): DataFrame = {
-        // obtain weights per datasource table
-        val datasourceWeights = otc.map(
-          otcDS =>
-            broadcast(otcDS.dataSources.toDS()).toDF
-              .withColumnRenamed("id", dsId)
-              .select(dsId, "weight")
-              .orderBy(col(dsId).asc))
-
-        val dtAssocs = datasourceWeights match {
-          case Some(ws) =>
-            df.join(ws, Seq(dsId), "left_outer")
-              // fill null for weight to default weight in case we have new datasources
-              .na
-              .fill(otc.get.defaultWeight, Seq("weight"))
-          case None =>
-            df.withColumn("weight", lit(1D))
-        }
 
         val rankedScores = scoreColNames.foldLeft(dtAssocs)((b, name) => {
 
@@ -206,16 +209,6 @@ object Association extends LazyLogging {
               col(name) / (powCol(col(tName + "_ths_k"), 2D) * maxHarmonicValue(100000, 2, 1D)))
             .withColumn(tName + "_ths_t", sum(col(tName + "_ths_dx")).over(w))
             .withColumn(prefixOutput + $"${name}_score", col(tName + "_ths_t") * col("weight"))
-
-          // TODO remove this from here, and the weights put outside and pass parameters
-          val r = keepScoreOverColumn.foldLeft(bb)((b, colName) => {
-            b.withColumn(tName + "_ths_st",
-                          struct(col(colName),
-                                 col("weight"),
-                                 col(tName + "_ths_t").as(prefixOutput + $"${name}_score_raw")))
-              .withColumn(prefixOutput + $"${name}_dts",
-                          collect_set(col(tName + "_ths_st")).over(w))
-          })
 
           // remove temporal cols
           val droppedCols = r.columns.filter(_.startsWith(tName))
@@ -250,12 +243,12 @@ object Association extends LazyLogging {
         val dtPartition = Seq(dtId, dId, tId)
 
         val datasourceAssocs = df
-          .harmonicOver(dsPartition, Seq(evScore), "datasource_hs_", None, None)
-          .harmonicOver(dtPartition, Seq(evScore), "datatype_hs_", None, None)
+          .harmonicOver(dsPartition, Seq(evScore), "datasource_hs_", None)
+          .harmonicOver(dtPartition, Seq(evScore), "datatype_hs_", None)
           .withColumn(dsEvsCount,
-            count(expr("*")).over(Window.partitionBy(dsPartition.map(col):_*)))
+                      count(expr("*")).over(Window.partitionBy(dsPartition.map(col): _*)))
           .withColumn(dtEvsCount,
-            count(expr("*")).over(Window.partitionBy(dtPartition.map(col):_*)))
+                      count(expr("*")).over(Window.partitionBy(dtPartition.map(col): _*)))
 
         datasourceAssocs
           .selectExpr(cols: _*)
@@ -309,7 +302,8 @@ object Association extends LazyLogging {
 
   }
 
-  def computeDirectAssociations()(implicit context: ETLSessionContext): Map[String, (DataFrame, IOResourceConfig)] = {
+  def computeDirectAssociations()(
+      implicit context: ETLSessionContext): Map[String, (DataFrame, IOResourceConfig)] = {
     implicit val ss = context.sparkSession
     import ss.implicits._
 
@@ -325,7 +319,8 @@ object Association extends LazyLogging {
     )
   }
 
-  def computeIndirectAssociations()(implicit context: ETLSessionContext): Map[String, (DataFrame, IOResourceConfig)] = {
+  def computeIndirectAssociations()(
+      implicit context: ETLSessionContext): Map[String, (DataFrame, IOResourceConfig)] = {
     implicit val ss = context.sparkSession
     import ss.implicits._
 
@@ -363,16 +358,22 @@ object Association extends LazyLogging {
 
     import Helpers._
 
-    val dsPartition = Seq(dId, tId)
-    val dtPartition = Seq(dId, tId)
+    val pairPartition = Seq(dId, tId)
 
     assocsPerDS
-      .harmonicOver(Seq(dId, tId), Seq(dsIdScore), "overall_hs_", Some(associationsSec), Some(dsId))
-      .harmonicOver(Seq(dId, tId), Seq(dtIdScore), "overall_hs_", Some(associationsSec), Some(dtId))
+      .leftJoinWeights(associationsSec)
+      .harmonicOver(Seq(dId, tId), Seq(dsIdScore), "overall_hs_", Some(dsId))
+      .harmonicOver(Seq(dId, tId), Seq(dtIdScore), "overall_hs_", Some(dtId))
       .withColumn(overallDsEvsCount,
-        sum(col(dsEvsCount)).over(Window.partitionBy(dsPartition.map(col):_*)))
+                  sum(col(dsEvsCount)).over(Window.partitionBy(pairPartition.map(col): _*)))
       .withColumn(overallDtEvsCount,
-        sum(col(dtEvsCount)).over(Window.partitionBy(dtPartition.map(col):_*)))
+                  sum(col(dtEvsCount)).over(Window.partitionBy(pairPartition.map(col): _*)))
+
+    // TODO ADD COLLECT LIST PER DATASOURCE AND PER DATATYPE
+      .withColumn(overallDsEvsCount,
+        sum(col(dsEvsCount)).over(Window.partitionBy(pairPartition.map(col): _*)))
+      .withColumn(overallDtEvsCount,
+        sum(col(dtEvsCount)).over(Window.partitionBy(pairPartition.map(col): _*)))
       .selectExpr(cols: _*)
       .dropDuplicates(dId, tId)
   }
@@ -407,10 +408,8 @@ object Association extends LazyLogging {
 
     val outputDFs = directs ++ indirects
 
-    val outputs = outputDFs map (p =>
-      p._1 -> p._2._2)
-    val outputsData = outputDFs map (p =>
-      p._1 -> p._2._1)
+    val outputs = outputDFs map (p => p._1 -> p._2._2)
+    val outputsData = outputDFs map (p => p._1 -> p._2._1)
 
     H.writeTo(outputs, outputsData)
   }
