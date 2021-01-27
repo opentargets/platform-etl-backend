@@ -112,6 +112,18 @@ object HpoHelpers {
 
 object Hpo extends LazyLogging {
 
+  /**
+    *
+    * @param rawEfoData taken from the `disease` input data
+    * @return dataframe of `disease,name,dbXRefs`
+    */
+  private def getEfoDataframe(rawEfoData: DataFrame): DataFrame = {
+    rawEfoData.selectExpr("id as disease", "name", "dbXRefs")
+      .withColumn("dbXRefId", explode(col("dbXRefs")))
+      .withColumnRenamed("id", "disease")
+      .select("dbXRefId", "disease", "name")
+  }
+
   def compute()(implicit context: ETLSessionContext): Map[String, DataFrame] = {
     implicit val ss = context.sparkSession
     import ss.implicits._
@@ -129,11 +141,7 @@ object Hpo extends LazyLogging {
 
     val inputDataFrames = Helpers.readFrom(mappedInputs)
 
-    val diseaseXRefs = inputDataFrames("disease")
-      .selectExpr("id as disease", "name", "dbXRefs")
-      .withColumn("dbXRefId", explode(col("dbXRefs")))
-      .withColumnRenamed("id", "disease")
-      .select("dbXRefId", "disease", "name")
+    val diseaseXRefs = getEfoDataframe(inputDataFrames("disease"))
 
     val mondo = inputDataFrames("mondo").getMondo(diseaseXRefs)
     val diseasehpo = inputDataFrames("diseasehpo").getDiseaseHpo(diseaseXRefs)
