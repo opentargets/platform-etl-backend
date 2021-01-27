@@ -2,6 +2,7 @@ package io.opentargets.etl.backend.HpoTest
 
 import io.opentargets.etl.backend.EtlSparkUnitTest
 import io.opentargets.etl.backend.Hpo
+import io.opentargets.etl.backend.HpoHelpers
 import io.opentargets.etl.backend.spark.Helpers
 import org.apache.spark.sql.{DataFrame, Dataset, Row, SparkSession}
 import org.apache.spark.sql.functions.{col, explode}
@@ -16,9 +17,13 @@ object HpoTest {
 
   def efoDf(implicit sparkSession: SparkSession): DataFrame =
     sparkSession.read.json(this.getClass.getResource("/efo_sample.json.gz").getPath)
+
+  def mondoDf(implicit sparkSession: SparkSession): DataFrame =
+    sparkSession.read.json(this.getClass.getResource("/mondo_sample.jsonl.gz").getPath)
 }
 
 class HpoTest extends EtlSparkUnitTest {
+  import HpoHelpers._
 
   val getEfoDataFrame: PrivateMethod[Dataset[Row]] = PrivateMethod[Dataset[Row]]('getEfoDataframe)
   //val approvedIndications: PrivateMethod[Dataset[Row]] = PrivateMethod[Dataset[Row]]('approvedIndications)
@@ -30,6 +35,24 @@ class HpoTest extends EtlSparkUnitTest {
     val expectedColumns = Set("dbXRefId", "name", "disease")
     // when
     val results: DataFrame = Hpo invokePrivate getEfoDataFrame(inputDF)
+    // then
+    assert(results.columns.forall(expectedColumns.contains))
+  }
+
+  "Processing MONDO ontology" should "return a dataframe with ..." in {
+    // given
+    // result of before
+    val outputDiseaseDF: DataFrame = HpoTest.efoDf(sparkSession)
+    val diseaseDF: DataFrame = Hpo invokePrivate getEfoDataFrame(outputDiseaseDF)
+    val inputDF: DataFrame = HpoTest.mondoDf(sparkSession)
+    val expectedColumns = Set("disease", "resource")
+    // when
+    val results: DataFrame = inputDF.getMondo(diseaseDF)
+
+    results.printSchema()
+    results.columns.foreach(x => println(x))
+    expectedColumns.foreach(y => println(y))
+
     // then
     assert(results.columns.forall(expectedColumns.contains))
   }
