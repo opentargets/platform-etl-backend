@@ -484,7 +484,7 @@ object Search extends LazyLogging {
 
     logger.info("process drugs and persist")
     val drugs = inputDataFrame("drug")
-      .join(inputDataFrame("mechanism").withColumn("id", explode($"chemblIds"))
+      .join(inputDataFrame("mechanism").withColumn("id", explode(col("chemblIds")))
         .transform(nest(_: DataFrame, List("mechanismOfAction", "references", "targetName", "targets"), "rows"))
         .groupBy("id")
         .agg(
@@ -522,7 +522,7 @@ object Search extends LazyLogging {
           "synonyms",
           "tradeNames",
           "array(name)",
-          "mechanismsOfAction.rows.mechanismOfAction"
+          "rows.mechanismOfAction"
         )
       )
       .select("drugId", "drug_labels")
