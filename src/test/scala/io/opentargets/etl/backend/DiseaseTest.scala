@@ -20,15 +20,12 @@ class DiseaseTest extends EtlSparkUnitTest {
   "Processing EFO ontology input file" should "return a dataframe with a specific list of attributes" in {
     // given
     val inputDF: DataFrame = DiseaseTest.efoDf(sparkSession)
-    val expectedColumns = Set("id", "name", "description")
+    val expectedColumns = Set("id", "name", "ontology","parents","description","therapeuticAreas","ancestors","descendants","dbXRefs","synonyms")
     // when
     val results: DataFrame = Disease.setIdAndSelectFromDiseases(inputDF)
 
-    results.columns.foreach(x => println(x))
-    expectedColumns.foreach(y => println(y))
-
     // then
-    expectedColumns.forall(expectedCol => results.columns.contains(expectedCol))
+    assert(expectedColumns.forall(expectedCol => results.columns.contains(expectedCol)))
   }
 
 }

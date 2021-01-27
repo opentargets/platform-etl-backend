@@ -36,21 +36,21 @@ class HpoTest extends EtlSparkUnitTest {
     val results: DataFrame = Hpo invokePrivate getEfoDataFrame(inputDF)
 
     // then
-    expectedColumns.forall(expectedCol => results.columns.contains(expectedCol))
+    assert(expectedColumns.forall(expectedCol => results.columns.contains(expectedCol)))
   }
 
-  "Processing MONDO ontology" should "return a dataframe with ..." in {
+  "Processing Disease CrossRef and MONDO ontology" should "return a dataframe with phenotype and diseaseFromSourceId" in {
     // given
     // result of before
     val outputDiseaseDF: DataFrame = HpoTest.efoDf(sparkSession)
     val diseaseDF: DataFrame = Hpo invokePrivate getEfoDataFrame(outputDiseaseDF)
     val inputDF: DataFrame = HpoTest.mondoDf(sparkSession)
-    val expectedColumns = Set("disease", "resource")
+    val expectedColumns = Set("disease", "resource","diseaseFromSourceId","phenotype", "resource","qualifierNot")
     // when
     val results: DataFrame = inputDF.getMondo(diseaseDF)
 
     // then
-    expectedColumns.forall(expectedCol => results.columns.contains(expectedCol))
+    assert(expectedColumns.forall(expectedCol => results.columns.contains(expectedCol)))
   }
 
 }
