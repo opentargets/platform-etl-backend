@@ -33,8 +33,10 @@ object Configuration extends LazyLogging {
                                       targets: IOResourceConfig)
 
   case class AssociationOutputsSection(directByDatasource: IOResourceConfig,
+                                       directByDatatype: IOResourceConfig,
                                        directByOverall: IOResourceConfig,
                                        indirectByDatasource: IOResourceConfig,
+                                       indirectByDatatype: IOResourceConfig,
                                        indirectByOverall: IOResourceConfig)
 
   case class AssociationsSection(
