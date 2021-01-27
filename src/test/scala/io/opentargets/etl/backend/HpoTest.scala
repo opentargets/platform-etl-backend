@@ -20,6 +20,9 @@ object HpoTest {
 
   def mondoDf(implicit sparkSession: SparkSession): DataFrame =
     sparkSession.read.json(this.getClass.getResource("/mondo_sample.jsonl.gz").getPath)
+
+  def hpoPhenotypesDf(implicit sparkSession: SparkSession): DataFrame =
+    sparkSession.read.json(this.getClass.getResource("/hpo-phenotypes-sample.jsonl.gz").getPath)
 }
 
 class HpoTest extends EtlSparkUnitTest {
@@ -48,6 +51,20 @@ class HpoTest extends EtlSparkUnitTest {
     val expectedColumns = Set("disease", "resource","diseaseFromSourceId","phenotype", "resource","qualifierNot")
     // when
     val results: DataFrame = inputDF.getMondo(diseaseDF)
+
+    // then
+    assert(expectedColumns.forall(expectedCol => results.columns.contains(expectedCol)))
+  }
+
+  "Processing Disease CrossRef and phenotype.hpoa " should "return a dataframe with phenotype and diseaseFromSourceId" in {
+    // given
+    // result of before
+    val outputDiseaseDF: DataFrame = HpoTest.efoDf(sparkSession)
+    val diseaseDF: DataFrame = Hpo invokePrivate getEfoDataFrame(outputDiseaseDF)
+    val inputDF: DataFrame = HpoTest.hpoPhenotypesDf(sparkSession)
+    val expectedColumns = Set("disease", "resource","diseaseFromSourceId","phenotype", "resource","qualifierNot")
+    // when
+    val results: DataFrame = inputDF.getDiseaseHpo(diseaseDF)
 
     // then
     assert(expectedColumns.forall(expectedCol => results.columns.contains(expectedCol)))
