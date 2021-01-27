@@ -45,7 +45,7 @@ class IndicationTest extends EtlSparkUnitTest {
     val results: DataFrame = Indication invokePrivate getEfoDataFrame(inputDF)
 
     // then
-    results.columns.forall(expectedColumns.contains)
+    assert(results.columns.forall(expectedColumns.contains))
   }
 
   "Processing ChEMBL indications data" should "correctly process raw ChEMBL data into expected format" in {
