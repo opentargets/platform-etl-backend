@@ -145,10 +145,15 @@ The jar will be generated under target/scala-2.12.10/
 
 Here how to create a cluster using `gcloud` tool
 
+The current image version is `preview-debian10` because is the only image that supports `Spark3`.
+
+List of [dataproc releases]([https://cloud.google.com/dataproc/docs/concepts/versioning/dataproc-release-preview])
+
+
 ```sh
 gcloud beta dataproc clusters create \
     etl-cluster \
-    --image-version=1.5-debian10 \
+    --image-version=preview-debian10 \
     --properties=yarn:yarn.nodemanager.vmem-check-enabled=false,spark:spark.debug.maxToStringFields=1024,spark:spark.master=yarn \
     --master-machine-type=n1-highmem-16 \
     --master-boot-disk-size=500 \
