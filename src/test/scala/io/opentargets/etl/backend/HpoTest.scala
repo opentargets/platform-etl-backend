@@ -35,8 +35,9 @@ class HpoTest extends EtlSparkUnitTest {
     val expectedColumns = Set("dbXRefId", "name", "disease")
     // when
     val results: DataFrame = Hpo invokePrivate getEfoDataFrame(inputDF)
+
     // then
-    assert(results.columns.forall(expectedColumns.contains))
+    expectedColumns.forall(expectedCol => results.columns.contains(expectedCol))
   }
 
   "Processing MONDO ontology" should "return a dataframe with ..." in {
@@ -54,7 +55,7 @@ class HpoTest extends EtlSparkUnitTest {
     expectedColumns.foreach(y => println(y))
 
     // then
-    assert(results.columns.forall(expectedColumns.contains))
+    expectedColumns.forall(expectedCol => results.columns.contains(expectedCol))
   }
 
 }

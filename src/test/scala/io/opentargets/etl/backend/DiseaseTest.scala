@@ -28,7 +28,7 @@ class DiseaseTest extends EtlSparkUnitTest {
     expectedColumns.foreach(y => println(y))
 
     // then
-    assert(results.columns.forall(expectedColumns.contains))
+    expectedColumns.forall(expectedCol => results.columns.contains(expectedCol))
   }
 
 }
