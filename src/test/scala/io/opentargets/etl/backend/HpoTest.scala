@@ -26,7 +26,6 @@ class HpoTest extends EtlSparkUnitTest {
   import HpoHelpers._
 
   val getEfoDataFrame: PrivateMethod[Dataset[Row]] = PrivateMethod[Dataset[Row]]('getEfoDataframe)
-  //val approvedIndications: PrivateMethod[Dataset[Row]] = PrivateMethod[Dataset[Row]]('approvedIndications)
   import sparkSession.implicits._
 
   "Processing EFO metadata" should "return a dataframe with the EFO's disease, name and dbXRefId" in {
@@ -49,10 +48,6 @@ class HpoTest extends EtlSparkUnitTest {
     val expectedColumns = Set("disease", "resource")
     // when
     val results: DataFrame = inputDF.getMondo(diseaseDF)
-
-    results.printSchema()
-    results.columns.foreach(x => println(x))
-    expectedColumns.foreach(y => println(y))
 
     // then
     expectedColumns.forall(expectedCol => results.columns.contains(expectedCol))
