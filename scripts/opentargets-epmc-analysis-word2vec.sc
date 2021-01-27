@@ -1,3 +1,8 @@
+// how to get the vectors, operate and find synonyms
+// val vectors = model.getVectors
+//  .filter($"word" isInCollection(Seq(pi3k, atk1, "ENSG00000105221", "ENSG00000140992", "ENSG00000152256")))
+//  .agg(Summarizer.sum($"vector").as("v")).select("v").collect.head.getAs[Vector]("v")
+// model.findSynonyms(vectors, 10).show()
 import $file.resolvers
 import $file.opentargetsFunctions
 
