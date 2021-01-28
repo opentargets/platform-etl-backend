@@ -15,60 +15,55 @@ import io.opentargets.etl.backend.spark.Helpers.{
   IOResourceConfs,
   IOResources
 }
-object DiseaseHelpers {
-  implicit class AggregationHelpers(df: DataFrame)(implicit ss: SparkSession) {
-    import Configuration._
-    import ss.implicits._
 
-    def setIdAndSelectFromDiseases: DataFrame = {
-
-      val efosSummary = df
-        .withColumn(
-          "ancestors",
-          array_except(
-            array_distinct(flatten(col("path_codes"))),
-            array(col("id"))
-          )
-        )
-
-      val descendants = efosSummary
-        .where(size(col("ancestors")) > 0)
-        .withColumn("ancestor", explode(concat(array(col("id")), col("ancestors"))))
-        .groupBy("ancestor")
-        .agg(collect_set(col("id")).as("descendants"))
-        .withColumnRenamed("ancestor", "id")
-        .withColumn(
-          "descendants",
-          array_except(
-            col("descendants"),
-            array(col("id"))
-          )
-        )
-
-      val efos = efosSummary
-        .join(descendants, Seq("id"), "left")
-
-      val efosRenamed = efos
-        .withColumnRenamed("label", "name")
-        .withColumnRenamed("definition", "description")
-        .withColumnRenamed("therapeutic_codes", "therapeuticAreas")
-        .withColumnRenamed("obsolete_terms", "obsoleteTerms")
-        .drop("path_codes",
-              "definition_alternatives",
-              "therapeutic_codes"
-        )
-
-      efosRenamed
-
-    }
-  }
-}
 
 object Disease extends LazyLogging {
+
+  def setIdAndSelectFromDiseases(df:DataFrame): DataFrame = {
+
+    val efosSummary = df
+      .withColumn(
+        "ancestors",
+        array_except(
+          array_distinct(flatten(col("path_codes"))),
+          array(col("id"))
+        )
+      )
+
+    val descendants = efosSummary
+      .where(size(col("ancestors")) > 0)
+      .withColumn("ancestor", explode(concat(array(col("id")), col("ancestors"))))
+      .groupBy("ancestor")
+      .agg(collect_set(col("id")).as("descendants"))
+      .withColumnRenamed("ancestor", "id")
+      .withColumn(
+        "descendants",
+        array_except(
+          col("descendants"),
+          array(col("id"))
+        )
+      )
+
+    val efos = efosSummary
+      .join(descendants, Seq("id"), "left")
+
+    val efosRenamed = efos
+      .withColumnRenamed("label", "name")
+      .withColumnRenamed("definition", "description")
+      .withColumnRenamed("therapeutic_codes", "therapeuticAreas")
+      .withColumnRenamed("obsolete_terms", "obsoleteTerms")
+      .drop("path_codes",
+        "definition_alternatives",
+        "therapeutic_codes"
+      )
+
+    efosRenamed
+
+  }
+
   def compute()(implicit context: ETLSessionContext): DataFrame = {
     implicit val ss = context.sparkSession
     import ss.implicits._
-    import DiseaseHelpers._
 
     val diseaseConfiguration = context.configuration.disease
 
@@ -79,7 +74,7 @@ object Disease extends LazyLogging {
 
     val inputDataFrames = Helpers.readFrom(mappedInputs)
 
-    val diseaseDF = inputDataFrames("disease").setIdAndSelectFromDiseases
+    val diseaseDF = setIdAndSelectFromDiseases(inputDataFrames("disease"))
 
     diseaseDF
   }
@@ -87,7 +82,6 @@ object Disease extends LazyLogging {
   def apply()(implicit context: ETLSessionContext) = {
     implicit val ss = context.sparkSession
     import ss.implicits._
-    import DiseaseHelpers._
 
     logger.info("transform disease dataset")
     // compute is mandatory for running Connection.
