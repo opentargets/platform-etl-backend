@@ -205,6 +205,7 @@ object Transformers {
     }
 
     def setIdAndSelectFromDiseases(
+        phenotypeNames: DataFrame,
         associations: DataFrame,
         associatedDrugs: DataFrame,
         targets: DataFrame,
@@ -245,8 +246,13 @@ object Transformers {
           mean(col("score")).as("disease_relevance")
         )
 
-      df.withColumn("phenotype_labels", expr("phenotypes.rows.name"))
+      df.join(phenotypeNames, Seq("diseaseId"), "left_outer")
         .join(assocsWithLabels, Seq("diseaseId"), "left_outer")
+        .withColumn(
+          "phenotype_labels",
+          when(col("phenotype_labels").isNull, Array.empty[String])
+            .otherwise(col("phenotype_labels"))
+        )
         .withColumn(
           "target_labels",
           when(col("target_labels").isNull, Array.empty[String])
@@ -263,21 +269,30 @@ object Transformers {
           C.flattenCat(
             "array(name)",
             "array(id)",
-            "synonyms"
+            "synonyms.hasBroadSynonym",
+            "synonyms.hasExactSynonym",
+            "synonyms.hasNarrowSynonym",
+            "synonyms.hasRelatedSynonym"
           )
         )
         .withColumn(
           "prefixes",
           C.flattenCat(
             "array(name)",
-            "synonyms"
+            "synonyms.hasBroadSynonym",
+            "synonyms.hasExactSynonym",
+            "synonyms.hasNarrowSynonym",
+            "synonyms.hasRelatedSynonym"
           )
         )
         .withColumn(
           "ngrams",
           C.flattenCat(
             "array(name)",
-            "synonyms",
+            "synonyms.hasBroadSynonym",
+            "synonyms.hasExactSynonym",
+            "synonyms.hasNarrowSynonym",
+            "synonyms.hasRelatedSynonym",
             "phenotype_labels"
           )
         )
@@ -459,6 +474,8 @@ object Search extends LazyLogging {
     val searchSec = context.configuration.search
     val mappedInputs = Map(
       "disease" -> searchSec.inputs.diseases,
+      "diseasehpo" -> searchSec.inputs.diseasehpo,
+      "hpo" -> searchSec.inputs.hpo,
       "drug" -> searchSec.inputs.drugs.drug,
       "mechanism" -> searchSec.inputs.drugs.mechanismOfAction,
       "indication" -> searchSec.inputs.drugs.indications,
@@ -473,6 +490,16 @@ object Search extends LazyLogging {
     val diseases = inputDataFrame("disease")
       .transform(Transformers.processDiseases)
       .resolveTALabels("diseaseId", "therapeutic_labels")
+      .orderBy(col("diseaseId"))
+      .persist(StorageLevel.DISK_ONLY)
+
+    logger.info("process hpo and hpo disease and persist")
+    val phenotypeNames = inputDataFrame("diseasehpo")
+      .join(inputDataFrame("hpo"),col("phenotype") === col("id"))
+      .select("disease", "phenotype","name")
+      .groupBy("disease")
+      .agg(collect_set("name") as "phenotype_labels")
+      .withColumnRenamed("disease","diseaseId")
       .orderBy(col("diseaseId"))
       .persist(StorageLevel.DISK_ONLY)
 
@@ -600,6 +627,7 @@ object Search extends LazyLogging {
     logger.info("generate search objects for disease entity")
     val searchDiseases = diseases
       .setIdAndSelectFromDiseases(
+        phenotypeNames,
         associationScores,
         associationsWithDrugsFromEvidencesWithScores,
         tLUT,
