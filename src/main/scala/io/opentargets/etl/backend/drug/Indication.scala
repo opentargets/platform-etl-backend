@@ -20,7 +20,6 @@ import org.apache.spark.sql.functions._
   * ---- references
   * ------ source
   * ------ ids
-  * ------ urls
   */
 object Indication extends Serializable with LazyLogging {
   private val efoIdName: String = "efo_id"
@@ -70,8 +69,7 @@ object Indication extends Serializable with LazyLogging {
         col(efoIdName),
         col("max_phase_for_ind"),
         col("r.ref_id"),
-        col("r.ref_type"),
-        col("r.ref_url"))
+        col("r.ref_type"))
       // remove indications we can't link to a disease.
       .filter(col(efoIdName).isNotNull)
       // handle case where clinical trials packs multiple ids into a csv string
@@ -80,14 +78,12 @@ object Indication extends Serializable with LazyLogging {
       // group reference ids and urls by ref_type
       .groupBy("id", efoIdName, "ref_type")
       .agg(max("max_phase_for_ind").as("max_phase_for_ind"),
-        collect_list("ref_id").as("ids"),
-        collect_list("ref_url").as("urls"))
+        collect_list("ref_id").as("ids"))
       // nest references and find max_phase
       .withColumn("references",
         struct(
           col("ref_type").as("source"),
-          col("ids"),
-          col("urls")
+          col("ids")
         ))
       .groupBy("id", efoIdName)
       .agg(
