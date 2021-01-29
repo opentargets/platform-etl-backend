@@ -10,7 +10,7 @@ import com.typesafe.config.Config
 import io.opentargets.etl.backend.spark.Helpers
 import io.opentargets.etl.backend.spark.Helpers.IOResourceConfig
 
-object CancerBiomarkersHelpers {
+object CancerBiomarkersHelpers extends LazyLogging {
   implicit class AggregationHelpers(df: DataFrame)(implicit ss: SparkSession) {
     import Configuration._
     import ss.implicits._
@@ -37,13 +37,13 @@ object CancerBiomarkersHelpers {
         .withColumn("details", explode(col("cancerBiomarkersDetails")))
         .drop("cancerBiomarkersDetails")
         .groupBy(
-          col("details.individualbiomarker"),
-          col("details.biomarkerId"),
-          col("details.drugName"),
-          col("details.associationType"),
-          col("details.evidenceLevel"),
-          col("details.sourcesPubmedRoot"),
-          col("details.sourcesOtherRoot"),
+          col("details.individualbiomarker") as "individualbiomarker",
+          col("details.biomarkerId") as "biomarkerId",
+          col("details.drugName") as "drugName",
+          col("details.associationType") as "associationType",
+          col("details.evidenceLevel") as "evidenceLevel",
+          col("details.sourcesPubmedRoot") as "sourcesPubmedRoot",
+          col("details.sourcesOtherRoot") as "sourcesOtherRoot",
           col("target")
         )
         .agg(collect_list("details.diseases").as("diseasesNested"))
