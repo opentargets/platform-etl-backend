@@ -395,7 +395,7 @@ object Transformers {
           when(col("diseaseIds").isNull, Array.empty[String])
             .otherwise(col("diseaseIds"))
         )
-        .withColumn("descriptions", expr("mechanismsOfAction.rows.mechanismOfAction"))
+        .withColumn("descriptions", expr("rows.mechanismOfAction"))
         .withColumn(
           "keywords",
           C.flattenCat(
