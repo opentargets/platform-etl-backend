@@ -87,18 +87,16 @@ object Configuration extends LazyLogging {
                           outputs: DrugOutputs
   )
 
-  case class HpoOutputs(hpo: IOResourceConfig, diseaseHpo: IOResourceConfig)
-  case class HpoSection(
-                        diseaseEtl: IOResourceConfig,
-                        mondoOntology: IOResourceConfig,
-                        hpoOntology: IOResourceConfig,
-                        hpoPhenotype: IOResourceConfig,
-                        outputs: HpoOutputs
+  case class DiseaseOutput(
+                           diseases: IOResourceConfig,
+                           hpo: IOResourceConfig,
+                           diseaseHpo: IOResourceConfig
   )
-
-  case class DiseaseOutput(diseases: IOResourceConfig)
   case class DiseaseSection(
                             efoOntology: IOResourceConfig,
+                            mondoOntology: IOResourceConfig,
+                            hpoOntology: IOResourceConfig,
+                            hpoPhenotype: IOResourceConfig,
                             outputs: DiseaseOutput
   )
 
@@ -145,7 +143,6 @@ object Configuration extends LazyLogging {
       evidences: EvidencesSection,
       drug: DrugSection,
       disease: DiseaseSection,
-      hpo: HpoSection,
       knownDrugs: KnownDrugsSection,
       search: SearchSection,
       aotf: AOTFSection
