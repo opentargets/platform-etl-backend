@@ -12,7 +12,10 @@ object Configuration extends LazyLogging {
 
   case class DataSource(id: String, weight: Double, dataType: String, propagate: Boolean)
 
-  case class EvidenceEntry(id: String, uniqueFields: List[String], scoreExpr: String)
+  case class EvidenceEntry(id: String,
+                           uniqueFields: List[String],
+                           scoreExpr: String,
+                           excludedBiotypes: Option[List[String]])
 
   case class EvidenceInputsSection(rawEvidences: IOResourceConfig,
                                    diseases: IOResourceConfig,
@@ -51,8 +54,7 @@ object Configuration extends LazyLogging {
                                diseases: IOResourceConfig,
                                targets: IOResourceConfig)
 
-  case class AOTFOutputsSection(clickhouse: IOResourceConfig,
-                                elasticsearch: IOResourceConfig)
+  case class AOTFOutputsSection(clickhouse: IOResourceConfig, elasticsearch: IOResourceConfig)
 
   case class AOTFSection(
       outputs: AOTFOutputsSection,
@@ -73,33 +75,35 @@ object Configuration extends LazyLogging {
 
   case class InputExtension(extensionType: String, input: IOResourceConfig)
 
-  case class DrugOutputs(drug: IOResourceConfig, mechanismOfAction: IOResourceConfig, indications: IOResourceConfig)
+  case class DrugOutputs(drug: IOResourceConfig,
+                         mechanismOfAction: IOResourceConfig,
+                         indications: IOResourceConfig)
   case class DrugSection(
-                          chemblMolecule: IOResourceConfig,
-                          chemblIndication: IOResourceConfig,
-                          chemblMechanism: IOResourceConfig,
-                          chemblTarget: IOResourceConfig,
-                          drugbankToChembl: IOResourceConfig,
-                          drugExtensions: Seq[InputExtension],
-                          diseaseEtl: IOResourceConfig,
-                          targetEtl: IOResourceConfig,
-                          evidenceEtl: IOResourceConfig,
-                          outputs: DrugOutputs
+      chemblMolecule: IOResourceConfig,
+      chemblIndication: IOResourceConfig,
+      chemblMechanism: IOResourceConfig,
+      chemblTarget: IOResourceConfig,
+      drugbankToChembl: IOResourceConfig,
+      drugExtensions: Seq[InputExtension],
+      diseaseEtl: IOResourceConfig,
+      targetEtl: IOResourceConfig,
+      evidenceEtl: IOResourceConfig,
+      outputs: DrugOutputs
   )
 
   case class HpoOutputs(hpo: IOResourceConfig, diseaseHpo: IOResourceConfig)
   case class HpoSection(
-                        diseaseEtl: IOResourceConfig,
-                        mondoOntology: IOResourceConfig,
-                        hpoOntology: IOResourceConfig,
-                        hpoPhenotype: IOResourceConfig,
-                        outputs: HpoOutputs
+      diseaseEtl: IOResourceConfig,
+      mondoOntology: IOResourceConfig,
+      hpoOntology: IOResourceConfig,
+      hpoPhenotype: IOResourceConfig,
+      outputs: HpoOutputs
   )
 
   case class DiseaseOutput(diseases: IOResourceConfig)
   case class DiseaseSection(
-                            efoOntology: IOResourceConfig,
-                            outputs: DiseaseOutput
+      efoOntology: IOResourceConfig,
+      outputs: DiseaseOutput
   )
 
   case class Inputs(
@@ -132,8 +136,8 @@ object Configuration extends LazyLogging {
                                  associations: IOResourceConfig)
 
   case class SearchOutputsSection(targets: IOResourceConfig,
-                                 diseases: IOResourceConfig,
-                                 drugs: IOResourceConfig)
+                                  diseases: IOResourceConfig,
+                                  drugs: IOResourceConfig)
 
   case class SearchSection(inputs: SearchInputsSection, outputs: SearchOutputsSection)
 

@@ -19,7 +19,7 @@ object KnownDrugsHelpers {
         col("targetId")
       )
       .agg(
-        array_distinct(flatten(collect_list(col("clinicalUrls")))).as("urls")
+        array_distinct(flatten(collect_list(col("urls")))).as("urls")
       )
 
     dfDirect
