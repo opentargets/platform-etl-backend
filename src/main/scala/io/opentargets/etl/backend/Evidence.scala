@@ -10,6 +10,8 @@ import org.apache.spark.sql.types._
 import org.apache.spark.storage.StorageLevel
 import spark.{Helpers => H}
 
+import scala.util.Random
+
 object Evidence extends LazyLogging {
 
   object UDFs {
@@ -352,6 +354,46 @@ object Evidence extends LazyLogging {
     reshapedDF
   }
 
+  def excludeByBiotype(df: DataFrame, targets: DataFrame, columnName: String, targetIdCol: String, datasourceIdCol: String)(
+      implicit context: ETLSessionContext): DataFrame = {
+    def mkLUT(df: DataFrame): DataFrame = {
+      df.select(
+        col("id").as(targetIdCol),
+        col("biotype")
+      )
+    }
+
+    logger.info("filter evidences by target biotype exclusion list - default is nothing to exclude")
+
+    val tName = Random.alphanumeric.take(5).mkString("", "", "_")
+    val btsCol = "biotypes"
+    implicit val session = context.sparkSession
+    import session.implicits._
+    val evsConf = broadcast(
+      context.configuration.evidences.dataSources
+        .filter(_.excludedBiotypes.isDefined)
+        .map(ds => (ds.id, ds.excludedBiotypes.get))
+        .toDF(datasourceIdCol, btsCol)
+        .withColumn("biotype", explode(col(btsCol)))
+        .withColumn(tName, lit(true))
+        .drop(btsCol)
+    )
+
+    val lut = broadcast(
+      targets
+        .transform(mkLUT)
+        .orderBy(col(targetIdCol).asc)
+    )
+
+    val filtered = df
+      .join(lut, Seq(targetIdCol), "left")
+      .join(evsConf, Seq(datasourceIdCol, "biotype"), "left")
+      .withColumn(columnName, col(tName).isNotNull)
+      .drop("biotype", tName)
+
+    filtered
+  }
+
   def resolveTargets(df: DataFrame,
                      targets: DataFrame,
                      columnName: String,
@@ -517,16 +559,20 @@ object Evidence extends LazyLogging {
     val id = "id"
     val sc = "score"
     val ns = "nullifiedScore"
+    val xb = "excludedBiotype"
     val targetId = "targetId"
     val diseaseId = "diseaseId"
     val fromTargetId = "targetFromSourceId"
     val fromDiseaseId = "diseaseFromSourceId"
+    val datasourceId = "datasourceId"
+    val biotypeId = "biotype"
 
     val statAggs = List(
       sum(when(col(rt) === false, 1).otherwise(0)).as(s"#$rt-false"),
       sum(when(col(rd) === false, 1).otherwise(0)).as(s"#$rd-false"),
       sum(when(col(md) === true, 1).otherwise(0)).as(s"#$md-true"),
       sum(when(col(ns) === true, 1).otherwise(0)).as(s"#$ns-true"),
+      sum(when(col(xb) === true, 1).otherwise(0)).as(s"#$xb-true"),
       countDistinct(when(col(rt) === false, col(targetId))).as(s"#$targetId"),
       countDistinct(when(col(rd) === false, col(diseaseId))).as(s"#$diseaseId"),
       count(lit(1)).as(s"#counts")
@@ -536,22 +582,23 @@ object Evidence extends LazyLogging {
       .transform(reshape)
       .transform(resolveTargets(_, dfs("targets"), rt, fromTargetId, targetId))
       .transform(resolveDiseases(_, dfs("diseases"), rd, fromDiseaseId, diseaseId))
+      .transform(excludeByBiotype(_, dfs("targets"), xb, targetId, datasourceId))
       .transform(generateHashes(_, id))
       .transform(score(_, sc))
       .transform(checkNullifiedScores(_, sc, ns))
       .transform(markDuplicates(_, id, md))
       .persist(StorageLevel.DISK_ONLY)
 
-    val okFitler = col(rt) and col(rd) and !col(md) and !col(ns)
+    val okFitler = col(rt) and col(rd) and !col(md) and !col(ns) and !col(xb)
 
     val outputPathConf = context.configuration.evidences.outputs
     Map(
-      "ok" -> (transformedDF.filter(okFitler).drop(rt, rd, md, ns),
-        outputPathConf.succeeded),
+      "ok" -> (transformedDF.filter(okFitler).drop(rt, rd, md, ns, xb),
+      outputPathConf.succeeded),
       "failed" -> (transformedDF.filter(not(okFitler)),
-        outputPathConf.failed),
+      outputPathConf.failed),
       "stats" -> (transformedDF.filter(not(okFitler)).transform(stats(_, statAggs)),
-        outputPathConf.stats)
+      outputPathConf.stats)
     )
   }
 
