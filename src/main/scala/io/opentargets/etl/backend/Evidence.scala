@@ -363,7 +363,7 @@ object Evidence extends LazyLogging {
       )
     }
 
-    logger.info("target resolution evidences and write to out the ones didn't resolve")
+    logger.info("filter evidences by target biotype exclusion list - default is nothing to exclude")
 
     val tName = Random.alphanumeric.take(5).mkString("", "", "_")
     val btsCol = "biotypes"
