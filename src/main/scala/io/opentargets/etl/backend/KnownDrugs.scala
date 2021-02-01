@@ -56,49 +56,48 @@ object KnownDrugs extends LazyLogging {
     import KnownDrugsHelpers._
     import ss.implicits._
 
-    val diseases = inputs("disease")
-      .select(
-        $"id".as("diseaseId"),
-        $"ancestors",
-        $"name".as("label")
-      )
-      .orderBy($"diseaseId".asc)
-      .persist(StorageLevel.DISK_ONLY)
+    val diseases = broadcast(
+      inputs("disease")
+        .select(
+          $"id".as("diseaseId"),
+          $"ancestors",
+          $"name".as("label")
+        )
+        .orderBy($"diseaseId".asc))
 
-    val targets = inputs("target")
-      .select(
-        $"id".as("targetId"),
-        $"approvedSymbol",
-        $"approvedName",
-        array_distinct(transform(expr("proteinAnnotations.classes"),
-                                 c => c.getField("l1").getField("label"))).as("targetClass")
-      )
-      .orderBy($"targetId".asc)
-      .persist(StorageLevel.DISK_ONLY)
+    val targets = broadcast(
+      inputs("target")
+        .select(
+          $"id".as("targetId"),
+          $"approvedSymbol",
+          $"approvedName",
+          array_distinct(transform(expr("proteinAnnotations.classes"),
+                                   c => c.getField("l1").getField("label"))).as("targetClass")
+        )
+        .orderBy($"targetId".asc))
 
-    val drugs = inputs("drug")
-      .join(inputs("mechanism").withColumn("id", explode($"chemblIds")).drop("chemblIds"),
-        Seq("id"))
-      .select(
-        $"id".as("drugId"),
-        $"name".as("prefName"),
-        $"tradeNames",
-        $"synonyms",
-        $"drugType",
-        $"mechanismOfAction",
-        $"references",
-        $"targetName",
-        $"targets"
-      )
-      .filter(size($"targets") > 0)
-      .withColumn("targetId", explode($"targets"))
-      .drop("targets")
-      .dropDuplicates
-      .orderBy($"drugId".asc, $"targetId".asc)
-      .persist(StorageLevel.DISK_ONLY)
+    val drugs = broadcast(
+      inputs("drug")
+        .join(inputs("mechanism").withColumn("id", explode($"chemblIds")).drop("chemblIds"),
+              Seq("id"))
+        .select(
+          $"id".as("drugId"),
+          $"name".as("prefName"),
+          $"tradeNames",
+          $"synonyms",
+          $"drugType",
+          $"mechanismOfAction",
+          $"references",
+          $"targetName",
+          $"targets"
+        )
+        .filter(size($"targets") > 0)
+        .withColumn("targetId", explode($"targets"))
+        .drop("targets")
+        .dropDuplicates("drugId", "targetId")
+        .orderBy($"drugId".asc, $"targetId".asc))
 
     val knownDrugsDF = inputs("evidence")
-      .drop("targetName", "targetSymbol", "diseaseLabel")
       .filter($"sourceId" isInCollection datasources)
       .transform(aggregateDrugsByOntology)
       .join(diseases, Seq("diseaseId"))
