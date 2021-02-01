@@ -106,7 +106,6 @@ object Configuration extends LazyLogging {
 
   case class Inputs(
       target: InputInfo,
-      ddr: InputInfo,
       reactome: InputInfo,
       eco: InputInfo,
       expression: InputInfo,

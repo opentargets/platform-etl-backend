@@ -51,9 +51,6 @@ object ETL extends LazyLogging {
       case "cancerBiomarkers" =>
         logger.info("run step cancerBiomarkers")
         CancerBiomarkers()
-      case "ddr" =>
-        logger.info("run step dataDrivenRelation")
-        DataDrivenRelation()
       case "association" =>
         logger.info("run step association")
         Association()
