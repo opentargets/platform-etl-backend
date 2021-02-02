@@ -1,7 +1,7 @@
 package io.opentargets.etl.backend
 
-import com.typesafe.scalalogging.LazyLogging
 import com.typesafe.config.ConfigFactory
+import com.typesafe.scalalogging.LazyLogging
 import io.opentargets.etl.backend.spark.Helpers.IOResourceConfig
 import pureconfig.ConfigReader.Result
 import pureconfig._
@@ -147,6 +147,10 @@ object Configuration extends LazyLogging {
 
   case class SearchSection(inputs: SearchInputsSection, outputs: SearchOutputsSection)
 
+  case class Target(input: TargetInput, output: TargetOutput)
+  case class TargetInput(hgnc: IOResourceConfig)
+  case class TargetOutput()
+
   case class OTConfig(
       sparkUri: Option[String],
       common: Common,
@@ -157,7 +161,8 @@ object Configuration extends LazyLogging {
       interactions: InteractionsSection,
       knownDrugs: KnownDrugsSection,
       search: SearchSection,
-      aotf: AOTFSection
+      aotf: AOTFSection,
+      target: Target
   )
 
   def load: ConfigReader.Result[OTConfig] = {
