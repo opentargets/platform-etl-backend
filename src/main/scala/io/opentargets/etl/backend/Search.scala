@@ -319,11 +319,6 @@ object Transformers {
         )
         .withColumn("entity", lit("disease"))
         .withColumn("category", col("therapeutic_labels"))
-//        .withColumn(
-//          "description",
-//          when(length(col("description")) === 0, lit(null))
-//            .otherwise(col("description"))
-//        )
         .withColumn(
           "multiplier",
           when(col("disease_relevance").isNotNull, log1p(col("disease_relevance")) + lit(1.0d))
@@ -430,7 +425,6 @@ object Transformers {
         // put the drug type in another field
         .withColumn("entity", lit("drug"))
         .withColumn("category", array(col("drugType")))
-        .withColumn("description", lit(null))
         .withColumn(
           "multiplier",
           when(col("drug_relevance").isNotNull, log1p(col("drug_relevance")) + lit(1.0d))
@@ -474,7 +468,7 @@ object Search extends LazyLogging {
     val searchSec = context.configuration.search
     val mappedInputs = Map(
       "disease" -> searchSec.inputs.diseases,
-      "diseasehpo" -> searchSec.inputs.diseasehpo,
+      "diseasehpo" -> searchSec.inputs.diseaseHpo,
       "hpo" -> searchSec.inputs.hpo,
       "drug" -> searchSec.inputs.drugs.drug,
       "mechanism" -> searchSec.inputs.drugs.mechanismOfAction,
