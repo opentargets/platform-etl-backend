@@ -63,14 +63,6 @@ object Configuration extends LazyLogging {
 
   case class EvidenceProteinFix(input: String, output: String)
 
-  case class InteractionsSection(
-      rnacentral: InputInfo,
-      humanmapping: InputInfo,
-      ensproteins: InputInfo,
-      intact: InputInfo,
-      strings: InputInfo
-  )
-
   case class InputInfo(format: String, path: String)
 
   case class InputExtension(extensionType: String, input: IOResourceConfig)
@@ -104,14 +96,27 @@ object Configuration extends LazyLogging {
                             outputs: DiseaseOutput
   )
 
+  case class InteractionsOutput(
+                            interactions: IOResourceConfig,
+                            interactionsEvidence: IOResourceConfig
+                          )
+
+  case class InteractionsSection(
+                            rnacentral: IOResourceConfig,
+                            humanmapping: IOResourceConfig,
+                            ensproteins: IOResourceConfig,
+                            intact: IOResourceConfig,
+                            strings: IOResourceConfig,
+                            outputs: InteractionsOutput
+  )
+
   case class Inputs(
       target: InputInfo,
       reactome: InputInfo,
       eco: InputInfo,
       expression: InputInfo,
       tep: InputInfo,
-      mousephenotypes: InputInfo,
-      interactions: InteractionsSection
+      mousephenotypes: InputInfo
   )
 
   case class Common(defaultSteps: Seq[String], inputs: Inputs, output: String, outputFormat: String)
@@ -145,6 +150,7 @@ object Configuration extends LazyLogging {
       evidences: EvidencesSection,
       drug: DrugSection,
       disease: DiseaseSection,
+      interactions: InteractionsSection,
       knownDrugs: KnownDrugsSection,
       search: SearchSection,
       aotf: AOTFSection
