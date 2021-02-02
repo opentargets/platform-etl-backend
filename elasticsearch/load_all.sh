@@ -9,6 +9,8 @@ export ES=${ETL_ES:-"http://localhost:9200"}
 
 ./load_targets.sh
 ./load_diseases.sh
+./load_disease_hpo.sh
+./load_hpo.sh
 ./load_drugs.sh
 ./load_eco.sh
 ./load_so.sh

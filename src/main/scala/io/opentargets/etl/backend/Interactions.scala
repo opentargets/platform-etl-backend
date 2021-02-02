@@ -7,8 +7,11 @@ import org.apache.spark.sql.functions.col
 import org.apache.spark.sql._
 import org.apache.spark.sql.types._
 import com.typesafe.config.Config
-import io.opentargets.etl.backend.spark.Helpers.IOResources
-import io.opentargets.etl.backend.spark.Helpers.IOResourceConfig
+import io.opentargets.etl.backend.spark.Helpers.{
+  IOResourceConfig,
+  IOResourceConfs,
+  IOResources
+}
 import org.apache.spark.sql.functions.udf
 import spark.{Helpers => Helpers}
 
@@ -242,11 +245,6 @@ object InteractionsHelpers extends LazyLogging {
       interactionEvidences
     }
 
-    // Not used but it might be useful in the future for debugging purpose.
-    def getBUnmatch: DataFrame = {
-      df.filter(col("targetB") === col("intB")).filter(col("speciesB.taxonId") === 9606)
-    }
-
     /** filter the unmapped entries
       * @return a DataFrame
       */
@@ -256,6 +254,7 @@ object InteractionsHelpers extends LazyLogging {
           "((targetA = intA) and (speciesA.taxonId = 9606))"
         )
         .selectExpr("targetA as target", "intA as interactor")
+
       val missedMatchB = df
         .filter(
           "((targetB = intB) and (speciesB.taxonId = 9606))"
@@ -360,28 +359,15 @@ object Interactions extends LazyLogging {
     import ss.implicits._
     import InteractionsHelpers._
 
-    val common = context.configuration.common
+    logger.info("Loading raw inputs for Interactin step.")
+    val interactionsConfiguration = context.configuration.interactions
+
     val mappedInputs = Map(
-      "rnacentral" -> IOResourceConfig(
-        common.inputs.interactions.rnacentral.format,
-        common.inputs.interactions.rnacentral.path
-      ),
-      "humanmapping" -> IOResourceConfig(
-        common.inputs.interactions.humanmapping.format,
-        common.inputs.interactions.humanmapping.path
-      ),
-      "ensproteins" -> IOResourceConfig(
-        common.inputs.interactions.ensproteins.format,
-        common.inputs.interactions.ensproteins.path
-      ),
-      "intact" -> IOResourceConfig(
-        common.inputs.interactions.intact.format,
-        common.inputs.interactions.intact.path
-      ),
-      "strings" -> IOResourceConfig(
-        common.inputs.interactions.strings.format,
-        common.inputs.interactions.strings.path
-      )
+      "rnacentral" -> interactionsConfiguration.rnacentral,
+      "humanmapping" -> interactionsConfiguration.humanmapping,
+      "ensproteins" -> interactionsConfiguration.ensproteins,
+      "intact" -> interactionsConfiguration.intact,
+      "strings" -> interactionsConfiguration.strings
     )
 
     // Compute Target in order to retrieve the list of valid genes.
@@ -403,9 +389,10 @@ object Interactions extends LazyLogging {
       .repartitionByRange(500, $"targetA".asc, $"targetB".asc)
 
     Map(
-      "interactionEvidences" -> interactionEvidences,
-      "interactions" -> aggregationInteractions,
-      "interactionUnmatch" -> interactionEvidences.getUnmatch
+      "interactionsEvidence" -> interactionEvidences,
+      "interactions" -> aggregationInteractions
+      // This can be transformed into a ammonite script.
+      //"interactionUnmatch" -> interactionEvidences.getUnmatch
     )
   }
 
@@ -417,11 +404,17 @@ object Interactions extends LazyLogging {
 
     val otnetworksDF = compute()
 
-    val outputs = otnetworksDF.keys map (name =>
-      name -> Helpers.IOResourceConfig(common.outputFormat, common.output + s"/$name")
+    val outputs = context.configuration.interactions.outputs
+
+    val dataframesToSave: Map[String, (DataFrame, IOResourceConfig)] = Map(
+      "interactions" -> (otnetworksDF("interactions"), outputs.interactions),
+      "interactionsEvidence" -> (otnetworksDF("interactionsEvidence"), outputs.interactionsEvidence)
     )
 
-    Helpers.writeTo(outputs.toMap, otnetworksDF)
+    val ioResources: IOResources = dataframesToSave mapValues (_._1)
+    val saveConfigs: IOResourceConfs = dataframesToSave mapValues (_._2)
+
+    Helpers.writeTo(saveConfigs, ioResources)
 
   }
 }
