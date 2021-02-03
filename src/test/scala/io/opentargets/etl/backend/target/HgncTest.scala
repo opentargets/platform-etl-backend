@@ -1,7 +1,6 @@
 package io.opentargets.etl.backend.target
 
 import io.opentargets.etl.backend.EtlSparkUnitTest
-import io.opentargets.etl.backend.drug.Indication
 import io.opentargets.etl.backend.target.HgncTest.hgncRawDf
 import org.apache.spark.sql.{DataFrame, Dataset, Row, SparkSession}
 

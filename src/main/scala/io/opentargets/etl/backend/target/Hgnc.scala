@@ -1,5 +1,6 @@
 package io.opentargets.etl.backend.target
 
+import com.typesafe.scalalogging.LazyLogging
 import io.opentargets.etl.backend.spark.Helpers
 import org.apache.spark.sql.{DataFrame, Dataset, SparkSession}
 import org.apache.spark.sql.functions.{col, explode}
@@ -16,9 +17,10 @@ case class Hgnc(ensemblId: String,
                 entrezId: String,
                 uniprotIds: Array[String],
                 pubmedIds: Array[Long])
-object Hgnc {
+object Hgnc extends LazyLogging {
 
   def apply(hgncRaw: DataFrame)(implicit ss: SparkSession): Dataset[Hgnc] = {
+    logger.info("Transforming HGNC inputs.")
     val hgnc = hgncRaw.select(explode(col("response.docs"))).select("col.*")
     selectAndRenameFields(hgnc)
 

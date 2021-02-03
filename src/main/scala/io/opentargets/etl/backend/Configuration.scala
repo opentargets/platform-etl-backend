@@ -10,6 +10,16 @@ import pureconfig.generic.auto._
 object Configuration extends LazyLogging {
   lazy val config: Result[OTConfig] = load
 
+  def load: ConfigReader.Result[OTConfig] = {
+    logger.info("load configuration from file")
+    val config = ConfigFactory.load()
+
+    val obj = ConfigSource.fromConfig(config).load[OTConfig]
+    logger.debug(s"configuration properly case classed ${obj.toString}")
+
+    obj
+  }
+
   case class DataSource(id: String, weight: Double, dataType: String, propagate: Boolean)
 
   case class EvidenceEntry(id: String,
@@ -148,7 +158,12 @@ object Configuration extends LazyLogging {
   case class SearchSection(inputs: SearchInputsSection, outputs: SearchOutputsSection)
 
   case class Target(input: TargetInput, output: TargetOutput, hgncOrthologSpecies: List[String])
-  case class TargetInput(hgnc: IOResourceConfig, ortholog: IOResourceConfig)
+
+  case class TargetInput(hgnc: IOResourceConfig,
+                         ortholog: IOResourceConfig,
+                         ensembl: IOResourceConfig,
+                         uniprot: IOResourceConfig)
+
   case class TargetOutput()
 
   case class OTConfig(
@@ -162,16 +177,6 @@ object Configuration extends LazyLogging {
       knownDrugs: KnownDrugsSection,
       search: SearchSection,
       aotf: AOTFSection,
-       target: Target
+      target: Target
   )
-
-  def load: ConfigReader.Result[OTConfig] = {
-    logger.info("load configuration from file")
-    val config = ConfigFactory.load()
-
-    val obj = ConfigSource.fromConfig(config).load[OTConfig]
-    logger.debug(s"configuration properly case classed ${obj.toString}")
-
-    obj
-  }
 }
