@@ -4,21 +4,8 @@ import com.typesafe.scalalogging.LazyLogging
 import io.opentargets.etl.backend.ETLSessionContext
 import io.opentargets.etl.backend.drug.DrugCommon._
 import io.opentargets.etl.backend.spark.Helpers
-import io.opentargets.etl.backend.spark.Helpers.{
-  IOResourceConfig,
-  IOResourceConfs,
-  IOResources,
-  nest
-}
-import org.apache.spark.sql.functions.{
-  array_contains,
-  coalesce,
-  col,
-  explode,
-  lit,
-  map_keys,
-  typedLit
-}
+import io.opentargets.etl.backend.spark.Helpers.{IOResourceConfig, IOResourceConfs, IOResources}
+import org.apache.spark.sql.functions._
 import org.apache.spark.sql.{Column, DataFrame, SparkSession}
 
 /**
@@ -116,7 +103,9 @@ object Drug extends Serializable with LazyLogging {
 
     val dataframesToSave: Map[String, (DataFrame, IOResourceConfig)] = Map(
       "drug" -> (drugDf, outputs.drug),
-      "mechanism_of_action" -> (mechanismOfActionProcessedDf, outputs.mechanismOfAction),
+      // coalesce as otherwise the ~5k mechanisms are spread over 200 files.
+      "mechanism_of_action" -> (mechanismOfActionProcessedDf
+        .coalesce(10), outputs.mechanismOfAction),
       "indication" -> (indicationProcessedDf, outputs.indications)
     )
 
