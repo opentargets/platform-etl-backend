@@ -103,9 +103,7 @@ object Drug extends Serializable with LazyLogging {
 
     val dataframesToSave: Map[String, (DataFrame, IOResourceConfig)] = Map(
       "drug" -> (drugDf, outputs.drug),
-      // coalesce as otherwise the ~5k mechanisms are spread over 200 files.
-      "mechanism_of_action" -> (mechanismOfActionProcessedDf
-        .coalesce(10), outputs.mechanismOfAction),
+      "mechanism_of_action" -> (mechanismOfActionProcessedDf, outputs.mechanismOfAction),
       "indication" -> (indicationProcessedDf, outputs.indications)
     )
 
