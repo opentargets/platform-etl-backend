@@ -4,21 +4,8 @@ import com.typesafe.scalalogging.LazyLogging
 import io.opentargets.etl.backend.ETLSessionContext
 import io.opentargets.etl.backend.drug.DrugCommon._
 import io.opentargets.etl.backend.spark.Helpers
-import io.opentargets.etl.backend.spark.Helpers.{
-  IOResourceConfig,
-  IOResourceConfs,
-  IOResources,
-  nest
-}
-import org.apache.spark.sql.functions.{
-  array_contains,
-  coalesce,
-  col,
-  explode,
-  lit,
-  map_keys,
-  typedLit
-}
+import io.opentargets.etl.backend.spark.Helpers.{IOResourceConfig, IOResourceConfs, IOResources}
+import org.apache.spark.sql.functions._
 import org.apache.spark.sql.{Column, DataFrame, SparkSession}
 
 /**

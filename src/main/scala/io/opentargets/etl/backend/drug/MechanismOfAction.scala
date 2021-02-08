@@ -1,6 +1,5 @@
 package io.opentargets.etl.backend.drug
 
-import MechanismOfAction.{chemblMechanismReferences, chemblTarget}
 import com.typesafe.scalalogging.LazyLogging
 import io.opentargets.etl.backend.spark.Helpers.validateDF
 import org.apache.spark.sql.functions._
@@ -64,6 +63,16 @@ object MechanismOfAction extends LazyLogging {
       )
       .drop("id")
       .filter("chemblIds is not null")
+      .distinct
+      .transform(consolidateDuplicateReferences)
+
+  }
+
+  private def consolidateDuplicateReferences(df: DataFrame): DataFrame = {
+    val cols = df.columns.filter(_ != "references")
+    df.groupBy(cols.head, cols.tail: _*)
+      .agg(collect_set("references").as("r"))
+      .withColumn("references", flatten(col("r")))
   }
 
   private def chemblMechanismReferences(dataFrame: DataFrame): DataFrame = {
