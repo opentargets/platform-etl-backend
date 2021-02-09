@@ -1,20 +1,14 @@
 package io.opentargets.etl.backend
 
-import org.apache.spark.SparkConf
 import com.typesafe.scalalogging.LazyLogging
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.functions.col
 import org.apache.spark.sql._
-import org.apache.spark.sql.types._
-import com.typesafe.config.Config
 import io.opentargets.etl.backend.spark.Helpers
-import io.opentargets.etl.backend.spark.Helpers.IOResourceConfig
+import io.opentargets.etl.backend.spark.Helpers.{IOResource, IOResourceConfig, IOResources}
 
 object CancerBiomarkersHelpers extends LazyLogging {
   implicit class AggregationHelpers(df: DataFrame)(implicit ss: SparkSession) {
-    import Configuration._
-    import ss.implicits._
-
     def getBiomarkerTargetDiseaseDrugEntity: DataFrame = {
 
       val selectExpressions = Seq(
@@ -102,30 +96,28 @@ object CancerBiomarkersHelpers extends LazyLogging {
 
 // This is option/step cancerbiomarkers in the config file
 object CancerBiomarkers extends LazyLogging {
-  def apply()(implicit context: ETLSessionContext) = {
-    implicit val ss = context.sparkSession
-    import ss.implicits._
+  def apply()(implicit context: ETLSessionContext): IOResources = {
+    implicit val ss: SparkSession = context.sparkSession
     import CancerBiomarkersHelpers._
 
     val common = context.configuration.common
+    val name = "cancerBiomarkers"
+    val targetDFName = "target"
     val mappedInputs = Map(
-      "target" -> IOResourceConfig(common.inputs.target.format, common.inputs.target.path)
+      targetDFName -> IOResourceConfig(common.inputs.target.format, common.inputs.target.path)
     )
-    val inputDataFrame = Helpers.readFrom(mappedInputs)
+    val targets = Helpers.readFrom(mappedInputs).apply(targetDFName).data
 
-    val cancerBiomakerDf = inputDataFrame("target").getBiomarkerTargetDiseaseDrugEntity
+    val cancerBiomarkerConf = IOResourceConfig(
+      context.configuration.common.outputFormat,
+      context.configuration.common.output + s"/$name"
+    )
 
-    val outputs = Seq("cancerBiomarkers")
+    val cancerBiomakerDf = targets.getBiomarkerTargetDiseaseDrugEntity
+    val outputs = Map(
+      name -> IOResource(cancerBiomakerDf, cancerBiomarkerConf)
+    )
 
-    // TODO THIS NEEDS MORE REFACTORING WORK AS IT CAN BE SIMPLIFIED
-    val outputConfs = outputs
-      .map(
-        name =>
-          name -> IOResourceConfig(context.configuration.common.outputFormat,
-                                   context.configuration.common.output + s"/$name"))
-      .toMap
-
-    val outputDFs = (outputs zip Seq(cancerBiomakerDf)).toMap
-    Helpers.writeTo(outputConfs, outputDFs)
+    Helpers.writeTo(outputs)
   }
 }

@@ -1,25 +1,17 @@
 package io.opentargets.etl.backend
 
-import org.apache.spark.SparkConf
 import com.typesafe.scalalogging.LazyLogging
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.functions.col
 import org.apache.spark.sql._
-import org.apache.spark.sql.types._
-import com.typesafe.config.Config
-import io.opentargets.etl.backend.spark.Helpers.{
-  IOResourceConfig,
-  IOResourceConfs,
-  IOResources
-}
+
+import io.opentargets.etl.backend.spark.Helpers.{IOResource, IOResources}
 import org.apache.spark.sql.functions.udf
-import spark.{Helpers => Helpers}
+import spark.Helpers
 
 object InteractionsHelpers extends LazyLogging {
   implicit class AggregationHelpers(df: DataFrame)(implicit ss: SparkSession) {
-
     import Configuration._
-    import ss.implicits._
 
     /** from the RNACentral file generates a dataframe with gene_id, mapped_id Columns.
       * Every single mapping file has to return a common dataframe schema in order to easily union them.
@@ -142,7 +134,9 @@ object InteractionsHelpers extends LazyLogging {
       * @param s string with possible _, -, .  or spaces chars
       * @return a string
       */
-    val getCodeFcn = udf { s: String => s.trim.split("_")(0).split("-")(0) }
+    val getCodeFcn = udf { s: String =>
+      s.trim.split("_")(0).split("-")(0)
+    }
 
     /** generate the interactions from a common Dataframe schema
       * If causalInteraction is true -> swap (A, B) and add to the dataframe
@@ -268,7 +262,6 @@ object InteractionsHelpers extends LazyLogging {
     /** select the fields for the intex interaction_evidences
       * @return a DataFrame
       */
-
     def selectFields: DataFrame = {
       df.selectExpr(
         "targetA",
@@ -354,7 +347,7 @@ object InteractionsHelpers extends LazyLogging {
 // This is option/step interaction in the config file
 object Interactions extends LazyLogging {
 
-  def compute()(implicit context: ETLSessionContext): Map[String, DataFrame] = {
+  def compute()(implicit context: ETLSessionContext): IOResources = {
     implicit val ss = context.sparkSession
     import ss.implicits._
     import InteractionsHelpers._
@@ -375,12 +368,12 @@ object Interactions extends LazyLogging {
     val inputDataFrame = Helpers.readFrom(mappedInputs)
 
     val interactionStringsDF =
-      inputDataFrame("strings").generateStrings(inputDataFrame("ensproteins"))
+      inputDataFrame("strings").data.generateStrings(inputDataFrame("ensproteins").data)
 
-    val interactionIntactDF = inputDataFrame("intact").generateIntacts(
+    val interactionIntactDF = inputDataFrame("intact").data.generateIntacts(
       targets,
-      inputDataFrame("rnacentral"),
-      inputDataFrame("humanmapping")
+      inputDataFrame("rnacentral").data,
+      inputDataFrame("humanmapping").data
     )
 
     val aggregationInteractions = interactionIntactDF.interactionAggreation(interactionStringsDF)
@@ -388,33 +381,20 @@ object Interactions extends LazyLogging {
       .generateEvidences(interactionStringsDF)
       .repartitionByRange(500, $"targetA".asc, $"targetB".asc)
 
+    val outputs = context.configuration.interactions.outputs
+
     Map(
-      "interactionsEvidence" -> interactionEvidences,
-      "interactions" -> aggregationInteractions
+      "interactionsEvidence" -> IOResource(interactionEvidences, outputs.interactionsEvidence),
+      "interactions" -> IOResource(aggregationInteractions, outputs.interactions)
       // This can be transformed into a ammonite script.
       //"interactionUnmatch" -> interactionEvidences.getUnmatch
     )
   }
 
-  def apply()(implicit context: ETLSessionContext) = {
-    implicit val ss = context.sparkSession
-    import ss.implicits._
-
-    val common = context.configuration.common
+  def apply()(implicit context: ETLSessionContext): IOResources = {
+    implicit val ss: SparkSession = context.sparkSession
 
     val otnetworksDF = compute()
-
-    val outputs = context.configuration.interactions.outputs
-
-    val dataframesToSave: Map[String, (DataFrame, IOResourceConfig)] = Map(
-      "interactions" -> (otnetworksDF("interactions"), outputs.interactions),
-      "interactionsEvidence" -> (otnetworksDF("interactionsEvidence"), outputs.interactionsEvidence)
-    )
-
-    val ioResources: IOResources = dataframesToSave mapValues (_._1)
-    val saveConfigs: IOResourceConfs = dataframesToSave mapValues (_._2)
-
-    Helpers.writeTo(saveConfigs, ioResources)
-
+    Helpers.writeTo(otnetworksDF)
   }
 }

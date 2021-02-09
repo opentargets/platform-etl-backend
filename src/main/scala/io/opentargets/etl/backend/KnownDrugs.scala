@@ -2,10 +2,9 @@ package io.opentargets.etl.backend
 
 import com.typesafe.scalalogging.LazyLogging
 import io.opentargets.etl.backend.spark.Helpers
-import io.opentargets.etl.backend.spark.Helpers.{IOResourceConfig, IOResources}
+import io.opentargets.etl.backend.spark.Helpers.{IOResource, IOResources}
 import org.apache.spark.sql._
 import org.apache.spark.sql.functions.{col, _}
-import org.apache.spark.storage.StorageLevel
 
 object KnownDrugsHelpers {
   def aggregateDrugsByOntology(df: DataFrame)(implicit ss: SparkSession): DataFrame = {
@@ -41,23 +40,17 @@ object KnownDrugs extends LazyLogging {
     val inputDataFrame = Helpers.readFrom(mappedInputs)
 
     val dfDirectInfoAnnotated = compute(List("chembl"), inputDataFrame)
-
-    val outputConfs = dfDirectInfoAnnotated.keys.map { name =>
-      name -> IOResourceConfig(context.configuration.common.outputFormat,
-                               s"${context.configuration.common.output}/$name")
-    }
-
-    Helpers.writeTo(outputConfs.toMap, dfDirectInfoAnnotated)
+    Helpers.writeTo(dfDirectInfoAnnotated)
   }
 
-  def compute(datasources: Seq[String], inputs: Map[String, DataFrame])(
-      implicit context: ETLSessionContext): Map[String, DataFrame] = {
+  def compute(datasources: Seq[String], inputs: IOResources)(
+      implicit context: ETLSessionContext): IOResources = {
     implicit val ss: SparkSession = context.sparkSession
     import KnownDrugsHelpers._
     import ss.implicits._
 
     val diseases = broadcast(
-      inputs("disease")
+      inputs("disease").data
         .select(
           $"id".as("diseaseId"),
           $"ancestors",
@@ -66,7 +59,7 @@ object KnownDrugs extends LazyLogging {
         .orderBy($"diseaseId".asc))
 
     val targets = broadcast(
-      inputs("target")
+      inputs("target").data
         .select(
           $"id".as("targetId"),
           $"approvedSymbol",
@@ -77,8 +70,8 @@ object KnownDrugs extends LazyLogging {
         .orderBy($"targetId".asc))
 
     val drugs = broadcast(
-      inputs("drug")
-        .join(inputs("mechanism").withColumn("id", explode($"chemblIds")).drop("chemblIds"),
+      inputs("drug").data
+        .join(inputs("mechanism").data.withColumn("id", explode($"chemblIds")).drop("chemblIds"),
               Seq("id"))
         .select(
           $"id".as("drugId"),
@@ -97,7 +90,7 @@ object KnownDrugs extends LazyLogging {
         .dropDuplicates("drugId", "targetId")
         .orderBy($"drugId".asc, $"targetId".asc))
 
-    val knownDrugsDF = inputs("evidence")
+    val knownDrugsDF = inputs("evidence").data
       .filter($"sourceId" isInCollection datasources)
       .transform(aggregateDrugsByOntology)
       .join(diseases, Seq("diseaseId"))
@@ -105,7 +98,7 @@ object KnownDrugs extends LazyLogging {
       .join(drugs, Seq("drugId", "targetId"))
 
     Map(
-      "knownDrugs" -> knownDrugsDF
+      "knownDrugs" -> IOResource(knownDrugsDF, context.configuration.knownDrugs.output)
     )
   }
 }

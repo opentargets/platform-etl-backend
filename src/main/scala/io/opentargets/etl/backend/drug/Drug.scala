@@ -4,7 +4,7 @@ import com.typesafe.scalalogging.LazyLogging
 import io.opentargets.etl.backend.ETLSessionContext
 import io.opentargets.etl.backend.drug.DrugCommon._
 import io.opentargets.etl.backend.spark.Helpers
-import io.opentargets.etl.backend.spark.Helpers.{IOResourceConfig, IOResourceConfs, IOResources}
+import io.opentargets.etl.backend.spark.Helpers.{IOResource, IOResourceConfig, IOResourceConfigurations, IOResources}
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.{Column, DataFrame, SparkSession}
 
@@ -37,16 +37,16 @@ object Drug extends Serializable with LazyLogging {
     val inputDataFrames = Helpers.readFrom(mappedInputs)
 
     // raw input dataframes
-    lazy val moleculeDf: DataFrame = inputDataFrames("molecule")
-    lazy val mechanismDf: DataFrame = inputDataFrames("mechanism")
-    lazy val indicationDf: DataFrame = inputDataFrames("indication")
-    lazy val targetDf: DataFrame = inputDataFrames("target")
-    lazy val geneDf: DataFrame = inputDataFrames("gene")
-    lazy val drugbank2ChemblMap: DataFrame = inputDataFrames("drugbankChemblMap")
+    lazy val moleculeDf: DataFrame = inputDataFrames("molecule").data
+    lazy val mechanismDf: DataFrame = inputDataFrames("mechanism").data
+    lazy val indicationDf: DataFrame = inputDataFrames("indication").data
+    lazy val targetDf: DataFrame = inputDataFrames("target").data
+    lazy val geneDf: DataFrame = inputDataFrames("gene").data
+    lazy val drugbank2ChemblMap: DataFrame = inputDataFrames("drugbankChemblMap").data
       .withColumnRenamed("From src:'1'", "id")
       .withColumnRenamed("To src:'2'", "drugbank_id")
-    lazy val efoDf: DataFrame = inputDataFrames("efo")
-    lazy val evidenceDf: DataFrame = inputDataFrames("evidence")
+    lazy val efoDf: DataFrame = inputDataFrames("efo").data
+    lazy val evidenceDf: DataFrame = inputDataFrames("evidence").data
 
     // processed dataframes
     logger.info("Raw inputs for Drug beta loaded.")
@@ -101,16 +101,13 @@ object Drug extends Serializable with LazyLogging {
       .drop("indications", "mechanismsOfAction")
       .transform(cleanup)
 
-    val dataframesToSave: Map[String, (DataFrame, IOResourceConfig)] = Map(
-      "drug" -> (drugDf, outputs.drug),
-      "mechanism_of_action" -> (mechanismOfActionProcessedDf, outputs.mechanismOfAction),
-      "indication" -> (indicationProcessedDf, outputs.indications)
+    val dataframesToSave: IOResources = Map(
+      "drug" -> IOResource(drugDf, outputs.drug),
+      "mechanism_of_action" -> IOResource(mechanismOfActionProcessedDf, outputs.mechanismOfAction),
+      "indication" -> IOResource(indicationProcessedDf, outputs.indications)
     )
 
-    val ioResources: IOResources = dataframesToSave mapValues (_._1)
-    val saveConfigs: IOResourceConfs = dataframesToSave mapValues (_._2)
-
-    Helpers.writeTo(saveConfigs, ioResources)
+    Helpers.writeTo(dataframesToSave)
   }
 
   /*

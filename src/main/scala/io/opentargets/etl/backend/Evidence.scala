@@ -1,9 +1,8 @@
 package io.opentargets.etl.backend
 
 import com.typesafe.scalalogging.LazyLogging
-import io.opentargets.etl.backend.spark.Helpers.{IOResourceConfig, IOResources, mkFlattenArray}
+import io.opentargets.etl.backend.spark.Helpers.{IOResource, IOResources, mkFlattenArray}
 import org.apache.spark.sql._
-import org.apache.spark.sql.catalyst.analysis.UnresolvedStar
 import org.apache.spark.sql.expressions.Window
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.types._
@@ -354,8 +353,11 @@ object Evidence extends LazyLogging {
     reshapedDF
   }
 
-  def excludeByBiotype(df: DataFrame, targets: DataFrame, columnName: String, targetIdCol: String, datasourceIdCol: String)(
-      implicit context: ETLSessionContext): DataFrame = {
+  def excludeByBiotype(df: DataFrame,
+                       targets: DataFrame,
+                       columnName: String,
+                       targetIdCol: String,
+                       datasourceIdCol: String)(implicit context: ETLSessionContext): DataFrame = {
     def mkLUT(df: DataFrame): DataFrame = {
       df.select(
         col("id").as(targetIdCol),
@@ -367,7 +369,7 @@ object Evidence extends LazyLogging {
 
     val tName = Random.alphanumeric.take(5).mkString("", "", "_")
     val btsCol = "biotypes"
-    implicit val session = context.sparkSession
+    implicit val session: SparkSession = context.sparkSession
     import session.implicits._
     val evsConf = broadcast(
       context.configuration.evidences.dataSources
@@ -419,7 +421,7 @@ object Evidence extends LazyLogging {
 
     logger.info("target resolution evidences and write to out the ones didn't resolve")
 
-    implicit val session = context.sparkSession
+    implicit val session: SparkSession = context.sparkSession
     import session.implicits._
 
     val lut = broadcast(
@@ -449,7 +451,7 @@ object Evidence extends LazyLogging {
                       toId: String)(implicit context: ETLSessionContext): DataFrame = {
     logger.info("disease resolution evidences and write to out the ones didn't resolve")
 
-    implicit val session = context.sparkSession
+    implicit val session: SparkSession = context.sparkSession
     import session.implicits._
 
     val lut = broadcast(
@@ -474,7 +476,7 @@ object Evidence extends LazyLogging {
 
   def generateHashes(df: DataFrame, columnName: String)(
       implicit context: ETLSessionContext): DataFrame = {
-    implicit val ss = context.sparkSession
+    implicit val ss: SparkSession = context.sparkSession
 
     logger.info("validate each evidence generating a hash to check for duplicates")
     val config = context.configuration.evidences
@@ -499,7 +501,7 @@ object Evidence extends LazyLogging {
   }
 
   def score(df: DataFrame, columnName: String)(implicit context: ETLSessionContext): DataFrame = {
-    implicit val ss = context.sparkSession
+    implicit val ss: SparkSession = context.sparkSession
 
     logger.info("score each evidence and mark unscored ones")
     val config = context.configuration.evidences
@@ -541,7 +543,7 @@ object Evidence extends LazyLogging {
       .agg(aggs.head, aggs.tail: _*)
   }
 
-  def compute()(implicit context: ETLSessionContext): Map[String, (DataFrame, IOResourceConfig)] = {
+  def compute()(implicit context: ETLSessionContext): IOResources = {
     implicit val ss: SparkSession = context.sparkSession
 
     val evidencesSec = context.configuration.evidences
@@ -578,11 +580,11 @@ object Evidence extends LazyLogging {
       count(lit(1)).as(s"#counts")
     )
 
-    val transformedDF = dfs("rawEvidences")
+    val transformedDF = dfs("rawEvidences").data
       .transform(reshape)
-      .transform(resolveTargets(_, dfs("targets"), rt, fromTargetId, targetId))
-      .transform(resolveDiseases(_, dfs("diseases"), rd, fromDiseaseId, diseaseId))
-      .transform(excludeByBiotype(_, dfs("targets"), xb, targetId, datasourceId))
+      .transform(resolveTargets(_, dfs("targets").data, rt, fromTargetId, targetId))
+      .transform(resolveDiseases(_, dfs("diseases").data, rd, fromDiseaseId, diseaseId))
+      .transform(excludeByBiotype(_, dfs("targets").data, xb, targetId, datasourceId))
       .transform(generateHashes(_, id))
       .transform(score(_, sc))
       .transform(checkNullifiedScores(_, sc, ns))
@@ -593,22 +595,18 @@ object Evidence extends LazyLogging {
 
     val outputPathConf = context.configuration.evidences.outputs
     Map(
-      "ok" -> (transformedDF.filter(okFitler).drop(rt, rd, md, ns, xb),
-      outputPathConf.succeeded),
-      "failed" -> (transformedDF.filter(not(okFitler)),
-      outputPathConf.failed),
-      "stats" -> (transformedDF.filter(not(okFitler)).transform(stats(_, statAggs)),
-      outputPathConf.stats)
+      "ok" -> IOResource(transformedDF.filter(okFitler).drop(rt, rd, md, ns, xb),
+                         outputPathConf.succeeded),
+      "failed" -> IOResource(transformedDF.filter(not(okFitler)), outputPathConf.failed),
+      "stats" -> IOResource(transformedDF.filter(not(okFitler)).transform(stats(_, statAggs)),
+                            outputPathConf.stats)
     )
   }
 
   def apply()(implicit context: ETLSessionContext): IOResources = {
-    implicit val ss = context.sparkSession
+    implicit val ss: SparkSession = context.sparkSession
 
     val processedEvidences = compute()
-    val outputs = processedEvidences map (p => p._1 -> p._2._2)
-    val outputDFs = processedEvidences map (p => p._1 -> p._2._1)
-
-    H.writeTo(outputs, outputDFs)
+    H.writeTo(processedEvidences)
   }
 }

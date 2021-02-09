@@ -4,7 +4,7 @@ import org.apache.spark.sql._
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.functions.{pow => powCol}
 import com.typesafe.scalalogging.LazyLogging
-import io.opentargets.etl.backend.spark.Helpers.IOResourceConfig
+import io.opentargets.etl.backend.spark.Helpers.{IOResource, IOResources}
 import io.opentargets.etl.backend.spark.{Helpers => H}
 import org.apache.spark.sql.expressions._
 import org.apache.spark.storage.StorageLevel
@@ -40,7 +40,7 @@ object Association extends LazyLogging {
         zip_with(
           array_repeat(lit(1.0), size(col(vsizeCol))),
           sequence(lit(1), size(col(vsizeCol))),
-          (e, i) => (e / powCol(i, 2D))
+          (e, i) => e / powCol(i, 2D)
         ),
         lit(0D),
         (a, el) => a + el
@@ -64,7 +64,7 @@ object Association extends LazyLogging {
         val datasources = broadcast(
           otc.dataSources
             .toDS()
-            .selectExpr(s"id as ${dsId}", "propagate")
+            .selectExpr(s"id as $dsId", "propagate")
             .orderBy(col(dsId).asc))
 
         /*
@@ -94,7 +94,7 @@ object Association extends LazyLogging {
                   scoreColNames: Seq[String],
                   prefixOutput: String,
                   otc: Option[AssociationsSection]): DataFrame = {
-        require((setA intersect setB) nonEmpty,
+        require((setA intersect setB).nonEmpty,
                 logger.error("intersection column sets must be non empty"))
 
         // obtain weights per datasource table
@@ -259,8 +259,7 @@ object Association extends LazyLogging {
 
   def prepareEvidences(expandOntology: Boolean = false)(
       implicit context: ETLSessionContext): DataFrame = {
-    implicit val ss = context.sparkSession
-    import ss.implicits._
+    implicit val ss: SparkSession = context.sparkSession
     import Helpers.ImplicitExtras
 
     val associationsSec = context.configuration.associations
@@ -275,22 +274,22 @@ object Association extends LazyLogging {
     val evidenceColumns = Seq(
       dId,
       tId,
-      s"score as ${evScore}",
+      s"score as $evScore",
       dtId,
       dsId,
       "id as evidenceId"
     )
 
     if (expandOntology) {
-      evidences
+      evidences.data
         .selectExpr(evidenceColumns: _*)
         .where(col(evScore) > 0D)
-        .computeOntologyExpansion(dfs("diseases"), associationsSec)
+        .computeOntologyExpansion(dfs("diseases").data, associationsSec)
         .repartitionByRange(col(dsId).asc, col(dId).asc)
         .sortWithinPartitions(col(dsId).asc, col(dId).asc)
 
     } else {
-      evidences
+      evidences.data
         .selectExpr(evidenceColumns: _*)
         .where(col(evScore) > 0D)
         .repartitionByRange(col(dsId).asc, col(dId).asc)
@@ -299,39 +298,41 @@ object Association extends LazyLogging {
 
   }
 
-  def computeDirectAssociations()(
-      implicit context: ETLSessionContext): Map[String, (DataFrame, IOResourceConfig)] = {
-    implicit val ss = context.sparkSession
+  def computeDirectAssociations()(implicit context: ETLSessionContext): IOResources = {
+    implicit val ss: SparkSession = context.sparkSession
 
     val outputs = context.configuration.associations.outputs
 
     val evidenceSet = prepareEvidences().persist(StorageLevel.DISK_ONLY)
     val associationsPerDS = computeAssociationsPerDS(evidenceSet).persist()
-    val associationsPerDT = associationsPerDS.drop(dsId, dsEvsCount, dsIdScore).dropDuplicates(tId, dId, dtId)
+    val associationsPerDT =
+      associationsPerDS.drop(dsId, dsEvsCount, dsIdScore).dropDuplicates(tId, dId, dtId)
     val associationsOverall = computeAssociationsAllDS(associationsPerDS)
 
     Map(
-      "directByDatasource" -> (associationsPerDS.drop(dtId, dtEvsCount, dtIdScore), outputs.directByDatasource),
-      "directByDatatype" -> (associationsPerDT, outputs.directByDatatype),
-      "directByOverall" -> (associationsOverall, outputs.directByOverall)
+      "directByDatasource" -> IOResource(associationsPerDS.drop(dtId, dtEvsCount, dtIdScore),
+                                         outputs.directByDatasource),
+      "directByDatatype" -> IOResource(associationsPerDT, outputs.directByDatatype),
+      "directByOverall" -> IOResource(associationsOverall, outputs.directByOverall)
     )
   }
 
-  def computeIndirectAssociations()(
-      implicit context: ETLSessionContext): Map[String, (DataFrame, IOResourceConfig)] = {
-    implicit val ss = context.sparkSession
+  def computeIndirectAssociations()(implicit context: ETLSessionContext): IOResources = {
+    implicit val ss: SparkSession = context.sparkSession
 
     val outputs = context.configuration.associations.outputs
 
     val evidenceSet = prepareEvidences(expandOntology = true).persist()
     val associationsPerDS = computeAssociationsPerDS(evidenceSet).persist()
-    val associationsPerDT = associationsPerDS.drop(dsId, dsEvsCount, dsIdScore).dropDuplicates(tId, dId, dtId)
+    val associationsPerDT =
+      associationsPerDS.drop(dsId, dsEvsCount, dsIdScore).dropDuplicates(tId, dId, dtId)
     val associationsOverall = computeAssociationsAllDS(associationsPerDS)
 
     Map(
-      "indirectByDatasource" -> (associationsPerDS.drop(dtId, dtEvsCount, dtIdScore), outputs.indirectByDatasource),
-      "indirectByDatatype" -> (associationsPerDT, outputs.indirectByDatatype),
-      "indirectByOverall" -> (associationsOverall, outputs.indirectByOverall)
+      "indirectByDatasource" -> IOResource(associationsPerDS.drop(dtId, dtEvsCount, dtIdScore),
+                                           outputs.indirectByDatasource),
+      "indirectByDatatype" -> IOResource(associationsPerDT, outputs.indirectByDatatype),
+      "indirectByOverall" -> IOResource(associationsOverall, outputs.indirectByOverall)
     )
   }
 
@@ -348,7 +349,7 @@ object Association extends LazyLogging {
       (acc, x) => acc + x
     )
 
-    implicit val ss = context.sparkSession
+    implicit val ss: SparkSession = context.sparkSession
 
     val associationsSec = context.configuration.associations
 
@@ -401,7 +402,7 @@ object Association extends LazyLogging {
 
   def computeAssociationsPerDS(evidences: DataFrame)(
       implicit context: ETLSessionContext): DataFrame = {
-    implicit val ss = context.sparkSession
+    implicit val ss: SparkSession = context.sparkSession
 
     import ss.implicits._
     import Helpers._
@@ -412,26 +413,22 @@ object Association extends LazyLogging {
     )
     val dfs = H.readFrom(mappedInputs)
 
-    val diseases = dfs("diseases")
-    val targets = dfs("targets")
+    val diseases = dfs("diseases").data
+    val targets = dfs("targets").data
 
     evidences
       .groupByDataSources(diseases, targets)
       .repartitionByRange($"diseaseId".asc)
   }
 
-  def apply()(implicit context: ETLSessionContext) = {
-    implicit val ss = context.sparkSession
-    val commonSec = context.configuration.common
+  def apply()(implicit context: ETLSessionContext): IOResources = {
+    implicit val ss: SparkSession = context.sparkSession
 
     val directs = computeDirectAssociations()
     val indirects = computeIndirectAssociations()
 
-    val outputDFs = directs ++ indirects
+    val outputs = directs ++ indirects
 
-    val outputs = outputDFs map (p => p._1 -> p._2._2)
-    val outputsData = outputDFs map (p => p._1 -> p._2._1)
-
-    H.writeTo(outputs, outputsData)
+    H.writeTo(outputs)
   }
 }

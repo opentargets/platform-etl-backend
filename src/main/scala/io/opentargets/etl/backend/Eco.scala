@@ -1,20 +1,20 @@
 package io.opentargets.etl.backend
 
-import org.apache.spark.SparkConf
 import com.typesafe.scalalogging.LazyLogging
-import org.apache.spark.sql.functions._
 import org.apache.spark.sql.functions.col
 import org.apache.spark.sql._
-import org.apache.spark.sql.types._
-import com.typesafe.config.Config
 import io.opentargets.etl.backend.spark.Helpers
-import io.opentargets.etl.backend.spark.Helpers.{IOResourceConfig, stripIDFromURI}
+import io.opentargets.etl.backend.spark.Helpers.{
+  IOResource,
+  IOResourceConfig,
+  IOResources,
+  stripIDFromURI
+}
 
 // This is option/step eco in the config file
 object Eco extends LazyLogging {
-  def apply()(implicit context: ETLSessionContext) = {
-    implicit val ss = context.sparkSession
-    import ss.implicits._
+  def apply()(implicit context: ETLSessionContext): IOResources = {
+    implicit val ss: SparkSession = context.sparkSession
 
     val dfName = "eco"
     val common = context.configuration.common
@@ -23,19 +23,15 @@ object Eco extends LazyLogging {
     )
     val inputDataFrame = Helpers.readFrom(mappedInputs)
 
-    val ecoDF = inputDataFrame(dfName)
+    val ecoDF = inputDataFrame(dfName).data
       .withColumn("id", stripIDFromURI(col("code")))
 
-    val outputs = Seq(dfName)
-    // TODO THIS NEEDS MORE REFACTORING WORK AS IT CAN BE SIMPLIFIED
-    val outputConfs = outputs
-      .map(
-        name =>
-          name -> IOResourceConfig(context.configuration.common.outputFormat,
-                                   context.configuration.common.output + s"/$name"))
-      .toMap
+    val outputs = Map(
+      dfName -> IOResource(ecoDF,
+                           IOResourceConfig(context.configuration.common.outputFormat,
+                                            context.configuration.common.output + s"/$dfName"))
+    )
 
-    val outputDFs = (outputs zip Seq(ecoDF)).toMap
-    Helpers.writeTo(outputConfs, outputDFs)
+    Helpers.writeTo(outputs)
   }
 }

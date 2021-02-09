@@ -1,25 +1,18 @@
 package io.opentargets.etl.backend
 
-import org.apache.spark.SparkConf
 import com.typesafe.scalalogging.LazyLogging
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.functions.col
 import org.apache.spark.sql._
-import org.apache.spark.sql.types._
-import com.typesafe.config.Config
-import better.files._
-import better.files.File._
+
 import io.opentargets.etl.backend.spark.Helpers
 import io.opentargets.etl.backend.spark.Helpers.{
-  IOResourceConfig,
-  IOResourceConfs,
+  IOResource,
   IOResources,
   unionDataframeDifferentSchema
 }
 
 object Hpo extends Serializable with LazyLogging {
-  import Configuration._
-
   private def getEfoDataframe(rawEfoData: DataFrame): DataFrame = {
     rawEfoData
       .selectExpr("id as disease", "name", "dbXRefs")
@@ -115,8 +108,7 @@ object Hpo extends Serializable with LazyLogging {
   }
 
   def apply(diseasesRaw: DataFrame)(implicit context: ETLSessionContext): Map[String, DataFrame] = {
-    implicit val ss = context.sparkSession
-    import ss.implicits._
+    implicit val ss: SparkSession = context.sparkSession
 
     logger.info("Loading raw inputs for HP and DiseaseHPO step.")
     val hpoConfiguration = context.configuration.disease
@@ -129,11 +121,11 @@ object Hpo extends Serializable with LazyLogging {
     val inputDataFrames = Helpers.readFrom(mappedInputs)
 
     val diseaseXRefs = getEfoDataframe(diseasesRaw)
-    val mondo = getMondo(inputDataFrames("mondo"), diseaseXRefs)
-    val diseasehpo = getDiseaseHpo(inputDataFrames("diseasehpo"), diseaseXRefs)
+    val mondo = getMondo(inputDataFrames("mondo").data, diseaseXRefs)
+    val diseasehpo = getDiseaseHpo(inputDataFrames("diseasehpo").data, diseaseXRefs)
     val unionDiseaseHpo = unionDataframeDifferentSchema(diseasehpo, mondo)
     val diseaseHpoEvidence = createEvidence(unionDiseaseHpo)
-    val hpo = getHpo(inputDataFrames("hpo"))
+    val hpo = getHpo(inputDataFrames("hpo").data)
 
     Map(
       "diseasehpo" -> diseaseHpoEvidence,
@@ -185,8 +177,7 @@ object Disease extends Serializable with LazyLogging {
 
   // Public because it used by connection.scala
   def compute()(implicit context: ETLSessionContext): DataFrame = {
-    implicit val ss = context.sparkSession
-    import ss.implicits._
+    implicit val ss: SparkSession = context.sparkSession
 
     val diseaseConfiguration = context.configuration.disease
 
@@ -197,12 +188,12 @@ object Disease extends Serializable with LazyLogging {
 
     val inputDataFrames = Helpers.readFrom(mappedInputs)
 
-    val diseaseDF = setIdAndSelectFromDiseases(inputDataFrames("disease"))
+    val diseaseDF = setIdAndSelectFromDiseases(inputDataFrames("disease").data)
 
     diseaseDF
   }
 
-  def apply()(implicit context: ETLSessionContext) = {
+  def apply()(implicit context: ETLSessionContext): IOResources = {
     implicit val ss: SparkSession = context.sparkSession
 
     logger.info("transform disease dataset")
@@ -213,16 +204,12 @@ object Disease extends Serializable with LazyLogging {
 
     val outputs = context.configuration.disease.outputs
     logger.info(s"write to ${context.configuration.common.output}/disease")
-    val dataframesToSave: Map[String, (DataFrame, IOResourceConfig)] = Map(
-      "disease" -> (diseaseDF, outputs.diseases),
-      "diseasehpo" -> (hposDF("diseasehpo"), outputs.diseaseHpo),
-      "hpo" -> (hposDF("hpo"), outputs.hpo)
+    val dataframesToSave = Map(
+      "disease" -> IOResource(diseaseDF, outputs.diseases),
+      "diseasehpo" -> IOResource(hposDF("diseasehpo"), outputs.diseaseHpo),
+      "hpo" -> IOResource(hposDF("hpo"), outputs.hpo)
     )
 
-    val ioResources: IOResources = dataframesToSave mapValues (_._1)
-    val saveConfigs: IOResourceConfs = dataframesToSave mapValues (_._2)
-
-    Helpers.writeTo(saveConfigs, ioResources)
-
+    Helpers.writeTo(dataframesToSave)
   }
 }

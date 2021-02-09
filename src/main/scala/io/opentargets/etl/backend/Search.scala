@@ -194,8 +194,8 @@ object Transformers {
         .withColumn("therapeuticAreaId", explode(col("therapeuticAreas")))
         .orderBy(col("therapeuticAreaId"))
         .join(df.selectExpr(s"$idColumnName as therapeuticAreaId", "name as therapeuticAreaLabel"),
-          Seq("therapeuticAreaId"),
-          "inner")
+              Seq("therapeuticAreaId"),
+              "inner")
         .drop("therapeuticAreaId", "therapeuticAreas")
         .groupBy(col(idColumnName))
         .agg(collect_set(col("therapeuticAreaLabel")).as(taLabelsColumnName))
@@ -463,7 +463,6 @@ object Search extends LazyLogging {
   def apply()(implicit context: ETLSessionContext): IOResources = {
     implicit val ss: SparkSession = context.sparkSession
     import Transformers.Implicits
-    import ss.implicits._
 
     val searchSec = context.configuration.search
     val mappedInputs = Map(
@@ -481,42 +480,45 @@ object Search extends LazyLogging {
     val inputDataFrame = C.readFrom(mappedInputs)
 
     logger.info("process diseases and compute ancestors and descendants and persist")
-    val diseases = inputDataFrame("disease")
+    val diseases = inputDataFrame("disease").data
       .transform(Transformers.processDiseases)
       .resolveTALabels("diseaseId", "therapeutic_labels")
       .orderBy(col("diseaseId"))
       .persist(StorageLevel.DISK_ONLY)
 
     logger.info("process hpo and hpo disease and persist")
-    val phenotypeNames = inputDataFrame("diseasehpo")
-      .join(inputDataFrame("hpo"),col("phenotype") === col("id"))
-      .select("disease", "phenotype","name")
+    val phenotypeNames = inputDataFrame("diseasehpo").data
+      .join(inputDataFrame("hpo").data, col("phenotype") === col("id"))
+      .select("disease", "phenotype", "name")
       .groupBy("disease")
       .agg(collect_set("name") as "phenotype_labels")
-      .withColumnRenamed("disease","diseaseId")
+      .withColumnRenamed("disease", "diseaseId")
       .orderBy(col("diseaseId"))
       .persist(StorageLevel.DISK_ONLY)
 
     logger.info("process targets and persist")
-    val targets = inputDataFrame("target")
+    val targets = inputDataFrame("target").data
       .transform(Transformers.processTargets)
       .orderBy(col("targetId"))
       .persist(StorageLevel.DISK_ONLY)
 
     logger.info("process drugs and persist")
-    val drugs = inputDataFrame("drug")
-      .join(inputDataFrame("mechanism").withColumn("id", explode(col("chemblIds")))
-        .transform(nest(_: DataFrame, List("mechanismOfAction", "references", "targetName", "targets"), "rows"))
-        .groupBy("id")
-        .agg(
-          collect_list("rows") as "rows",
-          collect_set("actionType") as "uniqueActionTypes",
-          collect_set("targetType") as "uniqueTargetType")
-        ,
-        Seq("id"),
-        "left_outer")
+    val drugs = inputDataFrame("drug").data
       .join(
-        inputDataFrame("indication")
+        inputDataFrame("mechanism").data
+          .withColumn("id", explode(col("chemblIds")))
+          .transform(nest(_: DataFrame,
+                          List("mechanismOfAction", "references", "targetName", "targets"),
+                          "rows"))
+          .groupBy("id")
+          .agg(collect_list("rows") as "rows",
+               collect_set("actionType") as "uniqueActionTypes",
+               collect_set("targetType") as "uniqueTargetType"),
+        Seq("id"),
+        "left_outer"
+      )
+      .join(
+        inputDataFrame("indication").data
           .withColumnRenamed("indications", "rows")
           .transform(nest(_: DataFrame, List("rows", "count"), "indications")),
         Seq("id"),
@@ -579,14 +581,14 @@ object Search extends LazyLogging {
 
     // TODO check the overall score column name
     logger.info("subselect indirect LLR associations just id and score and persist")
-    val associationScores = inputDataFrame("association")
+    val associationScores = inputDataFrame("association").data
       .withColumn("associationId", concat_ws("-", col("diseaseId"), col("targetId")))
       .withColumnRenamed("overallDatasourceHarmonicScore", "score")
       .select(associationColumns.head, associationColumns.tail: _*)
       .persist(StorageLevel.DISK_ONLY)
 
     logger.info("find associated drugs using evidence dataset")
-    val associationsWithDrugsFromEvidences = inputDataFrame("evidence")
+    val associationsWithDrugsFromEvidences = inputDataFrame("evidence").data
       .transform(Transformers.findAssociationsWithDrugs)
 
     logger.info("compute total counts for associations and associations with drugs")
@@ -648,11 +650,11 @@ object Search extends LazyLogging {
 
     val conf = context.configuration.search
     val outputs = Map(
-      "search_diseases" -> (searchDiseases, conf.outputs.diseases),
-      "search_targets" -> (searchTargets, conf.outputs.targets),
-      "search_drugs" -> (searchDrugs, conf.outputs.drugs)
+      "search_diseases" -> IOResource(searchDiseases, conf.outputs.diseases),
+      "search_targets" -> IOResource(searchTargets, conf.outputs.targets),
+      "search_drugs" -> IOResource(searchDrugs, conf.outputs.drugs)
     )
 
-    C.writeTo(outputs.map(p => p._1 -> p._2._2), outputs.map(p => p._1 -> p._2._1))
+    C.writeTo(outputs)
   }
 }

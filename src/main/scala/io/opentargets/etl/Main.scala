@@ -60,6 +60,7 @@ object ETL extends LazyLogging {
       case "associationOTF" =>
         logger.info("run step associationOTF")
         AssociationOTF()
+      case _ => logger.warn(s"step $step is unknown so nothing to execute")
     }
     logger.info(s"finished to run step ($step)")
   }
@@ -76,11 +77,11 @@ object ETL extends LazyLogging {
           if (steps.isEmpty) otContext.configuration.common.defaultSteps
           else steps
 
-        val unknownSteps = etlSteps.toSet diff otContext.configuration.common.defaultSteps.toSet
-        val knownSteps = etlSteps.toSet intersect otContext.configuration.common.defaultSteps.toSet
+        val unknownSteps = etlSteps filterNot otContext.configuration.common.defaultSteps.contains
+        val knownSteps = etlSteps filter otContext.configuration.common.defaultSteps.contains
 
-        logger.info(s"valid steps to execute: ${knownSteps.toString}")
-        logger.warn(s"invalid steps to skip: ${unknownSteps.toString}")
+        logger.info(s"valid steps to execute: $knownSteps")
+        if (unknownSteps.nonEmpty) logger.warn(s"invalid steps to skip: $unknownSteps")
 
         knownSteps.foreach { step =>
           logger.debug(s"step to run: '$step'")

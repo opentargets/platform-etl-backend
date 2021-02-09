@@ -3,7 +3,7 @@ package io.opentargets.etl.backend
 import com.typesafe.scalalogging.LazyLogging
 import io.opentargets.etl.backend.Association.{computeAssociationsPerDS, prepareEvidences}
 import io.opentargets.etl.backend.spark.Helpers
-import io.opentargets.etl.backend.spark.Helpers.IOResourceConfig
+import io.opentargets.etl.backend.spark.Helpers.{IOResource, IOResourceConfig, IOResources}
 import org.apache.spark.sql._
 import org.apache.spark.sql.functions._
 
@@ -11,9 +11,9 @@ import org.apache.spark.sql.functions._
 object Connections extends LazyLogging {
   def diseaseEdges(df: DataFrame): DataFrame = {
     df.selectExpr(
-        "id",
-        "parents"
-      )
+      "id",
+      "parents"
+    )
       .withColumn("parent", explode(col("parents")))
       .where(col("parent").isNotNull)
       .withColumn("type", lit("relation"))
@@ -29,13 +29,13 @@ object Connections extends LazyLogging {
       "disease_id",
       "target_id")
       .withColumn("type", lit("association"))
-      .withColumn("_from",col("disease_id"))
+      .withColumn("_from", col("disease_id"))
       .withColumn("_to", col("target_id"))
       .drop("disease_id", "target_id")
   }
 
-  def apply()(implicit context: ETLSessionContext) = {
-    implicit val ss = context.sparkSession
+  def apply()(implicit context: ETLSessionContext): IOResources = {
+    implicit val ss: SparkSession = context.sparkSession
 
     val common = context.configuration.common
 
@@ -46,18 +46,11 @@ object Connections extends LazyLogging {
         computeAssociationsPerDS(
           prepareEvidences()))
 
-    val outputDFs = Seq(dEdges)
     val outputs = Map(
-      "disease_connections" -> dEdges,
-      "association_connections" -> assocEdges
+      "disease_connections" -> IOResource(dEdges, IOResourceConfig(common.outputFormat, common.output + "/diseaseConnections")),
+      "association_connections" -> IOResource(assocEdges, IOResourceConfig(common.outputFormat, common.output + "/associationConnections"))
     )
 
-    val outputConfs = outputs.keys
-      .map(
-        name => name -> IOResourceConfig(common.outputFormat, common.output + s"/$name")
-      )
-      .toMap
-
-    Helpers.writeTo(outputConfs, outputs)
+    Helpers.writeTo(outputs)
   }
 }
