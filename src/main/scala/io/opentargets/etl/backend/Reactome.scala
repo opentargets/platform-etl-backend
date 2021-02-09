@@ -1,21 +1,14 @@
 package io.opentargets.etl.backend
 
-import org.apache.spark.SparkConf
 import com.typesafe.scalalogging.LazyLogging
-import org.apache.spark.sql.functions._
-import org.apache.spark.sql.functions.col
 import org.apache.spark.sql._
-import org.apache.spark.sql.types._
-import com.typesafe.config.Config
 import io.opentargets.etl.backend.spark.Helpers
-import io.opentargets.etl.backend.spark.Helpers.IOResourceConfig
+import io.opentargets.etl.backend.spark.Helpers.{IOResource, IOResourceConfig, IOResources}
 
 // This is option/step reactome in the config file
 object Reactome extends LazyLogging {
-  def apply()(implicit context: ETLSessionContext) = {
-    implicit val ss = context.sparkSession
-    import ss.implicits._
-
+  def apply()(implicit context: ETLSessionContext): IOResources = {
+    implicit val ss: SparkSession = context.sparkSession
     val dfName = "reactome"
     val common = context.configuration.common
     val mappedInputs = Map(
@@ -25,19 +18,18 @@ object Reactome extends LazyLogging {
       )
     )
     val inputDataFrame = Helpers.readFrom(mappedInputs)
-    val reactomeDF = inputDataFrame(dfName)
+    val reactomeDF = inputDataFrame(dfName).data
 
-    val outputs = Seq(dfName)
+    val outputs = Map(
+      dfName -> IOResource(
+        reactomeDF,
+        IOResourceConfig(
+          context.configuration.common.outputFormat,
+          context.configuration.common.output + s"/$dfName"
+        )
+      )
+    )
 
-    // TODO THIS NEEDS MORE REFACTORING WORK AS IT CAN BE SIMPLIFIED
-    val outputConfs = outputs
-      .map(
-        name =>
-          name -> IOResourceConfig(context.configuration.common.outputFormat,
-                                   context.configuration.common.output + s"/$name"))
-      .toMap
-
-    val outputDFs = (outputs zip Seq(reactomeDF)).toMap
-    Helpers.writeTo(outputConfs, outputDFs)
+    Helpers.writeTo(outputs)
   }
 }

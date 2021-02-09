@@ -6,8 +6,6 @@ import io.opentargets.etl.backend.spark.Helpers.getOrCreateSparkSession
 import org.apache.spark.sql.SparkSession
 import pureconfig.error.ConfigReaderFailures
 
-import scala.util.Try
-
 case class ETLSessionContext(configuration: OTConfig, sparkSession: SparkSession)
 
 object ETLSessionContext extends LazyLogging {

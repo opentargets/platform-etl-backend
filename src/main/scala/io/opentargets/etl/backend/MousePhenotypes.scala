@@ -1,22 +1,16 @@
 package io.opentargets.etl.backend
 
-import org.apache.spark.SparkConf
 import com.typesafe.scalalogging.LazyLogging
-import org.apache.spark.sql.functions._
-import org.apache.spark.sql.functions.col
 import org.apache.spark.sql._
-import org.apache.spark.sql.types._
-import com.typesafe.config.Config
 import io.opentargets.etl.backend.spark.Helpers
-import io.opentargets.etl.backend.spark.Helpers.IOResourceConfig
+import io.opentargets.etl.backend.spark.Helpers.{IOResource, IOResourceConfig, IOResources}
 
 // This is option/step MousePhenotypes in the config file. JQ file input
 object MousePhenotypes extends LazyLogging {
-  def apply()(implicit context: ETLSessionContext) = {
-    implicit val ss = context.sparkSession
-    import ss.implicits._
+  def apply()(implicit context: ETLSessionContext): IOResources = {
+    implicit val ss: SparkSession = context.sparkSession
 
-    val dfName = "mouse_phenotypes"
+    val dfName = "mousePhenotypes"
     val common = context.configuration.common
     val mappedInputs = Map(
       dfName -> IOResourceConfig(
@@ -25,21 +19,17 @@ object MousePhenotypes extends LazyLogging {
       )
     )
     val inputDataFrame = Helpers.readFrom(mappedInputs)
-    val mousePhenotypesDF = inputDataFrame(dfName)
+    val mousePhenotypesDF = inputDataFrame(dfName).data
 
-    val outputs = Seq(dfName)
-
-    // TODO THIS NEEDS MORE REFACTORING WORK AS IT CAN BE SIMPLIFIED
-    val outputConfs = outputs
-      .map(name =>
-        name -> IOResourceConfig(
+    val outputs = Map(
+      dfName -> IOResource(
+        mousePhenotypesDF,
+        IOResourceConfig(
           context.configuration.common.outputFormat,
-          context.configuration.common.output + s"/$name"
+          context.configuration.common.output + s"/$dfName"
         )
       )
-      .toMap
-
-    val outputDFs = (outputs zip Seq(mousePhenotypesDF)).toMap
-    Helpers.writeTo(outputConfs, outputDFs)
+    )
+    Helpers.writeTo(outputs)
   }
 }

@@ -1,26 +1,18 @@
 package io.opentargets.etl.backend
 
-import org.apache.spark.SparkConf
 import org.apache.spark.sql._
 import org.apache.spark.sql.types._
 import org.apache.spark.sql.functions._
-import org.apache.spark.sql.functions.{pow => powCol}
-import better.files.Dsl._
-import better.files._
-import com.typesafe.config.{Config, ConfigFactory, ConfigObject, ConfigRenderOptions}
-import com.typesafe.scalalogging.{LazyLogging, Logger}
-import io.opentargets.etl.backend.spark.Helpers.IOResourceConfig
-import org.apache.spark.sql.expressions._
+import com.typesafe.scalalogging.LazyLogging
+import io.opentargets.etl.backend.spark.Helpers.{IOResource, IOResources}
 import spark.{Helpers => H}
-
-import scala.math.pow
 
 object AssociationOTF extends LazyLogging {
   case class FacetLevel(l1: Option[String], l2: Option[String])
   case class ReactomeEntry(id: String, label: String)
 
   implicit class Helpers(df: DataFrame)(implicit context: ETLSessionContext) {
-    implicit val ss = context.sparkSession
+    implicit val ss: SparkSession = context.sparkSession
 
     def computeFacetTractability(keyCol: String): DataFrame = {
       val getPositiveCategories = udf((r: Row) => {
@@ -35,19 +27,19 @@ object AssociationOTF extends LazyLogging {
 
       df.withColumn(
           "facet_tractability_antibody",
-          when(col(keyCol).isNotNull and col(s"${keyCol}.antibody").isNotNull,
-               getPositiveCategories(col(s"${keyCol}.antibody.categories")))
+          when(col(keyCol).isNotNull and col(s"$keyCol.antibody").isNotNull,
+               getPositiveCategories(col(s"$keyCol.antibody.categories")))
         )
         .withColumn(
           "facet_tractability_smallmolecule",
-          when(col(keyCol).isNotNull and col(s"${keyCol}.smallmolecule").isNotNull,
-               getPositiveCategories(col(s"${keyCol}.smallmolecule.categories")))
+          when(col(keyCol).isNotNull and col(s"$keyCol.smallmolecule").isNotNull,
+               getPositiveCategories(col(s"$keyCol.smallmolecule.categories")))
         )
     }
 
     def computeFacetClasses(keyCol: String): DataFrame = {
       df.withColumn(
-        s"${keyCol}",
+        s"$keyCol",
         array_distinct(
           transform(col(keyCol),
                     el =>
@@ -65,8 +57,7 @@ object AssociationOTF extends LazyLogging {
 
   def computeFacetTAs(df: DataFrame, keyCol: String, labelCol: String, vecCol: String)(
       implicit context: ETLSessionContext): DataFrame = {
-    implicit val ss = context.sparkSession
-    import ss.implicits._
+    implicit val ss: SparkSession = context.sparkSession
 
     val taID = vecCol + "_tmp"
     val tas = df
@@ -86,7 +77,7 @@ object AssociationOTF extends LazyLogging {
 
   def computeFacetReactome(df: DataFrame, keyCol: String, vecCol: String)(
       implicit context: ETLSessionContext): DataFrame = {
-    implicit val ss = context.sparkSession
+    implicit val ss: SparkSession = context.sparkSession
     import ss.implicits._
 
     val reactomeSection = context.configuration.common.inputs.reactome
@@ -100,11 +91,12 @@ object AssociationOTF extends LazyLogging {
     val dfs = H.readFrom(mappedInputs)
 
     val lutReact = ss.sparkContext.broadcast(
-      dfs("reactome")
+      dfs("reactome").data
         .selectExpr("id", "label")
         .as[ReactomeEntry]
         .collect()
-        .map(e => e.id -> e.label).toMap)
+        .map(e => e.id -> e.label)
+        .toMap)
 
     val mapLevels = udf((l: Seq[String]) =>
       l match {
@@ -113,7 +105,7 @@ object AssociationOTF extends LazyLogging {
         case _                   => FacetLevel(None, None)
     })
 
-    val reacts = dfs("reactome")
+    val reacts = dfs("reactome").data
       .withColumn("levels",
                   when(size(col("path")) > 0, transform(col("path"), (c: Column) => mapLevels(c))))
       .selectExpr("id", "levels")
@@ -128,8 +120,8 @@ object AssociationOTF extends LazyLogging {
     tempDF
   }
 
-  def compute()(implicit context: ETLSessionContext): Map[String, (DataFrame, IOResourceConfig)] = {
-    implicit val ss = context.sparkSession
+  def compute()(implicit context: ETLSessionContext): IOResources = {
+    implicit val ss: SparkSession = context.sparkSession
 
     val conf = context.configuration
     val mappedInputs = Map(
@@ -153,12 +145,12 @@ object AssociationOTF extends LazyLogging {
       "tractability"
     )
 
-    val diseases = dfs("diseases")
+    val diseases = dfs("diseases").data
       .selectExpr(diseaseColumns: _*)
       .orderBy(col("disease_id").asc)
       .persist()
 
-    val targets = dfs("targets")
+    val targets = dfs("targets").data
       .selectExpr(targetColumns: _*)
       .orderBy(col("target_id").asc)
       .persist()
@@ -196,27 +188,26 @@ object AssociationOTF extends LazyLogging {
       "score as row_score"
     )
 
-    val elasticsearchDF = dfs("evidences")
-      .drop(columnsToDrop:_*)
+    val elasticsearchDF = dfs("evidences").data
+      .drop(columnsToDrop: _*)
       .selectExpr(evidenceColumns: _*)
       .join(diseasesFacetTAs, Seq("disease_id"), "left_outer")
       .join(finalTargets, Seq("target_id"), "left_outer")
 
-    val clickhouseDF = dfs("evidences")
-      .drop(columnsToDrop:_*)
+    val clickhouseDF = dfs("evidences").data
+      .drop(columnsToDrop: _*)
       .selectExpr(evidenceColumns: _*)
 
     Map(
-      "aotfsElasticsearch" ->(elasticsearchDF, conf.aotf.outputs.elasticsearch),
-      "aotfsClickhouse" ->(clickhouseDF, conf.aotf.outputs.clickhouse)
+      "aotfsElasticsearch" -> IOResource(elasticsearchDF, conf.aotf.outputs.elasticsearch),
+      "aotfsClickhouse" -> IOResource(clickhouseDF, conf.aotf.outputs.clickhouse)
     )
   }
 
-  def apply()(implicit context: ETLSessionContext) = {
-    implicit val ss = context.sparkSession
+  def apply()(implicit context: ETLSessionContext): IOResources = {
+    implicit val ss: SparkSession = context.sparkSession
     val clickhouseEvidences = compute()
 
-    H.writeTo(clickhouseEvidences.map(p => p._1 -> p._2._2),
-      clickhouseEvidences.map(p => p._1 -> p._2._1))
+    H.writeTo(clickhouseEvidences)
   }
 }

@@ -12,9 +12,10 @@ import scala.language.postfixOps
 import scala.util.Random
 
 object Helpers extends LazyLogging {
-  type IOResourceConfs = Map[String, IOResourceConfig]
-  type IOResources = Map[String, DataFrame]
+  type IOResourceConfigurations = Map[String, IOResourceConfig]
+  type IOResources = Map[String, IOResource]
 
+  case class IOResource(data: DataFrame, configuration: IOResourceConfig)
   case class IOResourceConfigOption(k: String, v: String)
   case class IOResourceConfig(
       format: String,
@@ -56,7 +57,7 @@ object Helpers extends LazyLogging {
     */
   def generateDefaultIoOutputConfiguration(
       files: String*
-  )(configuration: OTConfig): IOResourceConfs = {
+  )(configuration: OTConfig): IOResourceConfigurations = {
     files.map {
       n => n -> IOResourceConfig(
         configuration.common.outputFormat,
@@ -125,12 +126,12 @@ object Helpers extends LazyLogging {
     *   Reading is the first step in the pipeline
     */
   def readFrom(
-      inputFileConf: IOResourceConfs
+      inputFileConf: IOResourceConfigurations
   )(implicit session: SparkSession): IOResources = {
-    logger.info("Load files into Hashmap Dataframe")
+    logger.info("Load files into a Map of names and IOResource")
     for {
       (key, formatAndPath) <- inputFileConf
-    } yield key -> loadFileToDF(formatAndPath)
+    } yield key -> IOResource(loadFileToDF(formatAndPath), formatAndPath)
   }
 
   def loadFileToDF(pathInfo: IOResourceConfig)(implicit session: SparkSession): DataFrame = {
@@ -148,49 +149,38 @@ object Helpers extends LazyLogging {
     * @param resourceConfigs collection of IOResourceConfig of unknown composition
     * @return Map with random keys to input resource.
     */
-  def seqToIOResourceConfigMap(resourceConfigs: Seq[IOResourceConfig]): IOResourceConfs = {
+  def seqToIOResourceConfigMap(resourceConfigs: Seq[IOResourceConfig]): IOResourceConfigurations = {
     (for (rc <- resourceConfigs) yield Random.alphanumeric.take(6).toString -> rc).toMap
   }
 
-  def writeTo(outputConfs: IOResourceConfs, outputs: IOResources)(
-      implicit
-      session: SparkSession): IOResources = {
-    outputConfs foreach {
-      c => logger.info(s"save dataset ${c._1} with ${c._2.toString}")
-    }
+  def writeTo(outputs: IOResources)(implicit session: SparkSession): IOResources = {
+    val datasetNamesStr = outputs.keys.mkString("(", ", ", ")")
+    logger.info(s"write datasets $datasetNamesStr")
+    outputs foreach {
+      out =>
+        logger.info(s"save dataset ${out._1} with ${out._2.toString}")
 
-    // WARNING: SIDE-EFFECTING
-    val outputsSaved = outputConfs.keySet intersect outputs.keySet map {
-      case k =>
-        val conf = outputConfs(k)
-        val df = outputs(k)
-        logger.debug(s"saving dataframe '$k' into '${conf.path}'")
+        val data = out._2.data
+        val conf = out._2.configuration
 
-        val pb = conf.partitionBy.foldLeft(df.write){
-          case ops =>
-            logger.debug(s"enabled partition by ${ops._2.toString}")
-            ops._1.partitionBy(ops._2:_*)
+        val pb = conf.partitionBy.foldLeft(data.write) {
+          case (df, ops) =>
+             logger.debug(s"enabled partition by ${ops.toString}")
+            df.partitionBy(ops:_*)
         }
 
         conf.options.foldLeft(pb) {
-          case ops =>
-            logger.debug(s"write to ${conf.path} with options ${ops._2.toString}")
-            val options = ops._2.map(c => c.k -> c.v).toMap
-            ops._1.options(options)
+          case (df, ops) =>
+            logger.debug(s"write to ${conf.path} with options ${ops.toString}")
+            val options = ops.map(c => c.k -> c.v).toMap
+            df.options(options)
 
         }.format(conf.format)
           .save(conf.path)
 
-        k -> df
-    } toMap
-
-    val savedKeys = outputs.keySet intersect outputsSaved.keySet
-    val allKeys = outputs.keySet union outputsSaved.keySet
-    (allKeys diff savedKeys).foreach {
-      k => logger.warn(s"dataframe $k has not been saved")
     }
 
-    outputsSaved
+    outputs
   }
 
   /** generate a set of String with the union of Columns.

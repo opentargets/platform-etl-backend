@@ -1,18 +1,15 @@
 package io.opentargets.etl.backend
 
-import org.apache.spark.SparkConf
 import com.typesafe.scalalogging.LazyLogging
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.functions.col
 import org.apache.spark.sql._
-import org.apache.spark.sql.types._
-import com.typesafe.config.Config
 import io.opentargets.etl.backend.spark.Helpers
-import io.opentargets.etl.backend.spark.Helpers.IOResourceConfig
+import io.opentargets.etl.backend.spark.Helpers.{IOResource, IOResourceConfig, IOResources}
 
 object TargetHelpers {
   implicit class AggregationHelpers(df: DataFrame)(implicit ss: SparkSession) {
-    import Configuration._
+
     import ss.implicits._
 
     def addTEPInfo(tepDF: DataFrame): DataFrame = {
@@ -203,8 +200,7 @@ object TargetHelpers {
 // This is option/step target in the config file
 object Target extends LazyLogging {
   def compute()(implicit context: ETLSessionContext): DataFrame = {
-    implicit val ss = context.sparkSession
-    import ss.implicits._
+    implicit val ss: SparkSession = context.sparkSession
     import TargetHelpers._
 
     val common = context.configuration.common
@@ -222,32 +218,27 @@ object Target extends LazyLogging {
     val inputDataFrame = Helpers.readFrom(mappedInputs)
 
     // The gene index contains keys with spaces. This step creates a new Dataframe with the proper keys
-    val targetDFnewSchema = Helpers.replaceSpacesSchema(inputDataFrame("target"))
-    val tepDFnewSchema = Helpers.replaceSpacesSchema(inputDataFrame("tep"))
+    val targetDFnewSchema = Helpers.replaceSpacesSchema(inputDataFrame("target").data)
+    val tepDFnewSchema = Helpers.replaceSpacesSchema(inputDataFrame("tep").data)
 
     targetDFnewSchema.setIdAndSelectFromTargets.addTEPInfo(tepDFnewSchema)
   }
 
-  def apply()(implicit context: ETLSessionContext) = {
-    implicit val ss = context.sparkSession
-    import ss.implicits._
-    import TargetHelpers._
+  def apply()(implicit context: ETLSessionContext): IOResources = {
+    implicit val ss: SparkSession = context.sparkSession
 
     val targetDF = compute()
 
-    val outputs = Seq("targets")
-
-    // TODO THIS NEEDS MORE REFACTORING WORK AS IT CAN BE SIMPLIFIED
-    val outputConfs = outputs
-      .map(name =>
-        name -> IOResourceConfig(
+    val outputs = Map(
+      "targets" -> IOResource(
+        targetDF,
+        IOResourceConfig(
           context.configuration.common.outputFormat,
-          context.configuration.common.output + s"/$name"
+          context.configuration.common.output + s"/targets"
         )
       )
-      .toMap
+    )
 
-    val outputDFs = (outputs zip Seq(targetDF)).toMap
-    Helpers.writeTo(outputConfs, outputDFs)
+    Helpers.writeTo(outputs)
   }
 }

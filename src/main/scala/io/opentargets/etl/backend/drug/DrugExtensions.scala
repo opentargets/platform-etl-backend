@@ -26,7 +26,7 @@ object DrugExtensions extends LazyLogging {
     logger.debug(s"Found ${xrefExtensions.size} cross reference extension files.")
 
     val extensionDataFrames: Iterable[DataFrame] =
-      Helpers.readFrom(Helpers.seqToIOResourceConfigMap(xrefExtensions)).values
+      Helpers.readFrom(Helpers.seqToIOResourceConfigMap(xrefExtensions)) map(_._2.data)
 
     // add all synonym extensions to molecules
     logger.info("Adding external cross references to molecule dataframe.")
@@ -50,7 +50,7 @@ object DrugExtensions extends LazyLogging {
     logger.debug(s"Found ${synonymExtensions.size} synonym extensions.")
 
     val synonymExtensionDataframes: Iterable[DataFrame] =
-      Helpers.readFrom(Helpers.seqToIOResourceConfigMap(synonymExtensions)).values
+      Helpers.readFrom(Helpers.seqToIOResourceConfigMap(synonymExtensions)) map(_._2.data)
 
     // validate input dataframes and standardise so that they are all in id -> array format.
     logger.debug(s"Standardising ${synonymExtensionDataframes.size} DataFrames of synonyms")

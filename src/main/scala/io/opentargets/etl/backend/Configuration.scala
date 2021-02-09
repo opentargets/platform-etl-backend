@@ -84,30 +84,30 @@ object Configuration extends LazyLogging {
   )
 
   case class DiseaseOutput(
-                           diseases: IOResourceConfig,
-                           hpo: IOResourceConfig,
-                           diseaseHpo: IOResourceConfig
+      diseases: IOResourceConfig,
+      hpo: IOResourceConfig,
+      diseaseHpo: IOResourceConfig
   )
   case class DiseaseSection(
-                            efoOntology: IOResourceConfig,
-                            mondoOntology: IOResourceConfig,
-                            hpoOntology: IOResourceConfig,
-                            hpoPhenotype: IOResourceConfig,
-                            outputs: DiseaseOutput
+      efoOntology: IOResourceConfig,
+      mondoOntology: IOResourceConfig,
+      hpoOntology: IOResourceConfig,
+      hpoPhenotype: IOResourceConfig,
+      outputs: DiseaseOutput
   )
 
   case class InteractionsOutput(
-                            interactions: IOResourceConfig,
-                            interactionsEvidence: IOResourceConfig
-                          )
+      interactions: IOResourceConfig,
+      interactionsEvidence: IOResourceConfig
+  )
 
   case class InteractionsSection(
-                            rnacentral: IOResourceConfig,
-                            humanmapping: IOResourceConfig,
-                            ensproteins: IOResourceConfig,
-                            intact: IOResourceConfig,
-                            strings: IOResourceConfig,
-                            outputs: InteractionsOutput
+      rnacentral: IOResourceConfig,
+      humanmapping: IOResourceConfig,
+      ensproteins: IOResourceConfig,
+      intact: IOResourceConfig,
+      strings: IOResourceConfig,
+      outputs: InteractionsOutput
   )
 
   case class Inputs(
