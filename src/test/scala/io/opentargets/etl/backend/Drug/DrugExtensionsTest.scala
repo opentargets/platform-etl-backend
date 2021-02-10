@@ -1,16 +1,20 @@
 package io.opentargets.etl.backend.Drug
 
-import io.opentargets.etl.backend.Configuration.InputExtension
 import io.opentargets.etl.backend.Drug.CrossReferencesExtensionTest.SimpleCrossReference
-import io.opentargets.etl.backend.Drug.SynonymExtensionTest.{Molecule, Synonym, SynonymArr, SynonymBadIdField, SynonymBadSynonymField, SynonymLong}
+import io.opentargets.etl.backend.Drug.SynonymExtensionTest._
 import io.opentargets.etl.backend.EtlSparkUnitTest
 import io.opentargets.etl.backend.drug.DrugExtensions
-import io.opentargets.etl.backend.spark.Helpers.IOResourceConfig
-import org.apache.spark.sql.functions.{col, element_at, explode, flatten, map_keys, map_values, size => sparkSize}
+import org.apache.spark.sql.functions.{
+  col,
+  element_at,
+  explode,
+  flatten,
+  map_keys,
+  map_values,
+  size => sparkSize
+}
 import org.apache.spark.sql.types.ArrayType
 import org.apache.spark.sql.{DataFrame, Dataset, Row}
-import org.scalatest.PrivateMethodTester
-import org.scalatest.flatspec.AnyFlatSpecLike
 
 object CrossReferencesExtensionTest {
   case class SimpleCrossReference(id: String, source: String, reference: String) // an extension file has at least one ref field
@@ -34,7 +38,9 @@ class CrossReferencesExtensionTest extends EtlSparkUnitTest {
     assertResult(1)(results.select(map_keys(col("crossReferences"))).count())
     assertResult("ref1")(
       results
-        .select(explode(element_at(col("crossReferences"), "src1"))).first().getString(0))
+        .select(explode(element_at(col("crossReferences"), "src1")))
+        .first()
+        .getString(0))
   }
   // given a cross reference and the field does exist, it is added to the array
   "A cross reference extension file with an existing reference field" should "be added to the existing references" in {
@@ -74,11 +80,12 @@ class CrossReferencesExtensionTest extends EtlSparkUnitTest {
     // given
     val id = "id"
     val refMap = Map(
-      "existingSrc1" ->Array("es1", "es2"),
-      "existingSrc2" ->Array("es3", "es4")
+      "existingSrc1" -> Array("es1", "es2"),
+      "existingSrc2" -> Array("es3", "es4")
     )
     val molDf = Seq(Molecule(id, "", Array(), Array(), refMap)).toDF
-    val xRefDf = Seq(SimpleCrossReference(id, "src", "ref1"),
+    val xRefDf = Seq(
+      SimpleCrossReference(id, "src", "ref1"),
       SimpleCrossReference(id, "src", "ref2"),
       SimpleCrossReference(id, "src", "ref3"),
       SimpleCrossReference(id, "existingSrc1", "ref3")
