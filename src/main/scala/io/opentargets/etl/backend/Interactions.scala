@@ -5,9 +5,11 @@ import io.opentargets.etl.backend.InteractionsHelpers.logger
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.functions.col
 import org.apache.spark.sql._
-import io.opentargets.etl.backend.spark.Helpers.{IOResource, IOResources}
+import org.apache.spark.sql.types._
+import com.typesafe.config.Config
+import io.opentargets.etl.backend.spark.IoHelpers.IOResources
+import spark.{Helpers, IOResource, IOResourceConfig, IoHelpers}
 import org.apache.spark.sql.functions.udf
-import spark.Helpers
 
 object InteractionsHelpers extends LazyLogging {
   implicit class AggregationHelpers(df: DataFrame)(implicit ss: SparkSession) {
@@ -98,7 +100,7 @@ object InteractionsHelpers extends LazyLogging {
 
     /** generate the interactions from Intact resource
       * df is the implicit dataframe: Intact dataframe
-      * @param target Dataframe with list of ensembl_id, protein_id
+      * @param targets Dataframe with list of ensembl_id, protein_id
       * @param rnacentral Dataframe with the rna_id, ensembl_id
       * @param humanmapping dataframe with human_id, ensembl_id
       * @return a DataFrame
@@ -325,7 +327,7 @@ object InteractionsHelpers extends LazyLogging {
 
     /** Union of the evidences of intact and strings
       * df is the implicit dataframe: Intact dataframe
-      * @param interactionStrings dataframe with strings info
+      * @param stringInteractions dataframe with strings info
       * @return a DataFrame
       */
     def generateEvidences(stringInteractions: DataFrame): DataFrame = {
@@ -405,6 +407,6 @@ object Interactions extends LazyLogging {
     implicit val ss: SparkSession = context.sparkSession
 
     val otnetworksDF = compute()
-    Helpers.writeTo(otnetworksDF)
+    IoHelpers.writeTo(otnetworksDF)
   }
 }

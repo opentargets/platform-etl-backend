@@ -1,16 +1,12 @@
 package io.opentargets.etl.backend
 
 import com.typesafe.scalalogging.LazyLogging
+import io.opentargets.etl.backend.spark.Helpers.unionDataframeDifferentSchema
+import io.opentargets.etl.backend.spark.{IOResource, IoHelpers}
+import io.opentargets.etl.backend.spark.IoHelpers.{IOResources, writeTo}
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.functions.col
 import org.apache.spark.sql._
-
-import io.opentargets.etl.backend.spark.Helpers
-import io.opentargets.etl.backend.spark.Helpers.{
-  IOResource,
-  IOResources,
-  unionDataframeDifferentSchema
-}
 
 object Hpo extends Serializable with LazyLogging {
   private def getEfoDataframe(rawEfoData: DataFrame): DataFrame = {
@@ -118,7 +114,7 @@ object Hpo extends Serializable with LazyLogging {
       "hpo" -> hpoConfiguration.hpoOntology,
       "diseasehpo" -> hpoConfiguration.hpoPhenotype
     )
-    val inputDataFrames = Helpers.readFrom(mappedInputs)
+    val inputDataFrames = IoHelpers.readFrom(mappedInputs)
 
     val diseaseXRefs = getEfoDataframe(diseasesRaw)
     val mondo = getMondo(inputDataFrames("mondo").data, diseaseXRefs)
@@ -186,7 +182,7 @@ object Disease extends Serializable with LazyLogging {
       "disease" -> diseaseConfiguration.efoOntology
     )
 
-    val inputDataFrames = Helpers.readFrom(mappedInputs)
+    val inputDataFrames = IoHelpers.readFrom(mappedInputs)
 
     val diseaseDF = setIdAndSelectFromDiseases(inputDataFrames("disease").data)
 
@@ -210,6 +206,6 @@ object Disease extends Serializable with LazyLogging {
       "hpo" -> IOResource(hposDF("hpo"), outputs.hpo)
     )
 
-    Helpers.writeTo(dataframesToSave)
+    IoHelpers.writeTo(dataframesToSave)
   }
 }

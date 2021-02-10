@@ -1,8 +1,8 @@
 package io.opentargets.etl.backend
 
 import com.typesafe.scalalogging.LazyLogging
-import io.opentargets.etl.backend.spark.Helpers
-import io.opentargets.etl.backend.spark.Helpers.{IOResource, IOResources}
+import io.opentargets.etl.backend.spark.IoHelpers.IOResources
+import io.opentargets.etl.backend.spark.{IOResource, IoHelpers}
 import org.apache.spark.sql._
 import org.apache.spark.sql.functions.{col, _}
 
@@ -37,10 +37,10 @@ object KnownDrugs extends LazyLogging {
       "drug" -> conf.inputs.drugs.drug,
       "mechanism" -> conf.inputs.drugs.mechanismOfAction
     )
-    val inputDataFrame = Helpers.readFrom(mappedInputs)
+    val inputDataFrame = IoHelpers.readFrom(mappedInputs)
 
     val dfDirectInfoAnnotated = compute(List("chembl"), inputDataFrame)
-    Helpers.writeTo(dfDirectInfoAnnotated)
+    IoHelpers.writeTo(dfDirectInfoAnnotated)
   }
 
   def compute(datasources: Seq[String], inputs: IOResources)(

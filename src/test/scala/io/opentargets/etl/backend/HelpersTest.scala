@@ -1,8 +1,7 @@
 package io.opentargets.etl.backend
 
 import com.typesafe.scalalogging.LazyLogging
-import io.opentargets.etl.backend.Configuration.OTConfig
-import io.opentargets.etl.backend.spark.Helpers
+import io.opentargets.etl.backend.spark.{IOResourceConfig, IOResourceConfigOption, IoHelpers}
 import org.apache.spark.sql.types._
 import org.apache.spark.sql.{DataFrame, Row}
 import org.scalatest.prop.TableDrivenPropertyChecks
@@ -34,7 +33,7 @@ class HelpersTest
       case Right(config) =>
         val inputFileNames = Seq("a", "b", "c")
         // when
-        val results = Helpers.generateDefaultIoOutputConfiguration(inputFileNames: _*)(config)
+        val results = IoHelpers.generateDefaultIoOutputConfiguration(inputFileNames: _*)(config)
         // then
         assert(results.keys.size == inputFileNames.size)
         assert(
@@ -48,15 +47,6 @@ class HelpersTest
     }
   }
 
-//  "separated values files" should "only be processed when they have a header and separator specified" in {
-//    // given
-//    val input = IOResourceConfig("name", "csv")
-//    // when
-//    lazy val results = Helpers.loadFileToDF(input)(sparkSession)
-//    // then
-//    assertThrows[AssertionError](results)
-//  }
-
   they should "load correctly when header and separator as specified" in {
     // given
     val path: String = this.getClass.getResource("/drugbank_v.csv").getPath
@@ -65,7 +55,7 @@ class HelpersTest
       IOResourceConfigOption("header", "true")
     )))
     // when
-    val results = Helpers.loadFileToDF(input)(sparkSession)
+    val results = IoHelpers.loadFileToDF(input)(sparkSession)
     // then
     assert( !results.isEmpty, "The provided dataframe should not be empty.")
   }

@@ -14,17 +14,6 @@ import scala.util.Random
 import monocle.macros.syntax.lens._
 
 object Helpers extends LazyLogging {
-  type IOResourceConfigurations = Map[String, IOResourceConfig]
-  type IOResources = Map[String, IOResource]
-
-  case class IOResource(data: DataFrame, configuration: IOResourceConfig)
-  case class IOResourceConfigOption(k: String, v: String)
-  case class IOResourceConfig(
-      format: String,
-      path: String,
-      options: Option[Seq[IOResourceConfigOption]] = None,
-      partitionBy: Option[Seq[String]] = None
-  )
 
   case class Metadata(id: String,
                       resource: IOResourceConfig,
@@ -54,20 +43,6 @@ object Helpers extends LazyLogging {
     SparkSession.builder
       .config(conf)
       .getOrCreate
-  }
-
-  /** Create an IOResourceConf Map for each of the given files, where the file is a key and the value is the output
-    * configuration
-    * @param files will be the names out the output files
-    * @param configuration to provide access to the program's configuration
-    * @return a map of file -> IOResourceConfig
-    */
-  def generateDefaultIoOutputConfiguration(
-      files: String*
-  )(configuration: OTConfig): IOResourceConfigurations = {
-    files.map { n =>
-      n -> IOResourceConfig(configuration.common.outputFormat, configuration.common.output + s"/$n")
-    } toMap
   }
 
   /** apply to newNameFn() to the new name for the transformation and columnFn() to the inColumn
@@ -268,6 +243,7 @@ object Helpers extends LazyLogging {
 
   /** generate the union between two dataframe with different Schema.
     * df is the implicit dataframe
+    *
     * @param df2 Dataframe with possibly a different Columns
     * @return a DataFrame
     */
@@ -281,6 +257,20 @@ object Helpers extends LazyLogging {
       df.select(columnExpr(cols1, total).toList: _*)
         .unionByName(df2.select(columnExpr(cols2, total).toList: _*))
     unionDF
+  }
+
+  /** generate a set of String with the union of Columns.
+    * Eg, myCols =( a,c,d) and allCols(a,c,d,e,f,h)
+    * return (a,c,d,e,f,h)
+    * @param myCols the list of the Columns in a specific Dataframe
+    * @param allCols the list of Columns to match
+    * @return a sparksession object
+    */
+  def columnExpr(myCols: Set[String], allCols: Set[String]): Set[Column] = {
+    val inter = (allCols intersect myCols).map(col)
+    val differ = (allCols diff myCols).map(lit(null).as(_))
+
+    inter union differ
   }
 
   /** generate snake to camel for the Elasticsearch indices.

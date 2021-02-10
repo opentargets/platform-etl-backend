@@ -1,11 +1,11 @@
 package io.opentargets.etl.backend
 
-import org.apache.spark.sql._
-import org.apache.spark.sql.types._
-import org.apache.spark.sql.functions._
 import com.typesafe.scalalogging.LazyLogging
-import io.opentargets.etl.backend.spark.Helpers.{IOResource, IOResources}
-import spark.{Helpers => H}
+import io.opentargets.etl.backend.spark.IoHelpers.IOResources
+import io.opentargets.etl.backend.spark.{IOResource, IOResourceConfig, IoHelpers}
+import org.apache.spark.sql._
+import org.apache.spark.sql.functions._
+import org.apache.spark.sql.types._
 
 object AssociationOTF extends LazyLogging {
   case class FacetLevel(l1: Option[String], l2: Option[String])
@@ -83,12 +83,12 @@ object AssociationOTF extends LazyLogging {
     val reactomeSection = context.configuration.common.inputs.reactome
 
     val mappedInputs = Map(
-      "reactome" -> H.IOResourceConfig(
+      "reactome" -> IOResourceConfig(
         reactomeSection.format,
         reactomeSection.path
       )
     )
-    val dfs = H.readFrom(mappedInputs)
+    val dfs = IoHelpers.readFrom(mappedInputs)
 
     val lutReact = ss.sparkContext.broadcast(
       dfs("reactome").data
@@ -130,7 +130,7 @@ object AssociationOTF extends LazyLogging {
       "diseases" -> conf.aotf.inputs.diseases
     )
 
-    val dfs = H.readFrom(mappedInputs)
+    val dfs = IoHelpers.readFrom(mappedInputs)
 
     val diseaseColumns = Seq(
       "id as disease_id",
@@ -207,6 +207,6 @@ object AssociationOTF extends LazyLogging {
     implicit val ss: SparkSession = context.sparkSession
     val clickhouseEvidences = compute()
 
-    H.writeTo(clickhouseEvidences)
+    IoHelpers.writeTo(clickhouseEvidences)
   }
 }
