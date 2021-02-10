@@ -30,7 +30,7 @@ object ETL extends LazyLogging {
         Disease()
       case "target" =>
         logger.info("run step target")
-        Target()
+        target.Target()
       case "mousePhenotypes" =>
         logger.info("run step mousephenotypes")
         MousePhenotypes()

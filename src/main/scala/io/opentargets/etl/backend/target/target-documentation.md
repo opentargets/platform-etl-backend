@@ -80,19 +80,21 @@
 1. Load uniprot data from config `uniprot_uri` (https://storage.googleapis.com/open-targets-data-releases/20.06/input/annotation-files/uniprot-2020-06-01.xml.gz)
 2. For each row in data:
    1. Call `load_uniprot_entry` to update gene fields:
-      1. uniprot_id
-      2. is_in_swissprot
+    ~~1. uniprot_id - first accession (dp UniprotIO.py ln 507)~~
+      2. is_in_swissprot - this is always true (dp uniprot.py ln 35)
       3. dbxrefs (updates what is already there)
-      4. uniprot_accessions
-      5. uniprot_keywords
-      6. uniprot_function
-      7. uniprot_similarity
-      8. uniprot_subunit
-      9. uniprot_subcellularlocation_location
-      10. uniprot_pathway
-      11. approved_symbol
-      12. symbol_synonyms
+    ~~4. uniprot_accessions~~
+      5. uniprot_keywords (not used in ETL)
+    ~~6. uniprot_function~~
+    ~~7. uniprot_similarity~~
+    ~~8. uniprot_subunit~~
+    ~~9. uniprot_subcellularlocation_location~~
+    ~~10. uniprot_pathway~~
+    ~~11. approved_symbol - gene_name_primary in UniprotIO~~
+    ~~12. symbol_synonyms - gene_name_synonym in UniprotIO~~
       13. name_synonyms
+        - recommended_name
+        - alternative_name
       14. go
       15. reactome
           1. This calls out to `reactome` in Elasticsearch and updates based on the results. This is why the gene step has a dependency on reactome. 
@@ -101,6 +103,34 @@
       18. drugbank
       19. pfam
       20. interpro
+      
+#### Raw input (asterisk next to used fields)
+
+```
+
+    /*
+    res51: Array[String] = Array(
+        "_created",
+        "_dataset",
+        "_modified",
+        "_version",
+     *  "accession",
+     *  "comment",
+        "dbReference",
+        "evidence",
+        "feature",
+     *  "gene",
+        "geneLocation",
+        "keyword",
+        "name",
+        "organism",
+     *  "protein",
+        "proteinExistence",
+        "reference",
+        "sequence"
+      )
+     */
+```
 
 ### ChEMBL
 
@@ -198,13 +228,13 @@ Fields actually used in ETL:
           gene_start as start, - ensembl
           gene_end as end, -enseml
           strand, - ensembl
-          uniprot_id as id, - uniprot
-          uniprot_accessions as accessions,- uniprot
-          uniprot_function as functions,- uniprot
-          uniprot_pathway as pathways,- uniprot
-          uniprot_similarity as similarities,- uniprot
-          uniprot_subcellular_location as subcellularLocations,- uniprot
-          uniprot_subunit as subunits,- uniprot
+          uniprot_id as id, - uniprot (done)
+          uniprot_accessions as accessions,- uniprot (done)
+          uniprot_function as functions,- uniprot (done)
+          uniprot_pathway as pathways,- uniprot (done)
+          uniprot_similarity as similarities,- uniprot (done)
+          uniprot_subcellular_location as subcellularLocations,- uniprot (done)
+          uniprot_subunit as subunits,- uniprot (done) 
           protein_classification.chembl as classes - chembl plugin
 ```
 

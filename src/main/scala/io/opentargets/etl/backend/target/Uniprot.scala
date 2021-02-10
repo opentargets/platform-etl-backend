@@ -1,117 +1,104 @@
 package io.opentargets.etl.backend.target
 
 import com.typesafe.scalalogging.LazyLogging
+import io.opentargets.etl.backend.spark.Helpers.nest
+import io.opentargets.etl.preprocess.uniprot.UniprotEntryParsed
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.{DataFrame, Dataset, SparkSession}
 
+case class LabelAndSource(label: String, source: String)
+
+/**
+  *
+  * @param uniprotId            current accession number
+  * @param synonyms             uniprot recommended and alternative names
+  * @param functionDescriptions from uniprot comments
+  * @param proteinIds           old accession numbers
+  * @param subcellularLocations from uniprot comments
+  */
+case class Uniprot(
+    uniprotId: String,
+    synonyms: Seq[LabelAndSource],
+    functionDescriptions: Seq[String],
+    proteinIds: Seq[LabelAndSource],
+    subcellularLocations: Seq[LabelAndSource],
+    dbXrefs: Seq[LabelAndSource]
+)
+
+// fixme: once it is decided what structures are actually required.
+// todo: issue 1163 - function description not always present
 object Uniprot extends LazyLogging {
 
   val id = "uniprotId"
 
-  def apply(dfRaw: DataFrame)(implicit ss: SparkSession): DataFrame = {
+  def apply(dfRaw: DataFrame)(implicit ss: SparkSession): Dataset[Uniprot] = {
     logger.info("Processing Uniprot inputs")
-    lazy val uniprotDfRaw =
-      ss.read.format("com.databricks.spark.xml").option("rowTag", "entry").load("*.xml")
-
-    /*
-    res51: Array[String] = Array(
-        "_created",
-        "_dataset",
-        "_modified",
-        "_version",
-        "accession",
-        "comment",
-        "dbReference",
-        "evidence",
-        "feature",
-        "gene",
-        "geneLocation",
-        "keyword",
-        "name",
-        "organism",
-        "protein",
-        "proteinExistence",
-        "reference",
-        "sequence"
-      )
-     */
-    val uniprotDfWithId = uniprotDfRaw
-      .select(
-        col("accession").as("uniprotAccessions"),
-        col("comment"),
-        col("gene")
-      )
-      .filter(size(col("uniprotAccessions")) > 0) // null return -1 so remove those too
-      .withColumn(id, expr("uniprotAccessions[0]"))
-
-    val commentsDf = processComments(uniprotDfWithId)
-
-    ???
-  }
-
-  /**
-    *
-    * @param df uniprot with columns uniprotId and comments
-    * @return dataset with fields from comments structure
-    */
-  def processComments(df: DataFrame)(implicit ss: SparkSession): Dataset[UniprotComment] = {
     import ss.implicits._
-    // Simple comments have a key in _type and the value in text._VALUE
-    def simpleComment(key: String,
-                      comments: DataFrame,
-                      outputName: Option[String] = None): DataFrame =
-      comments
-        .filter(s"_type == '$key'")
-        .select(id, "_type", "text._VALUE")
-        .drop("_type")
-        .groupBy(id)
-        .agg(collect_set("_VALUE").as(outputName.getOrElse(key)))
+    val uniprotDfWithId = dfRaw
+      .as[UniprotEntryParsed]
+      .filter(size(col("accessions")) > 0) // null return -1 so remove those too
+      .withColumn(id, expr("accessions[0]"))
+      .withColumn("synonyms", array_union(col("names"), col("synonyms")))
+      .withColumnRenamed("functions", "functionDescriptions")
+      .drop("id", "names")
 
-    val comments = df
-      .select(col(id), explode(col("comment")))
-      .select(id, "col.*")
-    val functions = simpleComment("function", comments, Some("functions"))
-    val pathways = simpleComment("pathway", comments, Some("pathways"))
-    val subunit = simpleComment("subunit", comments, Some("subunits"))
-    val similarity = simpleComment("similarity", comments, Some("similarities"))
-    val subcellularLocation = comments
-      .select(col(id), explode(col("subcellularLocation")))
-      .select(col(id), explode(col("col.location._VALUE")).as("subcellularLocation"))
-      .groupBy(id)
-      .agg(collect_set("subcellularLocation").as("subcellularLocation"))
+    val dbRefs = handleDbRefs(uniprotDfWithId)
+    val synonyms = transformColumnToLabelAndSourceStruct(uniprotDfWithId, "synonyms", "uniprot")
+    val proteinIds = transformColumnToLabelAndSourceStruct(uniprotDfWithId,
+                                                           "accessions",
+                                                           "uniprot",
+                                                           Some("proteinIds"))
+    val subcellularLocations =
+      transformColumnToLabelAndSourceStruct(uniprotDfWithId,
+                                            "locations",
+                                            "uniprot",
+                                            Some("subcellularLocations"))
 
-    val dfs: Seq[DataFrame] = Seq(functions, pathways, subunit, similarity, subcellularLocation)
-    val combinedComments: DataFrame = dfs
-      .reduce((a, b) => a.join(b, Seq(id), "outer"))
-
-    combinedComments.as[UniprotComment]
+    Seq(uniprotDfWithId.drop("synonyms", "functions", "dbXrefs", "accessions", "locations"),
+        dbRefs,
+        synonyms,
+        proteinIds,
+        subcellularLocations).reduce((acc, df) => acc.join(df, Seq(id), "left_outer")).as[Uniprot]
   }
 
   /**
+    * Returns dataframe with `column`'s value as nested structure along with a label indicating source of information.
     *
-    * @param df
-    * @return dataframe of [uniprotId, name, synonym]
+    * {{{
+    *   root
+    *  |-- id: string (nullable = true)
+    *  |-- [column]: struct (nullable = false)
+    *  |    |-- label: string (nullable = true)
+    *  |    |-- source: string (nullable = true)
+    * }}}
+    *
+    * @param column  to be nested as source
+    * @param label   used to indicate the source of the identifier, eg. HGNC, Ensembl, Uniprot
+    * @param newName if output df should not use `column` as name
+    * @return dataframe with columns [id, column | newname ]
     */
-  def processGene(df: DataFrame): DataFrame = {
-    val nameAndSynonyms = df
-      .select(col(id), explode(col("gene.name")).as("gene"))
-      .select(col(id), explode(col("gene")).as("gene"))
-      .select(col(id), col("gene._VALUE").as("name"), col("gene._type").as("nameType"))
-
-    val approvedSymbol = nameAndSynonyms.where("nameType = 'primary'").select(id, "name")
-    val symbolSynonyms = nameAndSynonyms
-      .where("nameType = 'synonym'")
+  private def transformColumnToLabelAndSourceStruct(dataFrame: DataFrame,
+                                                    column: String,
+                                                    label: String,
+                                                    newName: Option[String] = None): DataFrame = {
+    dataFrame
+      .select(col(id), explode(col(column)).as("source"))
+      .withColumn("label", typedLit(label))
+      .transform(nest(_, List("label", "source"), column))
       .groupBy(id)
-      .agg(collect_set(col("name")).as("synonyms"))
-
-    approvedSymbol.join(symbolSynonyms, Seq(id), "outer")
+      .agg(collect_set(column).as(newName.getOrElse(column)))
   }
 
-  case class UniprotComment(uniprotId: String,
-                            functions: Array[String],
-                            pathways: Array[String],
-                            subunits: Array[String],
-                            similarities: Array[String],
-                            subcellularLocation: Array[String])
-
+  private def handleDbRefs(dataFrame: DataFrame): DataFrame = {
+    val ref = "dbXrefs"
+    dataFrame
+      .select(col(id), explode(col(ref)).as(ref))
+      .withColumn(ref, split(col(ref), " "))
+      .withColumn("label", element_at(col(ref), 1))
+      .withColumn("source", element_at(col(ref), 2))
+      .drop(ref)
+      .transform(nest(_, List("label", "source"), ref))
+      .groupBy(id)
+      .agg(collect_set(ref).as(ref))
+  }
 }
