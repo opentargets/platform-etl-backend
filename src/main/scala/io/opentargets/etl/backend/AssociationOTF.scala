@@ -184,7 +184,6 @@ object AssociationOTF extends LazyLogging {
       "concat(targetId, ' ', targetName, ' ', targetsymbol) as target_data",
       "datasourceId as datasource_id",
       "datatypeId as datatype_id",
-      "sourceId",
       "score as row_score"
     )
 
