@@ -2,13 +2,24 @@ package io.opentargets.etl.backend.spark
 
 import com.typesafe.scalalogging.LazyLogging
 import io.opentargets.etl.backend.Configuration.OTConfig
-import io.opentargets.etl.backend.spark.Helpers.logger
 import org.apache.spark.sql.{DataFrame, DataFrameWriter, Row, SparkSession}
 
 import scala.util.Random
 
+/** Options to be used by Spark to configure dataframe loading. */
 case class IOResourceConfigOption(k: String, v: String)
+
+/** Combines data and metadata regarding storage/retrieval */
 case class IOResource(data: DataFrame, configuration: IOResourceConfig)
+
+/**
+  * Specifies resource to be used in the ETL.
+  *
+  * @param format      used to help Spark know the format of the incoming file
+  * @param path        to resource
+  * @param options     configuration options
+  * @param partitionBy partition results by
+  */
 case class IOResourceConfig(
     format: String,
     path: String,
