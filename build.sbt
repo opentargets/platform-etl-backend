@@ -3,7 +3,8 @@ import Dependencies._
 val buildResolvers = Seq(
   "Typesafe Repo" at "https://repo.typesafe.com/typesafe/releases/",
   "Sonatype Snapshots" at "https://oss.sonatype.org/content/repositories/snapshots",
-  "Sonatype Releases" at "https://oss.sonatype.org/content/repositories/releases")
+  "Sonatype Releases" at "https://oss.sonatype.org/content/repositories/releases"
+)
 
 lazy val root = (project in file("."))
   .settings(
