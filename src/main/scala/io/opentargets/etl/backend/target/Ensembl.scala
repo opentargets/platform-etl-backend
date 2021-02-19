@@ -4,6 +4,7 @@ import com.typesafe.scalalogging.LazyLogging
 import io.opentargets.etl.backend.spark.Helpers
 import io.opentargets.etl.backend.spark.Helpers.nest
 import org.apache.spark.sql.functions.{col, element_at, size, split}
+import org.apache.spark.sql.types.{IntegerType, LongType}
 import org.apache.spark.sql.{DataFrame, Dataset, SparkSession, functions}
 
 case class Ensembl(id: String,
@@ -13,7 +14,7 @@ case class Ensembl(id: String,
                    approvedSymbol: String,
 )
 
-case class GenomicLocation(chromosome: String, start: Long, end: Long, strand: Long)
+case class GenomicLocation(chromosome: String, start: Long, end: Long, strand: Integer)
 
 object Ensembl extends LazyLogging {
 
@@ -21,18 +22,18 @@ object Ensembl extends LazyLogging {
     logger.info("Transforming Ensembl inputs.")
     import ss.implicits._
     val ensembl: Dataset[Ensembl] = df
-      .transform(Helpers.snakeToLowerCamelSchema)
-      .filter(col("isReference") && col("id").startsWith("ENSG"))
-      .select("id",
-              "biotype",
-              "description",
-              "end",
-              "start",
-              "strand",
-              "seqRegionName", // chromosome
-              "displayName")
-      .withColumnRenamed("seqRegionName", "chromosome")
-      .withColumnRenamed("displayName", "approvedSymbol")
+      .filter(col("id").startsWith("ENSG"))
+      .select(
+        col("id"),
+        col("biotype"),
+        col("description"),
+        col("end").cast(LongType),
+        col("start").cast(LongType),
+        col("strand").cast(IntegerType),
+        col("seq_region_name").as("chromosome"), // chromosome
+        col("name").as("approvedSymbol")
+      )
+      .withColumn("end", col("end").cast(IntegerType))
       .transform(nest(_, List("chromosome", "start", "end", "strand"), "genomicLocation"))
       .transform(descriptionToApprovedName)
       .as[Ensembl]
