@@ -3,15 +3,15 @@ package io.opentargets.etl.backend.target
 import com.typesafe.scalalogging.LazyLogging
 import io.opentargets.etl.backend.spark.Helpers
 import io.opentargets.etl.backend.spark.Helpers.nest
-import org.apache.spark.sql.functions.col
-import org.apache.spark.sql.{DataFrame, Dataset, SparkSession}
+import org.apache.spark.sql.functions.{col, element_at, size, split}
+import org.apache.spark.sql.{DataFrame, Dataset, SparkSession, functions}
 
 case class Ensembl(id: String,
                    assemblyName: String,
                    biotype: String,
-                   description: String,
+                   approvedName: String,
                    genomicLocation: GenomicLocation,
-                   displayName: String,
+                   approvedSymbol: String,
                    version: Long,
                    ensemblRelease: String)
 
@@ -37,10 +37,21 @@ object Ensembl extends LazyLogging {
               "version",
               "ensemblRelease")
       .withColumnRenamed("seqRegionName", "chromosome")
+      .withColumnRenamed("displayName", "approvedSymbol")
       .transform(nest(_, List("chromosome", "start", "end", "strand"), "genomicLocation"))
+      .transform(descriptionToApprovedName)
       .as[Ensembl]
 
     ensembl
+  }
+
+  /** Return approved name from description */
+  private def descriptionToApprovedName(dataFrame: DataFrame): DataFrame = {
+    val d = "description"
+    dataFrame
+      .withColumn(d, split(col(d), "\\[")) // remove redundant source information.
+      .withColumn("approvedName", element_at(col(d), 1))
+      .drop(d)
   }
 
 }
