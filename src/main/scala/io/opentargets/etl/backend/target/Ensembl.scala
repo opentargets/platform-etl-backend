@@ -7,13 +7,11 @@ import org.apache.spark.sql.functions.{col, element_at, size, split}
 import org.apache.spark.sql.{DataFrame, Dataset, SparkSession, functions}
 
 case class Ensembl(id: String,
-                   assemblyName: String,
                    biotype: String,
                    approvedName: String,
                    genomicLocation: GenomicLocation,
                    approvedSymbol: String,
-                   version: Long,
-                   ensemblRelease: String)
+)
 
 case class GenomicLocation(chromosome: String, start: Long, end: Long, strand: Long)
 
@@ -26,16 +24,13 @@ object Ensembl extends LazyLogging {
       .transform(Helpers.snakeToLowerCamelSchema)
       .filter(col("isReference") && col("id").startsWith("ENSG"))
       .select("id",
-              "assemblyName",
               "biotype",
               "description",
               "end",
               "start",
               "strand",
               "seqRegionName", // chromosome
-              "displayName",
-              "version",
-              "ensemblRelease")
+              "displayName")
       .withColumnRenamed("seqRegionName", "chromosome")
       .withColumnRenamed("displayName", "approvedSymbol")
       .transform(nest(_, List("chromosome", "start", "end", "strand"), "genomicLocation"))
