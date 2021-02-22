@@ -21,9 +21,7 @@ object Configuration extends LazyLogging {
                                    diseases: IOResourceConfig,
                                    targets: IOResourceConfig)
 
-  case class EvidenceOutputsSection(succeeded: IOResourceConfig,
-                                    failed: IOResourceConfig,
-                                    stats: IOResourceConfig)
+  case class EvidenceOutputsSection(succeeded: IOResourceConfig, failed: IOResourceConfig)
 
   case class EvidencesSection(inputs: EvidenceInputsSection,
                               uniqueFields: List[String],
@@ -60,8 +58,6 @@ object Configuration extends LazyLogging {
       outputs: AOTFOutputsSection,
       inputs: AOTFInputsSection
   )
-
-  case class EvidenceProteinFix(input: String, output: String)
 
   case class InputInfo(format: String, path: String)
 
@@ -145,7 +141,6 @@ object Configuration extends LazyLogging {
   case class OTConfig(
       sparkUri: Option[String],
       common: Common,
-      evidenceProteinFix: EvidenceProteinFix,
       associations: AssociationsSection,
       evidences: EvidencesSection,
       drug: DrugSection,

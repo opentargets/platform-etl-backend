@@ -597,9 +597,7 @@ object Evidence extends LazyLogging {
     Map(
       "ok" -> IOResource(transformedDF.filter(okFitler).drop(rt, rd, md, ns, xb),
                          outputPathConf.succeeded),
-      "failed" -> IOResource(transformedDF.filter(not(okFitler)), outputPathConf.failed),
-      "stats" -> IOResource(transformedDF.filter(not(okFitler)).transform(stats(_, statAggs)),
-                            outputPathConf.stats)
+      "failed" -> IOResource(transformedDF.filter(not(okFitler)), outputPathConf.failed)
     )
   }
 
