@@ -11,7 +11,8 @@ case class Ensembl(id: String,
                    approvedName: String,
                    genomicLocation: GenomicLocation,
                    approvedSymbol: String,
-                   proteinIds: Array[IdAndSource])
+                   proteinIds: Array[IdAndSource],
+                   transcriptIds: Array[IdAndSource])
 
 case class IdAndSource(id: String, source: String)
 
@@ -33,17 +34,35 @@ object Ensembl extends LazyLogging {
         col("strand").cast(IntegerType),
         col("seq_region_name").as("chromosome"), // chromosome
         col("name").as("approvedSymbol"),
-        col("protein_id")
+        col("protein_id"),
+        col("transcripts")
       )
       .withColumn("end", col("end").cast(IntegerType))
       .transform(nest(_, List("chromosome", "start", "end", "strand"), "genomicLocation"))
       .transform(descriptionToApprovedName)
       .transform(refactorProteinId)
+      .transform(refactorTranscriptId)
       .as[Ensembl]
 
     ensembl
   }
 
+  def refactorTranscriptId: DataFrame => DataFrame = { df =>
+    {
+      df.join(
+          df.select(col("id").as("i"), explode(col("transcripts")).as("t"))
+            .select(col("i"), col("t.id").as("id"))
+            .withColumn("source", typedLit("Ensembl_TRA"))
+            .transform(nest(_, List("source", "id"), "transcriptIds"))
+            .withColumnRenamed("i", "id")
+            .groupBy("id")
+            .agg(collect_set(col("transcriptIds")).as("transcriptIds")),
+          Seq("id"),
+          "left_outer"
+        )
+        .drop("transcripts")
+    }
+  }
   def refactorProteinId: DataFrame => DataFrame = { df =>
     {
       df.join(
