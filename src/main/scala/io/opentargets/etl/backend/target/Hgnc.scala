@@ -10,13 +10,10 @@ case class Hgnc(ensemblId: String,
                 approvedSymbol: String,
                 approvedName: String,
                 status: String,
-                locusGroup: String,
                 symbolSynonyms: Array[String],
                 nameSynonyms: Array[String],
-                enzymeId: Array[String],
-                entrezId: String,
                 uniprotIds: Array[String],
-                pubmedIds: Array[Long])
+)
 object Hgnc extends LazyLogging {
 
   def apply(hgncRaw: DataFrame)(implicit ss: SparkSession): Dataset[Hgnc] = {
@@ -26,22 +23,21 @@ object Hgnc extends LazyLogging {
 
   }
 
-  private def selectAndRenameFields(dataFrame: DataFrame)(implicit ss: SparkSession): Dataset[Hgnc] = {
+  private def selectAndRenameFields(dataFrame: DataFrame)(
+      implicit ss: SparkSession): Dataset[Hgnc] = {
     import ss.implicits._
-    val hgncDf = dataFrame.select(
-      col("ensembl_gene_id") as "ensemblId",
-      col("hgnc_id"),
-      col("symbol") as "approvedSymbol",
-      col("name") as "approvedName",
-      col("status"),
-      col("locus_group"),
-      col("alias_symbol") as "symbolSynonyms",
-      col("alias_name") as "nameSynonyms",
-      col("enzyme_id"),
-      col("entrez_id"),
-      col("uniprot_ids"),
-      col("pubmed_id") as "pubmedIds"
-    ).transform(Helpers.snakeToLowerCamelSchema)
+    val hgncDf = dataFrame
+      .select(
+        col("ensembl_gene_id") as "ensemblId",
+        col("hgnc_id"),
+        col("symbol") as "approvedSymbol",
+        col("name") as "approvedName",
+        col("status"),
+        col("alias_symbol") as "symbolSynonyms",
+        col("alias_name") as "nameSynonyms",
+        col("uniprot_ids"),
+      )
+      .transform(Helpers.snakeToLowerCamelSchema)
 
     hgncDf.as[Hgnc]
   }
