@@ -35,7 +35,8 @@ object Ensembl extends LazyLogging {
         col("seq_region_name").as("chromosome"), // chromosome
         col("name").as("approvedSymbol"),
         col("protein_id"),
-        col("transcripts")
+        col("transcripts"),
+        flatten(col("transcripts.translations")).as("translations")
       )
       .withColumn("end", col("end").cast(IntegerType))
       .transform(nest(_, List("chromosome", "start", "end", "strand"), "genomicLocation"))
@@ -47,6 +48,7 @@ object Ensembl extends LazyLogging {
     ensembl
   }
 
+  /** Returns dataframe with column 'transcriptIds' added and column 'transcripts' removed. */
   def refactorTranscriptId: DataFrame => DataFrame = { df =>
     {
       df.join(
@@ -63,19 +65,41 @@ object Ensembl extends LazyLogging {
         .drop("transcripts")
     }
   }
+
+  /** Returns dataframe with column 'proteinIds' added and columns 'protein_id' and 'translations' removed.
+    *
+    * 'proteinIds' includes sources:
+    *   - Uniprot
+    *   - Ensembl_PRO
+    * */
   def refactorProteinId: DataFrame => DataFrame = { df =>
     {
-      df.join(
-          df.select(col("id").as("i"), explode(col("protein_id")).as("id"))
-            .withColumn("source", typedLit("Uniprot"))
-            .transform(nest(_, List("source", "id"), "proteinIds"))
-            .withColumnRenamed("i", "id")
-            .groupBy("id")
-            .agg(collect_set(col("proteinIds")).as("proteinIds")),
+      def convertToIdAndSource(dataFrame: DataFrame,
+                               source: String,
+                               sourceIdColumn: String): DataFrame = {
+        dataFrame
+          .select(col("id").as("i"), explode(col(sourceIdColumn)).as("id"))
+          .withColumn("source", typedLit(source))
+          .transform(nest(_, List("source", "id"), "pids"))
+          .withColumnRenamed("i", "id")
+          .groupBy("id")
+          .agg(collect_set(col("pids")).as(source))
+      }
+
+      val uniprot = convertToIdAndSource(df, "Uniprot", "protein_id")
+
+      val ensemblPro = convertToIdAndSource(df, "ensembl_PRO", "translations.id")
+
+      val proteinIds = uniprot
+        .join(ensemblPro, Seq("id"), "outer")
+        .select(col("id"), array_union(col("Uniprot"), col("ensembl_PRO")).as("proteinIds"))
+
+      df.drop("protein_id", "translations")
+        .join(
+          proteinIds,
           Seq("id"),
           "left_outer"
         )
-        .drop("protein_id")
     }
   }
 
