@@ -33,6 +33,21 @@ object Target extends LazyLogging {
       "ensembl" -> IOResourceConfig(
         targetConfig.input.ensembl.format,
         targetConfig.input.ensembl.path
+      ),
+      "geneOntologyHuman" -> IOResourceConfig(
+        targetConfig.input.geneOntology.format,
+        targetConfig.input.geneOntology.path,
+        options = targetConfig.input.geneOntology.options
+      ),
+      "geneOntologyRna" -> IOResourceConfig(
+        targetConfig.input.geneOntologyRna.format,
+        targetConfig.input.geneOntologyRna.path,
+        options = targetConfig.input.geneOntologyRna.options
+      ),
+      "geneOntologyRnaLookup" -> IOResourceConfig(
+        targetConfig.input.geneOntologyRnaLookup.format,
+        targetConfig.input.geneOntologyRnaLookup.path,
+        options = targetConfig.input.geneOntologyRnaLookup.options
       )
     )
 
@@ -53,11 +68,22 @@ object Target extends LazyLogging {
     //        .get("orthologs")
     //        .map(ioResource => Ortholog(ioResource.data, targetConfig.hgncOrthologSpecies))
 
-    val ensembl: Option[Dataset[Ensembl]] =
+    val ensemblDf: Option[Dataset[Ensembl]] =
       inputDataFrame.get("ensembl").map(ioResource => Ensembl(ioResource.data))
 
-    val uniprot: Option[Dataset[Uniprot]] =
+    val uniprotDf: Option[Dataset[Uniprot]] =
       inputDataFrame.get("uniprot").map(ioResource => Uniprot(ioResource.data))
+
+    val geneOntologyDf: Option[Dataset[GeneOntologyByEnsembl]] = List(
+      inputDataFrame.get("geneOntologyHuman"),
+      inputDataFrame.get("geneOntologyRna"),
+      inputDataFrame.get("geneOntologyRnaLookup")).flatten match {
+      case human :: rna :: ids :: Nil =>
+        Some(GeneOntology(human.data, rna.data, ids.data, ensemblDf.get))
+      case _ =>
+        logger.warn(s"One or more inputs was missing for Gene Ontology substep of Target.")
+        None
+    }
 
     ???
   }
@@ -71,4 +97,5 @@ object Target extends LazyLogging {
     val data = UniprotConverter.convertUniprotFlatFileToUniprotEntry(file)
     IOResource(data.toDF(), io)
   }
+
 }
