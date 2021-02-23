@@ -48,6 +48,10 @@ object Target extends LazyLogging {
         targetConfig.input.geneOntologyRnaLookup.format,
         targetConfig.input.geneOntologyRnaLookup.path,
         options = targetConfig.input.geneOntologyRnaLookup.options
+      ),
+      "tep" -> IOResourceConfig(
+        targetConfig.input.tep.format,
+        targetConfig.input.tep.path
       )
     )
 
@@ -84,6 +88,9 @@ object Target extends LazyLogging {
         logger.warn(s"One or more inputs was missing for Gene Ontology substep of Target.")
         None
     }
+
+    val tep: Option[Dataset[TepWithId]] =
+      inputDataFrame.get("tep").map(ioResource => Tep(ioResource.data))
 
     ???
   }
