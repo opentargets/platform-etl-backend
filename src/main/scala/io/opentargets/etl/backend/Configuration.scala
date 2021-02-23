@@ -14,6 +14,7 @@ object Configuration extends LazyLogging {
 
   case class EvidenceEntry(id: String,
                            uniqueFields: List[String],
+                           datatypeId: Option[String],
                            scoreExpr: String,
                            excludedBiotypes: Option[List[String]])
 
@@ -28,6 +29,7 @@ object Configuration extends LazyLogging {
   case class EvidencesSection(inputs: EvidenceInputsSection,
                               uniqueFields: List[String],
                               scoreExpr: String,
+                              datatypeId: String,
                               dataSources: List[EvidenceEntry],
                               outputs: EvidenceOutputsSection)
 

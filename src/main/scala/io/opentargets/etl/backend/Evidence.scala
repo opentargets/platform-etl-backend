@@ -474,6 +474,41 @@ object Evidence extends LazyLogging {
     resolved
   }
 
+  def normaliseDatatypes(df: DataFrame)(implicit context: ETLSessionContext): DataFrame = {
+    implicit val ss: SparkSession = context.sparkSession
+    import ss.implicits._
+
+    logger.info(
+      "build a LUT table for the datatypes to make sure every datasource has one datatype id")
+    val config = context.configuration.evidences
+
+    val dsId = "datasourceId"
+    val colName = "datatypeId"
+    val customColName = "customDatatypeId"
+    val defaultDTId = config.datatypeId
+
+    val dfWithDT = if (df.columns.contains(colName)) {
+      df.withColumn(colName,
+                    when(col(colName).isNull, lit(defaultDTId))
+                      .otherwise(col(colName)))
+    } else {
+      df.withColumn(colName, lit(defaultDTId))
+    }
+
+    val customDTs =
+      broadcast(
+        config.dataSources
+          .filter(_.datatypeId.isDefined)
+          .map(x => x.id -> x.datatypeId.get)
+          .toDF(dsId, customColName)
+          .orderBy(col(dsId).asc))
+
+    dfWithDT
+      .join(customDTs, Seq(dsId), "left_outer")
+      .withColumn(colName, coalesce(col(customColName), col(colName)))
+      .drop(customColName)
+  }
+
   def generateHashes(df: DataFrame, columnName: String)(
       implicit context: ETLSessionContext): DataFrame = {
     implicit val ss: SparkSession = context.sparkSession
@@ -585,6 +620,7 @@ object Evidence extends LazyLogging {
       .transform(resolveTargets(_, dfs("targets").data, rt, fromTargetId, targetId))
       .transform(resolveDiseases(_, dfs("diseases").data, rd, fromDiseaseId, diseaseId))
       .transform(excludeByBiotype(_, dfs("targets").data, xb, targetId, datasourceId))
+      .transform(normaliseDatatypes _)
       .transform(generateHashes(_, id))
       .transform(score(_, sc))
       .transform(checkNullifiedScores(_, sc, ns))
