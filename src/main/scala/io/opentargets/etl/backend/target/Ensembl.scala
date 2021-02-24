@@ -70,7 +70,7 @@ object Ensembl extends LazyLogging {
     *
     * 'proteinIds' includes sources:
     *   - Uniprot
-    *   - Ensembl_PRO
+    *   - ensembl_PRO
     * */
   def refactorProteinId: DataFrame => DataFrame = { df =>
     {
@@ -80,7 +80,7 @@ object Ensembl extends LazyLogging {
         dataFrame
           .select(col("id").as("i"), explode(col(sourceIdColumn)).as("id"))
           .withColumn("source", typedLit(source))
-          .transform(nest(_, List("source", "id"), "pids"))
+          .transform(nest(_, List("id", "source"), "pids"))
           .withColumnRenamed("i", "id")
           .groupBy("id")
           .agg(collect_set(col("pids")).as(source))
