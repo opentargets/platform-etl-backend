@@ -72,6 +72,9 @@ object Target extends LazyLogging {
     logger.debug("Grouping Uniprot entries by Ensembl Id.")
     hgnc
       .select(col("ensemblId"), explode(col("uniprotIds")).as("uniprotId"))
+      .withColumn("id", col("uniprotId"))
+      .withColumn("source", typedLit("Uniprot"))
+      .transform(nest(_, List("id", "source"), "uniprotProteinId"))
       .join(uniprot, Seq("uniprotId"))
       .groupBy("ensemblId")
       .agg(
@@ -79,9 +82,12 @@ object Target extends LazyLogging {
         collect_set(col("functionDescriptions")).as("functionDescriptions"),
         collect_set(col("proteinIds")).as("proteinIds"),
         collect_set(col("subcellularLocations")).as("subcellularLocations"),
-        collect_set(col("dbXrefs")).as("dbXrefs")
+        collect_set(col("dbXrefs")).as("dbXrefs"),
+        collect_set(col("uniprotProteinId")).as("uniprotProteinId")
       )
       .withColumnRenamed("ensemblId", "id")
+      .withColumn("proteinIds", safeArrayUnion(flatten(col("proteinIds")), col("uniprotProteinId")))
+      .drop("uniprotId", "uniprotProteinId")
   }
 
   /** Return map on input IOResources */

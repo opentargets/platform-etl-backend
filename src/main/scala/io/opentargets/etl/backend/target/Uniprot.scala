@@ -21,7 +21,7 @@ case class Uniprot(
     functionDescriptions: Seq[String],
     proteinIds: Seq[IdAndSource],
     subcellularLocations: Seq[LabelAndSource],
-    dbXrefs: Seq[LabelAndSource]
+    dbXrefs: Seq[IdAndSource]
 )
 
 object Uniprot extends LazyLogging {
@@ -68,10 +68,10 @@ object Uniprot extends LazyLogging {
     dataFrame
       .select(col(id), explode(col(ref)).as(ref))
       .withColumn(ref, split(col(ref), " "))
-      .withColumn("label", element_at(col(ref), 1))
-      .withColumn("source", element_at(col(ref), 2))
+      .withColumn("id", element_at(col(ref), 2))
+      .withColumn("source", element_at(col(ref), 1))
       .drop(ref)
-      .transform(nest(_, List("label", "source"), ref))
+      .transform(nest(_, List("id", "source"), ref))
       .groupBy(id)
       .agg(collect_set(ref).as(ref))
   }
