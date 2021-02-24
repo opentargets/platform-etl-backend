@@ -58,13 +58,11 @@ object Target extends LazyLogging {
     val uniprotGroupedByEnsemblId = addEnsemblIdsToUniprot(hgnc, uniprotDf)
       .withColumnRenamed("proteinIds", "pid")
 
-    // todo hngc: merge synonyms: - merge name and symbol synonyms
-    // todo add hgnc to dbxrefs
     hgncEnsemblTepGO
       .join(uniprotGroupedByEnsemblId, Seq("id"), "left_outer")
       .withColumn("proteinIds", safeArrayUnion(col("proteinIds"), col("pid")))
-      .withColumn("dbXrefs", safeArrayUnion(col("hgncId"), flatten(col("dbXrefs"))))
-      .withColumn("synonyms", safeArrayUnion(flatten(col("synonyms")), col("hgncSynonyms")))
+      .withColumn("dbXrefs", safeArrayUnion(col("hgncId"), col("dbXrefs")))
+      .withColumn("synonyms", safeArrayUnion(col("synonyms"), col("hgncSynonyms")))
       .drop("pid", "hgncId", "hgncSynonyms", "uniprotIds")
   }
 
@@ -78,15 +76,15 @@ object Target extends LazyLogging {
       .join(uniprot, Seq("uniprotId"))
       .groupBy("ensemblId")
       .agg(
-        collect_set(col("synonyms")).as("synonyms"),
-        collect_set(col("functionDescriptions")).as("functionDescriptions"),
-        collect_set(col("proteinIds")).as("proteinIds"),
-        collect_set(col("subcellularLocations")).as("subcellularLocations"),
-        collect_set(col("dbXrefs")).as("dbXrefs"),
+        flatten(collect_set(col("synonyms"))).as("synonyms"),
+        flatten(collect_set(col("functionDescriptions"))).as("functionDescriptions"),
+        flatten(collect_set(col("proteinIds"))).as("proteinIds"),
+        flatten(collect_set(col("subcellularLocations"))).as("subcellularLocations"),
+        flatten(collect_set(col("dbXrefs"))).as("dbXrefs"),
         collect_set(col("uniprotProteinId")).as("uniprotProteinId")
       )
       .withColumnRenamed("ensemblId", "id")
-      .withColumn("proteinIds", safeArrayUnion(flatten(col("proteinIds")), col("uniprotProteinId")))
+      .withColumn("proteinIds", safeArrayUnion(col("proteinIds"), col("uniprotProteinId")))
       .drop("uniprotId", "uniprotProteinId")
   }
 
@@ -173,7 +171,6 @@ object Target extends LazyLogging {
       .drop("an", "as")
     logger.debug(
       s"Merged HGNC and Ensembl dataframe has columns: ${merged.columns.mkString("Array(", ", ", ")")}")
-    // todo Update hgnc uniprotIds to use the IdAndSource case class
     // todo check what needs to happen to merge unused approvedNames...probably go to symbol synonyms.
     merged
   }
