@@ -340,8 +340,9 @@ object Helpers extends LazyLogging {
   }
 
   /** Helper function to confirm that all required columns are available on dataframe.
+    *
     * @param requiredColumns on input dataframe
-    * @param dataFrame dataframe to test
+    * @param dataFrame       dataframe to test
     */
   def validateDF(requiredColumns: Set[String], dataFrame: DataFrame): Unit = {
     lazy val msg =
@@ -349,5 +350,17 @@ object Helpers extends LazyLogging {
         .mkString(",")}"
     val columnsOnDf = dataFrame.columns.toSet
     assert(requiredColumns.forall(columnsOnDf.contains), msg)
+  }
+
+  /** Returns the result of array_union(arr_1, ..., arr_n) where null arrays are cast to empty.
+    *
+    * The default implementation of array_union returns null if any of the input arrays is null. This method meets the
+    * need of joining arrays where one or more of them may be null, but we still want the partial result returned.
+    *
+    * @param columns of array type
+    * @return union of columns
+    */
+  def safeArrayUnion(columns: Column*): Column = {
+    columns.map(coalesce(_, typedLit(Array.empty))).reduce((c1, c2) => array_union(c1, c2))
   }
 }

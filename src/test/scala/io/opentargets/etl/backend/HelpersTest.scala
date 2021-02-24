@@ -3,18 +3,15 @@ package io.opentargets.etl.backend
 import com.typesafe.scalalogging.LazyLogging
 import io.opentargets.etl.backend.spark.{IOResourceConfig, IOResourceConfigOption, IoHelpers}
 import org.apache.spark.sql.types._
-import org.apache.spark.sql.{DataFrame, Row}
+import org.apache.spark.sql.{DataFrame, Row, functions}
 import org.scalatest.prop.TableDrivenPropertyChecks
 import io.opentargets.etl.backend.spark.Helpers._
+import org.apache.spark.sql.functions.{col, explode}
+import org.scalatest.matchers.should.Matchers.convertToAnyShouldWrapper
 
 import scala.util.Random
 
-class HelpersTest
-    extends EtlSparkUnitTest
-    with TableDrivenPropertyChecks
-    with LazyLogging
-    {
-
+class HelpersTest extends EtlSparkUnitTest with TableDrivenPropertyChecks with LazyLogging {
 
   // given
   val renameFun: String => String = _.toUpperCase
@@ -50,14 +47,17 @@ class HelpersTest
   they should "load correctly when header and separator as specified" in {
     // given
     val path: String = this.getClass.getResource("/drugbank_v.csv").getPath
-    val input = IOResourceConfig("csv", path, Some(List(
-      IOResourceConfigOption("sep", "\\t"),
-      IOResourceConfigOption("header", "true")
-    )))
+    val input = IOResourceConfig("csv",
+                                 path,
+                                 Some(
+                                   List(
+                                     IOResourceConfigOption("sep", "\\t"),
+                                     IOResourceConfigOption("header", "true")
+                                   )))
     // when
     val results = IoHelpers.loadFileToDF(input)(sparkSession)
     // then
-    assert( !results.isEmpty, "The provided dataframe should not be empty.")
+    assert(!results.isEmpty, "The provided dataframe should not be empty.")
   }
 
   "Rename columns" should "rename all columns using given function" in {
@@ -114,6 +114,34 @@ class HelpersTest
         results.columns.head
       }
     }
+
+  }
+
+  "safeArrayUnion" should "return elements of one array if the other is null" in {
+    // given
+    val json =
+      """
+        |{
+        |  "cases": [
+        |    { "id": 1, "a": [ 4, 5, 6], "c": [2]},
+        |    { "id": 2, "a": [ 1, 2, 3], "b": [7]},
+        |    { "id": 3, "a": [], "b": [], "c": []}
+        |  ]
+        |}
+        |""".stripMargin
+    import sparkSession.implicits._
+
+    val df = sparkSession.read.json(Seq(json).toDS).select(explode(col("cases"))).select("col.*")
+    // when
+    val results = df.withColumn("d", safeArrayUnion(col("a"), col("b"), col("c")))
+
+    // then
+    results.filter($"d".isNotNull).count() should be(3)
+    results
+      .filter($"id" === 1)
+      .select(functions.size($"d").as("union"))
+      .head()
+      .getAs[Int]("union") should be(4)
 
   }
 
