@@ -2,6 +2,7 @@ package io.opentargets.etl.backend.target
 
 import better.files.{File, InputStreamExtensions}
 import com.typesafe.scalalogging.LazyLogging
+import io.opentargets.etl.backend.spark.Helpers.{nest, safeArrayUnion}
 import io.opentargets.etl.backend.{Configuration, ETLSessionContext}
 import io.opentargets.etl.backend.spark.IoHelpers.IOResources
 import io.opentargets.etl.backend.spark.{CsvHelpers, IOResource, IOResourceConfig, IoHelpers}
@@ -61,8 +62,10 @@ object Target extends LazyLogging {
     // todo add hgnc to dbxrefs
     hgncEnsemblTepGO
       .join(uniprotGroupedByEnsemblId, Seq("id"), "left_outer")
-      .withColumn("proteinIds", array_union(col("proteinIds"), flatten(col("pid"))))
-      .drop("pid")
+      .withColumn("proteinIds", safeArrayUnion(col("proteinIds"), col("pid")))
+      .withColumn("dbXrefs", safeArrayUnion(col("hgncId"), flatten(col("dbXrefs"))))
+      .withColumn("synonyms", safeArrayUnion(flatten(col("synonyms")), col("hgncSynonyms")))
+      .drop("pid", "hgncId", "hgncSynonyms", "uniprotIds")
   }
 
   def addEnsemblIdsToUniprot(hgnc: Dataset[Hgnc], uniprot: Dataset[Uniprot]): DataFrame = {
