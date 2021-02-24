@@ -15,18 +15,17 @@ case class LabelAndSource(label: String, source: String)
   * @param functionDescriptions from uniprot comments
   * @param proteinIds           old accession numbers
   * @param subcellularLocations from uniprot comments
+  * @param dbXrefs              references to other libraries.
   */
 case class Uniprot(
     uniprotId: String,
     synonyms: Seq[LabelAndSource],
     functionDescriptions: Seq[String],
-    proteinIds: Seq[LabelAndSource],
+    proteinIds: Seq[IdAndSource],
     subcellularLocations: Seq[LabelAndSource],
     dbXrefs: Seq[LabelAndSource]
 )
 
-// fixme: once it is decided what structures are actually required.
-// todo: issue 1163 - function description not always present
 object Uniprot extends LazyLogging {
 
   val id = "uniprotId"
@@ -47,11 +46,13 @@ object Uniprot extends LazyLogging {
     val proteinIds = transformColumnToLabelAndSourceStruct(uniprotDfWithId,
                                                            "accessions",
                                                            "uniprot",
+                                                           Some("id"),
                                                            Some("proteinIds"))
     val subcellularLocations =
       transformColumnToLabelAndSourceStruct(uniprotDfWithId,
                                             "locations",
                                             "uniprot",
+                                            None,
                                             Some("subcellularLocations"))
 
     Seq(uniprotDfWithId.drop("synonyms", "functions", "dbXrefs", "accessions", "locations"),
@@ -72,21 +73,27 @@ object Uniprot extends LazyLogging {
     *  |    |-- source: string (nullable = true)
     * }}}
     *
-    * @param column  to be nested as source
-    * @param label   used to indicate the source of the identifier, eg. HGNC, Ensembl, Uniprot
-    * @param newName if output df should not use `column` as name
+    * @param column           to be nested as source
+    * @param label            used to indicate the source of the identifier, eg. HGNC, Ensembl, Uniprot
+    * @param labelName        defaults to "label"
+    * @param outputColumnName if output df should not use `column` as name
     * @return dataframe with columns [id, column | newname ]
     */
-  private def transformColumnToLabelAndSourceStruct(dataFrame: DataFrame,
-                                                    column: String,
-                                                    label: String,
-                                                    newName: Option[String] = None): DataFrame = {
+  private def transformColumnToLabelAndSourceStruct(
+      dataFrame: DataFrame,
+      column: String,
+      label: String,
+      labelName: Option[String] = None,
+      outputColumnName: Option[String] = None): DataFrame = {
+    // need to use a temp id in case the labelName is set to id.
+    val idTemp = scala.util.Random.alphanumeric.take(10).mkString
     dataFrame
-      .select(col(id), explode(col(column)).as("source"))
-      .withColumn("label", typedLit(label))
-      .transform(nest(_, List("label", "source"), column))
-      .groupBy(id)
-      .agg(collect_set(column).as(newName.getOrElse(column)))
+      .select(col(id).as(idTemp), explode(col(column)).as("source"))
+      .withColumn(labelName.getOrElse("label"), typedLit(label))
+      .transform(nest(_, List(labelName.getOrElse("label"), "source"), column))
+      .groupBy(idTemp)
+      .agg(collect_set(column).as(outputColumnName.getOrElse(column)))
+      .withColumnRenamed(idTemp, id)
   }
 
   private def handleDbRefs(dataFrame: DataFrame): DataFrame = {
