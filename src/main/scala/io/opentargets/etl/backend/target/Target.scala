@@ -2,10 +2,19 @@ package io.opentargets.etl.backend.target
 
 import better.files.{File, InputStreamExtensions}
 import com.typesafe.scalalogging.LazyLogging
-import io.opentargets.etl.backend.ETLSessionContext
+import io.opentargets.etl.backend.{Configuration, ETLSessionContext}
 import io.opentargets.etl.backend.spark.IoHelpers.IOResources
 import io.opentargets.etl.backend.spark.{CsvHelpers, IOResource, IOResourceConfig, IoHelpers}
 import io.opentargets.etl.preprocess.uniprot.UniprotConverter
+import org.apache.spark.sql.functions.{
+  array_union,
+  coalesce,
+  col,
+  collect_set,
+  explode,
+  flatten,
+  typedLit
+}
 import org.apache.spark.sql.{DataFrame, Dataset, SparkSession}
 
 object Target extends LazyLogging {
@@ -14,12 +23,77 @@ object Target extends LazyLogging {
 
     val targetDF = compute(context)
 
-    ???
+    val dataframesToSave: IOResources = Map(
+      "target" -> IOResource(targetDF, context.configuration.target.outputs.target)
+    )
+
+    IoHelpers.writeTo(dataframesToSave)
+
   }
 
   def compute(context: ETLSessionContext)(implicit ss: SparkSession): DataFrame = {
 
-    val targetConfig = context.configuration.target
+    // get input data frames
+    val inputDataFrames = getMappedInputs(context.configuration.target)
+
+    // prepare intermediate dataframes per source
+    val hgnc: Dataset[Hgnc] = Hgnc(inputDataFrames("hgnc").data)
+    val ensemblDf: Dataset[Ensembl] = Ensembl(inputDataFrames("ensembl").data)
+    val uniprotDf: Dataset[Uniprot] = Uniprot(inputDataFrames("uniprot").data)
+    val geneOntologyDf: Dataset[GeneOntologyByEnsembl] = GeneOntology(
+      inputDataFrames("geneOntologyHuman").data,
+      inputDataFrames("geneOntologyRna").data,
+      inputDataFrames("geneOntologyRnaLookup").data,
+      ensemblDf)
+    val tep: Dataset[TepWithId] = Tep(inputDataFrames("tep").data)
+
+    // merge intermediate data frames into final
+    val hgncEnsemblTepGO = mergeHgncAndEnsembl(hgnc, ensemblDf)
+      .join(tep, ensemblDf("id") === tep("ensemblId"), "left_outer")
+      .drop("ensemblId")
+      .join(geneOntologyDf, ensemblDf("id") === geneOntologyDf("ensemblId"), "left_outer")
+      .drop("ensemblId")
+
+    val uniprotGroupedByEnsemblId = addEnsemblIdsToUniprot(hgnc, uniprotDf)
+      .withColumnRenamed("proteinIds", "pid")
+
+    // todo hngc: merge synonyms: - merge name and symbol synonyms
+    // todo add hgnc to dbxrefs
+    hgncEnsemblTepGO
+      .join(uniprotGroupedByEnsemblId, Seq("id"), "left_outer")
+      .withColumn("proteinIds", array_union(col("proteinIds"), flatten(col("pid"))))
+      .drop("pid")
+  }
+
+  def addEnsemblIdsToUniprot(hgnc: Dataset[Hgnc], uniprot: Dataset[Uniprot]): DataFrame = {
+    logger.debug("Grouping Uniprot entries by Ensembl Id.")
+    hgnc
+      .select(col("ensemblId"), explode(col("uniprotIds")).as("uniprotId"))
+      .join(uniprot, Seq("uniprotId"))
+      .groupBy("ensemblId")
+      .agg(
+        collect_set(col("synonyms")).as("synonyms"),
+        collect_set(col("functionDescriptions")).as("functionDescriptions"),
+        collect_set(col("proteinIds")).as("proteinIds"),
+        collect_set(col("subcellularLocations")).as("subcellularLocations"),
+        collect_set(col("dbXrefs")).as("dbXrefs")
+      )
+      .withColumnRenamed("ensemblId", "id")
+  }
+
+  /** Return map on input IOResources */
+  private def getMappedInputs(targetConfig: Configuration.Target)(
+      implicit sparkSession: SparkSession): Map[String, IOResource] = {
+    def getUniprotDataFrame(io: IOResourceConfig)(implicit ss: SparkSession): IOResource = {
+      import ss.implicits._
+      val file = io.path match {
+        case f if f.endsWith("gz") => File(f).newInputStream.asGzipInputStream().lines
+        case f_                    => File(f_).lineIterator
+      }
+      val data = UniprotConverter.convertUniprotFlatFileToUniprotEntry(file)
+      IOResource(data.toDF(), io)
+    }
+
     val mappedInputs = Map(
       "hgnc" -> IOResourceConfig(
         targetConfig.input.hgnc.format,
@@ -55,54 +129,44 @@ object Target extends LazyLogging {
       )
     )
 
-    val inputDataFrame = IoHelpers
+    IoHelpers
       .readFrom(mappedInputs)
       .updated("uniprot",
                getUniprotDataFrame(
                  IOResourceConfig(
                    targetConfig.input.uniprot.format,
-                   targetConfig.input.ensembl.path
+                   targetConfig.input.uniprot.path
                  )))
-
-    val hgnc: Option[Dataset[Hgnc]] =
-      inputDataFrame.get("hgnc").map(ioResource => Hgnc(ioResource.data))
-
-    //    val ortholog: Option[DataFrame] =
-    //      inputDataFrame
-    //        .get("orthologs")
-    //        .map(ioResource => Ortholog(ioResource.data, targetConfig.hgncOrthologSpecies))
-
-    val ensemblDf: Option[Dataset[Ensembl]] =
-      inputDataFrame.get("ensembl").map(ioResource => Ensembl(ioResource.data))
-
-    val uniprotDf: Option[Dataset[Uniprot]] =
-      inputDataFrame.get("uniprot").map(ioResource => Uniprot(ioResource.data))
-
-    val geneOntologyDf: Option[Dataset[GeneOntologyByEnsembl]] = List(
-      inputDataFrame.get("geneOntologyHuman"),
-      inputDataFrame.get("geneOntologyRna"),
-      inputDataFrame.get("geneOntologyRnaLookup")).flatten match {
-      case human :: rna :: ids :: Nil =>
-        Some(GeneOntology(human.data, rna.data, ids.data, ensemblDf.get))
-      case _ =>
-        logger.warn(s"One or more inputs was missing for Gene Ontology substep of Target.")
-        None
-    }
-
-    val tep: Option[Dataset[TepWithId]] =
-      inputDataFrame.get("tep").map(ioResource => Tep(ioResource.data))
-
-    ???
   }
 
-  private def getUniprotDataFrame(io: IOResourceConfig)(implicit ss: SparkSession): IOResource = {
-    import ss.implicits._
-    val file = io.path match {
-      case f if f.endsWith("gz") => File(f).newInputStream.asGzipInputStream().lines
-      case f_                    => File(f_).lineIterator
-    }
-    val data = UniprotConverter.convertUniprotFlatFileToUniprotEntry(file)
-    IOResource(data.toDF(), io)
+  /** Merge Hgnc and Ensembl datasets in a way that preserves logic of data pipeline.
+    *
+    * The deprecated data pipeline build up the target dataset in a step-wise manner, where later steps only added
+    * fields if they were not already provided by an earlier one. This method reproduces that logic so that fields
+    * provided on both datasets are set by Hgnc.
+    *
+    * @param hgnc
+    * @param ensembl
+    * @return
+    */
+  private def mergeHgncAndEnsembl(hgnc: Dataset[Hgnc], ensembl: Dataset[Ensembl]): DataFrame = {
+    logger.debug("Merging Hgnc and Ensembl datasets")
+    val eDf = ensembl
+      .withColumnRenamed("approvedName", "an")
+      .withColumnRenamed("approvedSymbol", "as")
+
+    val merged = eDf
+    // this removes non-reference ensembl genes introduced by HGNC.
+      .join(hgnc, eDf("id") === hgnc("ensemblId"))
+      // if approvedName and approvedSymbol provided by HGNC use those, otherwise Ensembl.
+      .withColumn("approvedName", coalesce(col("approvedName"), col("an"), typedLit("")))
+      .withColumn("approvedSymbol", coalesce(col("approvedSymbol"), col("as"), typedLit("")))
+      .drop("an", "as")
+    logger.debug(
+      s"Merged HGNC and Ensembl dataframe has columns: ${merged.columns.mkString("Array(", ", ", ")")}")
+    // todo Update hgnc uniprotIds to use the IdAndSource case class
+    // todo check what needs to happen to merge unused approvedNames...probably go to symbol synonyms.
+    merged
   }
 
 }
