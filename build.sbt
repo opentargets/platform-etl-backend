@@ -23,6 +23,7 @@ lazy val root = (project in file("."))
     libraryDependencies += typeSafeConfig,
     libraryDependencies ++= configDeps,
     libraryDependencies ++= testingDeps,
+    libraryDependencies ++= monocle,
     testFrameworks += new TestFramework("minitest.runner.Framework"),
     assemblyMergeStrategy in assembly := {
       case PathList("META-INF", "services", "org.apache.hadoop.fs.FileSystem") =>

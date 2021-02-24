@@ -121,7 +121,11 @@ object Configuration extends LazyLogging {
       mousephenotypes: InputInfo
   )
 
-  case class Common(defaultSteps: Seq[String], inputs: Inputs, output: String, outputFormat: String)
+  case class Common(defaultSteps: Seq[String],
+                    inputs: Inputs,
+                    output: String,
+                    outputFormat: String,
+                    metadata: IOResourceConfig)
 
   case class KnownDrugsInputsSection(evidences: IOResourceConfig,
                                      diseases: IOResourceConfig,

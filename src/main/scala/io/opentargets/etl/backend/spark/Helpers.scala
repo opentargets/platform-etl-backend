@@ -2,7 +2,7 @@ package io.opentargets.etl.backend.spark
 
 import com.typesafe.scalalogging.LazyLogging
 import io.opentargets.etl.backend.Configuration.OTConfig
-
+import io.opentargets.etl.backend.ETLSessionContext
 import org.apache.spark.SparkConf
 import org.apache.spark.sql._
 import org.apache.spark.sql.functions._
@@ -10,6 +10,12 @@ import org.apache.spark.sql.types.{ArrayType, DataType, StructField, StructType}
 
 import scala.language.postfixOps
 import scala.util.Random
+
+import monocle._
+import monocle.syntax.all._
+import monocle.macros.syntax._
+import monocle.macros._
+import monocle.macros.syntax.lens._
 
 object Helpers extends LazyLogging {
   type IOResourceConfigurations = Map[String, IOResourceConfig]
@@ -23,6 +29,11 @@ object Helpers extends LazyLogging {
       options: Option[Seq[IOResourceConfigOption]] = None,
       partitionBy: Option[Seq[String]] = None
   )
+
+  case class Metadata(id: String,
+                      resource: IOResourceConfig,
+                      serialisedSchema: String,
+                      columns: List[String])
 
   /** generate a spark session given the arguments if sparkUri is None then try to get from env
     * otherwise it will set the master explicitely
@@ -58,10 +69,8 @@ object Helpers extends LazyLogging {
   def generateDefaultIoOutputConfiguration(
       files: String*
   )(configuration: OTConfig): IOResourceConfigurations = {
-    files.map {
-      n => n -> IOResourceConfig(
-        configuration.common.outputFormat,
-        configuration.common.output + s"/$n")
+    files.map { n =>
+      n -> IOResourceConfig(configuration.common.outputFormat, configuration.common.output + s"/$n")
     } toMap
   }
 
@@ -137,11 +146,13 @@ object Helpers extends LazyLogging {
   def loadFileToDF(pathInfo: IOResourceConfig)(implicit session: SparkSession): DataFrame = {
     logger.info(s"load dataset ${pathInfo.path} with ${pathInfo.toString}")
 
-    pathInfo.options.foldLeft(session.read.format(pathInfo.format)) {
-      case ops =>
-        val options = ops._2.map(c => c.k -> c.v).toMap
-        ops._1.options(options)
-    }.load(pathInfo.path)
+    pathInfo.options
+      .foldLeft(session.read.format(pathInfo.format)) {
+        case ops =>
+          val options = ops._2.map(c => c.k -> c.v).toMap
+          ops._1.options(options)
+      }
+      .load(pathInfo.path)
   }
 
   /**
@@ -153,30 +164,55 @@ object Helpers extends LazyLogging {
     (for (rc <- resourceConfigs) yield Random.alphanumeric.take(6).toString -> rc).toMap
   }
 
-  def writeTo(outputs: IOResources)(implicit session: SparkSession): IOResources = {
+  def generateMetadata(fromDF: IOResource, withConfig: IOResourceConfig)(
+      implicit session: SparkSession): IOResource = {
+    import session.implicits._
+
+    val serialisedSchema = fromDF.data.schema.json
+    val iores = fromDF.configuration
+    val cols = fromDF.data.columns.toList
+    val id = fromDF.configuration.path.split("/").last
+    val newPath = withConfig.path + s"/$id"
+    val metadataConfig = withConfig.lens(_.path).set(newPath)
+
+    val metadata =
+      List(Metadata(id, iores, serialisedSchema, cols)).toDF
+        .withColumn("timeStamp", current_timestamp())
+        .coalesce(numPartitions = 1)
+
+    val metadataIOResource = IOResource(metadata, metadataConfig)
+
+    logger.info(s"generate metadata info for $id in path $newPath")
+    metadata.show(10, truncate = false)
+
+    metadataIOResource
+  }
+
+  def writeTo(outputs: IOResources)(implicit context: ETLSessionContext): IOResources = {
     val datasetNamesStr = outputs.keys.mkString("(", ", ", ")")
     logger.info(s"write datasets $datasetNamesStr")
-    outputs foreach {
-      out =>
-        logger.info(s"save dataset ${out._1} with ${out._2.toString}")
+    outputs foreach { out =>
+      logger.info(s"save dataset ${out._1} with ${out._2.toString}")
 
-        val data = out._2.data
-        val conf = out._2.configuration
+      val data = out._2.data
+      val conf = out._2.configuration
 
-        val pb = conf.partitionBy.foldLeft(data.write) {
-          case (df, ops) =>
-             logger.debug(s"enabled partition by ${ops.toString}")
-            df.partitionBy(ops:_*)
-        }
+      val pb = conf.partitionBy.foldLeft(data.write) {
+        case (df, ops) =>
+          logger.debug(s"enabled partition by ${ops.toString}")
+          df.partitionBy(ops: _*)
+      }
 
-        conf.options.foldLeft(pb) {
+      conf.options
+        .foldLeft(pb) {
           case (df, ops) =>
             logger.debug(s"write to ${conf.path} with options ${ops.toString}")
             val options = ops.map(c => c.k -> c.v).toMap
             df.options(options)
 
-        }.format(conf.format)
-          .save(conf.path)
+        }
+        .format(conf.format)
+        .save(conf.path)
 
     }
 

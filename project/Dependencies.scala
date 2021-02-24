@@ -40,4 +40,10 @@ object Dependencies {
   )
 
   lazy val typeSafeConfig = "com.typesafe" % "config" % "1.4.0"
+
+  lazy val monocleVersion = "2.1.0"
+  lazy val monocle = Seq(
+    "com.github.julien-truffaut" %% "monocle-core" % monocleVersion,
+    "com.github.julien-truffaut" %% "monocle-macro" % monocleVersion
+  )
 }

@@ -2,10 +2,23 @@ package io.opentargets.etl.backend.drug
 
 import com.typesafe.scalalogging.LazyLogging
 import io.opentargets.etl.backend.Configuration.InputExtension
-import io.opentargets.etl.backend.extractors.JsonFile
 import io.opentargets.etl.backend.spark.Helpers
 import io.opentargets.etl.backend.spark.Helpers.IOResourceConfig
-import org.apache.spark.sql.functions.{array_distinct, array_except, array_union, coalesce, col, collect_list, collect_set, explode, map_entries, map_from_arrays, translate, trim, typedLit}
+import org.apache.spark.sql.functions.{
+  array_distinct,
+  array_except,
+  array_union,
+  coalesce,
+  col,
+  collect_list,
+  collect_set,
+  explode,
+  map_entries,
+  map_from_arrays,
+  translate,
+  trim,
+  typedLit
+}
 import org.apache.spark.sql.types.{ArrayType, DataType, StringType}
 import org.apache.spark.sql.{DataFrame, SparkSession}
 
@@ -26,7 +39,7 @@ object DrugExtensions extends LazyLogging {
     logger.debug(s"Found ${xrefExtensions.size} cross reference extension files.")
 
     val extensionDataFrames: Iterable[DataFrame] =
-      Helpers.readFrom(Helpers.seqToIOResourceConfigMap(xrefExtensions)) map(_._2.data)
+      Helpers.readFrom(Helpers.seqToIOResourceConfigMap(xrefExtensions)) map (_._2.data)
 
     // add all synonym extensions to molecules
     logger.info("Adding external cross references to molecule dataframe.")
@@ -50,7 +63,7 @@ object DrugExtensions extends LazyLogging {
     logger.debug(s"Found ${synonymExtensions.size} synonym extensions.")
 
     val synonymExtensionDataframes: Iterable[DataFrame] =
-      Helpers.readFrom(Helpers.seqToIOResourceConfigMap(synonymExtensions)) map(_._2.data)
+      Helpers.readFrom(Helpers.seqToIOResourceConfigMap(synonymExtensions)) map (_._2.data)
 
     // validate input dataframes and standardise so that they are all in id -> array format.
     logger.debug(s"Standardising ${synonymExtensionDataframes.size} DataFrames of synonyms")
@@ -77,13 +90,15 @@ object DrugExtensions extends LazyLogging {
 
     val joinedRefArrays = molXrefs
       .join(newXrefs, Seq("id", "key"), "full_outer")
-      .withColumn("values",
-                  array_distinct(
-                    array_union(
-                      coalesce(col("vNew"), typedLit[Array[String]](Array.empty)),
-                      coalesce(col("vOld"), typedLit[Array[String]](Array.empty))
-                  ))
-      ).drop("vOld", "vNew")
+      .withColumn(
+        "values",
+        array_distinct(
+          array_union(
+            coalesce(col("vNew"), typedLit[Array[String]](Array.empty)),
+            coalesce(col("vOld"), typedLit[Array[String]](Array.empty))
+          ))
+      )
+      .drop("vOld", "vNew")
 
     val refMap = joinedRefArrays
       .groupBy("id")
@@ -110,7 +125,8 @@ object DrugExtensions extends LazyLogging {
   private def groupExtensionByType(extentionType: String,
                                    extensions: Seq[InputExtension]): Seq[IOResourceConfig] =
     extensions
-      .withFilter(_.extensionType equalsIgnoreCase extentionType).map(_.input)
+      .withFilter(_.extensionType equalsIgnoreCase extentionType)
+      .map(_.input)
 
   /**
     * Helper function to ensure that incoming synonyms do not contain special characters and that
