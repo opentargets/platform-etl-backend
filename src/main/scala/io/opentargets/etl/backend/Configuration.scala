@@ -157,7 +157,7 @@ object Configuration extends LazyLogging {
 
   case class SearchSection(inputs: SearchInputsSection, outputs: SearchOutputsSection)
 
-  case class Target(input: TargetInput, output: TargetOutput, hgncOrthologSpecies: List[String])
+  case class Target(input: TargetInput, outputs: TargetOutput, hgncOrthologSpecies: List[String])
 
   case class TargetInput(hgnc: IOResourceConfig,
                          ortholog: IOResourceConfig,
@@ -168,7 +168,7 @@ object Configuration extends LazyLogging {
                          geneOntologyRnaLookup: IOResourceConfig,
                          tep: IOResourceConfig)
 
-  case class TargetOutput()
+  case class TargetOutput(target: IOResourceConfig)
 
   case class OTConfig(
       sparkUri: Option[String],
