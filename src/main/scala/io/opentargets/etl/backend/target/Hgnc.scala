@@ -2,6 +2,7 @@ package io.opentargets.etl.backend.target
 
 import com.typesafe.scalalogging.LazyLogging
 import io.opentargets.etl.backend.spark.Helpers
+import io.opentargets.etl.backend.spark.Helpers.safeArrayUnion
 import org.apache.spark.sql.{DataFrame, Dataset, SparkSession}
 import org.apache.spark.sql.functions.{col, explode}
 
@@ -9,9 +10,7 @@ case class Hgnc(ensemblId: String,
                 hgncId: String,
                 approvedSymbol: String,
                 approvedName: String,
-                status: String,
-                symbolSynonyms: Array[String],
-                nameSynonyms: Array[String],
+                hgncSynonyms: Array[LabelAndSource],
                 uniprotIds: Array[String],
 )
 object Hgnc extends LazyLogging {
@@ -32,14 +31,15 @@ object Hgnc extends LazyLogging {
         col("hgnc_id"),
         col("symbol") as "approvedSymbol",
         col("name") as "approvedName",
-        col("status"),
-        col("alias_symbol") as "symbolSynonyms",
-        col("alias_name") as "nameSynonyms",
         col("uniprot_ids"),
+        safeArrayUnion(col("alias_symbol"), col("alias_name")) as "hgncSynonyms"
       )
       .transform(Helpers.snakeToLowerCamelSchema)
 
-    hgncDf.as[Hgnc]
+    val synonyms =
+      TargetUtils.transformColumnToLabelAndSourceStruct(hgncDf, "ensemblId", "hgncSynonyms", "HGNC")
+
+    hgncDf.drop("hgncSynonyms").join(synonyms, Seq("ensemblId"), "left_outer").as[Hgnc]
   }
 
 }
