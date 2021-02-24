@@ -6,8 +6,6 @@ import io.opentargets.etl.preprocess.uniprot.UniprotEntryParsed
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.{DataFrame, Dataset, SparkSession}
 
-case class LabelAndSource(label: String, source: String)
-
 /**
   *
   * @param uniprotId            current accession number
@@ -42,58 +40,27 @@ object Uniprot extends LazyLogging {
       .drop("id", "names")
 
     val dbRefs = handleDbRefs(uniprotDfWithId)
-    val synonyms = transformColumnToLabelAndSourceStruct(uniprotDfWithId, "synonyms", "uniprot")
-    val proteinIds = transformColumnToLabelAndSourceStruct(uniprotDfWithId,
-                                                           "accessions",
-                                                           "uniprot",
-                                                           Some("id"),
-                                                           Some("proteinIds"))
+    val synonyms =
+      TargetUtils.transformColumnToLabelAndSourceStruct(uniprotDfWithId, id, "synonyms", "uniprot")
+    val proteinIds = TargetUtils.transformColumnToLabelAndSourceStruct(uniprotDfWithId,
+                                                                       id,
+                                                                       "accessions",
+                                                                       "uniprot",
+                                                                       Some("id"),
+                                                                       Some("proteinIds"))
     val subcellularLocations =
-      transformColumnToLabelAndSourceStruct(uniprotDfWithId,
-                                            "locations",
-                                            "uniprot",
-                                            None,
-                                            Some("subcellularLocations"))
+      TargetUtils.transformColumnToLabelAndSourceStruct(uniprotDfWithId,
+                                                        id,
+                                                        "locations",
+                                                        "uniprot",
+                                                        None,
+                                                        Some("subcellularLocations"))
 
     Seq(uniprotDfWithId.drop("synonyms", "functions", "dbXrefs", "accessions", "locations"),
         dbRefs,
         synonyms,
         proteinIds,
         subcellularLocations).reduce((acc, df) => acc.join(df, Seq(id), "left_outer")).as[Uniprot]
-  }
-
-  /**
-    * Returns dataframe with `column`'s value as nested structure along with a label indicating source of information.
-    *
-    * {{{
-    *   root
-    *  |-- id: string (nullable = true)
-    *  |-- [column]: struct (nullable = false)
-    *  |    |-- label: string (nullable = true)
-    *  |    |-- source: string (nullable = true)
-    * }}}
-    *
-    * @param column           to be nested as source
-    * @param label            used to indicate the source of the identifier, eg. HGNC, Ensembl, Uniprot
-    * @param labelName        defaults to "label"
-    * @param outputColumnName if output df should not use `column` as name
-    * @return dataframe with columns [id, column | newname ]
-    */
-  private def transformColumnToLabelAndSourceStruct(
-      dataFrame: DataFrame,
-      column: String,
-      label: String,
-      labelName: Option[String] = None,
-      outputColumnName: Option[String] = None): DataFrame = {
-    // need to use a temp id in case the labelName is set to id.
-    val idTemp = scala.util.Random.alphanumeric.take(10).mkString
-    dataFrame
-      .select(col(id).as(idTemp), explode(col(column)).as("source"))
-      .withColumn(labelName.getOrElse("label"), typedLit(label))
-      .transform(nest(_, List(labelName.getOrElse("label"), "source"), column))
-      .groupBy(idTemp)
-      .agg(collect_set(column).as(outputColumnName.getOrElse(column)))
-      .withColumnRenamed(idTemp, id)
   }
 
   private def handleDbRefs(dataFrame: DataFrame): DataFrame = {
