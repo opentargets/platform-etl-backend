@@ -10,10 +10,10 @@ object Expression extends LazyLogging {
   def apply()(implicit context: ETLSessionContext): IOResources = {
     implicit val ss: SparkSession = context.sparkSession
 
-    val dfName = "expression"
+    val dfName = "baselineExpression"
     val common = context.configuration.common
     val mappedInputs = Map(
-      "expression" -> IOResourceConfig(
+      s"$dfName" -> IOResourceConfig(
         common.inputs.expression.format,
         common.inputs.expression.path
       )

@@ -22,9 +22,6 @@ object ETL extends LazyLogging {
       case "knownDrugs" =>
         logger.info("run step knownDrugs")
         KnownDrugs()
-      case "evidenceProteinFix" =>
-        logger.info("run step evidenceProteinFix")
-        EvidenceProteinFix()
       case "expression" =>
         logger.info("run step expression")
         Expression()
