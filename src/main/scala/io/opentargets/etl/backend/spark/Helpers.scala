@@ -169,7 +169,7 @@ object Helpers extends LazyLogging {
     * @param session spark session for implicits mechanisms
     * @return a new IOResource with all needed information and data ready to be saved
     */
-  def generateMetadata(ior: IOResource, withConfig: IOResourceConfig)(
+  private def generateMetadata(ior: IOResource, withConfig: IOResourceConfig)(
       implicit context: ETLSessionContext): IOResource = {
     require(!withConfig.path.isBlank, "metadata resource path cannot be empty")
     implicit val session: SparkSession = context.sparkSession
