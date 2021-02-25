@@ -2,6 +2,7 @@ package io.opentargets.etl.backend.target
 
 import com.typesafe.scalalogging.LazyLogging
 import io.opentargets.etl.backend.spark.Helpers.nest
+import io.opentargets.etl.backend.target.TargetUtils.transformColumnToLabelAndSourceStruct
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.types.{IntegerType, LongType}
 import org.apache.spark.sql.{DataFrame, Dataset, SparkSession}
@@ -12,7 +13,8 @@ case class Ensembl(id: String,
                    genomicLocation: GenomicLocation,
                    approvedSymbol: String,
                    proteinIds: Array[IdAndSource],
-                   transcriptIds: Array[IdAndSource])
+                   transcriptIds: Array[IdAndSource],
+                   signalP: Array[IdAndSource])
 
 case class IdAndSource(id: String, source: String)
 
@@ -36,6 +38,7 @@ object Ensembl extends LazyLogging {
         col("name").as("approvedSymbol"),
         col("protein_id"),
         col("transcripts"),
+        col("signalP"),
         flatten(col("transcripts.translations")).as("translations")
       )
       .withColumn("end", col("end").cast(IntegerType))
@@ -43,6 +46,7 @@ object Ensembl extends LazyLogging {
       .transform(descriptionToApprovedName)
       .transform(refactorProteinId)
       .transform(refactorTranscriptId)
+      .transform(refactorSignalP)
       .as[Ensembl]
 
     ensembl
@@ -110,6 +114,12 @@ object Ensembl extends LazyLogging {
       .withColumn(d, split(col(d), "\\[")) // remove redundant source information.
       .withColumn("approvedName", element_at(col(d), 1))
       .drop(d)
+  }
+
+  private def refactorSignalP(dataFrame: DataFrame): DataFrame = {
+    val signalP =
+      transformColumnToLabelAndSourceStruct(dataFrame, "id", "signalP", "signalP", Some("id"))
+    dataFrame.drop("signalP").join(signalP, Seq("id"), "left_outer")
   }
 
 }

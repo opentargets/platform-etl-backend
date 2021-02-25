@@ -25,6 +25,7 @@ object GeneOntologyTest {
         IdAndSource("ABQ59051", "Uniprot"),
         IdAndSource("ENSP00000504134", "ensembl_PRO")
       ),
+      Array(),
       Array()
     ))
 }

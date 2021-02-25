@@ -58,9 +58,9 @@ object Target extends LazyLogging {
     hgncEnsemblTepGO
       .join(uniprotGroupedByEnsemblId, Seq("id"), "left_outer")
       .withColumn("proteinIds", safeArrayUnion(col("proteinIds"), col("pid")))
-      .withColumn("dbXrefs", safeArrayUnion(col("hgncId"), col("dbXrefs")))
+      .withColumn("dbXrefs", safeArrayUnion(col("hgncId"), col("dbXrefs"), col("signalP")))
       .withColumn("synonyms", safeArrayUnion(col("synonyms"), col("hgncSynonyms")))
-      .drop("pid", "hgncId", "hgncSynonyms", "uniprotIds")
+      .drop("pid", "hgncId", "hgncSynonyms", "uniprotIds", "signalP")
   }
 
   def addEnsemblIdsToUniprot(hgnc: Dataset[Hgnc], uniprot: Dataset[Uniprot]): DataFrame = {
