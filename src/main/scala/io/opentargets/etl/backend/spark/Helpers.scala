@@ -189,7 +189,6 @@ object Helpers extends LazyLogging {
     val metadataIOResource = IOResource(metadata, metadataConfig)
 
     logger.info(s"generate metadata info for $id in path $newPath")
-    metadata.show(10, truncate = false)
 
     metadataIOResource
   }

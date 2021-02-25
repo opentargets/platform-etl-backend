@@ -118,6 +118,7 @@ object Configuration extends LazyLogging {
   )
 
   case class Common(defaultSteps: Seq[String],
+                    input: String,
                     inputs: Inputs,
                     output: String,
                     outputFormat: String,
