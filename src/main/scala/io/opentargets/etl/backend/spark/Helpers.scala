@@ -143,10 +143,9 @@ object Helpers extends LazyLogging {
     logger.info(s"load dataset ${pathInfo.path} with ${pathInfo.toString}")
 
     pathInfo.options
-      .foldLeft(session.read.format(pathInfo.format)) {
-        case ops =>
-          val options = ops._2.map(c => c.k -> c.v).toMap
-          ops._1.options(options)
+      .foldLeft(session.read.format(pathInfo.format)) { (dfr, opts) =>
+        val options = opts.map(c => c.k -> c.v).toMap
+        dfr.options(options)
       }
       .load(pathInfo.path)
   }
@@ -166,7 +165,7 @@ object Helpers extends LazyLogging {
     * make easier to collect the matadata of the created resources
     * @param ior the IOResource from which generates the metadata
     * @param withConfig the metadata Config section
-    * @param session spark session for implicits mechanisms
+    * @param context ETL context object
     * @return a new IOResource with all needed information and data ready to be saved
     */
   private def generateMetadata(ior: IOResource, withConfig: IOResourceConfig)(
