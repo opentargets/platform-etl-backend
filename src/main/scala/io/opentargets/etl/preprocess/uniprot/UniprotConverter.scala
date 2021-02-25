@@ -104,8 +104,12 @@ object UniprotConverter
                  uniprotEntry.copy(dbXrefs = uniprotEntry.dbXrefs :+ extractIdentifiers(dbs)))
             else go(inputs, uniprotEntry)
           case comment if comment.startsWith(COMMENT) =>
-            go(inputs,
-               uniprotEntry.copy(comments = uniprotEntry.comments :+ removeLineIndex(comment)))
+            val line = removeLineIndex(comment)
+            // The last comment is followed by a copywrite notice which starts with a line of dashes. We want to ignore
+            // everything after that, so if we encounter it continue.
+            if (line.startsWith("----")) go(inputs.drop(3), uniprotEntry)
+            else
+              go(inputs, uniprotEntry.copy(comments = uniprotEntry.comments :+ line))
           case _ => go(inputs, uniprotEntry)
         }
       }

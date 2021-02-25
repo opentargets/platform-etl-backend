@@ -10,7 +10,7 @@ import org.apache.spark.sql.{DataFrame, Dataset, SparkSession}
   * @param id        ensembl gene id eg. ENSGXXXX
   * @param locations subcellular locations
   */
-case class HPA(id: String, locations: Seq[LabelAndSource])
+case class HPA(id: String, locations: Seq[LocationAndSource])
 
 object HPA extends LazyLogging {
   def apply(df: DataFrame)(implicit sparkSession: SparkSession): Dataset[HPA] = {
@@ -30,7 +30,8 @@ object HPA extends LazyLogging {
       .select(col("id"), explode(col("l")).as("l"))
       .groupBy(col("id"))
       .agg(collect_list(col("l")).as("locations"))
-      .transform(transformColumnToLabelAndSourceStruct(_, "id", "locations", "HPA"))
+      .transform(
+        transformColumnToLabelAndSourceStruct(_, "id", "locations", "HPA", Some("location")))
       .as[HPA]
 
     hpaDf

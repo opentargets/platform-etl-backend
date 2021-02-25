@@ -7,15 +7,7 @@ import io.opentargets.etl.backend.{Configuration, ETLSessionContext}
 import io.opentargets.etl.backend.spark.IoHelpers.IOResources
 import io.opentargets.etl.backend.spark.{CsvHelpers, IOResource, IOResourceConfig, IoHelpers}
 import io.opentargets.etl.preprocess.uniprot.UniprotConverter
-import org.apache.spark.sql.functions.{
-  array_union,
-  coalesce,
-  col,
-  collect_set,
-  explode,
-  flatten,
-  typedLit
-}
+import org.apache.spark.sql.functions.{coalesce, col, collect_set, explode, flatten, typedLit}
 import org.apache.spark.sql.{DataFrame, Dataset, SparkSession}
 
 object Target extends LazyLogging {

@@ -1,7 +1,6 @@
 package io.opentargets.etl.backend.target
 
 import io.opentargets.etl.backend.EtlSparkUnitTest
-import org.apache.spark.sql.{DataFrame, SparkSession}
 import org.scalatest.matchers.should.Matchers.convertToAnyShouldWrapper
 
 class TepTest extends EtlSparkUnitTest {

@@ -1,3 +1,5 @@
+package io.opentargets.etl.preprocess
+
 import better.files.File
 import io.opentargets.etl.preprocess.uniprot.{
   CommentIdentifiers,
@@ -13,9 +15,9 @@ import org.scalatest.prop.TableDrivenPropertyChecks
 
 trait UniprotConverterTestInputs {
   lazy val oneEntry: Iterator[String] = File(
-    this.getClass.getResource("./uniprot/sample_1.txt").getPath).lineIterator
+    this.getClass.getResource("/uniprot/sample_1.txt").getPath).lineIterator
   lazy val tenEntries: Iterator[String] = File(
-    this.getClass.getResource("./uniprot/sample_10.txt").getPath).lineIterator
+    this.getClass.getResource("/uniprot/sample_10.txt").getPath).lineIterator
 }
 
 class UniprotConverterTest
@@ -85,13 +87,24 @@ class UniprotConverterTest
       "-!- SUBCELLULAR LOCATION: [Isoform 3]: Nucleus",
       "{ECO:0000269|PubMed:11341771}.",
       "-!- SUBCELLULAR LOCATION: [Isoform 1]: Cytoplasm",
-      "{ECO:0000269|PubMed:11148210, ECO:0000269|PubMed:11341771,"
+      "{ECO:0000269|PubMed:11148210, ECO:0000269|PubMed:11341771}",
+      "-!- SUBCELLULAR LOCATION: Cell projection, cilium, photoreceptor outer",
+      "segment {ECO:0000269|PubMed:27613864}. Membrane",
+      "{ECO:0000269|PubMed:27613864}; Lipid-anchor",
+      "{ECO:0000269|PubMed:27613864}; Cytoplasmic side",
+      "{ECO:0000250|UniProtKB:Q00LT2}. Endoplasmic reticulum",
+      "{ECO:0000269|PubMed:24992209}. Golgi apparatus",
+      "{ECO:0000269|PubMed:24992209}. Note=Localizes to photoreceptor disk",
+      "membranes in the photoreceptor outer segment (PubMed:27613864). The",
+      "secretion in media described in PubMed:24992209 is probably an",
+      "experimental artifact (PubMed:24992209). {ECO:0000269|PubMed:24992209,",
+      "ECO:0000269|PubMed:27613864}."
     )
     val input = UniprotEntry(comments = commentsRaw)
     // when
     val results = updateComments(input)
     // then
-    results.locations should have size 2
+    results.locations should have size 6
     results.functions should have size 1
   }
 

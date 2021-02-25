@@ -6,6 +6,8 @@ import org.apache.spark.sql.functions.{col, collect_set, explode, typedLit}
 
 case class LabelAndSource(label: String, source: String)
 
+case class LocationAndSource(location: String, source: String)
+
 object TargetUtils {
 
   /**

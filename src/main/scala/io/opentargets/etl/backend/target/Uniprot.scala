@@ -20,7 +20,7 @@ case class Uniprot(
     synonyms: Seq[LabelAndSource],
     functionDescriptions: Seq[String],
     proteinIds: Seq[IdAndSource],
-    subcellularLocations: Seq[LabelAndSource],
+    subcellularLocations: Seq[LocationAndSource],
     dbXrefs: Seq[IdAndSource]
 )
 
@@ -53,7 +53,7 @@ object Uniprot extends LazyLogging {
                                                         id,
                                                         "locations",
                                                         "uniprot",
-                                                        None,
+                                                        Some("location"),
                                                         Some("subcellularLocations"))
 
     Seq(uniprotDfWithId.drop("synonyms", "functions", "dbXrefs", "accessions", "locations"),

@@ -64,10 +64,29 @@ trait CommentIdentifiers {
 
   }
 
+  private def parseLocations(location: String): Seq[String] = {
+    val noNotes = location
+      .split("Note=")
+
+    val a: Array[String] = noNotes.headOption
+      .map(opt => {
+        opt
+          .replaceAll("\\{.+?\\}", "")
+          .split("\\.")
+          .map(_.trim)
+          .filter(!_.startsWith("Note="))
+          .filter(_.nonEmpty)
+      })
+      .getOrElse(Array.empty)
+
+    a
+  }
+
   private def partitionComments(uniprotEntry: UniprotEntry): UniprotEntry = {
     val (function, subcellularLocation) = uniprotEntry.comments.partition(_.startsWith("FUNCTION"))
-    uniprotEntry.copy(functions = cleanComments(function, FUNCTION),
-                      locations = cleanComments(subcellularLocation, SUBCELL_LOCATION))
+    uniprotEntry.copy(
+      functions = cleanComments(function, FUNCTION),
+      locations = cleanComments(subcellularLocation, SUBCELL_LOCATION).flatMap(parseLocations))
   }
 
   private def cleanComments(comments: Seq[String], commentType: String): Seq[String] = {
