@@ -11,10 +11,6 @@ import org.apache.spark.sql.types.{ArrayType, DataType, StructField, StructType}
 import scala.language.postfixOps
 import scala.util.Random
 
-import monocle._
-import monocle.syntax.all._
-import monocle.macros.syntax._
-import monocle.macros._
 import monocle.macros.syntax.lens._
 
 object Helpers extends LazyLogging {
@@ -164,14 +160,24 @@ object Helpers extends LazyLogging {
     (for (rc <- resourceConfigs) yield Random.alphanumeric.take(6).toString -> rc).toMap
   }
 
-  def generateMetadata(fromDF: IOResource, withConfig: IOResourceConfig)(
+  /**
+    * Given an IOResource ior and the metadata config section it generates a one-line DF that
+    * will be saved coalesced to 1 into a folder inside the metadata output folder. This will
+    * make easier to collect the matadata of the created resources
+    * @param ior the IOResource from which generates the metadata
+    * @param withConfig the metadata Config section
+    * @param session spark session for implicits mechanisms
+    * @return a new IOResource with all needed information and data ready to be saved
+    */
+  def generateMetadata(ior: IOResource, withConfig: IOResourceConfig)(
       implicit session: SparkSession): IOResource = {
+    require(!withConfig.path.isBlank, "metadata resource path cannot be empty")
     import session.implicits._
 
-    val serialisedSchema = fromDF.data.schema.json
-    val iores = fromDF.configuration
-    val cols = fromDF.data.columns.toList
-    val id = fromDF.configuration.path.split("/").last
+    val serialisedSchema = ior.data.schema.json
+    val iores = ior.configuration
+    val cols = ior.data.columns.toList
+    val id = ior.configuration.path.split("/").last
     val newPath = withConfig.path + s"/$id"
     val metadataConfig = withConfig.lens(_.path).set(newPath)
 
@@ -188,32 +194,53 @@ object Helpers extends LazyLogging {
     metadataIOResource
   }
 
+  private def writeTo(output: IOResource)(implicit context: ETLSessionContext): IOResource = {
+    implicit val spark: SparkSession = context.sparkSession
+
+    logger.info(s"save IOResource ${output.toString}")
+    val data = output.data
+    val conf = output.configuration
+
+    val pb = conf.partitionBy.foldLeft(data.write) {
+      case (df, ops) =>
+        logger.debug(s"enabled partition by ${ops.toString}")
+        df.partitionBy(ops: _*)
+    }
+
+    conf.options
+      .foldLeft(pb) {
+        case (df, ops) =>
+          logger.debug(s"write to ${conf.path} with options ${ops.toString}")
+          val options = ops.map(c => c.k -> c.v).toMap
+          df.options(options)
+
+      }
+      .format(conf.format)
+      .save(conf.path)
+
+    output
+  }
+
+  /**
+    * writeTo save all datasets in the Map outputs. It does write per IOResource
+    * its companion metadata dataset
+    * @param outputs the Map with all IOResource
+    * @param context the context to have the configuration and the spark session
+    * @return the same outputs as a continuator
+    */
   def writeTo(outputs: IOResources)(implicit context: ETLSessionContext): IOResources = {
+    implicit val spark: SparkSession = context.sparkSession
+
     val datasetNamesStr = outputs.keys.mkString("(", ", ", ")")
     logger.info(s"write datasets $datasetNamesStr")
+
     outputs foreach { out =>
-      logger.info(s"save dataset ${out._1} with ${out._2.toString}")
+      logger.info(s"save dataset ${out._1}")
+      writeTo(out._2)
 
-      val data = out._2.data
-      val conf = out._2.configuration
-
-      val pb = conf.partitionBy.foldLeft(data.write) {
-        case (df, ops) =>
-          logger.debug(s"enabled partition by ${ops.toString}")
-          df.partitionBy(ops: _*)
-      }
-
-      conf.options
-        .foldLeft(pb) {
-          case (df, ops) =>
-            logger.debug(s"write to ${conf.path} with options ${ops.toString}")
-            val options = ops.map(c => c.k -> c.v).toMap
-            df.options(options)
-
-        }
-        .format(conf.format)
-        .save(conf.path)
-
+      logger.info(s"save metadata for dataset ${out._1}")
+      val md = generateMetadata(out._2, context.configuration.common.metadata)
+      writeTo(md)
     }
 
     outputs
