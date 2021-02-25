@@ -2,7 +2,7 @@ package io.opentargets.etl.backend.target
 
 import better.files.{File, InputStreamExtensions}
 import com.typesafe.scalalogging.LazyLogging
-import io.opentargets.etl.backend.spark.Helpers.{nest, safeArrayUnion}
+import io.opentargets.etl.backend.spark.Helpers.{mkFlattenArray, nest, safeArrayUnion}
 import io.opentargets.etl.backend.{Configuration, ETLSessionContext}
 import io.opentargets.etl.backend.spark.IoHelpers.IOResources
 import io.opentargets.etl.backend.spark.{CsvHelpers, IOResource, IOResourceConfig, IoHelpers}
@@ -47,6 +47,7 @@ object Target extends LazyLogging {
       inputDataFrames("geneOntologyRnaLookup").data,
       ensemblDf)
     val tep: Dataset[TepWithId] = Tep(inputDataFrames("tep").data)
+    val hpa: Dataset[HPA] = HPA(inputDataFrames("hpa").data)
 
     // merge intermediate data frames into final
     val hgncEnsemblTepGO = mergeHgncAndEnsembl(hgnc, ensemblDf)
@@ -57,6 +58,10 @@ object Target extends LazyLogging {
 
     val uniprotGroupedByEnsemblId = addEnsemblIdsToUniprot(hgnc, uniprotDf)
       .withColumnRenamed("proteinIds", "pid")
+      .join(hpa, Seq("id"), "left_outer")
+      .withColumn("subcellularLocations",
+                  mkFlattenArray(col("subcellularLocations"), col("locations")))
+      .drop("locations")
 
     hgncEnsemblTepGO
       .join(uniprotGroupedByEnsemblId, Seq("id"), "left_outer")
@@ -101,38 +106,44 @@ object Target extends LazyLogging {
       IOResource(data.toDF(), io)
     }
 
+    val targetInputs = targetConfig.input
     val mappedInputs = Map(
       "hgnc" -> IOResourceConfig(
-        targetConfig.input.hgnc.format,
-        targetConfig.input.hgnc.path
+        targetInputs.hgnc.format,
+        targetInputs.hgnc.path
       ),
       "orthologs" -> IOResourceConfig(
-        targetConfig.input.ortholog.format,
-        targetConfig.input.ortholog.path,
+        targetInputs.ortholog.format,
+        targetInputs.ortholog.path,
         options = CsvHelpers.tsvWithHeader
       ),
       "ensembl" -> IOResourceConfig(
-        targetConfig.input.ensembl.format,
-        targetConfig.input.ensembl.path
+        targetInputs.ensembl.format,
+        targetInputs.ensembl.path
       ),
       "geneOntologyHuman" -> IOResourceConfig(
-        targetConfig.input.geneOntology.format,
-        targetConfig.input.geneOntology.path,
-        options = targetConfig.input.geneOntology.options
+        targetInputs.geneOntology.format,
+        targetInputs.geneOntology.path,
+        options = targetInputs.geneOntology.options
       ),
       "geneOntologyRna" -> IOResourceConfig(
-        targetConfig.input.geneOntologyRna.format,
-        targetConfig.input.geneOntologyRna.path,
-        options = targetConfig.input.geneOntologyRna.options
+        targetInputs.geneOntologyRna.format,
+        targetInputs.geneOntologyRna.path,
+        options = targetInputs.geneOntologyRna.options
       ),
       "geneOntologyRnaLookup" -> IOResourceConfig(
-        targetConfig.input.geneOntologyRnaLookup.format,
-        targetConfig.input.geneOntologyRnaLookup.path,
-        options = targetConfig.input.geneOntologyRnaLookup.options
+        targetInputs.geneOntologyRnaLookup.format,
+        targetInputs.geneOntologyRnaLookup.path,
+        options = targetInputs.geneOntologyRnaLookup.options
       ),
       "tep" -> IOResourceConfig(
-        targetConfig.input.tep.format,
-        targetConfig.input.tep.path
+        targetInputs.tep.format,
+        targetInputs.tep.path
+      ),
+      "hpa" -> IOResourceConfig(
+        targetInputs.hpa.format,
+        targetInputs.hpa.path,
+        options = targetInputs.hpa.options
       )
     )
 
@@ -141,8 +152,8 @@ object Target extends LazyLogging {
       .updated("uniprot",
                getUniprotDataFrame(
                  IOResourceConfig(
-                   targetConfig.input.uniprot.format,
-                   targetConfig.input.uniprot.path
+                   targetInputs.uniprot.format,
+                   targetInputs.uniprot.path
                  )))
   }
 
@@ -151,10 +162,6 @@ object Target extends LazyLogging {
     * The deprecated data pipeline build up the target dataset in a step-wise manner, where later steps only added
     * fields if they were not already provided by an earlier one. This method reproduces that logic so that fields
     * provided on both datasets are set by Hgnc.
-    *
-    * @param hgnc
-    * @param ensembl
-    * @return
     */
   private def mergeHgncAndEnsembl(hgnc: Dataset[Hgnc], ensembl: Dataset[Ensembl]): DataFrame = {
     logger.debug("Merging Hgnc and Ensembl datasets")

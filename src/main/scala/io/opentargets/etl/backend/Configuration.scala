@@ -166,7 +166,8 @@ object Configuration extends LazyLogging {
                          geneOntology: IOResourceConfig,
                          geneOntologyRna: IOResourceConfig,
                          geneOntologyRnaLookup: IOResourceConfig,
-                         tep: IOResourceConfig)
+                         tep: IOResourceConfig,
+                         hpa: IOResourceConfig)
 
   case class TargetOutput(target: IOResourceConfig)
 
