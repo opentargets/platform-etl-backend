@@ -1,8 +1,8 @@
 package io.opentargets.etl.backend.target
 
 import com.typesafe.scalalogging.LazyLogging
-import io.opentargets.etl.backend.spark.Helpers.nest
-import io.opentargets.etl.backend.target.TargetUtils.transformColumnToLabelAndSourceStruct
+import io.opentargets.etl.backend.spark.Helpers.{nest, safeArrayUnion}
+import io.opentargets.etl.backend.target.TargetUtils.transformColumnToIdAndSourceStruct
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.types.{IntegerType, LongType}
 import org.apache.spark.sql.{DataFrame, Dataset, SparkSession}
@@ -36,9 +36,10 @@ object Ensembl extends LazyLogging {
         col("strand").cast(IntegerType),
         col("seq_region_name").as("chromosome"), // chromosome
         col("name").as("approvedSymbol"),
-        col("protein_id"),
         col("transcripts"),
         col("signalP"),
+        col("Uniprot/SPTREMBL").as("uniprot_trembl"),
+        col("Uniprot/SWISSPROT").as("uniprot_swissprot"),
         flatten(col("transcripts.translations")).as("translations")
       )
       .withColumn("end", col("end").cast(IntegerType))
@@ -70,35 +71,35 @@ object Ensembl extends LazyLogging {
     }
   }
 
-  /** Returns dataframe with column 'proteinIds' added and columns 'protein_id' and 'translations' removed.
+  /** Returns dataframe with column 'proteinIds' added and columns, 'translations', 'uniprot_trembl'
+    * and 'uniprot_swissprot' removed.
     *
     * 'proteinIds' includes sources:
-    *   - Uniprot
+    *   - uniprot_swissprot
+    *   - uniprot_trembl
     *   - ensembl_PRO
     * */
   def refactorProteinId: DataFrame => DataFrame = { df =>
     {
-      def convertToIdAndSource(dataFrame: DataFrame,
-                               source: String,
-                               sourceIdColumn: String): DataFrame = {
-        dataFrame
-          .select(col("id").as("i"), explode(col(sourceIdColumn)).as("id"))
-          .withColumn("source", typedLit(source))
-          .transform(nest(_, List("id", "source"), "pids"))
-          .withColumnRenamed("i", "id")
-          .groupBy("id")
-          .agg(collect_set(col("pids")).as(source))
-      }
+      val ensemblProDF =
+        df.transform(
+          transformColumnToIdAndSourceStruct("id",
+                                             "translations.id",
+                                             "ensembl_PRO",
+                                             Some("ensembl_PRO")))
+      val uniprotSwissDF: DataFrame =
+        df.transform(
+          transformColumnToIdAndSourceStruct("id", "uniprot_swissprot", "uniprot_swissprot"))
+      val uniprotTremblDF: DataFrame =
+        df.transform(transformColumnToIdAndSourceStruct("id", "uniprot_trembl", "uniprot_trembl"))
+      val proteinIds = ensemblProDF
+        .join(uniprotSwissDF, Seq("id"), "outer")
+        .join(uniprotTremblDF, Seq("id"), "outer")
+        .select(col("id"),
+                safeArrayUnion(col("uniprot_swissprot"), col("uniprot_trembl"), col("ensembl_PRO"))
+                  .as("proteinIds"))
 
-      val uniprot = convertToIdAndSource(df, "Uniprot", "protein_id")
-
-      val ensemblPro = convertToIdAndSource(df, "ensembl_PRO", "translations.id")
-
-      val proteinIds = uniprot
-        .join(ensemblPro, Seq("id"), "outer")
-        .select(col("id"), array_union(col("Uniprot"), col("ensembl_PRO")).as("proteinIds"))
-
-      df.drop("protein_id", "translations")
+      df.drop("uniprot_swissprot", "translations", "uniprot_trembl")
         .join(
           proteinIds,
           Seq("id"),
@@ -116,10 +117,10 @@ object Ensembl extends LazyLogging {
       .drop(d)
   }
 
-  private def refactorSignalP(dataFrame: DataFrame): DataFrame = {
+  private def refactorSignalP(dataframe: DataFrame): DataFrame = {
     val signalP =
-      transformColumnToLabelAndSourceStruct(dataFrame, "id", "signalP", "signalP", Some("id"))
-    dataFrame.drop("signalP").join(signalP, Seq("id"), "left_outer")
+      dataframe.transform(transformColumnToIdAndSourceStruct("id", "signalP", "signalP"))
+    dataframe.drop("signalP").join(signalP, Seq("id"), "left_outer")
   }
 
 }
