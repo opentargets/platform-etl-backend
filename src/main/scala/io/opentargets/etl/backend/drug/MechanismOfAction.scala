@@ -73,6 +73,7 @@ object MechanismOfAction extends LazyLogging {
     df.groupBy(cols.head, cols.tail: _*)
       .agg(collect_set("references").as("r"))
       .withColumn("references", flatten(col("r")))
+      .drop("r")
   }
 
   private def chemblMechanismReferences(dataFrame: DataFrame): DataFrame = {
@@ -101,10 +102,12 @@ object MechanismOfAction extends LazyLogging {
     val targetDf = target
       .withColumn("target_components", explode(col("target_components")))
       .filter(col("target_components.accession").isNotNull)
-      .select(col("pref_name").as("targetName"),
-              col("target_components.accession").as("uniprot_id"),
-              lower(col("target_type")).as("targetType"),
-              col("target_chembl_id"))
+      .select(
+        col("pref_name").as("targetName"),
+        col("target_components.accession").as("uniprot_id"),
+        lower(col("target_type")).as("targetType"),
+        col("target_chembl_id")
+      )
     val genes = gene.select(geneCols: _*)
 
     targetDf
