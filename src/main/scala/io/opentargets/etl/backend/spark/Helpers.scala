@@ -363,4 +363,14 @@ object Helpers extends LazyLogging {
   def safeArrayUnion(columns: Column*): Column = {
     columns.map(coalesce(_, typedLit(Array.empty))).reduce((c1, c2) => array_union(c1, c2))
   }
+
+  /** Returns input string wrapped in backticks if it contains period character.
+    *
+    * Spark interprets the . symbol to be a select. Input files may include this in their column names causing
+    * unanticipated behaviour.
+    */
+  val wrapColumnNamesWithPeriodCharacters: String => String = {
+    case a if a.contains(".") => s"`$a`"
+    case s                    => s
+  }
 }

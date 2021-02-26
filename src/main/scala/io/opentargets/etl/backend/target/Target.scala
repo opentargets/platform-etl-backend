@@ -39,28 +39,33 @@ object Target extends LazyLogging {
       inputDataFrames("geneOntologyRnaLookup").data,
       ensemblDf)
     val tep: Dataset[TepWithId] = Tep(inputDataFrames("tep").data)
-    val hpa: Dataset[HPA] = HPA(inputDataFrames("hpa").data)
+    val hpa: Dataset[GeneWithLocation] = GeneWithLocation(inputDataFrames("hpa").data)
+    val projectScoresDS: Dataset[GeneWithDbXRef] = ProjectScores(
+      inputDataFrames("projectScoresIds").data,
+      inputDataFrames("projectScoresEssentialityMatrix").data)
 
     // merge intermediate data frames into final
-    val hgncEnsemblTepGO = mergeHgncAndEnsembl(hgnc, ensemblDf)
+    val hgncEnsemblTepGoDF = mergeHgncAndEnsembl(hgnc, ensemblDf)
       .join(tep, ensemblDf("id") === tep("ensemblId"), "left_outer")
       .drop("ensemblId")
       .join(geneOntologyDf, ensemblDf("id") === geneOntologyDf("ensemblId"), "left_outer")
       .drop("ensemblId")
+      .join(projectScoresDS, Seq("id"), "left_outer")
 
-    val uniprotGroupedByEnsemblId = addEnsemblIdsToUniprot(hgnc, uniprotDf)
+    val uniprotGroupedByEnsemblIdDF = addEnsemblIdsToUniprot(hgnc, uniprotDf)
       .withColumnRenamed("proteinIds", "pid")
       .join(hpa, Seq("id"), "left_outer")
       .withColumn("subcellularLocations",
                   mkFlattenArray(col("subcellularLocations"), col("locations")))
       .drop("locations")
 
-    hgncEnsemblTepGO
-      .join(uniprotGroupedByEnsemblId, Seq("id"), "left_outer")
+    hgncEnsemblTepGoDF
+      .join(uniprotGroupedByEnsemblIdDF, Seq("id"), "left_outer")
       .withColumn("proteinIds", safeArrayUnion(col("proteinIds"), col("pid")))
-      .withColumn("dbXrefs", safeArrayUnion(col("hgncId"), col("dbXrefs"), col("signalP")))
+      .withColumn("dbXrefs",
+                  safeArrayUnion(col("hgncId"), col("dbXrefs"), col("signalP"), col("xRef")))
       .withColumn("synonyms", safeArrayUnion(col("synonyms"), col("hgncSynonyms")))
-      .drop("pid", "hgncId", "hgncSynonyms", "uniprotIds", "signalP")
+      .drop("pid", "hgncId", "hgncSynonyms", "uniprotIds", "signalP", "xRef")
   }
 
   def addEnsemblIdsToUniprot(hgnc: Dataset[Hgnc], uniprot: Dataset[Uniprot]): DataFrame = {
@@ -136,6 +141,16 @@ object Target extends LazyLogging {
         targetInputs.hpa.format,
         targetInputs.hpa.path,
         options = targetInputs.hpa.options
+      ),
+      "projectScoresIds" -> IOResourceConfig(
+        targetInputs.psGeneIdentifier.format,
+        targetInputs.psGeneIdentifier.path,
+        options = targetInputs.psGeneIdentifier.options
+      ),
+      "projectScoresEssentialityMatrix" -> IOResourceConfig(
+        targetInputs.psEssentialityMatrix.format,
+        targetInputs.psEssentialityMatrix.path,
+        options = targetInputs.psEssentialityMatrix.options
       )
     )
 
