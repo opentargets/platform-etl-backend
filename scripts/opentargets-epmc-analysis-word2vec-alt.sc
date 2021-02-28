@@ -56,33 +56,96 @@ object ETL extends LazyLogging {
 
     logger.info("load required datasets from ETL parquet format")
     val diseases = spark.read.parquet(s"${prefix}/diseases")
+    val indications = spark.read.parquet(s"${prefix}/drugs/indication")
     val diseasehp = spark.read.parquet(s"${prefix}/disease_hpo")
     val targets = spark.read.parquet(s"${prefix}/targets")
-    val faers = spark.read.parquet(s"${prefix}/agg_by_chembl_parquet")
+    val faers = spark.read.parquet(s"${prefix}/openfda")
     val compounds = spark.read.parquet(s"${prefix}/drugs/drug")
     val moas = spark.read.parquet(s"${prefix}/drugs/mechanism_of_action").withColumn("chemblId", explode($"chemblIds"))
-    val indications = spark.read.parquet(s"${prefix}/drugs/indication")
     val interactions = spark.read.parquet(s"${prefix}/interactions")
-      .filter($"speciesB.taxon_id" === 9606 and ($"sourceDatabase" === "string" or $"sourceDatabase" === "intact") and
-        $"count" > 1 and
-        $"scoring" >= 0.5)
+      .filter($"speciesB.taxon_id" === 9606)
 
-    logger.info("write interactions filtered by human on speciesB and just string and intact with > 1 evidence and scoring >= 0.5")
-    interactions.write.parquet(s"${output}/interactionsPreAggregation")
+    //+---------------+--------+
+    //|geneId         |symbol  |
+    //+---------------+--------+
+    //|ENSG00000002586|CD99    |
+    //|ENSG00000002933|TMEM176A|
+    //+---------------+--------+
+    val T = targets
+      .selectExpr("id as geneId", "approvedSymbol as symbol")
 
-    logger.info("get phenotypes just that are qualifierNot === false and explode evidences")
-    val hps = diseasehp.withColumn("ev", explode($"evidence"))
+    //+-------------+------------------------------------------+-------------+
+    //|efoId        |TAs                                       |ancestor     |
+    //+-------------+------------------------------------------+-------------+
+    //|MONDO_0044792|[OTAR_0000018, MONDO_0045024, EFO_0010285]|MONDO_0044792|
+    //|MONDO_0044792|[OTAR_0000018, MONDO_0045024, EFO_0010285]|EFO_0010285  |
+    //+-------------+------------------------------------------+-------------+
+    val D = diseases
+      .selectExpr("id as efoId", "therapeuticAreas as TAs", "concat(array(id), ancestors) as ancestors")
+      .withColumn("ancestor", explode($"ancestors"))
+      .drop("ancestors")
+
+    //+------------+-----------+
+    //|chemblId    |efoId      |
+    //+------------+-----------+
+    //|CHEMBL100116|EFO_0003843|
+    //|CHEMBL100116|EFO_0000289|
+    //+------------+-----------+
+    val I = indications
+      .withColumn("indication", explode($"indications"))
+      .selectExpr("id as chemblId", "indication.*")
+      .selectExpr("chemblId", "disease as efoId")
+
+    //+-------------+---------------+----------+
+    //|chemblId     |geneId         |actionType|
+    //+-------------+---------------+----------+
+    //|CHEMBL3545331|ENSG00000163485|AGONIST   |
+    //|CHEMBL442    |ENSG00000120907|AGONIST   |
+    //+-------------+---------------+----------+
+    val M = moas.withColumn("target", explode($"targets"))
+      .withColumnRenamed("target", "geneId")
+      .selectExpr("chemblId", "geneId", "actionType")
+
+    //+------------+--------------+
+    //|chemblId    |drugType      |
+    //+------------+--------------+
+    //|CHEMBL100014|Small molecule|
+    //|CHEMBL10188 |Small molecule|
+    //+------------+--------------+
+    val C = compounds.selectExpr("id as chemblId", "drugType")
+      .orderBy($"chemblId")
+
+    //+-----------+------------+--------------+---------------+----------+-------------+-----------+
+    //|efoId      |chemblId    |drugType      |geneId         |actionType|TAs          |ancestor   |
+    //+-----------+------------+--------------+---------------+----------+-------------+-----------+
+    //|EFO_0003843|CHEMBL100116|Small molecule|ENSG00000147955|MODULATOR |[EFO_0000651]|EFO_0003765|
+    //|EFO_0003843|CHEMBL100116|Small molecule|ENSG00000147955|MODULATOR |[EFO_0000651]|EFO_0000651|
+    //+-----------+------------+--------------+---------------+----------+-------------+-----------+
+    val DR = I.join(C, Seq("chemblId")).join(M, Seq("chemblId")).join(D,Seq("efoId"))
+
+    //+----------+---------------+-----+
+    //|geneA     |geneB          |count|
+    //+----------+---------------+-----+
+    //|A0A024A2C9|ENSG00000000971|1    |
+    //|A0A024R5S0|ENSG00000105866|6    |
+    //+----------+---------------+-----+
+    val N = interactions.selectExpr("targetA as geneA", "targetB as geneB", "count")
+      .groupBy($"geneA", $"geneB")
+      .agg(sum($"count").as("count"))
+      .orderBy($"geneA", $"count".desc)
+
+    //+-----------+-----------+-----------------------------------------+-------------+
+    //|efoId      |phenotypeId|TAs                                      |ancestor     |
+    //+-----------+-----------+-----------------------------------------+-------------+
+    //|EFO_0000182|HP_0001413 |[EFO_0010282, MONDO_0045024, EFO_0001379]|MONDO_0024276|
+    //|EFO_0000182|HP_0001413 |[EFO_0010282, MONDO_0045024, EFO_0001379]|EFO_0006858  |
+    //+-----------+-----------+-----------------------------------------+-------------+
+    val DP = diseasehp.withColumn("ev", explode($"evidence"))
       .drop("evidence")
       .filter($"ev.qualifierNot" === false)
       .selectExpr("disease as diseaseId", "phenotype as phenotypeId")
       .distinct
-
-    logger.info("join phenotypes to diseases after explode indirect ones so we can push phenotypes up to ancestors")
-    val dis = diseases.selectExpr("id as diseaseId", "concat(array(id),ancestors) as indirects")
-    val hpos = hps.join(dis, Seq("diseaseId")).withColumn("indirect", explode($"indirects")).drop("indirects")
-
-    logger.info("write phenotypes pre aggregation with indirect phenotype propagation")
-    hpos.write.parquet(s"${output}/hposPreAggregation")
+      .join(D, Seq("efoId"))
 
     logger.info("generate hp aggregation and write")
     val hpsAgg = hpos.orderBy($"phenotypeId".asc, $"indirect".asc).groupBy($"phenotypeId").agg(collect_set($"indirect").as("diseaseIds")).filter(size($"diseaseIds") > 1)
@@ -96,7 +159,8 @@ object ETL extends LazyLogging {
     faersEFOLeft.write.parquet(s"${output}/faersPreAggregation")
 
     logger.info("join indications to compounds")
-    val drugs = compounds.join(indications, Seq("id"), "left_outer").withColumnRenamed("id", "chemblId")
+    val drugs = compounds.join(indications, Seq("id"), "left_outer")
+      .withColumnRenamed("id", "chemblId")
 
     logger.info("moas left join prefiously joint drugs and then explode targets to get one " +
       "entry per target and again explode by indication so each indication per moa")
