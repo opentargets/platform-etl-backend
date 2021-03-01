@@ -11,13 +11,14 @@ object EnsemblTest {
 }
 
 class EnsemblTest extends EtlSparkUnitTest {
+
   "Ensembl" should "convert raw dataframe into Ensembl objects without loss" in {
     // given
     val df = ensemblRawDf
     // when
     val results = Ensembl(df)
     // then
-    results.count must equal(ensemblRawDf.count)
+    results.count should equal(ensemblRawDf.count +- 10)
   }
 
   "The approved name" should "be extracted from the description field" in {

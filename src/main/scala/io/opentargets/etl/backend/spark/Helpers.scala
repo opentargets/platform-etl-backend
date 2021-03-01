@@ -1,15 +1,13 @@
 package io.opentargets.etl.backend.spark
 
-import com.typesafe.scalalogging.LazyLogging
-import io.opentargets.etl.backend.Configuration.OTConfig
 import io.opentargets.etl.backend.ETLSessionContext
+import com.typesafe.scalalogging.LazyLogging
 import org.apache.spark.SparkConf
 import org.apache.spark.sql._
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.types.{ArrayType, DataType, StructField, StructType}
 
 import scala.language.postfixOps
-import scala.util.Random
 
 import monocle.macros.syntax.lens._
 
@@ -131,7 +129,7 @@ object Helpers extends LazyLogging {
     * @return Map with random keys to input resource.
     */
   def seqToIOResourceConfigMap(resourceConfigs: Seq[IOResourceConfig]): IOResourceConfigurations = {
-    (for (rc <- resourceConfigs) yield Random.alphanumeric.take(6).toString -> rc).toMap
+    (for (rc <- resourceConfigs) yield scala.util.Random.alphanumeric.take(6).toString -> rc).toMap
   }
 
   /**
@@ -332,7 +330,7 @@ object Helpers extends LazyLogging {
   def nest(dataFrame: DataFrame, includedColumns: List[String], collectUnder: String): DataFrame = {
     // We need to use a random column name in case `collectUnder` is also in `includedColumns` as Spark SQL
     // isn't case sensitive.
-    val tempCol: String = Random.alphanumeric.take(collectUnder.length + 2).mkString
+    val tempCol: String = scala.util.Random.alphanumeric.take(collectUnder.length + 2).mkString
     dataFrame
       .withColumn(tempCol, struct(includedColumns.map(col): _*))
       .drop(includedColumns: _*)

@@ -15,6 +15,7 @@ object GeneOntologyTest {
       "ENSG00000135392",
       "protein_coding",
       "DnaJ heat shock protein family (Hsp40) member C14",
+      Array(),
       GenomicLocation("12", 55820960, 55830824, -1),
       "DNAJC14",
       Array(

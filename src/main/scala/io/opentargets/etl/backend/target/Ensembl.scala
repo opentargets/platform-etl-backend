@@ -3,6 +3,7 @@ package io.opentargets.etl.backend.target
 import com.typesafe.scalalogging.LazyLogging
 import io.opentargets.etl.backend.spark.Helpers.{nest, safeArrayUnion}
 import io.opentargets.etl.backend.target.TargetUtils.transformColumnToIdAndSourceStruct
+import org.apache.spark.sql.expressions.Window
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.types.{IntegerType, LongType}
 import org.apache.spark.sql.{DataFrame, Dataset, SparkSession}
@@ -10,6 +11,7 @@ import org.apache.spark.sql.{DataFrame, Dataset, SparkSession}
 case class Ensembl(id: String,
                    biotype: String,
                    approvedName: String,
+                   alternativeGenes: Array[String],
                    genomicLocation: GenomicLocation,
                    approvedSymbol: String,
                    proteinIds: Array[IdAndSource],
@@ -22,11 +24,15 @@ case class GenomicLocation(chromosome: String, start: Long, end: Long, strand: I
 
 object Ensembl extends LazyLogging {
 
+  val includeChromosomes: List[String] = (1 to 22).toList.map(_.toString) ::: List("X", "Y", "MT")
+
   def apply(df: DataFrame)(implicit ss: SparkSession): Dataset[Ensembl] = {
     logger.info("Transforming Ensembl inputs.")
     import ss.implicits._
-    val ensembl: Dataset[Ensembl] = df
+    val ensemblDS: Dataset[Ensembl] = df
       .filter(col("id").startsWith("ENSG"))
+      .filter(
+        col("seq_region_name").isin(includeChromosomes: _*) || col("Uniprot/SWISSPROT").isNotNull)
       .select(
         col("id"),
         col("biotype"),
@@ -48,9 +54,51 @@ object Ensembl extends LazyLogging {
       .transform(refactorProteinId)
       .transform(refactorTranscriptId)
       .transform(refactorSignalP)
+      .transform(selectBestNonReferenceGene)
       .as[Ensembl]
 
-    ensembl
+    ensemblDS
+  }
+
+  /** Returns dataframe with only one non-encoding gene per approvedSymbol. The other gene ids pointing to the same
+    * approvedSymbol are listed in `alternativeGenes`
+    *
+    * In cases where there are multiple gene ids, the longest will be chosen, with the longest being calculated as
+    * gene_end - gene_start. If there are multiple gene ids with the same length one will be chosen at random.
+    *
+    * All alternative gene ids which are reviewed are not included in the index will be included in the alternative id
+    * field.
+    * ENSG00000282841
+    *
+    * @return
+    */
+  def selectBestNonReferenceGene(dataset: DataFrame): DataFrame = {
+
+    // remove genes in standard chromosomes and rank remaining by length (per approvedSymbol)
+    val proteinEncodingGenesRankedDF = dataset
+      .select("id", "genomicLocation.*", "approvedSymbol")
+      .filter(!col("chromosome").isin(includeChromosomes: _*))
+      .withColumn("length", col("end") - col("start"))
+      .withColumn("rank", rank().over(Window.partitionBy("approvedSymbol").orderBy("length")))
+    // get best ranked id and symbol
+    val bestGuessByLengthDF = proteinEncodingGenesRankedDF
+      .filter(col("rank") === 1)
+      .dropDuplicates(Seq("approvedSymbol", "rank")) // get first ranked (longest)
+      .dropDuplicates("approvedSymbol") // remove duplicates where there was a tie for length
+      .select("id", "approvedSymbol")
+
+    // group nth ranked ids
+    val symbolsWithAlternativesDF = proteinEncodingGenesRankedDF
+      .groupBy("approvedSymbol")
+      .agg(collect_set(col("id")).as("alternativeGenes"))
+
+    val nonReferenceAndAlternativeDF = bestGuessByLengthDF
+      .join(symbolsWithAlternativesDF, Seq("approvedSymbol"))
+      .withColumn("alternativeGenes", array_remove(col("alternativeGenes"), col("id")))
+      .drop("approvedSymbol")
+
+    dataset.join(nonReferenceAndAlternativeDF, Seq("id"), "left_outer")
+
   }
 
   /** Returns dataframe with column 'transcriptIds' added and column 'transcripts' removed. */
