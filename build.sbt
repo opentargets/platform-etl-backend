@@ -23,6 +23,7 @@ lazy val root = (project in file("."))
     libraryDependencies += typeSafeConfig,
     libraryDependencies ++= configDeps,
     libraryDependencies ++= testingDeps,
+    libraryDependencies ++= cats,
     libraryDependencies ++= monocle,
     testFrameworks += new TestFramework("minitest.runner.Framework"),
     assemblyMergeStrategy in assembly := {

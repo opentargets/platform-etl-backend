@@ -14,8 +14,8 @@ object Dependencies {
   )
 
   lazy val configDeps = Seq(
-    "org.yaml" % "snakeyaml" % "1.21",
-    "com.github.pureconfig" %% "pureconfig" % "0.12.3"
+    // "org.yaml" % "snakeyaml" % "1.21",
+    "com.github.pureconfig" %% "pureconfig" % "0.14.1"
   )
 
   lazy val loggingDeps = Seq(
@@ -23,7 +23,7 @@ object Dependencies {
     "com.typesafe.scala-logging" %% "scala-logging" % "3.9.2"
   )
 
-  lazy val sparkVersion = "3.0.1"
+  lazy val sparkVersion = "3.1.1"
   lazy val sparkDeps = Seq(
     "com.github.fommil.netlib" % "all" % "1.1.2" pomOnly (),
     "org.apache.spark" %% "spark-core" % sparkVersion,
@@ -39,7 +39,15 @@ object Dependencies {
     "org.scalatest" %% "scalatest" % testVersion % "test"
   )
 
-  lazy val typeSafeConfig = "com.typesafe" % "config" % "1.4.0"
+  lazy val typeSafeConfig = "com.typesafe" % "config" % "1.4.1"
+
+  lazy val catsVersion = "2.4.2"
+  lazy val cats = Seq(
+    "org.typelevel" %% "cats-core" % catsVersion,
+    "org.typelevel" %% "cats-laws" % catsVersion,
+    "org.typelevel" %% "cats-kernel" % catsVersion,
+    "org.typelevel" %% "cats-kernel-laws" % catsVersion
+  )
 
   lazy val monocleVersion = "2.1.0"
   lazy val monocle = Seq(
