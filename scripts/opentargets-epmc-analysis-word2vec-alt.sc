@@ -64,6 +64,7 @@ object ETL extends LazyLogging {
     val moas = spark.read.parquet(s"${prefix}/drugs/mechanism_of_action").withColumn("chemblId", explode($"chemblIds"))
     val interactions = spark.read.parquet(s"${prefix}/interactions")
       .filter($"speciesB.taxon_id" === 9606)
+    val assocsIndDr = spark.read.parquet(s"${prefix}/associations/indirect/byDatatype")
 
     //+---------------+--------+
     //|geneId         |symbol  |
@@ -121,7 +122,10 @@ object ETL extends LazyLogging {
     //|EFO_0003843|CHEMBL100116|Small molecule|ENSG00000147955|MODULATOR |[EFO_0000651]|EFO_0003765|
     //|EFO_0003843|CHEMBL100116|Small molecule|ENSG00000147955|MODULATOR |[EFO_0000651]|EFO_0000651|
     //+-----------+------------+--------------+---------------+----------+-------------+-----------+
-    val DR = I.join(C, Seq("chemblId")).join(M, Seq("chemblId")).join(D,Seq("efoId"))
+    val DR = C
+      .join(I, Seq("chemblId"), "left_outer")
+      .join(M, Seq("chemblId"), "left_outer")
+      .join(D,Seq("efoId"), "left_outer")
 
     //+----------+---------------+-----+
     //|geneA     |geneB          |count|
@@ -132,7 +136,6 @@ object ETL extends LazyLogging {
     val N = interactions.selectExpr("targetA as geneA", "targetB as geneB", "count")
       .groupBy($"geneA", $"geneB")
       .agg(sum($"count").as("count"))
-      .orderBy($"geneA", $"count".desc)
 
     //+-----------+-----------+-----------------------------------------+-------------+
     //|efoId      |phenotypeId|TAs                                      |ancestor     |
@@ -146,6 +149,25 @@ object ETL extends LazyLogging {
       .selectExpr("disease as diseaseId", "phenotype as phenotypeId")
       .distinct
       .join(D, Seq("efoId"))
+
+    //+-----------+---------------+---------------------+
+    //|efoId      |geneId         |score                |
+    //+-----------+---------------+---------------------+
+    //|EFO_0000616|ENSG00000006715|0.0014947790826286464|
+    //|EFO_0000589|ENSG00000033011|0.9746962733753529   |
+    //+-----------+---------------+---------------------+
+    val GA = assocsIndDr.filter($"datatypeId".isInCollection(List("genetic_literature", "genetic_association")))
+      .groupBy($"diseaseId", $"targetId")
+      .agg(max($"datatypeHarmonicScore").as("score"))
+      .selectExpr("diseaseId as efoId", "targetId as geneId", "score")
+
+    //+-------------+----------+------------------+
+    //|chemblId     |meddraCode|score             |
+    //+-------------+----------+------------------+
+    //|CHEMBL1200343|10049460  |0.9443225592058297|
+    //|CHEMBL1200343|10060921  |0.1697153897748649|
+    //+-------------+----------+------------------+
+    val AE = faers.selectExpr("chembl_id as chemblId", "meddraCode", "llr as score")
 
     logger.info("generate hp aggregation and write")
     val hpsAgg = hpos.orderBy($"phenotypeId".asc, $"indirect".asc).groupBy($"phenotypeId").agg(collect_set($"indirect").as("diseaseIds")).filter(size($"diseaseIds") > 1)
