@@ -26,8 +26,6 @@ object Ensembl extends LazyLogging {
 
   val includeChromosomes: List[String] = (1 to 22).toList.map(_.toString) ::: List("X", "Y", "MT")
 
-  val includeChromosomes: List[String] = (1 to 22).toList.map(_.toString) ::: List("X", "Y", "MT")
-
   def apply(df: DataFrame)(implicit ss: SparkSession): Dataset[Ensembl] = {
     logger.info("Transforming Ensembl inputs.")
     import ss.implicits._

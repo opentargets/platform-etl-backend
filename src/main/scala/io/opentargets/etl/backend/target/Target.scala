@@ -43,6 +43,8 @@ object Target extends LazyLogging {
     val projectScoresDS: Dataset[GeneWithDbXRef] = ProjectScores(
       inputDataFrames("projectScoresIds").data,
       inputDataFrames("projectScoresEssentialityMatrix").data)
+    val proteinClassificaiton: Dataset[(String, String)] = ProteinClassification(
+      inputDataFrames("chembl").data)
 
     // merge intermediate data frames into final
     val hgncEnsemblTepGoDF = mergeHgncAndEnsembl(hgnc, ensemblDf)
@@ -151,6 +153,10 @@ object Target extends LazyLogging {
         targetInputs.psEssentialityMatrix.format,
         targetInputs.psEssentialityMatrix.path,
         options = targetInputs.psEssentialityMatrix.options
+      ),
+      "chembl" -> IOResourceConfig(
+        targetInputs.chembl.format,
+        targetInputs.chembl.path
       )
     )
 

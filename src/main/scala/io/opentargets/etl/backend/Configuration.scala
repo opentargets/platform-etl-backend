@@ -169,7 +169,8 @@ object Configuration extends LazyLogging {
                          tep: IOResourceConfig,
                          hpa: IOResourceConfig,
                          psEssentialityMatrix: IOResourceConfig,
-                         psGeneIdentifier: IOResourceConfig)
+                         psGeneIdentifier: IOResourceConfig,
+                         chembl: IOResourceConfig)
 
   case class TargetOutput(target: IOResourceConfig)
 
