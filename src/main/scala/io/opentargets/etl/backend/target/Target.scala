@@ -43,7 +43,7 @@ object Target extends LazyLogging {
     val projectScoresDS: Dataset[GeneWithDbXRef] = ProjectScores(
       inputDataFrames("projectScoresIds").data,
       inputDataFrames("projectScoresEssentialityMatrix").data)
-    val proteinClassificaiton: Dataset[(String, String)] = ProteinClassification(
+    val proteinClassification: Dataset[ProteinClassification] = ProteinClassification(
       inputDataFrames("chembl").data)
 
     // merge intermediate data frames into final
@@ -60,6 +60,12 @@ object Target extends LazyLogging {
       .withColumn("subcellularLocations",
                   mkFlattenArray(col("subcellularLocations"), col("locations")))
       .drop("locations")
+      // fixme: need to fix this ~ want to join on Uniprot synonyms too.
+      .as("df")
+      .join(proteinClassification,
+            col("df.id") === proteinClassification("accession"),
+            "left_outer")
+      .drop("accession")
 
     hgncEnsemblTepGoDF
       .join(uniprotGroupedByEnsemblIdDF, Seq("id"), "left_outer")
