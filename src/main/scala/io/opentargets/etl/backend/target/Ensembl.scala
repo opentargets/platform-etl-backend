@@ -26,6 +26,8 @@ object Ensembl extends LazyLogging {
 
   val includeChromosomes: List[String] = (1 to 22).toList.map(_.toString) ::: List("X", "Y", "MT")
 
+  val includeChromosomes: List[String] = (1 to 22).toList.map(_.toString) ::: List("X", "Y", "MT")
+
   def apply(df: DataFrame)(implicit ss: SparkSession): Dataset[Ensembl] = {
     logger.info("Transforming Ensembl inputs.")
     import ss.implicits._
@@ -72,14 +74,18 @@ object Ensembl extends LazyLogging {
     *
     * @return
     */
-  def selectBestNonReferenceGene(dataset: DataFrame): DataFrame = {
+  def selectBestNonReferenceGene(dataFrame: DataFrame): DataFrame = {
 
-    // remove genes in standard chromosomes and rank remaining by length (per approvedSymbol)
-    val proteinEncodingGenesRankedDF = dataset
+    // remove genes in standard chromosomes
+    val proteinEncodingGenesDF = dataFrame
       .select("id", "genomicLocation.*", "approvedSymbol")
       .filter(!col("chromosome").isin(includeChromosomes: _*))
+
+    // rank by length (per approvedSymbol)
+    val proteinEncodingGenesRankedDF = proteinEncodingGenesDF
       .withColumn("length", col("end") - col("start"))
       .withColumn("rank", rank().over(Window.partitionBy("approvedSymbol").orderBy("length")))
+
     // get best ranked id and symbol
     val bestGuessByLengthDF = proteinEncodingGenesRankedDF
       .filter(col("rank") === 1)
@@ -97,7 +103,17 @@ object Ensembl extends LazyLogging {
       .withColumn("alternativeGenes", array_remove(col("alternativeGenes"), col("id")))
       .drop("approvedSymbol")
 
-    dataset.join(nonReferenceAndAlternativeDF, Seq("id"), "left_outer")
+    val allNonReferenceIds = proteinEncodingGenesDF.select("id")
+    // get list of reference ids we want
+    val nonReferenceIdsWeWantDF = nonReferenceAndAlternativeDF.select("id")
+    // remove the non-reference ids from the list to be discarded
+    val nonReferenceIdsWeDontWantDF =
+      allNonReferenceIds.join(nonReferenceIdsWeWantDF, Seq("id"), "leftanti")
+
+    // filter final dataframe.
+    dataFrame
+      .join(nonReferenceIdsWeDontWantDF, Seq("id"), "leftanti")
+      .join(nonReferenceAndAlternativeDF, Seq("id"), "left_outer")
 
   }
 
