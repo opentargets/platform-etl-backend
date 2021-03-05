@@ -42,7 +42,7 @@ object TargetUtils {
       .withColumn(labelName.getOrElse("label"), typedLit(source))
       .transform(nest(_, List(labelName.getOrElse("label"), "source"), colTemp))
       .groupBy(idTemp)
-      .agg(collect_set(colTemp).as(outputColumnName.getOrElse(column)))
+      .agg(collect_set(col(colTemp)).as(outputColumnName.getOrElse(column)))
       .withColumnRenamed(idTemp, id)
   }
 
@@ -66,14 +66,18 @@ object TargetUtils {
   def transformColumnToIdAndSourceStruct(
       id: String,
       column: String,
-      label: String,
+      source: String,
       outputColumnName: Option[String] = None,
   )(dataFrame: DataFrame): DataFrame = {
-    transformColumnToLabelAndSourceStruct(dataFrame,
-                                          id,
-                                          column,
-                                          label,
-                                          Some("id"),
-                                          outputColumnName)
+    val idTemp = scala.util.Random.alphanumeric.take(10).mkString
+    val colTemp = scala.util.Random.alphanumeric.take(10).mkString
+    dataFrame
+      .select(col(id).as(idTemp), explode(col(column)).as("id"))
+      .withColumn("source", typedLit(source))
+      .transform(nest(_, List("id", "source"), colTemp))
+      .groupBy(idTemp)
+      .agg(collect_set(col(colTemp)).as(outputColumnName.getOrElse(column)))
+      .withColumnRenamed(idTemp, id)
+
   }
 }

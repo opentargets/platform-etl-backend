@@ -1,12 +1,7 @@
-package io.opentargets.etl.backend.HpoTest
+package io.opentargets.etl.backend.target
 
-import io.opentargets.etl.backend.EtlSparkUnitTest
-import io.opentargets.etl.backend.Hpo
-
-import io.opentargets.etl.backend.spark.Helpers
+import io.opentargets.etl.backend.{EtlSparkUnitTest, Hpo}
 import org.apache.spark.sql.{DataFrame, Dataset, Row, SparkSession}
-import org.apache.spark.sql.functions.{col, explode}
-import org.apache.spark.sql.types.{StringType, StructField, StructType}
 
 // cat efo_sample.json | jq .id > ids.json
 // cat out/diseases/part* |  jq -c -n --slurpfile ids ids.json 'inputs | . as $in | select( $ids | index($in.id))' > new_efo.json
@@ -29,7 +24,6 @@ object HpoTest extends EtlSparkUnitTest {
 
 class HpoTest extends EtlSparkUnitTest {
   import Hpo._
-  import sparkSession.implicits._
   val getEfoDataFrame: PrivateMethod[Dataset[Row]] = PrivateMethod[Dataset[Row]]('getEfoDataframe)
 
   "Processing EFO metadata" should "return a dataframe with the EFO's disease, name and dbXRefId" in {
@@ -50,9 +44,10 @@ class HpoTest extends EtlSparkUnitTest {
     val diseaseDF: DataFrame = Hpo invokePrivate getEfoDataFrame(efoDF)
 
     val inputDF: DataFrame = HpoTest.mondoDf(sparkSession)
-    val expectedColumns = Set("disease", "resource","diseaseFromSourceId","phenotype", "resource","qualifierNot")
+    val expectedColumns =
+      Set("disease", "resource", "diseaseFromSourceId", "phenotype", "resource", "qualifierNot")
     // when
-    val results: DataFrame = getMondo(inputDF,diseaseDF)
+    val results: DataFrame = getMondo(inputDF, diseaseDF)
 
     // then
     assert(expectedColumns.forall(expectedCol => results.columns.contains(expectedCol)))
@@ -65,9 +60,10 @@ class HpoTest extends EtlSparkUnitTest {
     val diseaseDF: DataFrame = Hpo invokePrivate getEfoDataFrame(efoDF)
 
     val inputDF: DataFrame = HpoTest.hpoPhenotypesDf(sparkSession)
-    val expectedColumns = Set("disease", "resource","diseaseFromSourceId","phenotype", "resource","qualifierNot")
+    val expectedColumns =
+      Set("disease", "resource", "diseaseFromSourceId", "phenotype", "resource", "qualifierNot")
     // when
-    val results: DataFrame = getDiseaseHpo(inputDF,diseaseDF)
+    val results: DataFrame = getDiseaseHpo(inputDF, diseaseDF)
 
     // then
     assert(expectedColumns.forall(expectedCol => results.columns.contains(expectedCol)))

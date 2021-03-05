@@ -34,7 +34,7 @@ object Ensembl extends LazyLogging {
       .filter(
         col("seq_region_name").isin(includeChromosomes: _*) || col("Uniprot/SWISSPROT").isNotNull)
       .select(
-        col("id"),
+        trim(col("id")).as("id"),
         col("biotype"),
         col("description"),
         col("end").cast(LongType),

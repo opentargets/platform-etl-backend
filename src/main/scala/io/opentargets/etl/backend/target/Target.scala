@@ -7,7 +7,17 @@ import io.opentargets.etl.backend.{Configuration, ETLSessionContext}
 import io.opentargets.etl.backend.spark.IoHelpers.IOResources
 import io.opentargets.etl.backend.spark.{CsvHelpers, IOResource, IOResourceConfig, IoHelpers}
 import io.opentargets.etl.preprocess.uniprot.UniprotConverter
-import org.apache.spark.sql.functions.{coalesce, col, collect_set, explode, flatten, typedLit}
+import org.apache.spark.sql.functions.{
+  array,
+  array_union,
+  coalesce,
+  col,
+  collect_set,
+  explode,
+  flatten,
+  trim,
+  typedLit
+}
 import org.apache.spark.sql.{DataFrame, Dataset, SparkSession}
 
 object Target extends LazyLogging {
@@ -32,7 +42,7 @@ object Target extends LazyLogging {
     // prepare intermediate dataframes per source
     val hgnc: Dataset[Hgnc] = Hgnc(inputDataFrames("hgnc").data)
     val ensemblDf: Dataset[Ensembl] = Ensembl(inputDataFrames("ensembl").data)
-    val uniprotDf: Dataset[Uniprot] = Uniprot(inputDataFrames("uniprot").data)
+    val uniprotDS: Dataset[Uniprot] = Uniprot(inputDataFrames("uniprot").data)
     val geneOntologyDf: Dataset[GeneOntologyByEnsembl] = GeneOntology(
       inputDataFrames("geneOntologyHuman").data,
       inputDataFrames("geneOntologyRna").data,
@@ -54,18 +64,14 @@ object Target extends LazyLogging {
       .drop("ensemblId")
       .join(projectScoresDS, Seq("id"), "left_outer")
 
-    val uniprotGroupedByEnsemblIdDF = addEnsemblIdsToUniprot(hgnc, uniprotDf)
-      .withColumnRenamed("proteinIds", "pid")
-      .join(hpa, Seq("id"), "left_outer")
-      .withColumn("subcellularLocations",
-                  mkFlattenArray(col("subcellularLocations"), col("locations")))
-      .drop("locations")
-      // fixme: need to fix this ~ want to join on Uniprot synonyms too.
-      .as("df")
-      .join(proteinClassification,
-            col("df.id") === proteinClassification("accession"),
-            "left_outer")
-      .drop("accession")
+    val uniprotGroupedByEnsemblIdDF =
+      addEnsemblIdsToUniprot(hgnc,
+                             addProteinClassificationToUniprot(uniprotDS, proteinClassification))
+        .withColumnRenamed("proteinIds", "pid")
+        .join(hpa, Seq("id"), "left_outer")
+        .withColumn("subcellularLocations",
+                    mkFlattenArray(col("subcellularLocations"), col("locations")))
+        .drop("locations")
 
     hgncEnsemblTepGoDF
       .join(uniprotGroupedByEnsemblIdDF, Seq("id"), "left_outer")
@@ -76,7 +82,7 @@ object Target extends LazyLogging {
       .drop("pid", "hgncId", "hgncSynonyms", "uniprotIds", "signalP", "xRef")
   }
 
-  def addEnsemblIdsToUniprot(hgnc: Dataset[Hgnc], uniprot: Dataset[Uniprot]): DataFrame = {
+  def addEnsemblIdsToUniprot(hgnc: Dataset[Hgnc], uniprot: DataFrame): DataFrame = {
     logger.debug("Grouping Uniprot entries by Ensembl Id.")
     hgnc
       .select(col("ensemblId"), explode(col("uniprotIds")).as("uniprotId"))
@@ -91,7 +97,8 @@ object Target extends LazyLogging {
         flatten(collect_set(col("proteinIds"))).as("proteinIds"),
         flatten(collect_set(col("subcellularLocations"))).as("subcellularLocations"),
         flatten(collect_set(col("dbXrefs"))).as("dbXrefs"),
-        collect_set(col("uniprotProteinId")).as("uniprotProteinId")
+        collect_set(col("uniprotProteinId")).as("uniprotProteinId"),
+        flatten(collect_set(col("targetClass"))).as("targetClass")
       )
       .withColumnRenamed("ensemblId", "id")
       .withColumn("proteinIds", safeArrayUnion(col("proteinIds"), col("uniprotProteinId")))
@@ -174,6 +181,24 @@ object Target extends LazyLogging {
                    targetInputs.uniprot.format,
                    targetInputs.uniprot.path
                  )))
+  }
+
+  private def addProteinClassificationToUniprot(
+      uniprot: Dataset[Uniprot],
+      proteinClassification: Dataset[ProteinClassification]): DataFrame = {
+    logger.debug("Add protein classifications to UniprotDS")
+    val proteinClassificationWithUniprot = uniprot
+      .select(col("uniprotId"), col("proteinIds.id").as("pid"))
+      .withColumn("uid", array(col("uniprotId")))
+      .withColumn("pid", array_union(col("uid"), col("pid")))
+      .select(col("uniprotId"), explode(col("pid")).as("pid"))
+      .withColumn("pid", trim(col("pid")))
+      .join(proteinClassification, col("pid") === proteinClassification("accession"), "left_outer")
+      .drop("accession")
+      .groupBy("uniprotId")
+      .agg(flatten(collect_set(col("targetClass"))).as("targetClass"))
+
+    uniprot.join(proteinClassificationWithUniprot, Seq("uniprotId"), "left_outer")
   }
 
   /** Merge Hgnc and Ensembl datasets in a way that preserves logic of data pipeline.
