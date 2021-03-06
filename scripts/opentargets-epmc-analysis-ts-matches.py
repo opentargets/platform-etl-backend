@@ -258,6 +258,7 @@ def main(args):
             .filter((col("maxYear") >= 2019) & (col("nYears") >= 1) & (col("dtCount") >= 12))
             .select(*predictions_selection_keys)
             .repartition(*predictions_grouped_keys)
+            .dropDuplicates(subset=)
             .persist()
     )
 
