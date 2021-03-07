@@ -9,7 +9,7 @@ import $file.opentargetsFunctions
 import $ivy.`ch.qos.logback:logback-classic:1.2.3`
 import $ivy.`com.typesafe.scala-logging::scala-logging:3.9.2`
 import $ivy.`com.typesafe:config:1.4.0`
-import SparkSessionWrapper.session
+
 import org.apache.spark.broadcast.Broadcast
 import org.apache.spark.ml.feature.{Word2Vec, Word2VecModel}
 import org.apache.spark.sql.expressions.Window
@@ -73,9 +73,12 @@ object ETL extends LazyLogging {
     val faers = spark.read.parquet(s"${prefix}/openfda")
     val compounds = spark.read.parquet(s"${prefix}/drugs/drug")
     val moas = spark.read.parquet(s"${prefix}/drugs/mechanism_of_action").withColumn("chemblId", explode($"chemblIds"))
-    val interactions = spark.read.parquet(s"${prefix}/interactions")
-      .filter($"speciesB.taxon_id" === 9606)
-    val evs = spark.read.parquet("21.02/outputs/evidences/succeeded")
+    val interactions = spark.read.parquet("21.01/latest/interactions")
+      .filter($"speciesB.taxon_id" === 9606 and
+        $"targetA".startsWith("ENSG") and
+        $"targetB".startsWith("ENSG") and
+        $"targetA" =!= $"targetB")
+    val evs = spark.read.parquet(s"${prefix}/evidences/succeeded")
 
     //+---------------+--------+
     //|geneId         |symbol  |
@@ -141,15 +144,16 @@ object ETL extends LazyLogging {
       .withColumnRenamed("ancestor", "efoId")
       .selectExpr("chemblId", "geneId", "efoId", "drugType", "actionType", "TAs")
 
-    //+----------+---------------+-----+
-    //|geneA     |geneB          |count|
-    //+----------+---------------+-----+
-    //|A0A024A2C9|ENSG00000000971|1    |
-    //|A0A024R5S0|ENSG00000105866|6    |
-    //+----------+---------------+-----+
+    //+---------------+---------------+-----+
+    //|geneA          |geneB          |count|
+    //+---------------+---------------+-----+
+    //|ENSG00000146648|ENSG00000177885|110  |
+    //|ENSG00000141510|ENSG00000135679|108  |
+    //+---------------+---------------+-----+
     val N = interactions.selectExpr("targetA as geneA", "targetB as geneB", "count")
       .groupBy($"geneA", $"geneB")
-      .agg(sum($"count").as("count"))
+      .agg(sum($"count").as("score"))
+      .filter($"score" > 2)
 
     //+-----------+-----------+-----------------------------------------+-------------+
     //|efoId      |phenotypeId|TAs                                      |ancestor     |
@@ -202,11 +206,11 @@ object ETL extends LazyLogging {
     //|EFO_0000222|rs1060502568| INHIBITOR|[EFO_0000222, CHE...|
     //|EFO_0000228|RCV001161526|ANTAGONIST|[EFO_0000228, CHE...|
     //+-----------+------------+----------+--------------------+
+    logger.info("generate model for genetics aggregation and write")
     val EDRAGG = EDR.groupBy($"efoId", $"vId", $"actionType")
       .agg(flatten(transform(sort_array(collect_set(struct($"score", $"efoId", $"chemblId")), asc=false),
         c => array(c.getField("efoId"), c.getField("chemblId")) )).as("v"))
 
-    logger.info("generate model for genetics aggregation and write")
     val EDRAGGW2V = new Word2Vec().setWindowSize(10).setNumPartitions(16).setMaxIter(10).setInputCol("v").setOutputCol("predictions")
     val EDRAGGW2VModel = EDRAGGW2V.fit(EDRAGG)
     EDRAGGW2VModel.save(s"${output}/models/EDRAGGW2VModel")
@@ -222,12 +226,12 @@ object ETL extends LazyLogging {
       .select(cols.head, cols.tail:_*)
       .write.parquet(s"${output}/models/EDRAGGPredictions")
 
+    logger.info("generate model for phenotypes aggregation and write")
     val DPAGG = DP.join(DR.drop("geneId"), Seq("efoId"))
       .distinct
       .groupBy($"phenotypeId", $"ancestor", $"drugType")
       .agg(flatten(collect_set(array($"efoId", $"chemblId"))).as("v"))
 
-    logger.info("generate model for phenotypes aggregation and write")
     val DPAGGW2V = new Word2Vec().setWindowSize(10).setNumPartitions(16).setMaxIter(10).setInputCol("v").setOutputCol("predictions")
     val DPAGGW2VModel = DPAGGW2V.fit(DPAGG)
     DPAGGW2VModel.save(s"${output}/models/DPAGGW2VModel")
@@ -243,56 +247,58 @@ object ETL extends LazyLogging {
       .select(cols.head, cols.tail:_*)
       .write.parquet(s"${output}/models/DPAGGPredictions")
 
-    //    logger.info("generate hp aggregation and write")
-//    val hpsAgg = hpos.orderBy($"phenotypeId".asc, $"indirect".asc).groupBy($"phenotypeId").agg(collect_set($"indirect").as("diseaseIds")).filter(size($"diseaseIds") > 1)
-//    hpsAgg.write.parquet(s"${output}/hposAggregation")
-//
-//    logger.info("compute xref from efo disease to meddra (it is not currently used)")
-//    val med2efo = diseases.selectExpr("id", "dbXRefs").withColumn("xref", explode($"dbXRefs")).filter(col("xref").contains("DRA")).withColumn("meddraCode", element_at(split($"xref", ":"), 2)).selectExpr("id as diseaseId", "meddraCode")
-//    val faersEFOLeft = faers.join(med2efo, Seq("meddraCode"), "left_outer").withColumnRenamed("chembl_id", "chemblId").selectExpr("meddraCode", "chemblId", "reaction_reactionmeddrapt as meddraName", "llr", "diseaseId")
-//
-//    logger.info("write faers pre aggregation with LUT for efo to meddra")
-//    faersEFOLeft.write.parquet(s"${output}/faersPreAggregation")
-//
-//    val w = Window.partitionBy()
-//    logger.info("join indications to compounds")
-//    val drugs = compounds.join(indications, Seq("id"), "left_outer")
-//      .withColumnRenamed("id", "chemblId")
-//
-//    logger.info("moas left join prefiously joint drugs and then explode targets to get one " +
-//      "entry per target and again explode by indication so each indication per moa")
-//    val drugTargets = moas.join(drugs, Seq("chemblId")).withColumn("targetId", explode($"targets")).drop("targets", "chemblIds").join(targets.selectExpr("id as targetId", "approvedSymbol"), Seq("targetId"))
-//      .withColumn("indication", explode($"indications"))
-//      .drop("indications", "count")
-//      .drop("approvedIndications")
-//
-//    logger.info("write computed pre aggregation drugs")
-//    drugTargets.write.parquet(s"${output}/drugsPreAggregation")
-//
-//    logger.info("aggregate interactions by targetA including itself into the list of interactions and write out")
-//    val interactionsAgg = interactions.orderBy($"scoring".desc).groupBy($"targetA").agg(concat(array($"targetA"), collect_list($"targetB")).as("targetBs"))
-//    interactionsAgg.write.parquet(s"${output}/interactionsAggregation")
-//
-//    logger.info("aggregate faers by meddra name the chemblids and write")
-//    val faersAgg = faersEFOLeft.orderBy($"meddraName".asc, $"llr".desc)
-//      .groupBy($"meddraName")
-//      .agg(collect_list($"chemblId").as("chemblIds"))
-//    faersAgg.write.parquet(s"${output}/faersAggregation")
-//
-//    logger.info("generate model for faers aggregation and write")
-//    val w2vModel = new Word2Vec().setNumPartitions(16).setMaxIter(10).setInputCol("chemblIds").setOutputCol("predictions")
-//    val model = w2vModel.fit(faersAgg)
-//    model.save(s"${output}/models/faersW2VModel")
-//
-//    logger.info("generate model for interactions aggregation and write")
-//    val interactW2VModel = new Word2Vec().setNumPartitions(16).setMaxIter(10).setInputCol("targetBs").setOutputCol("predictions")
-//    val intModel = interactW2VModel.fit(interactionsAgg)
-//    intModel.save(s"${output}/models/interactionsW2VModel")
-//
-//    logger.info("generate model for hp aggregation and write")
-//    val hposW2VModel = new Word2Vec().setNumPartitions(16).setMaxIter(10).setInputCol("diseaseIds").setOutputCol("predictions")
-//    val hposModel = hposW2VModel.fit(hpsAgg)
-//    hposModel.save("/data/models/hpsW2VModel")
+    logger.info("generate model for FAERS aggregation and write")
+    val AEAGG = AE.join(
+      DR.filter($"efoId".isNotNull)
+        .drop("geneId", "DTAs")
+        .dropDuplicates("chemblId", "efoId"), Seq("chemblId"))
+      .groupBy($"meddraCode", $"actionType", $"drugType")
+      .agg(
+        flatten(
+          transform(
+            sort_array(
+              collect_set(struct($"score", $"efoId", $"chemblId"))
+              , asc=false
+            ),
+            x => array(x.getField("efoId"), x.getField("chemblId"))
+          )
+        ).as("v")
+      )
+
+    val AEAGGW2V = new Word2Vec().setWindowSize(10).setNumPartitions(16).setMaxIter(10).setInputCol("v").setOutputCol("predictions")
+    val AEAGGW2VModel = AEAGGW2V.fit(AEAGG)
+    AEAGGW2VModel.save(s"${output}/models/AEAGGW2VModel")
+
+    val AEAGGW2VModelB = spark.sparkContext.broadcast(AEAGGW2VModel)
+    val AEAGGFn = applyModelFn(AEAGGW2VModelB, _)
+
+    AEAGGW2VModel.getVectors.withColumn("predictions", udf(AEAGGFn).apply($"word"))
+      .withColumn("model", lit("FAERS"))
+      .withColumn("_prediction", explode($"predictions"))
+      .withColumn("prediction", $"_prediction".getField("_1"))
+      .withColumn("score", $"_prediction".getField("_2"))
+      .select(cols.head, cols.tail:_*)
+      .write.parquet(s"${output}/models/AEAGGPredictions")
+
+    logger.info("generate model for interactions aggregation and write")
+    val INTAGG = N.join(DR.filter($"geneId".isNotNull and $"efoId".isNotNull).drop("DTAs"), $"geneB" === $"geneId" or $"geneA" === $"geneId")
+      .groupBy($"geneA", $"actionType", $"drugType")
+      .agg(flatten(transform(sort_array(collect_set(struct($"score", $"efoId", $"chemblId")), asc=false), x => array(x.getField("efoId"), x.getField("chemblId")))).as("v"))
+
+    val INTAGGW2V = new Word2Vec().setWindowSize(10).setNumPartitions(16).setMaxIter(10).setInputCol("v").setOutputCol("predictions")
+    val INTAGGW2VModel = INTAGGW2V.fit(INTAGG)
+    INTAGGW2VModel.save(s"${output}/models/INTAGGW2VModel")
+
+    val INTAGGW2VModelB = spark.sparkContext.broadcast(INTAGGW2VModel)
+    val INTAGGFn = applyModelFn(INTAGGW2VModelB, _)
+
+    INTAGGW2VModel.getVectors.withColumn("predictions", udf(INTAGGFn).apply($"word"))
+      .withColumn("model", lit("INTERACTIONS"))
+      .withColumn("_prediction", explode($"predictions"))
+      .withColumn("prediction", $"_prediction".getField("_1"))
+      .withColumn("score", $"_prediction".getField("_2"))
+      .select(cols.head, cols.tail:_*)
+      .write.parquet(s"${output}/models/INTAGGPredictions")
   }
 }
 
