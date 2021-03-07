@@ -73,7 +73,7 @@ object ETL extends LazyLogging {
     val faers = spark.read.parquet(s"${prefix}/openfda")
     val compounds = spark.read.parquet(s"${prefix}/drugs/drug")
     val moas = spark.read.parquet(s"${prefix}/drugs/mechanism_of_action").withColumn("chemblId", explode($"chemblIds"))
-    val interactions = spark.read.parquet("21.01/latest/interactions")
+    val interactions = spark.read.parquet(s"${prefix}/interactions")
       .filter($"speciesB.taxon_id" === 9606 and
         $"targetA".startsWith("ENSG") and
         $"targetB".startsWith("ENSG") and
