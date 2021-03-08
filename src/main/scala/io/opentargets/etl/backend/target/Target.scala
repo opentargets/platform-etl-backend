@@ -20,6 +20,8 @@ import org.apache.spark.sql.functions.{
 }
 import org.apache.spark.sql.{DataFrame, Dataset, SparkSession}
 
+import scala.jdk.CollectionConverters.asScalaIteratorConverter
+
 object Target extends LazyLogging {
   def apply()(implicit context: ETLSessionContext): IOResources = {
     implicit val ss: SparkSession = context.sparkSession
@@ -110,11 +112,8 @@ object Target extends LazyLogging {
       implicit sparkSession: SparkSession): Map[String, IOResource] = {
     def getUniprotDataFrame(io: IOResourceConfig)(implicit ss: SparkSession): IOResource = {
       import ss.implicits._
-      val file = io.path match {
-        case f if f.endsWith("gz") => File(f).newInputStream.asGzipInputStream().lines
-        case f_                    => File(f_).lineIterator
-      }
-      val data = UniprotConverter.convertUniprotFlatFileToUniprotEntry(file)
+      val path: java.util.Iterator[String] = sparkSession.read.textFile(io.path).toLocalIterator()
+      val data = UniprotConverter.convertUniprotFlatFileToUniprotEntry(path.asScala)
       IOResource(data.toDF(), io)
     }
 

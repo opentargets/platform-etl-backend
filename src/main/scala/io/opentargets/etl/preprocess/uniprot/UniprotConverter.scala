@@ -125,7 +125,7 @@ object UniprotConverter
     * @param string raw input line from Uniprot
     * @return input line with first two characters and white-space removed.
     */
-  private def removeLineIndex(string: String): String = string.drop(2).stripLeading
+  private def removeLineIndex(string: String): String = string.drop(2).trim()
 
   private def processId(idLine: String): String =
     removeLineIndex(idLine).takeWhile(chr => !chr.isWhitespace)

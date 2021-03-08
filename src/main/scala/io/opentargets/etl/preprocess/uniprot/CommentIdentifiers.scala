@@ -106,7 +106,7 @@ trait CommentIdentifiers {
       if (head.startsWith(NEW_COMMENT)) {
         // clear buffer and continue
         concatenateComments(comments,
-                            Seq(head.drop(NEW_COMMENT.length).stripLeading),
+                            Seq(head.drop(NEW_COMMENT.length).trim),
                             newComments :+ buf.mkString(" "))
       } else {
         concatenateComments(comments, buf :+ head, newComments)

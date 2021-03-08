@@ -50,6 +50,6 @@ trait DbIdentifiers {
     string
       .split(POST_PROCESS_SPLIT)
       .take(2)
-      .map(s => s.stripLeading.dropRight(1)) // drop right as every entry ends with ';'
+      .map(s => s.trim.dropRight(1)) // drop right as every entry ends with ';'
       .mkString(" ")
 }
