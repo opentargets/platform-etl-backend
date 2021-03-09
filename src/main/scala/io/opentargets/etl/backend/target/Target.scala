@@ -84,8 +84,8 @@ object Target extends LazyLogging {
                   safeArrayUnion(col("hgncId"), col("dbXrefs"), col("signalP"), col("xRef")))
       .withColumn("synonyms", safeArrayUnion(col("synonyms"), col("hgncSynonyms")))
       .drop("pid", "hgncId", "hgncSynonyms", "uniprotIds", "signalP", "xRef")
+      .join(geneticConstraints, Seq("id"), "left_outer")
 
-    // todo Add genetic contraints to final data set
   }
 
   def addEnsemblIdsToUniprot(hgnc: Dataset[Hgnc], uniprot: DataFrame): DataFrame = {
