@@ -31,8 +31,6 @@ import org.apache.spark.ml._
 import org.apache.spark.ml.fpm._
 import com.typesafe.scalalogging.LazyLogging
 
-import org.graphframes._
-
 import opentargetsFunctions.OpentargetsFunctions._
 
 object SparkSessionWrapper extends LazyLogging {
@@ -79,6 +77,7 @@ object ETL extends LazyLogging {
         $"targetB".startsWith("ENSG") and
         $"targetA" =!= $"targetB")
     val evs = spark.read.parquet(s"${prefix}/evidences/succeeded")
+    val coocs = spark.read.parquet(s"${prefix}/epmc/cooccurrences")
 
     //+---------------+--------+
     //|geneId         |symbol  |
@@ -139,10 +138,10 @@ object ETL extends LazyLogging {
     val DR = C
       .join(I, Seq("chemblId"), "left_outer")
       .join(M, Seq("chemblId"), "left_outer")
-      .join(D,Seq("efoId"), "left_outer")
-      .drop("efoId")
-      .withColumnRenamed("ancestor", "efoId")
-      .selectExpr("chemblId", "geneId", "efoId", "drugType", "actionType", "TAs")
+//      .join(D,Seq("efoId"), "left_outer")
+//      .drop("efoId")
+//      .withColumnRenamed("ancestor", "efoId")
+      .selectExpr("chemblId", "geneId", "efoId", "drugType", "actionType")
 
     //+---------------+---------------+-----+
     //|geneA          |geneB          |count|
@@ -179,8 +178,6 @@ object ETL extends LazyLogging {
       .selectExpr("diseaseId as efoId", "targetId as geneId", "score",
         "coalesce(variantId, variantRsId, studyId) as vId")
       .join(D, Seq("efoId"))
-      .withColumnRenamed("efoId", "directEfoId")
-      .withColumnRenamed("ancestor", "efoId")
       .drop("TAs")
 
     //+-------------+----------+------------------+
@@ -198,7 +195,7 @@ object ETL extends LazyLogging {
     //|EFO_0000222|ENSG00000171552|EFO_0000222|0.06565428525209427|20_31839611_G_A|CHEMBL408194|Small molecule|INHIBITOR |EFO_0005803 |
     //+-----------+---------------+-----------+-------------------+---------------+------------+--------------+----------+------------+
     logger.info("generate indirect genetic evidences+drugs aggregation")
-    val EDR = E.join(DR, Seq("efoId", "geneId")).withColumn("TA", explode($"TAs")).drop("TAs")
+    val EDR = E.join(DR, Seq("efoId", "geneId"))
 
     //+-----------+------------+----------+--------------------+
     //|      efoId|         vId|actionType|                   v|
@@ -207,11 +204,11 @@ object ETL extends LazyLogging {
     //|EFO_0000228|RCV001161526|ANTAGONIST|[EFO_0000228, CHE...|
     //+-----------+------------+----------+--------------------+
     logger.info("generate model for genetics aggregation and write")
-    val EDRAGG = EDR.groupBy($"efoId", $"vId", $"actionType")
+    val EDRAGG = EDR.groupBy($"ancestor", $"vId", $"actionType")
       .agg(flatten(transform(sort_array(collect_set(struct($"score", $"efoId", $"chemblId")), asc=false),
         c => array(c.getField("efoId"), c.getField("chemblId")) )).as("v"))
 
-    val EDRAGGW2V = new Word2Vec().setWindowSize(10).setNumPartitions(16).setMaxIter(10).setInputCol("v").setOutputCol("predictions")
+    val EDRAGGW2V = new Word2Vec().setWindowSize(10).setNumPartitions(32).setMaxIter(5).setInputCol("v").setOutputCol("predictions")
     val EDRAGGW2VModel = EDRAGGW2V.fit(EDRAGG)
     EDRAGGW2VModel.save(s"${output}/models/EDRAGGW2VModel")
 
@@ -227,12 +224,11 @@ object ETL extends LazyLogging {
       .write.parquet(s"${output}/models/EDRAGGPredictions")
 
     logger.info("generate model for phenotypes aggregation and write")
-    val DPAGG = DP.join(DR.drop("geneId"), Seq("efoId"))
-      .distinct
+    val DPAGG = DP.join(DR.drop("geneId").distinct(), Seq("efoId"))
       .groupBy($"phenotypeId", $"ancestor", $"drugType")
       .agg(flatten(collect_set(array($"efoId", $"chemblId"))).as("v"))
 
-    val DPAGGW2V = new Word2Vec().setWindowSize(10).setNumPartitions(16).setMaxIter(10).setInputCol("v").setOutputCol("predictions")
+    val DPAGGW2V = new Word2Vec().setWindowSize(10).setNumPartitions(32).setMaxIter(5).setInputCol("v").setOutputCol("predictions")
     val DPAGGW2VModel = DPAGGW2V.fit(DPAGG)
     DPAGGW2VModel.save(s"${output}/models/DPAGGW2VModel")
 
@@ -247,12 +243,56 @@ object ETL extends LazyLogging {
       .select(cols.head, cols.tail:_*)
       .write.parquet(s"${output}/models/DPAGGPredictions")
 
+    logger.info("generate model for EPMC aggregation and write")
+    val EPMC = coocs.filter($"type" === "DS-CD" and $"isMapped" === true)
+      .selectExpr("pmid", "evidence_score / 10.0 as score", "keywordId1 as efoId", "keywordId2 as chemblId")
+      .groupBy($"pmid", $"efoId", $"chemblId").agg(mean($"score").as("score"))
+
+    val EPMCAGG = EPMC.join(C,Seq("chemblId"))
+      .groupBy($"pmId", $"drugType")
+      .agg(flatten(transform(sort_array(collect_set(struct($"score", $"efoId", $"chemblId")), asc=false),
+        x => array(x.getField("efoId"), x.getField("chemblId")))).as("v"))
+
+    val EPMCAGGW2V = new Word2Vec().setWindowSize(10).setNumPartitions(32).setMaxIter(5).setInputCol("v").setOutputCol("predictions")
+    val EPMCAGGW2VModel = EPMCAGGW2V.fit(EPMCAGG)
+    EPMCAGGW2VModel.save(s"${output}/models/EPMCAGGW2VModel")
+
+    val EPMCAGGW2VModelB = spark.sparkContext.broadcast(EPMCAGGW2VModel)
+    val EPMCAGGFn = applyModelFn(EPMCAGGW2VModelB, _)
+
+    EPMCAGGW2VModel.getVectors.withColumn("predictions", udf(EPMCAGGFn).apply($"word"))
+      .withColumn("model", lit("EPMC-DS-DC"))
+      .withColumn("_prediction", explode($"predictions"))
+      .withColumn("prediction", $"_prediction".getField("_1"))
+      .withColumn("score", $"_prediction".getField("_2"))
+      .select(cols.head, cols.tail:_*)
+      .write.parquet(s"${output}/models/EPMCAGGPredictions")
+
+    logger.info("generate model for interactions aggregation and write")
+    val INTAGG = N.join(DR.filter($"geneId".isNotNull and $"efoId".isNotNull).join(D.drop("TAs"), Seq("efoId")), $"geneB" === $"geneId" or $"geneA" === $"geneId")
+      .groupBy($"geneA", $"ancestor", $"actionType", $"drugType")
+      .agg(flatten(transform(sort_array(collect_set(struct($"score", $"efoId", $"chemblId")), asc=false), x => array(x.getField("efoId"), x.getField("chemblId")))).as("v"))
+
+    val INTAGGW2V = new Word2Vec().setWindowSize(10).setNumPartitions(32).setMaxIter(5).setInputCol("v").setOutputCol("predictions")
+    val INTAGGW2VModel = INTAGGW2V.fit(INTAGG)
+    INTAGGW2VModel.save(s"${output}/models/INTAGGW2VModel")
+
+    val INTAGGW2VModelB = spark.sparkContext.broadcast(INTAGGW2VModel)
+    val INTAGGFn = applyModelFn(INTAGGW2VModelB, _)
+
+    INTAGGW2VModel.getVectors.withColumn("predictions", udf(INTAGGFn).apply($"word"))
+      .withColumn("model", lit("INTERACTIONS"))
+      .withColumn("_prediction", explode($"predictions"))
+      .withColumn("prediction", $"_prediction".getField("_1"))
+      .withColumn("score", $"_prediction".getField("_2"))
+      .select(cols.head, cols.tail:_*)
+      .write.parquet(s"${output}/models/INTAGGPredictions")
+
     logger.info("generate model for FAERS aggregation and write")
     val AEAGG = AE.join(
       DR.filter($"efoId".isNotNull)
-        .drop("geneId", "DTAs")
-        .dropDuplicates("chemblId", "efoId"), Seq("chemblId"))
-      .groupBy($"meddraCode", $"actionType", $"drugType")
+        .drop("geneId").distinct().join(D.drop("TAs"), Seq("efoId")), Seq("chemblId"))
+      .groupBy($"meddraCode", $"ancestor", $"actionType", $"drugType")
       .agg(
         flatten(
           transform(
@@ -265,7 +305,7 @@ object ETL extends LazyLogging {
         ).as("v")
       )
 
-    val AEAGGW2V = new Word2Vec().setWindowSize(10).setNumPartitions(16).setMaxIter(10).setInputCol("v").setOutputCol("predictions")
+    val AEAGGW2V = new Word2Vec().setWindowSize(10).setNumPartitions(32).setMaxIter(5).setInputCol("v").setOutputCol("predictions")
     val AEAGGW2VModel = AEAGGW2V.fit(AEAGG)
     AEAGGW2VModel.save(s"${output}/models/AEAGGW2VModel")
 
@@ -280,25 +320,8 @@ object ETL extends LazyLogging {
       .select(cols.head, cols.tail:_*)
       .write.parquet(s"${output}/models/AEAGGPredictions")
 
-    logger.info("generate model for interactions aggregation and write")
-    val INTAGG = N.join(DR.filter($"geneId".isNotNull and $"efoId".isNotNull).drop("DTAs"), $"geneB" === $"geneId" or $"geneA" === $"geneId")
-      .groupBy($"geneA", $"actionType", $"drugType")
-      .agg(flatten(transform(sort_array(collect_set(struct($"score", $"efoId", $"chemblId")), asc=false), x => array(x.getField("efoId"), x.getField("chemblId")))).as("v"))
-
-    val INTAGGW2V = new Word2Vec().setWindowSize(10).setNumPartitions(16).setMaxIter(10).setInputCol("v").setOutputCol("predictions")
-    val INTAGGW2VModel = INTAGGW2V.fit(INTAGG)
-    INTAGGW2VModel.save(s"${output}/models/INTAGGW2VModel")
-
-    val INTAGGW2VModelB = spark.sparkContext.broadcast(INTAGGW2VModel)
-    val INTAGGFn = applyModelFn(INTAGGW2VModelB, _)
-
-    INTAGGW2VModel.getVectors.withColumn("predictions", udf(INTAGGFn).apply($"word"))
-      .withColumn("model", lit("INTERACTIONS"))
-      .withColumn("_prediction", explode($"predictions"))
-      .withColumn("prediction", $"_prediction".getField("_1"))
-      .withColumn("score", $"_prediction".getField("_2"))
-      .select(cols.head, cols.tail:_*)
-      .write.parquet(s"${output}/models/INTAGGPredictions")
+    // val pr = predictions.groupBy($"word", $"prediction").agg(count($"model").as("n"), mean($"score").as("score"), collect_list($"model").as("m"))
+    // val prtops = pr.join(D, !$"prediction".startsWith("CHEMBL") and $"efoId" === $"prediction", "left_outer").join(C, $"prediction".startsWith("CHEMBL") and $"chemblId" === $"prediction", "left_outer").withColumn("name", coalesce($"efoName", $"drugName")).drop("efoId", "chemblId", "efoName", "drugName").orderBy($"word", $"n".desc, $"score".desc)
   }
 }
 
