@@ -1,6 +1,5 @@
 package io.opentargets.etl.backend.target
 
-import better.files.{File, InputStreamExtensions}
 import com.typesafe.scalalogging.LazyLogging
 import io.opentargets.etl.backend.spark.Helpers.{mkFlattenArray, nest, safeArrayUnion}
 import io.opentargets.etl.backend.{Configuration, ETLSessionContext}
@@ -57,6 +56,9 @@ object Target extends LazyLogging {
       inputDataFrames("projectScoresEssentialityMatrix").data)
     val proteinClassification: Dataset[ProteinClassification] = ProteinClassification(
       inputDataFrames("chembl").data)
+    // todo get Genetic Constraint dataset
+    val geneticConstraints: Dataset[GeneticConstraint] = GeneticConstraints(
+      inputDataFrames("geneticConstraints").data)
 
     // merge intermediate data frames into final
     val hgncEnsemblTepGoDF = mergeHgncAndEnsembl(hgnc, ensemblDf)
@@ -82,6 +84,8 @@ object Target extends LazyLogging {
                   safeArrayUnion(col("hgncId"), col("dbXrefs"), col("signalP"), col("xRef")))
       .withColumn("synonyms", safeArrayUnion(col("synonyms"), col("hgncSynonyms")))
       .drop("pid", "hgncId", "hgncSynonyms", "uniprotIds", "signalP", "xRef")
+
+    // todo Add genetic contraints to final data set
   }
 
   def addEnsemblIdsToUniprot(hgnc: Dataset[Hgnc], uniprot: DataFrame): DataFrame = {
@@ -169,6 +173,11 @@ object Target extends LazyLogging {
       "chembl" -> IOResourceConfig(
         targetInputs.chembl.format,
         targetInputs.chembl.path
+      ),
+      "geneticConstraints" -> IOResourceConfig(
+        targetInputs.geneticConstraints.format,
+        targetInputs.geneticConstraints.path,
+        options = targetInputs.geneticConstraints.options
       )
     )
 
