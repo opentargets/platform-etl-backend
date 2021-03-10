@@ -220,6 +220,7 @@ The majority of the ETL was written to process data which has been prepared by t
   from the data pipeline to function correctly. These include:
   
   - Drug
+  - Target
   
 ## Step notes
 
@@ -322,6 +323,52 @@ The `Drug` step writes three files under the common directory specified in the `
   - Indications
   
 Each of these outputs includes a field `id` to allow later linkages between them. 
+
+### Target
+
+These notes refer to the Target step as rewritten in March 2021. If attempting to debug datasets completed before 
+release 20.XX consult commits preceeding XXXXXX. 
+
+#### Inputs
+
+Inputs to the ETL are prepared by Platform Input Support (PIS). PIS does some minimal preprocessing, so it is 
+possible to manually retrieve them and run the step locally so if you would like to run this step locally, retrieve 
+the necessary inputs from one of the Open Targets public input buckets. eg. `gs://ot-snapshots/...`
+
+Consult the `reference.conf` file to see how to configure the inputs, most of these require only changing the paths 
+to the data. Options for parsing the inputs should not need to be updated. 
+
+1. HGNC
+   - `https://storage.googleapis.com/open-targets-data-releases/21.02/input/annotation-files/hgnc_complete_set-2021-02-09.json`
+
+2. Ensembl
+   
+    - Use Ensembl human gene JSON file (available from: `ftp://ftp.ensembl.
+      org/pub/release-102/json/homo_sapiens/homo_sapiens.
+      json`) updating the release as required.
+    - It can be useful to convert this file to jsonl format. It can be converted with `jq -c . genes[] homo_sapiens. 
+      json >> homo_sapiens.jsonl`. The file is 4GB, so needs a decent machine (min 32GB RAM) for conversion.
+      
+3. Uniprot
+   the Uniprot format in txt format instead of xml.
+4. Gene Ontology
+    - Requires three files available from EBI:
+      - [Annotation files for human proteins](ftp://ftp.ebi.ac.uk/pub/databases/GO/goa/HUMAN/goa_human.gaf.gz)
+      - [Annotation files for human RNAs](ftp://ftp.ebi.ac.uk/pub/databases/GO/goa/HUMAN/goa_human_rna.gaf.gz)
+      - [RNAcentral to Ensembl mapping files](ftp://ftp.ebi.ac.uk/pub/databases/RNAcentral/current_release/id_mapping/database_mappings/ensembl.tsv)
+
+5. Tep
+6. Human Protein Atlas
+   
+    - Used for subcellular locations. Data available from [HPA's website](https://www.proteinatlas.org/download/subcellular_location.tsv.zip) 
+7. Project Scores
+8. ChEMBL
+   - Target index
+9. Gnomad
+   - Used for genetic constraints. Data available from [Gnomad website](https://storage.googleapis.com/gcp-public-data--gnomad/release/2.1.1/constraint/gnomad.v2.1.1.lof_metrics.by_gene.txt.bgz)
+   - The file is in `bgz` format, this can be converted to csv with `gunzip -c input > output.csv`. 
+
+
 
 ## Development environment notes
 
