@@ -6,8 +6,6 @@ import scala.util._
 import io.opentargets.etl.backend._
 import io.opentargets.etl.backend.drug.Drug
 
-import scala.collection.SortedSet
-
 object ETL extends LazyLogging {
 
   def applySingleStep(step: String)(implicit context: ETLSessionContext): Unit = {
@@ -24,9 +22,6 @@ object ETL extends LazyLogging {
       case "knownDrugs" =>
         logger.info("run step knownDrugs")
         KnownDrugs()
-      case "evidenceProteinFix" =>
-        logger.info("run step evidenceProteinFix")
-        EvidenceProteinFix()
       case "expression" =>
         logger.info("run step expression")
         Expression()

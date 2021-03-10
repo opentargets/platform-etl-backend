@@ -14,6 +14,7 @@ object Configuration extends LazyLogging {
 
   case class EvidenceEntry(id: String,
                            uniqueFields: List[String],
+                           datatypeId: Option[String],
                            scoreExpr: String,
                            excludedBiotypes: Option[List[String]])
 
@@ -21,13 +22,12 @@ object Configuration extends LazyLogging {
                                    diseases: IOResourceConfig,
                                    targets: IOResourceConfig)
 
-  case class EvidenceOutputsSection(succeeded: IOResourceConfig,
-                                    failed: IOResourceConfig,
-                                    stats: IOResourceConfig)
+  case class EvidenceOutputsSection(succeeded: IOResourceConfig, failed: IOResourceConfig)
 
   case class EvidencesSection(inputs: EvidenceInputsSection,
                               uniqueFields: List[String],
                               scoreExpr: String,
+                              datatypeId: String,
                               dataSources: List[EvidenceEntry],
                               outputs: EvidenceOutputsSection)
 
@@ -60,8 +60,6 @@ object Configuration extends LazyLogging {
       outputs: AOTFOutputsSection,
       inputs: AOTFInputsSection
   )
-
-  case class EvidenceProteinFix(input: String, output: String)
 
   case class InputInfo(format: String, path: String)
 
@@ -102,6 +100,8 @@ object Configuration extends LazyLogging {
   )
 
   case class InteractionsSection(
+      scorethreshold: Int,
+      targetEtl: IOResourceConfig,
       rnacentral: IOResourceConfig,
       humanmapping: IOResourceConfig,
       ensproteins: IOResourceConfig,
@@ -119,7 +119,12 @@ object Configuration extends LazyLogging {
       mousephenotypes: InputInfo
   )
 
-  case class Common(defaultSteps: Seq[String], inputs: Inputs, output: String, outputFormat: String)
+  case class Common(defaultSteps: Seq[String],
+                    input: String,
+                    inputs: Inputs,
+                    output: String,
+                    outputFormat: String,
+                    metadata: IOResourceConfig)
 
   case class KnownDrugsInputsSection(evidences: IOResourceConfig,
                                      diseases: IOResourceConfig,
@@ -145,7 +150,6 @@ object Configuration extends LazyLogging {
   case class OTConfig(
       sparkUri: Option[String],
       common: Common,
-      evidenceProteinFix: EvidenceProteinFix,
       associations: AssociationsSection,
       evidences: EvidencesSection,
       drug: DrugSection,

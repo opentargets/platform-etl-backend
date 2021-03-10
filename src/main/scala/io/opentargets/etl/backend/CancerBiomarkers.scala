@@ -101,7 +101,7 @@ object CancerBiomarkers extends LazyLogging {
     import CancerBiomarkersHelpers._
 
     val common = context.configuration.common
-    val name = "cancerBiomarkers"
+    val name = "cancerBiomarker"
     val targetDFName = "target"
     val mappedInputs = Map(
       targetDFName -> IOResourceConfig(common.inputs.target.format, common.inputs.target.path)

@@ -347,6 +347,19 @@ object InteractionsHelpers extends LazyLogging {
 // This is option/step interaction in the config file
 object Interactions extends LazyLogging {
 
+  /** Homo_sapiens.GRCh38.chr.gtf.gz is a tsv file with the first 5 lines are comments
+    * @param interactionsConfiguration ensembl protein file path
+    * @return a DataFrame
+    */
+  def transformEnsemblProtein(df: DataFrame)(implicit ss: SparkSession): DataFrame = {
+
+    df.withColumn("CDS", regexp_extract(col("value"), "\tCDS\t", 0))
+      .filter(col("CDS") === "\tCDS\t")
+      .withColumn("gene_id", regexp_extract(col("value"), "ENSG\\w{11}", 0))
+      .withColumn("protein_id", regexp_extract(col("value"), "ENSP\\w{11}", 0))
+      .select("gene_id", "protein_id")
+  }
+
   def compute()(implicit context: ETLSessionContext): IOResources = {
     implicit val ss = context.sparkSession
     import ss.implicits._
@@ -356,22 +369,20 @@ object Interactions extends LazyLogging {
     val interactionsConfiguration = context.configuration.interactions
 
     val mappedInputs = Map(
+      "targets" -> interactionsConfiguration.targetEtl,
       "rnacentral" -> interactionsConfiguration.rnacentral,
       "humanmapping" -> interactionsConfiguration.humanmapping,
-      "ensproteins" -> interactionsConfiguration.ensproteins,
       "intact" -> interactionsConfiguration.intact,
+      "ensproteins" -> interactionsConfiguration.ensproteins,
       "strings" -> interactionsConfiguration.strings
     )
 
-    // Compute Target in order to retrieve the list of valid genes.
-    val targets = Target.compute()
     val inputDataFrame = Helpers.readFrom(mappedInputs)
-
-    val interactionStringsDF =
-      inputDataFrame("strings").data.generateStrings(inputDataFrame("ensproteins").data)
+    val ensproteins = inputDataFrame("ensproteins").data.transform(transformEnsemblProtein)
+    val interactionStringsDF = inputDataFrame("strings").data.generateStrings(ensproteins)
 
     val interactionIntactDF = inputDataFrame("intact").data.generateIntacts(
-      targets,
+      inputDataFrame("targets").data,
       inputDataFrame("rnacentral").data,
       inputDataFrame("humanmapping").data
     )
