@@ -1,10 +1,10 @@
 package io.opentargets.etl.backend
 
 import com.typesafe.scalalogging.LazyLogging
+import io.opentargets.etl.backend.InteractionsHelpers.logger
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.functions.col
 import org.apache.spark.sql._
-
 import io.opentargets.etl.backend.spark.Helpers.{IOResource, IOResources}
 import org.apache.spark.sql.functions.udf
 import spark.Helpers
@@ -353,10 +353,9 @@ object Interactions extends LazyLogging {
     */
   def transformEnsemblProtein(df: DataFrame)(implicit ss: SparkSession): DataFrame = {
 
-    df.withColumn("CDS", regexp_extract(col("value"), "\tCDS\t", 0))
-      .filter(col("CDS") === "\tCDS\t")
-      .withColumn("gene_id", regexp_extract(col("value"), "ENSG\\w{11}", 0))
-      .withColumn("protein_id", regexp_extract(col("value"), "ENSP\\w{11}", 0))
+    df.filter(col("_c2") === "CDS")
+      .withColumn("gene_id", regexp_extract(col("_c8"), "ENSG\\w{11}", 0))
+      .withColumn("protein_id", regexp_extract(col("_c8"), "ENSP\\w{11}", 0))
       .select("gene_id", "protein_id")
   }
 
