@@ -9,7 +9,7 @@ OpenTargets ETL pipeline to process Pipeline output in order to obtain a new API
 
 ### Requirements
 
-1. OpenJDK 1.8
+1. OpenJDK 11
 2. scala 2.12.x (through SDKMAN is simple)
 3. ammonite REPL
 4. Drug index dump from OpenTargets ES
@@ -143,9 +143,10 @@ The jar will be generated under target/scala-2.12.10/
 
 ### Create cluster and launch
 
-Here how to create a cluster using `gcloud` tool
+Here how to create a cluster using `gcloud` tool.
 
-The current image version is `preview-debian10` because is the only image that supports `Spark3`.
+
+The current image version is `preview` because is the only image that supports `Spark3` and Java11.
 
 List of [dataproc releases]([https://cloud.google.com/dataproc/docs/concepts/versioning/dataproc-release-preview])
 
@@ -153,7 +154,7 @@ List of [dataproc releases]([https://cloud.google.com/dataproc/docs/concepts/ver
 ```sh
 gcloud beta dataproc clusters create \
     etl-cluster \
-    --image-version=preview-debian10 \
+    --image-version=preview \
     --properties=yarn:yarn.nodemanager.vmem-check-enabled=false,spark:spark.debug.maxToStringFields=1024,spark:spark.master=yarn \
     --master-machine-type=n1-highmem-16 \
     --master-boot-disk-size=500 \
