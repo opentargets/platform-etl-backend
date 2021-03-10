@@ -378,7 +378,7 @@ object Interactions extends LazyLogging {
       "strings" -> interactionsConfiguration.strings
     )
 
-    val inputDataFrame = Helpers.readFrom(mappedInputs)
+    val inputDataFrame = IoHelpers.readFrom(mappedInputs)
     val ensproteins = inputDataFrame("ensproteins").data.transform(transformEnsemblProtein)
     val interactionStringsDF = inputDataFrame("strings").data.generateStrings(ensproteins)
 

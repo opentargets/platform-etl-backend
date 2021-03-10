@@ -2,23 +2,6 @@ package io.opentargets.etl.backend.drug
 
 import com.typesafe.scalalogging.LazyLogging
 import io.opentargets.etl.backend.Configuration.InputExtension
-import io.opentargets.etl.backend.spark.Helpers
-import io.opentargets.etl.backend.spark.Helpers.IOResourceConfig
-import org.apache.spark.sql.functions.{
-  array_distinct,
-  array_except,
-  array_union,
-  coalesce,
-  col,
-  collect_list,
-  collect_set,
-  explode,
-  map_entries,
-  map_from_arrays,
-  translate,
-  trim,
-  typedLit
-}
 import io.opentargets.etl.backend.spark.IoHelpers.seqToIOResourceConfigMap
 import io.opentargets.etl.backend.spark.{Helpers, IOResourceConfig, IoHelpers}
 import org.apache.spark.sql.functions.{

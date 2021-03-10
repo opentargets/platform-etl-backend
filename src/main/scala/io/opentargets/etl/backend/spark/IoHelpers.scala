@@ -2,6 +2,9 @@ package io.opentargets.etl.backend.spark
 
 import com.typesafe.scalalogging.LazyLogging
 import io.opentargets.etl.backend.Configuration.OTConfig
+import io.opentargets.etl.backend.ETLSessionContext
+import monocle.macros.syntax.lens.toGenApplyLensOps
+import org.apache.spark.sql.functions.current_timestamp
 import org.apache.spark.sql.{DataFrame, DataFrameWriter, Row, SparkSession}
 
 import scala.util.Random
@@ -26,6 +29,11 @@ case class IOResourceConfig(
     options: Option[Seq[IOResourceConfigOption]] = None,
     partitionBy: Option[Seq[String]] = None
 )
+
+case class Metadata(id: String,
+                    resource: IOResourceConfig,
+                    serialisedSchema: String,
+                    columns: List[String])
 
 object CsvHelpers {
   val tsvWithHeader: Option[Seq[IOResourceConfigOption]] = Some(
@@ -78,6 +86,7 @@ object IoHelpers extends LazyLogging {
 
   /**
     * Helper function to prepare multiple files of the same category to be read by `readFrom`
+    *
     * @param resourceConfigs collection of IOResourceConfig of unknown composition
     * @return Map with random keys to input resource.
     */
@@ -85,34 +94,99 @@ object IoHelpers extends LazyLogging {
     (for (rc <- resourceConfigs) yield Random.alphanumeric.take(6).toString -> rc).toMap
   }
 
-  def writeTo(outputs: IOResources)(implicit session: SparkSession): IOResources = {
+  private def writeTo(output: IOResource)(implicit context: ETLSessionContext): IOResource = {
+    implicit val spark: SparkSession = context.sparkSession
+
+    logger.info(s"save IOResource ${output.toString}")
+    val data = output.data
+    val conf = output.configuration
+
+    val pb = conf.partitionBy.foldLeft(data.write) {
+      case (df, ops) =>
+        logger.debug(s"enabled partition by ${ops.toString}")
+        df.partitionBy(ops: _*)
+    }
+
+    conf.options
+      .foldLeft(pb) {
+        case (df, ops) =>
+          logger.debug(s"write to ${conf.path} with options ${ops.toString}")
+          val options = ops.map(c => c.k -> c.v).toMap
+          df.options(options)
+
+      }
+      .format(conf.format)
+      .save(conf.path)
+
+    output
+  }
+
+  /**
+    * writeTo save all datasets in the Map outputs. It does write per IOResource
+    * its companion metadata dataset
+    *
+    * @param outputs the Map with all IOResource
+    * @param context the context to have the configuration and the spark session
+    * @return the same outputs as a continuator
+    */
+  def writeTo(outputs: IOResources)(implicit context: ETLSessionContext): IOResources = {
+    implicit val spark: SparkSession = context.sparkSession
+
     val datasetNamesStr = outputs.keys.mkString("(", ", ", ")")
     logger.info(s"write datasets $datasetNamesStr")
+
     outputs foreach { out =>
-      logger.info(s"save dataset ${out._1} with ${out._2.toString}")
+      logger.info(s"save dataset ${out._1}")
+      writeTo(out._2)
 
-      val data = out._2.data
-      val conf = out._2.configuration
-
-      val pb = conf.partitionBy.foldLeft(data.write) {
-        case (df, ops) =>
-          logger.debug(s"enabled partition by ${ops.toString}")
-          df.partitionBy(ops: _*)
-      }
-
-      conf.options
-        .foldLeft(pb) {
-          case (df, ops) =>
-            logger.debug(s"write to ${conf.path} with options ${ops.toString}")
-            val options = ops.map(c => c.k -> c.v).toMap
-            df.options(options)
-
-        }
-        .format(conf.format)
-        .save(conf.path)
-
+      logger.info(s"save metadata for dataset ${out._1}")
+      val md = generateMetadata(out._2, context.configuration.common.metadata)
+      writeTo(md)
     }
 
     outputs
   }
+
+  /**
+    * Given an IOResource ior and the metadata config section it generates a one-line DF that
+    * will be saved coalesced to 1 into a folder inside the metadata output folder. This will
+    * make easier to collect the matadata of the created resources
+    *
+    * @param ior        the IOResource from which generates the metadata
+    * @param withConfig the metadata Config section
+    * @param context    ETL context object
+    * @return a new IOResource with all needed information and data ready to be saved
+    */
+  private def generateMetadata(ior: IOResource, withConfig: IOResourceConfig)(
+      implicit context: ETLSessionContext): IOResource = {
+    require(!withConfig.path.isBlank, "metadata resource path cannot be empty")
+    implicit val session: SparkSession = context.sparkSession
+    import session.implicits._
+
+    val serialisedSchema = ior.data.schema.json
+    val iores =
+      ior.configuration
+        .lens(_.path)
+        .modify(
+          _.stripPrefix(context.configuration.common.output)
+            .split("/")
+            .filterNot(_.isBlank)
+            .mkString("/", "/", ""))
+    val cols = ior.data.columns.toList
+    val id = ior.configuration.path.split("/").filterNot(_.isBlank).last
+    val newPath = withConfig.path + s"/$id"
+    val metadataConfig = withConfig.lens(_.path).set(newPath)
+
+    val metadata =
+      List(Metadata(id, iores, serialisedSchema, cols)).toDF
+        .withColumn("timeStamp", current_timestamp())
+        .coalesce(numPartitions = 1)
+
+    val metadataIOResource = IOResource(metadata, metadataConfig)
+
+    logger.info(s"generate metadata info for $id in path $newPath")
+
+    metadataIOResource
+  }
+
 }
