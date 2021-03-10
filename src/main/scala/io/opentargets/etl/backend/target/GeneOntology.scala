@@ -91,11 +91,14 @@ object GeneOntology extends LazyLogging {
     )
     dataFrame
       .toDF(columnNamesFromSpecification: _*)
-      .select(col("dbObjectId"),
-              col("goId"),
-              col("dbReference").as("source"),
-              col("evidenceCode").as("evidence"),
-              col("aspect"))
+      .select(
+        col("dbObjectId"),
+        col("goId"),
+        col("dbReference").as("source"),
+        col("evidenceCode").as("evidence"),
+        col("aspect"),
+        col("dbObjectId").as("geneProduct")
+      )
   }
 
   /** Returns lookup table from RNACentral identifiers to Ensembl Gene Ids.
@@ -129,13 +132,14 @@ object GeneOntology extends LazyLogging {
       .withColumn("uniprotId", explode(col("uniprotId")))
   }
 
+  /** Returns dataframe with columns [ensemblId, go] */
   private def nestGO(dataFrame: DataFrame)(
       implicit sparkSession: SparkSession): Dataset[GeneOntologyByEnsembl] = {
     import sparkSession.implicits._
     dataFrame
       .drop("dbObjectId")
       .withColumnRenamed("goId", "id")
-      .transform(nest(_, List("id", "source", "evidence", "aspect"), "go"))
+      .transform(nest(_, List("id", "source", "evidence", "aspect", "geneProduct"), "go"))
       .groupBy("ensemblId")
       .agg(collect_set(col("go")).as("go"))
       .withColumn("go", coalesce(col("go"), typedLit(Seq.empty)))
@@ -144,4 +148,5 @@ object GeneOntology extends LazyLogging {
 }
 
 case class GeneOntologyByEnsembl(ensemblId: String, go: Array[GO])
-case class GO(id: String, source: String, evidence: String, aspect: String)
+
+case class GO(id: String, source: String, evidence: String, aspect: String, geneProduct: String)

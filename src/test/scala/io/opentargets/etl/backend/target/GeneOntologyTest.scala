@@ -42,7 +42,7 @@ class GeneOntologyTest extends EtlSparkUnitTest {
     val results = GeneOntology invokePrivate methodUnderTest(input)
 
     // then
-    results.columns.length should be(5)
+    results.columns.length should be(6)
     results.count() should be(500)
 
   }
