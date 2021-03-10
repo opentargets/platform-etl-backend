@@ -18,10 +18,11 @@ import org.apache.spark.sql.{DataFrame, Dataset, SparkSession}
 object GeneOntology extends LazyLogging {
 
   /**
+    * // todo Add ECO codes as described in #1037
     *
-    * @param human gene ontology available from [[ftp://ftp.ebi.ac.uk/pub/databases/GO/goa/HUMAN/goa_human.gaf.gz EBI's database]]
-    * @param rna (human) gene ontology available from [[ftp://ftp.ebi.ac.uk/pub/databases/GO/goa/HUMAN/goa_human_rna.gaf.gz EBI's database]]
-    * @param rnaLookup to map from RNACentral -> Ensembl ids available from [[ftp://ftp.ebi.ac.uk/pub/databases/RNAcentral/current_release/id_mapping/database_mappings/ensembl.tsv EBI]]
+    * @param human       gene ontology available from [[ftp://ftp.ebi.ac.uk/pub/databases/GO/goa/HUMAN/goa_human.gaf.gz EBI's database]]
+    * @param rna         (human) gene ontology available from [[ftp://ftp.ebi.ac.uk/pub/databases/GO/goa/HUMAN/goa_human_rna.gaf.gz EBI's database]]
+    * @param rnaLookup   to map from RNACentral -> Ensembl ids available from [[ftp://ftp.ebi.ac.uk/pub/databases/RNAcentral/current_release/id_mapping/database_mappings/ensembl.tsv EBI]]
     * @param humanLookup to map from Uniprot accession to Ensembl Id
     */
   def apply(human: DataFrame, rna: DataFrame, rnaLookup: DataFrame, humanLookup: Dataset[Ensembl])(

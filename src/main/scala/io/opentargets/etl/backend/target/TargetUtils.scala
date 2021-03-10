@@ -38,8 +38,8 @@ object TargetUtils {
     val idTemp = scala.util.Random.alphanumeric.take(10).mkString
     val colTemp = scala.util.Random.alphanumeric.take(10).mkString
     dataFrame
-      .select(col(id).as(idTemp), explode(col(column)).as("source"))
-      .withColumn(labelName.getOrElse("label"), typedLit(source))
+      .select(col(id).as(idTemp), explode(col(column)).as(labelName.getOrElse("label")))
+      .withColumn("source", typedLit(source))
       .transform(nest(_, List(labelName.getOrElse("label"), "source"), colTemp))
       .groupBy(idTemp)
       .agg(collect_set(col(colTemp)).as(outputColumnName.getOrElse(column)))

@@ -3,7 +3,7 @@ package io.opentargets.etl.backend.target
 import com.typesafe.scalalogging.LazyLogging
 import io.opentargets.etl.backend.spark.Helpers.mkFlattenArray
 import io.opentargets.etl.backend.target.TargetUtils.transformColumnToLabelAndSourceStruct
-import org.apache.spark.sql.functions.{array, col, collect_list, explode, split}
+import org.apache.spark.sql.functions.{col, collect_list, explode, split}
 import org.apache.spark.sql.{DataFrame, Dataset, SparkSession}
 
 /**
