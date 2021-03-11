@@ -203,19 +203,18 @@ object Association extends LazyLogging {
 
         val tDF = df
           .withColumn(tName + "_ths_k", row_number() over w.orderBy(col(scoreColName).desc))
-          .withColumn(
-            tName + "_ths_dx",
-            col(scoreColName) / (powCol(col(tName + "_ths_k"), 2D) * maxHarmonicValue(100000,
-                                                                                      2,
-                                                                                      1D)))
+          .withColumn(tName + "_ths_dx_max", typedLit(1D) / powCol(col(tName + "_ths_k"), 2D))
+          .withColumn(tName + "_ths_dx", col(scoreColName) / powCol(col(tName + "_ths_k"), 2D))
           .withColumn(tName + "_ths_t", sum(col(tName + "_ths_dx")).over(w))
-          .withColumn(outputColName, col(tName + "_ths_t") * weightC)
+          .withColumn(tName + "_ths_t_max", sum(col(tName + "_ths_dx_max")).over(w))
+          .withColumn(outputColName, col(tName + "_ths_t") * weightC / col(tName + "_ths_t_max"))
 
         // remove temporal cols
         tDF.drop(tDF.columns.filter(_.startsWith(tName)): _*)
       }
 
-      def groupByDataSources(diseases: DataFrame, targets: DataFrame): DataFrame = {
+      def groupByDataSources(diseases: DataFrame, targets: DataFrame)(
+          implicit context: ETLSessionContext): DataFrame = {
         val cols = Seq(
           dtId,
           dsId,
@@ -227,6 +226,7 @@ object Association extends LazyLogging {
           dtEvsCount
         )
 
+        val associationsSec = context.configuration.associations
         val ddf = broadcast(
           diseases
             .selectExpr(s"id as $dId", "name as diseaseLabel")
@@ -240,8 +240,9 @@ object Association extends LazyLogging {
         val dtPartition = Seq(dtId, dId, tId)
 
         val datasourceAssocs = df
+          .leftJoinWeights(associationsSec, weightId)
           .harmonicOver(dsPartition, evScore, dsIdScore, None)
-          .harmonicOver(dtPartition, evScore, dtIdScore, None)
+          .harmonicOver(dtPartition, evScore, dtIdScore, Some(weightId))
           .withColumn(dsEvsCount,
                       count(expr("*")).over(Window.partitionBy(dsPartition.map(col): _*)))
           .withColumn(dtEvsCount,
