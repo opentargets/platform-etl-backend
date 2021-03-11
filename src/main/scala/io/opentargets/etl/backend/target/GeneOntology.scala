@@ -124,9 +124,9 @@ object GeneOntology extends LazyLogging {
       .map(row => {
         val ensembId = row.id
         val accessions = row.proteinIds
-          .withFilter(_.source == "Uniprot")
+          .withFilter(_.source.equalsIgnoreCase("Uniprot"))
           .map(pids => pids.id)
-        (ensembId, accessions)
+        (ensembId, accessions.distinct)
       })
       .toDF("ensemblId", "uniprotId")
       .withColumn("uniprotId", explode(col("uniprotId")))

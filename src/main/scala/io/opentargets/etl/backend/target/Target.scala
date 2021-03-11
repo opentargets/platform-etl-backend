@@ -8,14 +8,19 @@ import io.opentargets.etl.backend.spark.{CsvHelpers, IOResource, IOResourceConfi
 import io.opentargets.etl.preprocess.uniprot.UniprotConverter
 import org.apache.spark.sql.functions.{
   array,
+  array_join,
   array_union,
   coalesce,
   col,
+  collect_list,
   collect_set,
   explode,
   flatten,
+  split,
+  struct,
   trim,
-  typedLit
+  typedLit,
+  udf
 }
 import org.apache.spark.sql.{DataFrame, Dataset, SparkSession}
 
@@ -85,6 +90,7 @@ object Target extends LazyLogging {
       .withColumn("synonyms", safeArrayUnion(col("synonyms"), col("hgncSynonyms")))
       .drop("pid", "hgncId", "hgncSynonyms", "uniprotIds", "signalP", "xRef")
       .join(geneticConstraints, Seq("id"), "left_outer")
+      .transform(filterAndSortProteinIds)
 
   }
 
@@ -93,7 +99,7 @@ object Target extends LazyLogging {
     hgnc
       .select(col("ensemblId"), explode(col("uniprotIds")).as("uniprotId"))
       .withColumn("id", col("uniprotId"))
-      .withColumn("source", typedLit("Uniprot"))
+      .withColumn("source", typedLit("uniprot"))
       .transform(nest(_, List("id", "source"), "uniprotProteinId"))
       .join(uniprot, Seq("uniprotId"))
       .groupBy("ensemblId")
@@ -233,5 +239,77 @@ object Target extends LazyLogging {
     // todo check what needs to happen to merge unused approvedNames...probably go to symbol synonyms.
     merged
   }
+
+  /** Updates column `proteinIds` to remove duplicates and sort by source.
+    * @return dataframe with same schema as input.
+    */
+  def filterAndSortProteinIds(dataFrame: DataFrame): DataFrame = {
+    val splitToken = "-"
+    val ensemblId = "eid"
+    val proteinId = "proteinIds"
+    val df = dataFrame
+      .select(col("id").as(ensemblId), explode(col(proteinId)).as("pid"))
+      .select(col(ensemblId), col("pid.*"))
+      .withColumn("array", array(trim(col("id")), col("source")))
+      .withColumn("array", array_join(col("array"), splitToken))
+      .groupBy(ensemblId)
+      .agg(collect_list("a").as("accessions"))
+      .select(col(ensemblId), proteinIdUdf(col("accessions")).as("accessions"))
+      .select(col(ensemblId), explode(col("accessions")).as("accessions"))
+      .withColumn("idAndSource", split(col("accessions"), splitToken))
+      .select(col(ensemblId),
+              col("idAndSource").getItem(0).as("id"),
+              col("idAndSource").getItem(1).as("source"))
+      .select(col(ensemblId), struct(col("id"), col("source")).as(proteinId))
+      .groupBy(ensemblId)
+      .agg(collect_list(proteinId).as(proteinId))
+      .withColumnRenamed(ensemblId, "id")
+
+    dataFrame.drop(proteinId).join(df, Seq("id"), "left_outer")
+
+  }
+
+  /** Removes duplicate proteinIds and orders output by source preference
+    *
+    * The ETL collects proteinIds (accession numbers) from a variety of sources and combines them all. This function
+    * removes duplicate accession numbers. The duplicate to remove is determined by the following source hierarchy:
+    *
+    * 1. uniprot_swissprot
+    * 2. uniprot_trembl
+    * 3. uniprot
+    * 4. ensembl_PRO
+    *
+    * @param ids with entries in the form ACCESSION-SOURCE. Accession and Source are split by a hyphen.
+    * @return input array with duplicates removed and sorted by hierarchy preference.
+    */
+  val cleanProteinIds: Seq[String] => Seq[String] = (ids: Seq[String]) => {
+    val splitToken = "-"
+    val map = scala.collection.mutable.Map[String, String]()
+    val idAndSource: Seq[String] = ids
+      .map(entry => entry.split(splitToken))
+      .map(arr => (arr.head.strip, arr.tail.head))
+      .foldLeft(Seq.empty[String])((acc, nxt) => {
+        if (map.contains(nxt._1)) acc
+        else {
+          map.update(nxt._1, nxt._2)
+          (nxt._1 + splitToken + nxt._2) +: acc
+        }
+      })
+    idAndSource.sortWith((left, right) => {
+      val sourceToInt = (source: String) =>
+        source match {
+          case swissprot if swissprot.contains("swiss") => 1
+          case trembl if trembl.contains("trembl")      => 2
+          case uniprot if uniprot.endsWith("uniprot")   => 3
+          case ensembl if ensembl.contains("ensembl")   => 4
+          case _                                        => 5
+      }
+      val l = sourceToInt(left)
+      val r = sourceToInt(right)
+      // if same source use natural ordering otherwise custom ordering for source.
+      if (l == r) left < right else l < r
+    })
+  }
+  val proteinIdUdf = udf(cleanProteinIds)
 
 }
