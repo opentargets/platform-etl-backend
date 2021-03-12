@@ -336,23 +336,34 @@ to the data. Options for parsing the inputs should not need to be updated.
 
 5. Tep
 6. Human Protein Atlas
-   
-    - Used for subcellular locations. Data available from [HPA's website](https://www.proteinatlas.org/download/subcellular_location.tsv.zip) 
+
+    - Used for subcellular locations. Data available
+      from [HPA's website](https://www.proteinatlas.org/download/subcellular_location.tsv.zip)
 7. Project Scores
 8. ChEMBL
-   - Target index
+    - Target index
 9. Gnomad
-   - Used for genetic constraints. Data available from [Gnomad website](https://storage.googleapis.com/gcp-public-data--gnomad/release/2.1.1/constraint/gnomad.v2.1.1.lof_metrics.by_gene.txt.bgz)
-   - The file is in `bgz` format, this can be converted to csv with `gunzip -c input > output.csv`. 
+    - Used for genetic constraints. Data available
+      from [Gnomad website](https://storage.googleapis.com/gcp-public-data--gnomad/release/2.1.1/constraint/gnomad.v2.1.1.lof_metrics.by_gene.txt.bgz)
+    - The file is in `bgz` format, this can be converted to csv with `gunzip -c input > output.csv`.
+10. Homologs
 
-
+- Update the release number as required:
+    - ftp://ftp.ensembl.org/pub/release-100/tsv/ensembl-compara/homologies/homo_sapiens/Compara.100.protein_default.
+      homologies.tsv.gz
+    - ftp://ftp.ensembl.org/pub/release-100/tsv/ensembl-compara/homologies/homo_sapiens/Compara.100.ncrna_default.
+      homologies.tsv.gz
+    - ftp://ftp.ensembl.org/pub/release-100/species_EnsemblVertebrates.txt
+- File from PIS
+    - https://storage.googleapis.com/open-targets-data-releases/20.
+      06/input/annotation-files/human_all_hcop_sixteen_column-2020-06-01.txt.gz
 
 ## Development environment notes
 
 ### Scalafmt Installation
 
-A pre-commit hook to run [scalafmt](https://scalameta.org/scalafmt/) is recommended for 
-this repo though installation of scalafmt is left to developers. The [Installation Guide](https://scalameta.org/scalafmt/docs/installation.html)
+A pre-commit hook to run [scalafmt](https://scalameta.org/scalafmt/) is recommended for this repo though installation of
+scalafmt is left to developers. The [Installation Guide](https://scalameta.org/scalafmt/docs/installation.html)
 has simple instructions, and the process used for Ubuntu 18.04 was:
 
 ```bash

@@ -1,7 +1,7 @@
 package io.opentargets.etl.backend.target
 
 import com.typesafe.scalalogging.LazyLogging
-import io.opentargets.etl.backend.spark.Helpers.{mkFlattenArray, nest, safeArrayUnion}
+import io.opentargets.etl.backend.spark.Helpers.{mkFlattenArray, nest, safeArrayUnion, validateDF}
 import io.opentargets.etl.backend.{Configuration, ETLSessionContext}
 import io.opentargets.etl.backend.spark.IoHelpers.IOResources
 import io.opentargets.etl.backend.spark.{CsvHelpers, IOResource, IOResourceConfig, IoHelpers}
@@ -63,6 +63,13 @@ object Target extends LazyLogging {
       inputDataFrames("chembl").data)
     val geneticConstraints: Dataset[GeneticConstraintsWithId] = GeneticConstraints(
       inputDataFrames("geneticConstraints").data)
+    val homology: Dataset[LinkedOrtholog] = Ortholog(
+      inputDataFrames("orthologs").data,
+      inputDataFrames("homologyDictionary").data,
+      inputDataFrames("homologyCodingProteins").data,
+      inputDataFrames("homologyNcRna").data,
+      context.configuration.target.hgncOrthologSpecies
+    )
 
     // merge intermediate data frames into final
     val hgncEnsemblTepGoDF = mergeHgncAndEnsembl(hgnc, ensemblDf)
@@ -90,6 +97,7 @@ object Target extends LazyLogging {
       .drop("pid", "hgncId", "hgncSynonyms", "uniprotIds", "signalP", "xRef")
       .join(geneticConstraints, Seq("id"), "left_outer")
       .transform(filterAndSortProteinIds)
+      .transform(addOrthologue(homology))
 
   }
 
@@ -116,6 +124,14 @@ object Target extends LazyLogging {
       .drop("uniprotId", "uniprotProteinId")
   }
 
+  private def addOrthologue(orthologue: Dataset[LinkedOrtholog])(
+      dataFrame: DataFrame): DataFrame = {
+    logger.info("Adding Homologues to dataframe")
+    dataFrame
+      .join(orthologue, col("humanGeneId") === col("id"), "left_outer")
+      .drop("humanGeneId")
+  }
+
   /** Return map on input IOResources */
   private def getMappedInputs(targetConfig: Configuration.Target)(
       implicit sparkSession: SparkSession): Map[String, IOResource] = {
@@ -131,11 +147,6 @@ object Target extends LazyLogging {
       "hgnc" -> IOResourceConfig(
         targetInputs.hgnc.format,
         targetInputs.hgnc.path
-      ),
-      "orthologs" -> IOResourceConfig(
-        targetInputs.ortholog.format,
-        targetInputs.ortholog.path,
-        options = CsvHelpers.tsvWithHeader
       ),
       "ensembl" -> IOResourceConfig(
         targetInputs.ensembl.format,
@@ -183,6 +194,26 @@ object Target extends LazyLogging {
         targetInputs.geneticConstraints.format,
         targetInputs.geneticConstraints.path,
         options = targetInputs.geneticConstraints.options
+      ),
+      "orthologs" -> IOResourceConfig(
+        targetInputs.ortholog.format,
+        targetInputs.ortholog.path,
+        options = CsvHelpers.tsvWithHeader
+      ),
+      "homologyDictionary" -> IOResourceConfig(
+        targetInputs.homologyDictionary.format,
+        targetInputs.homologyDictionary.path,
+        options = targetInputs.homologyDictionary.options
+      ),
+      "homologyCodingProteins" -> IOResourceConfig(
+        targetInputs.homologyCodingProteins.format,
+        targetInputs.homologyCodingProteins.path,
+        options = targetInputs.homologyCodingProteins.options
+      ),
+      "homologyNcRna" -> IOResourceConfig(
+        targetInputs.homologyNcRna.format,
+        targetInputs.homologyNcRna.path,
+        options = targetInputs.homologyNcRna.options
       )
     )
 
@@ -252,7 +283,7 @@ object Target extends LazyLogging {
       .withColumn("array", array(trim(col("id")), col("source")))
       .withColumn("array", array_join(col("array"), splitToken))
       .groupBy(ensemblId)
-      .agg(collect_list("a").as("accessions"))
+      .agg(collect_list("array").as("accessions"))
       .select(col(ensemblId), proteinIdUdf(col("accessions")).as("accessions"))
       .select(col(ensemblId), explode(col("accessions")).as("accessions"))
       .withColumn("idAndSource", split(col("accessions"), splitToken))

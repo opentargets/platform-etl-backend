@@ -171,7 +171,10 @@ object Configuration extends LazyLogging {
                          psEssentialityMatrix: IOResourceConfig,
                          psGeneIdentifier: IOResourceConfig,
                          chembl: IOResourceConfig,
-                         geneticConstraints: IOResourceConfig)
+                         geneticConstraints: IOResourceConfig,
+                         homologyDictionary: IOResourceConfig,
+                         homologyCodingProteins: IOResourceConfig,
+                         homologyNcRna: IOResourceConfig)
 
   case class TargetOutput(target: IOResourceConfig)
 
