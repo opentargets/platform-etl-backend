@@ -9,7 +9,7 @@ OpenTargets ETL pipeline to process Pipeline output in order to obtain a new API
 
 ### Requirements
 
-1. OpenJDK 11
+1. OpenJDK 8/11
 2. scala 2.12.x (through SDKMAN is simple)
 3. ammonite REPL
 4. Drug index dump from OpenTargets ES
@@ -19,9 +19,16 @@ OpenTargets ETL pipeline to process Pipeline output in order to obtain a new API
 8. Expression index dump from OpenTargets ES
 9. Generate MousePhenotypes dump from OperTargets ES
 
+#### Notes on Java version
+
+Either Java 8 or 11 can be used to build and run the project, but if you intend to use the compiled jar file on
+_Dataproc_ you must use Java 8. To avoid this problem altogether, do not use native Java methods unless strictly
+necessary.
+
 ### Generate the indices dump from ES7
 
 You will need to either connect to a machine containing the ES or forward the ssh port from it
+
 ```sh
 elasticdump --input=http://localhost:9200/<indexyouneed> \
     --output=<indexyouneed>.json \
