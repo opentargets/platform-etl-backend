@@ -159,7 +159,7 @@ object IoHelpers extends LazyLogging {
     */
   private def generateMetadata(ior: IOResource, withConfig: IOResourceConfig)(
       implicit context: ETLSessionContext): IOResource = {
-    require(!withConfig.path.isBlank, "metadata resource path cannot be empty")
+    require(withConfig.path.nonEmpty, "metadata resource path cannot be empty")
     implicit val session: SparkSession = context.sparkSession
     import session.implicits._
 
@@ -170,10 +170,10 @@ object IoHelpers extends LazyLogging {
         .modify(
           _.stripPrefix(context.configuration.common.output)
             .split("/")
-            .filterNot(_.isBlank)
+            .filter(_.nonEmpty)
             .mkString("/", "/", ""))
     val cols = ior.data.columns.toList
-    val id = ior.configuration.path.split("/").filterNot(_.isBlank).last
+    val id = ior.configuration.path.split("/").filter(_.nonEmpty).last
     val newPath = withConfig.path + s"/$id"
     val metadataConfig = withConfig.lens(_.path).set(newPath)
 
