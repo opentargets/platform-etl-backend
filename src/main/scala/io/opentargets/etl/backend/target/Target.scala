@@ -70,6 +70,26 @@ object Target extends LazyLogging {
       inputDataFrames("homologyNcRna").data,
       context.configuration.target.hgncOrthologSpecies
     )
+    val tractability: Dataset[TractabilityWithId] = Tractability(
+      inputDataFrames("tractability").data)
+
+    /** Returns mapping of Ensembl gene id to current and former uniprot accessions
+      *
+      * Columns: [ensemblId, uniprotId]
+      *
+      * The returned dataset is cached as it is used multiple times.
+      * */
+    def createEnsemblToUniprotLookup(dataFrame: DataFrame): DataFrame = {
+      import ss.implicits._
+      validateDF(Set("id", "approvedSymbol", "proteinIds"), dataFrame)
+      dataFrame
+        .select(col("id"), array("approvedSymbol").as("as"), col("proteinIds.id").as("pid"))
+        .select(col("id"), safeArrayUnion(col("as"), col("pid")).as("uniprot"))
+        .select(col("id").as("ensemblId"), explode(col("uniprot")).as("uniprotId"))
+    }
+
+    // We need to frequently map between Ensembl gene id and uniprot accessions.
+    lazy val ensemblToUniprotLookup = createEnsemblToUniprotLookup _
 
     // merge intermediate data frames into final
     val hgncEnsemblTepGoDF = mergeHgncAndEnsembl(hgnc, ensemblDf)
@@ -98,6 +118,7 @@ object Target extends LazyLogging {
       .join(geneticConstraints, Seq("id"), "left_outer")
       .transform(filterAndSortProteinIds)
       .transform(addOrthologue(homology))
+      .transform(addTractability(tractability))
 
   }
 
@@ -132,6 +153,14 @@ object Target extends LazyLogging {
       .drop("humanGeneId")
   }
 
+  private def addTractability(tractability: Dataset[TractabilityWithId])(
+      dataFrame: DataFrame): DataFrame = {
+    logger.info("Adding Tractability to dataframe")
+    dataFrame
+      .join(tractability, col("ensemblGeneId") === col("id"), "left_outer")
+      .drop("ensemblGeneId")
+  }
+
   /** Return map on input IOResources */
   private def getMappedInputs(targetConfig: Configuration.Target)(
       implicit sparkSession: SparkSession): Map[String, IOResource] = {
@@ -144,13 +173,18 @@ object Target extends LazyLogging {
 
     val targetInputs = targetConfig.input
     val mappedInputs = Map(
-      "hgnc" -> IOResourceConfig(
-        targetInputs.hgnc.format,
-        targetInputs.hgnc.path
+      "chembl" -> IOResourceConfig(
+        targetInputs.chembl.format,
+        targetInputs.chembl.path
       ),
       "ensembl" -> IOResourceConfig(
         targetInputs.ensembl.format,
         targetInputs.ensembl.path
+      ),
+      "geneticConstraints" -> IOResourceConfig(
+        targetInputs.geneticConstraints.format,
+        targetInputs.geneticConstraints.path,
+        options = targetInputs.geneticConstraints.options
       ),
       "geneOntologyHuman" -> IOResourceConfig(
         targetInputs.geneOntology.format,
@@ -167,14 +201,34 @@ object Target extends LazyLogging {
         targetInputs.geneOntologyRnaLookup.path,
         options = targetInputs.geneOntologyRnaLookup.options
       ),
-      "tep" -> IOResourceConfig(
-        targetInputs.tep.format,
-        targetInputs.tep.path
+      "hgnc" -> IOResourceConfig(
+        targetInputs.hgnc.format,
+        targetInputs.hgnc.path
+      ),
+      "homologyCodingProteins" -> IOResourceConfig(
+        targetInputs.homologyCodingProteins.format,
+        targetInputs.homologyCodingProteins.path,
+        options = targetInputs.homologyCodingProteins.options
+      ),
+      "homologyDictionary" -> IOResourceConfig(
+        targetInputs.homologyDictionary.format,
+        targetInputs.homologyDictionary.path,
+        options = targetInputs.homologyDictionary.options
+      ),
+      "homologyNcRna" -> IOResourceConfig(
+        targetInputs.homologyNcRna.format,
+        targetInputs.homologyNcRna.path,
+        options = targetInputs.homologyNcRna.options
       ),
       "hpa" -> IOResourceConfig(
         targetInputs.hpa.format,
         targetInputs.hpa.path,
         options = targetInputs.hpa.options
+      ),
+      "orthologs" -> IOResourceConfig(
+        targetInputs.ortholog.format,
+        targetInputs.ortholog.path,
+        options = CsvHelpers.tsvWithHeader
       ),
       "projectScoresIds" -> IOResourceConfig(
         targetInputs.psGeneIdentifier.format,
@@ -186,34 +240,14 @@ object Target extends LazyLogging {
         targetInputs.psEssentialityMatrix.path,
         options = targetInputs.psEssentialityMatrix.options
       ),
-      "chembl" -> IOResourceConfig(
-        targetInputs.chembl.format,
-        targetInputs.chembl.path
+      "tep" -> IOResourceConfig(
+        targetInputs.tep.format,
+        targetInputs.tep.path
       ),
-      "geneticConstraints" -> IOResourceConfig(
-        targetInputs.geneticConstraints.format,
-        targetInputs.geneticConstraints.path,
-        options = targetInputs.geneticConstraints.options
-      ),
-      "orthologs" -> IOResourceConfig(
-        targetInputs.ortholog.format,
-        targetInputs.ortholog.path,
-        options = CsvHelpers.tsvWithHeader
-      ),
-      "homologyDictionary" -> IOResourceConfig(
-        targetInputs.homologyDictionary.format,
-        targetInputs.homologyDictionary.path,
-        options = targetInputs.homologyDictionary.options
-      ),
-      "homologyCodingProteins" -> IOResourceConfig(
-        targetInputs.homologyCodingProteins.format,
-        targetInputs.homologyCodingProteins.path,
-        options = targetInputs.homologyCodingProteins.options
-      ),
-      "homologyNcRna" -> IOResourceConfig(
-        targetInputs.homologyNcRna.format,
-        targetInputs.homologyNcRna.path,
-        options = targetInputs.homologyNcRna.options
+      "tractability" -> IOResourceConfig(
+        targetInputs.tractability.format,
+        targetInputs.tractability.path,
+        options = targetInputs.tractability.options
       )
     )
 
