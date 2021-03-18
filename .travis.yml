@@ -20,5 +20,5 @@ deploy:
     tags: true
     all_branches: false
   skip_cleanup: true
-after_success:
-  - bash <(curl -s https://codecov.io/bash)
+#after_success:
+#  - bash <(curl -s https://codecov.io/bash)
