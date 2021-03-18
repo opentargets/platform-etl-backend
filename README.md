@@ -41,74 +41,44 @@ Generate MousePhenotypes input file
 ```sh
 cat 20.04_gene-data.json | jq -r '{"id":.id,"phenotypes": [.mouse_phenotypes[]?] }|@json' > mousephenotype.json
 ```
+
 Copy the file in google storage or specific path
 
 ### Load with custom configuration
 
-Add to your run either commandline or sbt task Intellij IDEA `-Dconfig.file=application.conf` and it
-will load the configuration from your `./` path or project root. Missing fields will be resolved
-with `reference.conf`.
+Add to your run either commandline or sbt task Intellij IDEA `-Dconfig.file=application.conf` and it will load the
+configuration from your `./` path or project root. Missing fields will be resolved with `reference.conf`.
 
-If you want to customise local spark run without any submit in your local machine. Example of
-`application.conf`.
+The most common configuration changes you will need to make are pointing towards the correct input files. To load files
+we use a structure:
+
+```
+config-field-name {
+      format = "csv"
+      path = "path to file"
+      options = [
+        {k: "sep", v: "\\t"}
+        {k: "header", v: true}
+      ]
+    }
+```
+
+The `options` field configures how Spark will read the input files. Both Json and CSV files have a large number of
+configurable options, details of which can be
+found [in the documentation](https://spark.apache.org/docs/latest/api/scala/org/apache/spark/sql/DataFrameReader.html)
+
+If you want to use a local installation of Spark customise the `application.conf` with the following spark-uri field and
+adjust any other fields as necessary from the `reference.conf` template:
 
 ```conf
 spark-uri = "local[*]"
 common {
-  output = "etl/latest"
-  inputs {
-    target {
-      format = "parquet"
-      path = "luts/gene_parquet/"
-    }
-    disease  {
-      format = "parquet"
-      path = "luts/efo_parquet/"
-    }
-    drug  {
-      format = "parquet"
-      path = "luts/drug_parquet/"
-    }
-    evidence  {
-      format = "parquet"
-      path = "luts/evidence_parquet/"
-    }
-    associations  {
-      format = "parquet"
-      path = "luts/association_parquet/"
-    }
-    ddr  {
-      format = "parquet"
-      path = "luts/relation_parquet/"
-    }
-    reactome {
-      format = "parquet"
-      path = "luts/rea_parquet/"
-    }
-    eco  {
-      format = "parquet"
-      path = "luts/eco_parquet/"
-    }
-    expression {
-      format = "parquet"
-      path = "luts/expression_parquet/"
-    }
-    tep {
-      format ="json"
-      path = "gs://open-targets-data-releases/20.04/input/annotation-files/tep-2020-05-20.json"
-    }
-    mousephenotypes {
-      format ="json"
-      path = "gs://ot-snapshots/jsonl/20.04/20.04_mousephenotypes.json"
-   }
- }
+ ...  
 }
-
 ```
 
-The same happens with logback configuration. You can add `-Dlogback.configurationFile=application.xml` and
-have a logback.xml hanging on your project root or run path. An example log configuration
-file:
+Similarly update the logback configuration. You can add `-Dlogback.configurationFile=application.xml` and have a
+logback.xml hanging on your project root or run path. An example log configuration file:
 
 ```xml
 <configuration>

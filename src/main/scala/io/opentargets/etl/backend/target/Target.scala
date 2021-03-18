@@ -61,8 +61,7 @@ object Target extends LazyLogging {
       inputDataFrames("projectScoresEssentialityMatrix").data)
     val proteinClassification: Dataset[ProteinClassification] = ProteinClassification(
       inputDataFrames("chembl").data)
-    // todo get Genetic Constraint dataset
-    val geneticConstraints: Dataset[GeneticConstraint] = GeneticConstraints(
+    val geneticConstraints: Dataset[GeneticConstraintsWithId] = GeneticConstraints(
       inputDataFrames("geneticConstraints").data)
 
     // merge intermediate data frames into final
@@ -287,7 +286,7 @@ object Target extends LazyLogging {
     val map = scala.collection.mutable.Map[String, String]()
     val idAndSource: Seq[String] = ids
       .map(entry => entry.split(splitToken))
-      .map(arr => (arr.head.strip, arr.tail.head))
+      .map(arr => (arr.head.trim, arr.tail.head))
       .foldLeft(Seq.empty[String])((acc, nxt) => {
         if (map.contains(nxt._1)) acc
         else {

@@ -13,7 +13,7 @@ class GeneticConstraintTest extends EtlSparkUnitTest {
       .option("header", value = true)
       .csv(this.getClass.getResource("/target/gnomad_lof.csv").getPath)
     // when
-    val results: Dataset[GeneticConstraint] = GeneticConstraints(input)(sparkSession)
+    val results: Dataset[GeneticConstraintsWithId] = GeneticConstraints(input)(sparkSession)
 
     // then
     results.count() should be(50 - 1) // minus one for header.
