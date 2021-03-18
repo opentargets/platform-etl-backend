@@ -101,8 +101,8 @@ object ETL extends LazyLogging {
 
     logger.info("load required datasets from ETL parquet format")
     val diseases = spark.read.parquet(s"${prefix}/diseases")
-    val indications = spark.read.parquet(s"${prefix}/drugs/indication")
     val diseasehp = spark.read.parquet(s"${prefix}/disease_hpo")
+    val hp = spark.read.parquet(s"${prefix}/hpo")
     val meddraPT = loadMeddraPreferredTerms(meddra)
     val meddraLT = loadMeddraLowLevelTerms(meddra)
 
