@@ -106,7 +106,7 @@ object Drug extends Serializable with LazyLogging {
       .join(targetsAndDiseasesDf, Seq("id"), "left_outer")
       .filter(drugMolecule)
       .transform(addDescription)
-      .drop("indications", "mechanismsOfAction")
+      .drop("indications", "mechanismsOfAction", "withdrawnNotice ")
       .transform(cleanup)
 
     val dataframesToSave: IOResources = Map(
