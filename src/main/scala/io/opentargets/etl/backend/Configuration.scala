@@ -67,12 +67,14 @@ object Configuration extends LazyLogging {
 
   case class DrugOutputs(drug: IOResourceConfig,
                          mechanismOfAction: IOResourceConfig,
-                         indications: IOResourceConfig)
+                         indications: IOResourceConfig,
+                         warnings: IOResourceConfig)
   case class DrugSection(
       chemblMolecule: IOResourceConfig,
       chemblIndication: IOResourceConfig,
       chemblMechanism: IOResourceConfig,
       chemblTarget: IOResourceConfig,
+      chemblWarning: IOResourceConfig,
       drugbankToChembl: IOResourceConfig,
       drugExtensions: Seq[InputExtension],
       diseaseEtl: IOResourceConfig,
