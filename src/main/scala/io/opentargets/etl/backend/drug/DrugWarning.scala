@@ -34,19 +34,19 @@ object DrugWarning extends LazyLogging {
       ("Respiratory toxicity", 10038738),
       ("Teratogenicity", 10010331),
       ("Vascular toxicity", 10047065)
-    ).toDF("warningClass", "meddraSocCode")
+    ).toDF("toxicityClass", "meddraSocCode")
 
     val warningsDF = df.selectExpr(
       "_metadata.all_molecule_chembl_ids as chemblIds",
-      "warning_class as warningClass",
-      "warning_country as warningCountry",
-      "warning_description as warningDescription",
-      "warning_id as warningId",
-      "warning_refs as warningRefs",
+      "warning_class as toxicityClass",
+      "warning_country as country",
+      "warning_description as description",
+      "warning_id as id",
+      "warning_refs as references",
       "warning_type as warningType",
-      "warning_year as warningYear"
+      "warning_year as year"
     )
 
-    warningsDF.join(publicationClassificationsDF, Seq("warningClass"), "left_outer")
+    warningsDF.join(publicationClassificationsDF, Seq("toxicityClass"), "left_outer")
   }
 }
