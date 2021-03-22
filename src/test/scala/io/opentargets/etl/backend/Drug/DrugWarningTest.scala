@@ -15,6 +15,6 @@ class DrugWarningTest extends EtlSparkUnitTest {
 
     // then
     results.count should be(30)
-    results.filter(col("warningClass").isNotNull && col("meddraSocCode").isNull).count should be(0)
+    results.filter(col("toxicityClass").isNotNull && col("meddraSocCode").isNull).count should be(0)
   }
 }
