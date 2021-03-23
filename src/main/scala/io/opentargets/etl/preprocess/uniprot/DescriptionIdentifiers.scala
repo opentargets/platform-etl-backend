@@ -16,7 +16,8 @@ trait DescriptionIdentifiers {
       .filter(ln => ln.startsWith(RECOMMENDED) || ln.startsWith(ALTERNATIVE))
       .partition(_.startsWith(RECOMMENDED))
     val recommended = recAndAlt._1.map(removeLeadingMetadata.andThen(_.dropRight(1)))
-    val alternative = recAndAlt._2.map(removeLeadingMetadata.andThen(_.dropRight(1)))
+    val alternative =
+      recAndAlt._2.map(removeLeadingMetadata.andThen(_.dropRight(1).takeWhile(_ != '{')))
     (recommended, alternative)
   }
 }
