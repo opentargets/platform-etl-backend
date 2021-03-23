@@ -32,3 +32,11 @@ To check that the tables have been created, enter the clickhouse client (`clickh
 If everything has worked correctly you should see that there are three tables listed. You can further check the number of elements with:
 
 `select count() in ot.associations_otf_log`
+
+To load word2vec vectors from model:
+
+```bash
+clickhouse-client --multiline --multiquery < w2v_log.sql
+gsutil -m cat gs://ot-snapshots/etl/outputs/21.03.1/literature/vectors/part\* | clickhouse-client -h localhost --query="insert into ot.ml_w2v_log format JSONEachRow "
+clickhouse-client --multiline --multiquery < w2v.sql
+```
