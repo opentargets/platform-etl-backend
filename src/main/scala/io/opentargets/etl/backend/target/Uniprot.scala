@@ -45,7 +45,7 @@ object Uniprot extends LazyLogging {
     val proteinIds =
       TargetUtils.transformColumnToIdAndSourceStruct(id,
                                                      "accessions",
-                                                     "uniprot",
+                                                     "uniprot_obsolete",
                                                      Some("proteinIds"))(uniprotDfWithId)
     val subcellularLocations =
       TargetUtils.transformColumnToLabelAndSourceStruct(uniprotDfWithId,

@@ -128,7 +128,7 @@ object Target extends LazyLogging {
     hgnc
       .select(col("ensemblId"), explode(col("uniprotIds")).as("uniprotId"))
       .withColumn("id", col("uniprotId"))
-      .withColumn("source", typedLit("uniprot"))
+      .withColumn("source", typedLit("uniprot_obsolete"))
       .transform(nest(_, List("id", "source"), "uniprotProteinId"))
       .join(uniprot, Seq("uniprotId"))
       .groupBy("ensemblId")
