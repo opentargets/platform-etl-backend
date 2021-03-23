@@ -11,6 +11,7 @@ Within the Clickhouse instance copy the repository and then execute the followin
 clickhouse-client --multiline --multiquery < aotf_log.sql
 
 Copy the data from cloud storage to somewhere on the local machine.
+Eg.
 
 Use the data to populate the database
 
