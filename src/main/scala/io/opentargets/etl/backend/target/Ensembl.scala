@@ -29,7 +29,7 @@ object Ensembl extends LazyLogging {
   def apply(df: DataFrame)(implicit ss: SparkSession): Dataset[Ensembl] = {
     logger.info("Transforming Ensembl inputs.")
     import ss.implicits._
-    val ensemblDS: Dataset[Ensembl] = df
+    val ensemblDF: DataFrame = df
       .filter(col("id").startsWith("ENSG"))
       .filter(
         col("seq_region_name").isin(includeChromosomes: _*) || col("Uniprot/SWISSPROT").isNotNull)
@@ -55,9 +55,8 @@ object Ensembl extends LazyLogging {
       .transform(refactorTranscriptId)
       .transform(refactorSignalP)
       .transform(selectBestNonReferenceGene)
-      .as[Ensembl]
 
-    ensemblDS
+    ensemblDF.as[Ensembl]
   }
 
   /** Returns dataframe with only one non-encoding gene per approvedSymbol. The other gene ids pointing to the same
@@ -100,6 +99,7 @@ object Ensembl extends LazyLogging {
       .join(symbolsWithAlternativesDF, Seq("approvedSymbol"))
       .withColumn("alternativeGenes", array_remove(col("alternativeGenes"), col("id")))
       .drop("approvedSymbol")
+      .filter(size(col("alternativeGenes")) > 1) // remove empty arrays
 
     val allNonReferenceIds = proteinEncodingGenesDF.select("id")
     // get list of reference ids we want
@@ -112,7 +112,6 @@ object Ensembl extends LazyLogging {
     dataFrame
       .join(nonReferenceIdsWeDontWantDF, Seq("id"), "leftanti")
       .join(nonReferenceAndAlternativeDF, Seq("id"), "left_outer")
-
   }
 
   /** Returns dataframe with column 'transcriptIds' added and column 'transcripts' removed. */
