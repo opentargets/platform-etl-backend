@@ -13,6 +13,10 @@ import $ivy.`org.apache.spark::spark-mllib:3.1.1`
 import $ivy.`org.apache.spark::spark-sql:3.1.1`
 import $ivy.`com.github.pathikrit::better-files:3.8.0`
 import $ivy.`com.typesafe.play::play-json:2.9.1`
+//import $ivy.`org.bytedeco:javacpp:1.5.3`
+//import $ivy.`org.bytedeco:openblas:0.3.9-1.5.3`
+//import $ivy.`org.bytedeco:arpack-ng:3.7.0-1.5.3`
+import $ivy.`com.github.haifengl:smile-mkl:2.6.0`
 import $ivy.`com.github.haifengl::smile-scala:2.6.0`
 import org.apache.spark._
 import org.apache.spark.broadcast._
@@ -30,6 +34,10 @@ import com.typesafe.scalalogging.LazyLogging
 import org.apache.spark.ml.functions._
 import org.apache.spark.ml.linalg.Vector
 import org.apache.spark.ml.linalg.Vectors.norm
+import smile.cas._
+import smile.math._
+import smile.math.matrix._
+import smile.math.MathEx._
 import smile.nlp._
 
 object OpentargetsFunctions extends LazyLogging {
@@ -203,11 +211,22 @@ object SparkSessionWrapper extends LazyLogging {
 }
 
 object ETL extends LazyLogging {
-  val applyModelFn = (model: Broadcast[Word2VecModel], word: String) => {
-    try {
-      model.value.findSynonymsArray(word, 1000).filter(_._2 > 0.1)
-    } catch {
-      case _ => Array.empty[(String, Double)]
+  val applyModelFn = (model: Broadcast[Word2VecModel], sentence1: Seq[String], sentence2: Seq[String]) => {
+    val unionWords = sentence1.toSet union sentence2.toSet
+    val intersectionWords = sentence1.toSet intersect sentence2.toSet
+    val words = unionWords diff intersectionWords
+    val N = unionWords.size * 1D
+
+    // TODO HERE FINISH
+    val U = model.value.getVectors
+    val scoredWords = words map {
+      w =>
+        try {
+          val v = 0D +: model.value.findSynonymsArray(w, 1000).filter(p => unionWords.contains(p._1)).map(_._2)
+          (v.min, v.max)
+        } catch {
+          case _ => (0D, 0D)
+        }
     }
   }
 
