@@ -117,6 +117,7 @@ object Target extends LazyLogging {
       .drop("pid", "hgncId", "hgncSynonyms", "uniprotIds", "signalP", "xRef")
       .join(geneticConstraints, Seq("id"), "left_outer")
       .transform(filterAndSortProteinIds)
+      .transform(removeRedundantXrefs)
       .transform(addOrthologue(homology))
       .transform(addTractability(tractability))
 
@@ -143,6 +144,13 @@ object Target extends LazyLogging {
       .withColumnRenamed("ensemblId", "id")
       .withColumn("proteinIds", safeArrayUnion(col("proteinIds"), col("uniprotProteinId")))
       .drop("uniprotId", "uniprotProteinId")
+  }
+
+  private def removeRedundantXrefs(dataFrame: DataFrame): DataFrame = {
+    logger.info("Removing redundant references from target ouput")
+    val cols = dataFrame.columns.filter(_ != "dbXrefs") :+
+      "filter(dbXrefs, struct -> struct.source != 'GO' and struct.source != 'Ensembl') as dbXrefs"
+    dataFrame.selectExpr(cols: _*)
   }
 
   private def addOrthologue(orthologue: Dataset[LinkedOrtholog])(
