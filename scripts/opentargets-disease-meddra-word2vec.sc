@@ -228,7 +228,7 @@ object ETL extends LazyLogging {
   }
 
   val nlpFn = (c: Column) => udf((sentence: Option[String]) =>
-    sentence.map(s => s.normalize.words().map(w => lancaster(w).toLowerCase).distinct.sorted)).apply(c)
+    sentence.map(s => s.normalize.words().map(w => lancaster(w).toLowerCase).distinct.filter(_.nonEmpty).sorted)).apply(c)
   val translateFn = (c: Column) => translate(c, "-", " ")
   val normaliseFn = nlpFn compose translateFn
 
@@ -327,10 +327,12 @@ object ETL extends LazyLogging {
       .groupBy($"meddraName")
       .agg(collect_set($"meddraId").as("meddraIds"))
       .withColumn("meddraTerms", normaliseFn($"meddraName"))
+      .filter($"meddraTerms".isNotNull and length($"meddraTerms") > 0)
 
     val diseaseLabels = diseases
       .selectExpr("id as efoId", "name as efoName")
       .withColumn("efoTerms", normaliseFn($"efoName"))
+      .filter($"efoTerms".isNotNull and length($"efoTerms") > 0)
 
     meddraLabels.write.json(s"${output}/MeddraLabels")
     diseaseLabels.write.json(s"${output}/DiseaseLabels")
