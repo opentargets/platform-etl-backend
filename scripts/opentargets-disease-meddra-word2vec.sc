@@ -13,9 +13,8 @@ import $ivy.`org.apache.spark::spark-mllib:3.1.1`
 import $ivy.`org.apache.spark::spark-sql:3.1.1`
 import $ivy.`com.github.pathikrit::better-files:3.8.0`
 import $ivy.`com.typesafe.play::play-json:2.9.1`
-//import $ivy.`org.bytedeco:javacpp:1.5.3`
-//import $ivy.`org.bytedeco:openblas:0.3.9-1.5.3`
-//import $ivy.`org.bytedeco:arpack-ng:3.7.0-1.5.3`
+import org.apache.spark.sql.expressions.Window
+import org.apache.spark.storage.StorageLevel
 import $ivy.`com.github.haifengl:smile-mkl:2.6.0`
 import $ivy.`com.github.haifengl::smile-scala:2.6.0`
 import org.apache.spark.broadcast._
@@ -203,14 +202,30 @@ object SparkSessionWrapper extends LazyLogging {
 
 object ETL extends LazyLogging {
   val applyModelFn = (BU: Broadcast[Map[String, Seq[Double]]], sentence1: Seq[String], sentence2: Seq[String]) => {
-    val words = sentence1 ++ sentence2
+    val words = (sentence1 ++ sentence2).distinct.sorted
     val U = BU.value
     val W = m(Array(words.map(w => U(w).toArray):_*))
-    val S1 = m(Array(sentence1.map(w => U(w).toArray):_*))
-    val S2 = m(Array(sentence2.map(w => U(w).toArray):_*))
+    val S1 = m(Array(sentence1.sorted.map(w => U(w).toArray):_*))
+    val S2 = m(Array(sentence2.sorted.map(w => U(w).toArray):_*))
 
-    val mpS1 = MathEx.colMax((S1 %*% W.t).toArray)
-    val mpS2 = MathEx.colMax((S2 %*% W.t).toArray)
+    val SS1 = zeros(S1.nrows, W.nrows)
+    for {
+      i <- 0 until S1.nrows
+      j <- 0 until W.nrows
+    } {
+      SS1(i, j) = MathEx.cos(S1.row(i), W.row(j))
+    }
+
+    val SS2 = zeros(S2.nrows, W.nrows)
+    for {
+      i <- 0 until S2.nrows
+      j <- 0 until W.nrows
+    } {
+      SS2(i, j) = MathEx.cos(S2.row(i), W.row(j))
+    }
+
+    val mpS1 = MathEx.colMax(SS1.replaceNaN(0D).toArray)
+    val mpS2 = MathEx.colMax(SS2.replaceNaN(0D).toArray)
     val SS = m(mpS1, mpS2)
 
     val minS = MathEx.colMin(SS.toArray)
@@ -328,22 +343,44 @@ object ETL extends LazyLogging {
       .agg(collect_set($"meddraId").as("meddraIds"))
       .withColumn("meddraTerms", normaliseFn($"meddraName"))
       .filter($"meddraTerms".isNotNull and size($"meddraTerms") > 0)
+      .orderBy($"meddraTerms".asc)
+      .persist()
 
     val diseaseLabels = diseases
       .selectExpr("id as efoId", "name as efoName")
       .withColumn("efoTerms", normaliseFn($"efoName"))
       .filter($"efoTerms".isNotNull and size($"efoTerms") > 0)
+      .orderBy($"efoTerms".asc)
+      .persist()
 
     meddraLabels.write.json(s"${output}/MeddraLabels")
     diseaseLabels.write.json(s"${output}/DiseaseLabels")
 
-    meddraLabels.crossJoin(diseaseLabels)
+    val eqLabels = meddraLabels
+      .withColumn("meddraKey", concat($"meddraTerms"))
+      .join(diseaseLabels.withColumn("efoKey", concat($"efoTerms")), $"meddraKey" === $"efoKey")
+      .withColumn("score", lit(1D))
+      .selectExpr("meddraName", "meddraIds", "efoId", "efoName", "score")
+      .persist(StorageLevel.DISK_ONLY)
+
+    eqLabels.write.json(s"${output}/directJoin")
+
+    val w = Window.partitionBy($"meddraName").orderBy($"score".desc)
+    val simLabels = meddraLabels
+      .join(eqLabels.select("meddraName"), Seq("meddraName"), "left_anti")
+      .crossJoin(diseaseLabels)
+      .withColumn("intersectSize", size(array_intersect($"meddraTerms", $"efoTerms")))
+      .withColumn("unionSize", size(array_union($"meddraTerms", $"efoTerms")))
+      .filter($"intersectSize" >= functions.round($"unionSize" * 2/3))
+      .drop("intersectSize", "unionSize")
       .withColumn("score", dynaMaxFn($"meddraTerms", $"efoTerms"))
-      .withColumn("scoredEfo", struct($"score", $"efoId"))
-      .groupBy($"meddraName")
-      .agg(first($"meddraIds").as("meddraIds"),
-        max($"scoredEfo").as("scoredEfo"))
-      .write.json(s"${output}/crossJoin")
+      .filter($"score" > 0.75)
+      .withColumn("rank", row_number().over(w))
+      .filter($"rank" === 1)
+      .selectExpr("meddraName", "meddraIds", "efoId", "efoName", "score")
+      .orderBy($"efoId".asc, $"score".desc)
+
+    simLabels.write.json(s"${output}/crossJoin")
   }
 }
 
