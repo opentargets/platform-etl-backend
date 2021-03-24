@@ -203,6 +203,18 @@ object ETL extends LazyLogging {
 
     eqLabels.write.json(s"${output}/directJoin")
 
+    val colNames = Seq(
+      "meddraName",
+      "meddraIds",
+      "efoId",
+      "efoName",
+      "meddraTerms",
+      "efoTerms",
+      "intersectSize",
+      "meddraTermsSize",
+      "efoTermsSize",
+      "score"
+    )
     val w = Window.partitionBy($"meddraName").orderBy($"intersectSize".desc, $"score".desc)
     val simLabels = meddraLabels
       .join(eqLabels.select("meddraName"), Seq("meddraName"), "left_anti")
@@ -216,7 +228,7 @@ object ETL extends LazyLogging {
       .filter($"score" > scoreCutoff)
       .withColumn("rank", row_number().over(w))
       .filter($"rank" === 1)
-      .selectExpr("meddraName", "meddraIds", "efoId", "efoName", "meddraTerms", "efoTerms", "intersectSize", "meddraTermsSize", "efoTermsSize", "score")
+      .selectExpr(colNames:_*)
       .orderBy($"meddraName".asc, $"intersectSize".desc, $"score".desc)
 
     simLabels.write.json(s"${output}/crossJoin")
