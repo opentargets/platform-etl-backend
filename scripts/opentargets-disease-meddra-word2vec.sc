@@ -18,26 +18,17 @@ import $ivy.`com.typesafe.play::play-json:2.9.1`
 //import $ivy.`org.bytedeco:arpack-ng:3.7.0-1.5.3`
 import $ivy.`com.github.haifengl:smile-mkl:2.6.0`
 import $ivy.`com.github.haifengl::smile-scala:2.6.0`
-import org.apache.spark._
 import org.apache.spark.broadcast._
 import org.apache.spark.ml.feature._
-import org.apache.spark.sql.expressions._
-import org.apache.spark.storage._
 import org.apache.spark.SparkConf
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.functions.col
-import org.apache.spark.sql.types._
 import org.apache.spark.sql._
-import org.apache.spark.ml._
 import org.apache.spark.ml.fpm._
 import com.typesafe.scalalogging.LazyLogging
 import org.apache.spark.ml.functions._
-import org.apache.spark.ml.linalg.Vector
-import org.apache.spark.ml.linalg.Vectors.norm
-import smile.cas._
 import smile.math._
-import smile.math.matrix._
-import smile.math.MathEx._
+import smile.math.matrix.{matrix => m}
 import smile.nlp._
 
 object OpentargetsFunctions extends LazyLogging {
@@ -211,23 +202,20 @@ object SparkSessionWrapper extends LazyLogging {
 }
 
 object ETL extends LazyLogging {
-  val applyModelFn = (model: Broadcast[Word2VecModel], sentence1: Seq[String], sentence2: Seq[String]) => {
-    val unionWords = sentence1.toSet union sentence2.toSet
-    val intersectionWords = sentence1.toSet intersect sentence2.toSet
-    val words = unionWords diff intersectionWords
-    val N = unionWords.size * 1D
+  val applyModelFn = (BU: Broadcast[Map[String, Seq[Double]]], sentence1: Seq[String], sentence2: Seq[String]) => {
+    val words = sentence1 ++ sentence2
+    val U = BU.value
+    val W = m(Array(words.map(w => U(w).toArray):_*))
+    val S1 = m(Array(sentence1.map(w => U(w).toArray):_*))
+    val S2 = m(Array(sentence2.map(w => U(w).toArray):_*))
 
-    // TODO HERE FINISH
-    val U = model.value.getVectors
-    val scoredWords = words map {
-      w =>
-        try {
-          val v = 0D +: model.value.findSynonymsArray(w, 1000).filter(p => unionWords.contains(p._1)).map(_._2)
-          (v.min, v.max)
-        } catch {
-          case _ => (0D, 0D)
-        }
-    }
+    val mpS1 = MathEx.colMax((S1 %*% W.t).toArray)
+    val mpS2 = MathEx.colMax((S2 %*% W.t).toArray)
+    val SS = m(mpS1, mpS2)
+
+    val minS = MathEx.colMin(SS.toArray)
+    val maxS = MathEx.colMax(SS.toArray)
+    minS.sum / maxS.sum
   }
 
   def normalise(c: Column): Column = {
@@ -290,7 +278,7 @@ object ETL extends LazyLogging {
       .withColumn("broadSynonyms", expr("coalesce(hasBroadSynonym, array())"))
       .withColumn("exactSynonyms", expr("coalesce(hasExactSynonym, array())"))
       .withColumn("relatedSynonyms", expr("coalesce(hasRelatedSynonym, array())"))
-      .withColumn("synonym", explode_outer(flatten(array($"broadSynonyms", $"exactSynonyms", $"relatedSynonyms"))))
+      .withColumn("synonym", explode(flatten(array(array($"efoName"), $"broadSynonyms", $"exactSynonyms", $"relatedSynonyms"))))
       .filter($"synonym".isNotNull and length($"synonym") > 0)
       .withColumn("efoNameN", normaliseFn($"efoName"))
       .withColumn("synonymN", normaliseFn($"synonym"))
@@ -307,37 +295,32 @@ object ETL extends LazyLogging {
     val terms = D.unionByName(MDTerms).persist()
 
 
-//    val w2v = new Word2Vec()
-//      .setWindowSize(5)
-//      .setNumPartitions(16)
-//      .setMaxIter(1)
-//      .setMinCount(0)
-//      .setStepSize(0.025)
-//      .setInputCol("terms")
-//      .setOutputCol("predictions")
-//
-//    val w2vModel = w2v.fit(terms)
-//
-//    terms.write.json(s"${output}/DiseaseMeddraTerms")
-//    w2vModel.save(s"${output}/DiseaseMeddraModel")
-//    w2vModel.getVectors
-//      .withColumn("vector", vector_to_array($"vector"))
-//      .write.json(s"${output}/DiseaseMeddraVectors")
+    val w2v = new Word2Vec()
+      .setWindowSize(5)
+      .setNumPartitions(16)
+      .setMaxIter(1)
+      .setMinCount(0)
+      .setStepSize(0.025)
+      .setInputCol("terms")
+      .setOutputCol("predictions")
+
+    val w2vModel = w2v.fit(terms)
+
+    terms.write.json(s"${output}/DiseaseMeddraTerms")
+    w2vModel.save(s"${output}/DiseaseMeddraModel")
+    w2vModel.getVectors
+      .withColumn("vector", vector_to_array($"vector"))
+      .write.json(s"${output}/DiseaseMeddraVectors")
 
     val w2vm = Word2VecModel.load(s"${output}/DiseaseMeddraModel")
-    val w2vModelB = spark.sparkContext.broadcast(w2vm)
-    val EDRAGGFn = applyModelFn(w2vModelB, _)
 
-    val vDF = broadcast(w2vModel.getVectors
-      .withColumn("norm", udf((v: Vector) => norm(v, 2D)).apply($"vector"))
-      .sort($"word".asc))
 
-//    w2vModel.getVectors.withColumn("predictions", udf(EDRAGGFn).apply($"word"))
-//      .withColumn("_prediction", explode_outer($"predictions"))
-//      .withColumn("prediction", $"_prediction".getField("_1"))
-//      .withColumn("score", $"_prediction".getField("_2"))
-//      .drop("predictions", "vector")
-//      .write.json(s"${output}/DiseaseMeddraPredictions")
+    val U = w2vm.getVectors
+      .withColumn("vector", vector_to_array($"vector"))
+      .collect()
+      .map(r => r.getAs[String]("word") -> r.getSeq[Double](1)).toMap
+    val BU = spark.sparkContext.broadcast(U)
+    val dynaMaxFn = udf(applyModelFn(BU, _, _))
 
     val meddraLabels = meddraPT
       .unionByName(meddraLT)
@@ -353,9 +336,11 @@ object ETL extends LazyLogging {
     diseaseLabels.write.json(s"${output}/DiseaseLabels")
 
     meddraLabels.crossJoin(diseaseLabels)
-      .withColumn("zipped", arrays_zip($"efoTerms", $"meddraTerms"))
-      .drop("meddraTerms", "efoTerms")
-      .limit(100)
+      .withColumn("score", dynaMaxFn($"meddraTerms", $"efoTerms"))
+      .withColumn("scoredEfo", struct($"score", $"efoId"))
+      .groupBy($"meddraName")
+      .agg(first($"meddraIds").as("meddraIds"),
+        max($"scoredEfo").as("scoredEfo"))
       .write.json(s"${output}/crossJoin")
   }
 }
