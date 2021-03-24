@@ -216,7 +216,7 @@ object ETL extends LazyLogging {
       .filter($"score" > scoreCutoff)
       .withColumn("rank", row_number().over(w))
       .filter($"rank" === 1)
-      .selectExpr("meddraName", "meddraIds", "efoId", "efoName", "intersectSize", "meddraTermsSize", "efoTermsSize", "score")
+      .selectExpr("meddraName", "meddraIds", "efoId", "efoName", "meddraTerms", "efoTerms", "intersectSize", "meddraTermsSize", "efoTermsSize", "score")
       .orderBy($"meddraName".asc, $"intersectSize".desc, $"score".desc)
 
     simLabels.write.json(s"${output}/crossJoin")
