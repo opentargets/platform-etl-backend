@@ -67,8 +67,8 @@ object ETL extends LazyLogging {
       i <- 0 until S2.nrows
       j <- 0 until W.nrows
     } {
-      val sc = MathEx.cos(S2.row(i), W.row(j))
-      SS2(i, j) = if (sc < cutoff) 0d else sc
+      val sc = MathEx.round(MathEx.cos(S2.row(i), W.row(j)), 2)
+      SS2(i, j) = if (sc > cutoff) sc else 0d
     }
 
     val mpS1 = MathEx.colMax(SS1.replaceNaN(0D).toArray)
@@ -114,7 +114,7 @@ object ETL extends LazyLogging {
       .selectExpr("llt_code as meddraId", "llt_name as meddraName")
   }
 
-  def apply(cutoff: Double, prefix: String, meddra: String, output: String) = {
+  def apply(cosineCutoff: Double, scoreCutoff: Double, prefix: String, meddra: String, output: String) = {
     import SparkSessionWrapper._
     import spark.implicits._
     implicit val ss: SparkSession = spark
@@ -203,25 +203,26 @@ object ETL extends LazyLogging {
 
     eqLabels.write.json(s"${output}/directJoin")
 
-    val w = Window.partitionBy($"meddraName").orderBy($"score".desc)
+    val w = Window.partitionBy($"meddraName").orderBy($"intersectSize".desc, $"score".desc)
     val simLabels = meddraLabels
       .join(eqLabels.select("meddraName"), Seq("meddraName"), "left_anti")
       .crossJoin(diseaseLabels)
+      .withColumn("meddraTermsSize", size($"meddraTerms"))
+      .withColumn("efoTermsSize", size($"efoTerms"))
       .withColumn("intersectSize", size(array_intersect($"meddraTerms", $"efoTerms")))
       .withColumn("unionSize", size(array_union($"meddraTerms", $"efoTerms")))
-      .filter($"intersectSize" >= functions.round($"unionSize" * 2/3))
-      .drop("intersectSize", "unionSize")
-      .withColumn("score", dynaMaxFn($"meddraTerms", $"efoTerms", lit(cutoff)))
-      .filter($"score" > cutoff)
+      .filter($"intersectSize" >= functions.round($"unionSize" * 1/2) and $"efoTermsSize" <= $"meddraTermsSize")
+      .withColumn("score", dynaMaxFn($"meddraTerms", $"efoTerms", lit(cosineCutoff)))
+      .filter($"score" > scoreCutoff)
       .withColumn("rank", row_number().over(w))
       .filter($"rank" === 1)
-      .selectExpr("meddraName", "meddraIds", "efoId", "efoName", "score")
-      .orderBy($"efoId".asc, $"score".desc)
+      .selectExpr("meddraName", "meddraIds", "efoId", "efoName", "intersectSize", "meddraTermsSize", "efoTermsSize", "score")
+      .orderBy($"meddraName".asc, $"intersectSize".desc, $"score".desc)
 
     simLabels.write.json(s"${output}/crossJoin")
   }
 }
 
 @main
-def main(cutoff: Double = 0.5, prefix: String, meddra: String, output: String): Unit =
-  ETL(cutoff, prefix, meddra, output)
+def main(cosineCutoff: Double = 0.5, scoreCutoff: Double = 0.501, prefix: String, meddra: String, output: String): Unit =
+  ETL(cosineCutoff, scoreCutoff, prefix, meddra, output)
