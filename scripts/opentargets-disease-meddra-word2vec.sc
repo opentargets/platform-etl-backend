@@ -47,27 +47,7 @@ object SparkSessionWrapper extends LazyLogging {
 }
 
 object ETL extends LazyLogging {
-
-  def makeWord2VecModel(df: DataFrame,
-                        inputColName: String,
-                        outputColName: String = "prediction"): Word2VecModel = {
-    logger.info(s"compute Word2Vec model for input col ${inputColName} into ${outputColName}")
-
-    val w2vModel = new Word2Vec()
-      .setNumPartitions(32)
-      .setMaxIter(10)
-      .setInputCol(inputColName)
-      .setOutputCol(outputColName)
-
-    val model = w2vModel.fit(df)
-
-    // Display frequent itemsets.
-    model.getVectors.show(25, false)
-
-    model
-  }
-
-  val applyModelFn = (BU: Broadcast[Map[String, Seq[Double]]], sentence1: Seq[String], sentence2: Seq[String]) => {
+  val applyModelFn = (BU: Broadcast[Map[String, Seq[Double]]], sentence1: Seq[String], sentence2: Seq[String], cutoff: Double) => {
     val words = (sentence1 ++ sentence2).distinct.sorted
     val U = BU.value
     val W = m(Array(words.map(w => U(w).toArray):_*))
@@ -87,7 +67,8 @@ object ETL extends LazyLogging {
       i <- 0 until S2.nrows
       j <- 0 until W.nrows
     } {
-      SS2(i, j) = MathEx.cos(S2.row(i), W.row(j))
+      val sc = MathEx.cos(S2.row(i), W.row(j))
+      SS2(i, j) = if (sc < cutoff) 0d else sc
     }
 
     val mpS1 = MathEx.colMax(SS1.replaceNaN(0D).toArray)
@@ -97,15 +78,6 @@ object ETL extends LazyLogging {
     val minS = MathEx.colMin(SS.toArray)
     val maxS = MathEx.colMax(SS.toArray)
     minS.sum / maxS.sum
-  }
-
-  def normalise(c: Column): Column = {
-    // https://www.rapidtables.com/math/symbols/greek_alphabet.html
-    sort_array(filter(split(lower(translate(
-      rtrim(lower(translate(trim(trim(c), "."), "/`''[]{}()-,", "")), "s"),
-      "αβγδεζηικλμνξπτυω",
-      "abgdezhiklmnxptuo"
-    )), " "), d => length(d) > 2), asc = true)
   }
 
   val nlpFn = (c: Column) => udf((sentence: Option[String]) =>
@@ -142,7 +114,7 @@ object ETL extends LazyLogging {
       .selectExpr("llt_code as meddraId", "llt_name as meddraName")
   }
 
-  def apply(prefix: String, meddra: String, output: String) = {
+  def apply(cutoff: Double, prefix: String, meddra: String, output: String) = {
     import SparkSessionWrapper._
     import spark.implicits._
     implicit val ss: SparkSession = spark
@@ -201,7 +173,7 @@ object ETL extends LazyLogging {
       .collect()
       .map(r => r.getAs[String]("word") -> r.getSeq[Double](1)).toMap
     val BU = spark.sparkContext.broadcast(U)
-    val dynaMaxFn = udf(applyModelFn(BU, _, _))
+    val dynaMaxFn = udf(applyModelFn(BU, _, _, _))
 
     val meddraLabels = meddraPT
       .unionByName(meddraLT)
@@ -239,8 +211,8 @@ object ETL extends LazyLogging {
       .withColumn("unionSize", size(array_union($"meddraTerms", $"efoTerms")))
       .filter($"intersectSize" >= functions.round($"unionSize" * 2/3))
       .drop("intersectSize", "unionSize")
-      .withColumn("score", dynaMaxFn($"meddraTerms", $"efoTerms"))
-      .filter($"score" > 0.8)
+      .withColumn("score", dynaMaxFn($"meddraTerms", $"efoTerms", lit(cutoff)))
+      .filter($"score" > cutoff)
       .withColumn("rank", row_number().over(w))
       .filter($"rank" === 1)
       .selectExpr("meddraName", "meddraIds", "efoId", "efoName", "score")
@@ -251,5 +223,5 @@ object ETL extends LazyLogging {
 }
 
 @main
-def main(prefix: String, meddra: String, output: String): Unit =
-  ETL(prefix, meddra, output)
+def main(cutoff: Double = 0.5, prefix: String, meddra: String, output: String): Unit =
+  ETL(cutoff, prefix, meddra, output)
