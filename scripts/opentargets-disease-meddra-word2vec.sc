@@ -327,12 +327,12 @@ object ETL extends LazyLogging {
       .groupBy($"meddraName")
       .agg(collect_set($"meddraId").as("meddraIds"))
       .withColumn("meddraTerms", normaliseFn($"meddraName"))
-      .filter($"meddraTerms".isNotNull and length($"meddraTerms") > 0)
+      .filter($"meddraTerms".isNotNull and size($"meddraTerms") > 0)
 
     val diseaseLabels = diseases
       .selectExpr("id as efoId", "name as efoName")
       .withColumn("efoTerms", normaliseFn($"efoName"))
-      .filter($"efoTerms".isNotNull and length($"efoTerms") > 0)
+      .filter($"efoTerms".isNotNull and size($"efoTerms") > 0)
 
     meddraLabels.write.json(s"${output}/MeddraLabels")
     diseaseLabels.write.json(s"${output}/DiseaseLabels")
