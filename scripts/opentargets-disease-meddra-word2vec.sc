@@ -80,10 +80,73 @@ object ETL extends LazyLogging {
     minS.sum / maxS.sum
   }
 
-  val nlpFn = (c: Column) => udf((sentence: Option[String]) =>
-    sentence.map(s => s.normalize.words().map(w => lancaster(w).toLowerCase).distinct.filter(_.nonEmpty).sorted)).apply(c)
+  val applyModelWithPOSFn = (BU: Broadcast[Map[String, Seq[Double]]],
+                             sentence1: Seq[(String, String)],
+                             sentence2: Seq[(String, String)], cutoff: Double) => {
+    val words = (sentence1 ++ sentence2).distinct
+    val U = BU.value
+    val W = m(Array(words.map(w => U(w._1).toArray):_*))
+    val S1 = m(Array(sentence1.sorted.map(w => U(w._1).toArray):_*))
+    val S2 = m(Array(sentence2.sorted.map(w => U(w._1).toArray):_*))
+    val S1w = sentence1.sorted.map(_._2)
+    val S2w = sentence2.sorted.map(_._2)
+    val Ww = words.map(_._2)
+
+    val SS1 = zeros(S1.nrows, W.nrows)
+    for {
+      i <- 0 until S1.nrows
+      j <- 0 until W.nrows
+    } {
+      val mask = if (S1w(i) == Ww(j)) 1d else 0d
+      val sc = MathEx.cos(S1.row(i), W.row(j)) * mask
+      SS1(i, j) = if (sc > cutoff + MathEx.EPSILON) sc else 0d
+    }
+
+    val SS2 = zeros(S2.nrows, W.nrows)
+    for {
+      i <- 0 until S2.nrows
+      j <- 0 until W.nrows
+    } {
+      val mask = if (S2w(i) == Ww(j)) 1d else 0d
+      val sc = MathEx.cos(S2.row(i), W.row(j)) * mask
+
+      SS2(i, j) = if (sc > cutoff + MathEx.EPSILON) sc else 0d
+    }
+
+    val mpS1 = MathEx.colMax(SS1.replaceNaN(0D).toArray)
+    val mpS2 = MathEx.colMax(SS2.replaceNaN(0D).toArray)
+    val SS = m(mpS1, mpS2)
+
+    val minS = MathEx.colMin(SS.toArray)
+    val maxS = MathEx.colMax(SS.toArray)
+    minS.sum / maxS.sum
+  }
+
+  val nlpWithPOSFn = (c: Column) => udf((sentence: Option[String]) => {
+    val dis = lancaster("disease")
+    val words = sentence.map(s => s.normalize.words()).getOrElse(Array.empty)
+    val w = words.zip(postag(words).map(_.name()))
+
+    w.map {
+      case (word, p) => (lancaster(word).toLowerCase, p)
+    }.distinct
+      .filter(t => t._1.nonEmpty && t._1 != dis)
+      .sortBy(_._1)
+  }).apply(c)
+
+  val nlpFn = (c: Column) => udf((sentence: Option[String]) => {
+    val dis = lancaster("disease")
+    sentence.map(s => s.normalize.words()
+      .map(w => lancaster(w).toLowerCase)
+      .distinct
+      .filter(t => t.nonEmpty && t != dis)
+      .sorted
+    )
+  }).apply(c)
+
   val translateFn = (c: Column) => translate(c, "-", " ")
   val normaliseFn = nlpFn compose translateFn
+  val normaliseWithPOSFn = nlpWithPOSFn compose translateFn
 
   private def loadMeddraDf(path: String, columns: Seq[String])(
     implicit ss: SparkSession): DataFrame = {
@@ -121,8 +184,8 @@ object ETL extends LazyLogging {
 
     logger.info("load required datasets from ETL parquet format")
     val diseases = spark.read.parquet(s"${prefix}/diseases")
-    val diseasehp = spark.read.parquet(s"${prefix}/disease_hpo")
-    val hp = spark.read.parquet(s"${prefix}/hpo")
+//    val diseasehp = spark.read.parquet(s"${prefix}/disease_hpo")
+//    val hp = spark.read.parquet(s"${prefix}/hpo")
     val meddraPT = loadMeddraPreferredTerms(meddra)
     val meddraLT = loadMeddraLowLevelTerms(meddra)
 
@@ -174,12 +237,14 @@ object ETL extends LazyLogging {
       .map(r => r.getAs[String]("word") -> r.getSeq[Double](1)).toMap
     val BU = spark.sparkContext.broadcast(U)
     val dynaMaxFn = udf(applyModelFn(BU, _, _, _))
+    val dynaMaxPOSFn = udf(applyModelWithPOSFn(BU, _, _, _))
 
     val meddraLabels = meddraPT
       .unionByName(meddraLT)
       .groupBy($"meddraName")
       .agg(collect_set($"meddraId").as("meddraIds"))
       .withColumn("meddraTerms", normaliseFn($"meddraName"))
+      .withColumn("meddraTermsPOS", normaliseWithPOSFn($"meddraName"))
       .filter($"meddraTerms".isNotNull and size($"meddraTerms") > 0)
       .orderBy($"meddraTerms".asc)
       .persist()
@@ -187,6 +252,7 @@ object ETL extends LazyLogging {
     val diseaseLabels = diseases
       .selectExpr("id as efoId", "name as efoName")
       .withColumn("efoTerms", normaliseFn($"efoName"))
+      .withColumn("efoTermsPOS", normaliseWithPOSFn($"efoName"))
       .filter($"efoTerms".isNotNull and size($"efoTerms") > 0)
       .orderBy($"efoTerms".asc)
       .persist()
@@ -208,14 +274,17 @@ object ETL extends LazyLogging {
       "meddraIds",
       "efoId",
       "efoName",
+      "score",
+      "scorePOS",
       "meddraTerms",
+      "meddraTermsPOS",
       "efoTerms",
+      "efoTermsPOS",
       "intersectSize",
       "meddraTermsSize",
-      "efoTermsSize",
-      "score"
+      "efoTermsSize"
     )
-    val w = Window.partitionBy($"meddraName").orderBy($"intersectSize".desc, $"score".desc)
+    val w = Window.partitionBy($"meddraName").orderBy($"intersectSize".desc, $"scorePOS".desc)
     val simLabels = meddraLabels
       .join(eqLabels.select("meddraName"), Seq("meddraName"), "left_anti")
       .crossJoin(diseaseLabels)
@@ -223,13 +292,19 @@ object ETL extends LazyLogging {
       .withColumn("efoTermsSize", size($"efoTerms"))
       .withColumn("intersectSize", size(array_intersect($"meddraTerms", $"efoTerms")))
       .withColumn("unionSize", size(array_union($"meddraTerms", $"efoTerms")))
-      .filter($"intersectSize" >= functions.round($"unionSize" * 1/2) and $"efoTermsSize" <= $"meddraTermsSize")
+      .filter($"intersectSize" >= functions.round($"unionSize" * 1/2) and
+          $"efoTermsSize" <= $"meddraTermsSize"
+      )
       .withColumn("score", dynaMaxFn($"meddraTerms", $"efoTerms", lit(cosineCutoff)))
-      .filter($"score" > scoreCutoff)
+      .withColumn("scorePOS", dynaMaxPOSFn($"meddraTermsPOS", $"efoTermsPOS", lit(cosineCutoff)))
+      .filter($"scorePOS" > scoreCutoff + MathEx.EPSILON)
       .withColumn("rank", row_number().over(w))
       .filter($"rank" === 1)
       .selectExpr(colNames:_*)
-      .orderBy($"meddraName".asc, $"intersectSize".desc, $"score".desc)
+      .persist(StorageLevel.DISK_ONLY)
+      .filter(($"unionSize" === 2 and $"intersectSize" === 0 and $"scorePOS" >= 0.75) or
+        ($"unionSize" > 1 and $"intersectSize" > 0 and $"scorePOS" > scoreCutoff + MathEx.EPSILON))
+      .orderBy($"meddraName".asc, $"intersectSize".desc, $"scorePOS".desc)
 
     simLabels.write.json(s"${output}/crossJoin")
   }
