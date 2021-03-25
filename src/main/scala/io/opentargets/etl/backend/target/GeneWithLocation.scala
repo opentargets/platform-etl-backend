@@ -1,9 +1,9 @@
 package io.opentargets.etl.backend.target
 
 import com.typesafe.scalalogging.LazyLogging
-import io.opentargets.etl.backend.spark.Helpers.mkFlattenArray
+import io.opentargets.etl.backend.spark.Helpers.safeArrayUnion
 import io.opentargets.etl.backend.target.TargetUtils.transformColumnToLabelAndSourceStruct
-import org.apache.spark.sql.functions.{col, collect_list, explode, split}
+import org.apache.spark.sql.functions.{col, split}
 import org.apache.spark.sql.{DataFrame, Dataset, SparkSession}
 
 /**
@@ -20,21 +20,29 @@ object GeneWithLocation extends LazyLogging {
     val hpaDf = df
       .select(
         col("Gene").as("id"),
-        col("Main location").as("l1"),
-        col("Additional location").as("l2"),
-        col("Extracellular location").as("l3"),
+        split(col("Main location"), ";").as("HPA_main"),
+        split(col("Additional location"), ";").as("HPA_additional"),
+        split(col("Extracellular location"), ";").as("HPA_extracellular_location"),
       )
-      .withColumn(
-        "l",
-        mkFlattenArray(split(col("l1"), ";"), split(col("l2"), ";"), split(col("l3"), ";")))
-      .select(col("id"), explode(col("l")).as("l"))
-      .groupBy(col("id"))
-      .agg(collect_list(col("l")).as("locations"))
+    val mainDF = hpaDf.transform(locationToSourceAndLocation("HPA_main"))
+    val additionalDF = hpaDf.transform(locationToSourceAndLocation("HPA_additional"))
+    val extracellularDF = hpaDf.transform(locationToSourceAndLocation("HPA_extracellular_location"))
+
+    val geneWithLocationDF = List(hpaDf.select("id"), mainDF, additionalDF, extracellularDF)
+      .reduce((a, b) => a.join(b, Seq("id"), "left_outer"))
+      .select(col("id"),
+              safeArrayUnion(col("HPA_main"),
+                             col("HPA_additional"),
+                             col("HPA_extracellular_location")).as("locations"))
+
+    geneWithLocationDF.as[GeneWithLocation]
+
+  }
+
+  private def locationToSourceAndLocation(location: String)(dataFrame: DataFrame): DataFrame = {
+    dataFrame
+      .select(col("id"), col(location))
       .transform(
-        transformColumnToLabelAndSourceStruct(_, "id", "locations", "HPA", Some("location")))
-      .as[GeneWithLocation]
-
-    hpaDf
-
+        transformColumnToLabelAndSourceStruct(_, "id", location, location, Some("location")))
   }
 }
