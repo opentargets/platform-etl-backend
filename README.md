@@ -319,20 +319,24 @@ to the data. Options for parsing the inputs should not need to be updated.
    - `https://storage.googleapis.com/open-targets-data-releases/21.02/input/annotation-files/hgnc_complete_set-2021-02-09.json`
 
 2. Ensembl
-   
-    - Use Ensembl human gene JSON file (available from: `ftp://ftp.ensembl.
-      org/pub/release-102/json/homo_sapiens/homo_sapiens.
-      json`) updating the release as required.
-    - It can be useful to convert this file to jsonl format. It can be converted with `jq -c . genes[] homo_sapiens. 
-      json >> homo_sapiens.jsonl`. The file is 4GB, so needs a decent machine (min 32GB RAM) for conversion.
-      
+
+    - Use Ensembl human gene JSON file (available
+      from: `ftp://ftp.ensembl. org/pub/release-102/json/homo_sapiens/homo_sapiens. json`) updating the release as
+      required.
+    - It can be useful to convert this file to jsonl format. It can be converted
+      with `jq -c . genes[] homo_sapiens. json >> homo_sapiens.jsonl`. The file is 4GB, so needs a decent machine (min
+      32GB RAM) for conversion.
+
 3. Uniprot
-   the Uniprot format in txt format instead of xml.
+    - the Uniprot format in flat txt format instead of xml.
+    - This is a flat text file and is provided by PIS. Can be downloaded manually
+      from `https://www.uniprot. org/uniprot/?query=reviewed%3Ayes%2BAND%2Borganism%3A9606&compress=yes&format=txt`
+    - The is a conversion tool to create Scala objects in `io.opentargets.etl.preprocess.uniprot`
 4. Gene Ontology
     - Requires three files available from EBI:
-      - [Annotation files for human proteins](ftp://ftp.ebi.ac.uk/pub/databases/GO/goa/HUMAN/goa_human.gaf.gz)
-      - [Annotation files for human RNAs](ftp://ftp.ebi.ac.uk/pub/databases/GO/goa/HUMAN/goa_human_rna.gaf.gz)
-      - [RNAcentral to Ensembl mapping files](ftp://ftp.ebi.ac.uk/pub/databases/RNAcentral/current_release/id_mapping/database_mappings/ensembl.tsv)
+        - [Annotation files for human proteins](ftp://ftp.ebi.ac.uk/pub/databases/GO/goa/HUMAN/goa_human.gaf.gz)
+        - [Annotation files for human RNAs](ftp://ftp.ebi.ac.uk/pub/databases/GO/goa/HUMAN/goa_human_rna.gaf.gz)
+        - [RNAcentral to Ensembl mapping files](ftp://ftp.ebi.ac.uk/pub/databases/RNAcentral/current_release/id_mapping/database_mappings/ensembl.tsv)
 
 5. Tep
 6. Human Protein Atlas
@@ -347,16 +351,15 @@ to the data. Options for parsing the inputs should not need to be updated.
       from [Gnomad website](https://storage.googleapis.com/gcp-public-data--gnomad/release/2.1.1/constraint/gnomad.v2.1.1.lof_metrics.by_gene.txt.bgz)
     - The file is in `bgz` format, this can be converted to csv with `gunzip -c input > output.csv`.
 10. Homologs
-
-- Update the release number as required:
-    - ftp://ftp.ensembl.org/pub/release-100/tsv/ensembl-compara/homologies/homo_sapiens/Compara.100.protein_default.
-      homologies.tsv.gz
-    - ftp://ftp.ensembl.org/pub/release-100/tsv/ensembl-compara/homologies/homo_sapiens/Compara.100.ncrna_default.
-      homologies.tsv.gz
-    - ftp://ftp.ensembl.org/pub/release-100/species_EnsemblVertebrates.txt
-- File from PIS
-    - https://storage.googleapis.com/open-targets-data-releases/20.
-      06/input/annotation-files/human_all_hcop_sixteen_column-2020-06-01.txt.gz
+    - Update the release number as required:
+        - ftp://ftp.ensembl.org/pub/release-100/tsv/ensembl-compara/homologies/homo_sapiens/Compara.100.protein_default.
+          homologies.tsv.gz
+        - ftp://ftp.ensembl.org/pub/release-100/tsv/ensembl-compara/homologies/homo_sapiens/Compara.100.ncrna_default.
+          homologies.tsv.gz
+        - ftp://ftp.ensembl.org/pub/release-100/species_EnsemblVertebrates.txt
+    - File from PIS
+        - https://storage.googleapis.com/open-targets-data-releases/20.
+          06/input/annotation-files/human_all_hcop_sixteen_column-2020-06-01.txt.gz
 
 ## Development environment notes
 

@@ -3,13 +3,14 @@ package io.opentargets.etl.backend.target
 import com.typesafe.scalalogging.LazyLogging
 import io.opentargets.etl.backend.spark.Helpers.safeArrayUnion
 import org.apache.spark.sql.functions.{array_contains, col, collect_list, struct, typedLit}
+import org.apache.spark.sql.types.DoubleType
 import org.apache.spark.sql.{DataFrame, Dataset, SparkSession}
 
 /** Maps orthologs to ensembl human gene ids */
 object Ortholog extends LazyLogging {
 
   /**
-    * @param geneToOrthMap
+    * @param geneToOrthMap  from gs://open-targets-data-releases/20.11/input/annotation-files/human_all_hcop_sixteen_column-2020-11-10.txt.gz
     * @param homologyDict   Ensembl dictionary of species: ftp://ftp.ensembl.org/pub/release-100/species_EnsemblVertebrates.txt
     * @param codingProteins Ensembl human genes coding protein ftp://ftp.ensembl.org/pub/release-100/tsv/ensembl-compara/homologies/homo_sapiens/Compara.100.protein_default.homologies.tsv.gz
     * @param ncRna          Ensembl non coding RNA ftp://ftp.ensembl.org/pub/release-100/tsv/ensembl-compara/homologies/homo_sapiens/Compara.100.ncrna_default.homologies.tsv.gz
@@ -40,8 +41,10 @@ object Ortholog extends LazyLogging {
           col("name").as("speciesName"),
           col("homology_type").as("homologyType"),
           col("homology_gene_stable_id").as("targetGeneId"),
+          col("identity").cast(DoubleType).as("queryPercentageIdentity"),
           col("homology_identity")
-            .as("targetPercentageIdentity") // todo: add query percentage identity
+            .cast(DoubleType)
+            .as("targetPercentageIdentity")
         )
     }
 
@@ -86,5 +89,5 @@ case class Ortholog(speciesId: String,
                     homologyType: String,
                     targetGeneId: String,
                     targetGeneSymbol: String,
-                    //                      queryPercentageIdentity: String,
-                    targetPercentageIdentity: String)
+                    queryPercentageIdentity: Double,
+                    targetPercentageIdentity: Double)
