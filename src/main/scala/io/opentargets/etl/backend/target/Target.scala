@@ -300,7 +300,7 @@ object Target extends LazyLogging {
 
     val merged = eDf
     // this removes non-reference ensembl genes introduced by HGNC.
-      .join(hgnc, eDf("id") === hgnc("ensemblId"))
+      .join(hgnc, eDf("id") === hgnc("ensemblId"), "left_outer")
       // if approvedName and approvedSymbol provided by HGNC use those, otherwise Ensembl.
       .withColumn("approvedName", coalesce(col("approvedName"), col("an"), typedLit("")))
       .withColumn("approvedSymbol", coalesce(col("approvedSymbol"), col("as"), typedLit("")))
