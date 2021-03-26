@@ -339,6 +339,10 @@ to the data. Options for parsing the inputs should not need to be updated.
         - [RNAcentral to Ensembl mapping files](ftp://ftp.ebi.ac.uk/pub/databases/RNAcentral/current_release/id_mapping/database_mappings/ensembl.tsv)
 
 5. Tep
+
+4. NCBI
+    - Used for synonyms, data available
+      from: `ftp://ftp.ncbi.nlm.nih.gov/gene/DATA/GENE_INFO/Mammalia/Homo_sapiens. gene_info.gz`
 6. Human Protein Atlas
 
     - Used for subcellular locations. Data available

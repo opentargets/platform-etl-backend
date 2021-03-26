@@ -42,11 +42,12 @@ object Target extends LazyLogging {
 
   def compute(context: ETLSessionContext)(implicit ss: SparkSession): DataFrame = {
 
-    // get input data frames
+    // 1. get input data frames
     val inputDataFrames = getMappedInputs(context.configuration.target)
 
-    // prepare intermediate dataframes per source
+    // 2. prepare intermediate dataframes per source
     val hgnc: Dataset[Hgnc] = Hgnc(inputDataFrames("hgnc").data)
+    val ncbi: Dataset[Ncbi] = Ncbi(inputDataFrames("ncbi").data)
     val ensemblDf: Dataset[Ensembl] = Ensembl(inputDataFrames("ensembl").data)
     val uniprotDS: Dataset[Uniprot] = Uniprot(inputDataFrames("uniprot").data)
     val geneOntologyDf: Dataset[GeneOntologyByEnsembl] = GeneOntology(
@@ -73,25 +74,7 @@ object Target extends LazyLogging {
     val tractability: Dataset[TractabilityWithId] = Tractability(
       inputDataFrames("tractability").data)
 
-    /** Returns mapping of Ensembl gene id to current and former uniprot accessions
-      *
-      * Columns: [ensemblId, uniprotId]
-      *
-      * The returned dataset is cached as it is used multiple times.
-      * */
-    def createEnsemblToUniprotLookup(dataFrame: DataFrame): DataFrame = {
-      import ss.implicits._
-      validateDF(Set("id", "approvedSymbol", "proteinIds"), dataFrame)
-      dataFrame
-        .select(col("id"), array("approvedSymbol").as("as"), col("proteinIds.id").as("pid"))
-        .select(col("id"), safeArrayUnion(col("as"), col("pid")).as("uniprot"))
-        .select(col("id").as("ensemblId"), explode(col("uniprot")).as("uniprotId"))
-    }
-
-    // We need to frequently map between Ensembl gene id and uniprot accessions.
-    lazy val ensemblToUniprotLookup = createEnsemblToUniprotLookup _
-
-    // merge intermediate data frames into final
+    // 3. merge intermediate data frames into final
     val hgncEnsemblTepGoDF = mergeHgncAndEnsembl(hgnc, ensemblDf)
       .join(tep, ensemblDf("id") === tep("ensemblId"), "left_outer")
       .drop("ensemblId")
@@ -120,6 +103,7 @@ object Target extends LazyLogging {
       .transform(removeRedundantXrefs)
       .transform(addOrthologue(homology))
       .transform(addTractability(tractability))
+      .transform(addNcbiEntrezSynonyms(ncbi))
 
   }
 
@@ -167,6 +151,14 @@ object Target extends LazyLogging {
     dataFrame
       .join(tractability, col("ensemblGeneId") === col("id"), "left_outer")
       .drop("ensemblGeneId")
+  }
+
+  private def addNcbiEntrezSynonyms(ncbi: Dataset[Ncbi])(dataFrame: DataFrame): DataFrame = {
+    logger.info("Adding ncbi entrez synonyms to dataframe")
+    dataFrame
+      .join(ncbi.withColumnRenamed("synonyms", "s"), Seq("id"), "left_outer")
+      .withColumn("synonyms", safeArrayUnion(col("synonyms"), col("s")))
+      .drop("s")
   }
 
   /** Return map on input IOResources */
@@ -232,6 +224,13 @@ object Target extends LazyLogging {
         targetInputs.hpa.format,
         targetInputs.hpa.path,
         options = targetInputs.hpa.options
+      ),
+      "ncbi" -> IOResourceConfig(
+        targetInputs.ncbi.format,
+        targetInputs.ncbi.path,
+        options =
+          if (targetInputs.ncbi.options.isDefined) targetInputs.ncbi.options
+          else CsvHelpers.tsvWithHeader
       ),
       "orthologs" -> IOResourceConfig(
         targetInputs.ortholog.format,
