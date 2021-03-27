@@ -27,6 +27,7 @@ lazy val root = (project in file("."))
     libraryDependencies ++= cats,
     libraryDependencies ++= monocle,
     libraryDependencies ++= smile,
+    libraryDependencies ++= johnS,
     testFrameworks += new TestFramework("minitest.runner.Framework"),
     assemblyMergeStrategy in assembly := {
       case PathList("META-INF", "services", "org.apache.hadoop.fs.FileSystem") =>

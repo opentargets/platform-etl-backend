@@ -15,6 +15,8 @@ import $ivy.`com.github.pathikrit::better-files:3.8.0`
 import $ivy.`com.typesafe.play::play-json:2.9.1`
 import $ivy.`com.github.haifengl:smile-mkl:2.6.0`
 import $ivy.`com.github.haifengl::smile-scala:2.6.0`
+import $ivy.`com.johnsnowlabs.nlp:spark-nlp_2.12:3.0.0`
+
 import org.apache.spark.broadcast._
 import org.apache.spark.ml.feature._
 import org.apache.spark.SparkConf
@@ -29,6 +31,9 @@ import org.apache.spark.ml.functions._
 import smile.math._
 import smile.math.matrix.{matrix => m}
 import smile.nlp._
+
+import com.johnsnowlabs.nlp.pretrained.PretrainedPipeline
+import com.johnsnowlabs.nlp.SparkNLP
 
 object SparkSessionWrapper extends LazyLogging {
   logger.info("Spark Session init")
@@ -77,7 +82,7 @@ object ETL extends LazyLogging {
 
     val minS = MathEx.colMin(SS.toArray)
     val maxS = MathEx.colMax(SS.toArray)
-    minS.sum / maxS.sum
+    MathEx.round(minS.sum / maxS.sum, 2)
   }
 
   val applyModelWithPOSFn = (BU: Broadcast[Map[String, Seq[Double]]],
@@ -119,15 +124,16 @@ object ETL extends LazyLogging {
 
     val minS = MathEx.colMin(SS.toArray)
     val maxS = MathEx.colMax(SS.toArray)
-    minS.sum / maxS.sum
+    MathEx.round(minS.sum / maxS.sum, 2)
   }
 
   val nlpWithPOSFn = (c: Column) => udf((sentence: Option[String]) => {
     val dis = lancaster("disease")
-    val words = sentence.map(s => s.normalize.words()).getOrElse(Array.empty)
+    val words = sentence.map(s => s.normalize.words("comprehensive")).getOrElse(Array.empty)
     val w = words.zip(postag(words).map(_.name()))
 
-    w.map {
+    w.withFilter(_._1.nonEmpty)
+      .map {
       case (word, p) => (lancaster(word).toLowerCase, p)
     }.distinct
       .filter(t => t._1.nonEmpty && t._1 != dis)
@@ -136,8 +142,11 @@ object ETL extends LazyLogging {
 
   val nlpFn = (c: Column) => udf((sentence: Option[String]) => {
     val dis = lancaster("disease")
-    sentence.map(s => s.normalize.words()
-      .map(w => lancaster(w).toLowerCase)
+    sentence.map(s => s.normalize.words("comprehensive")
+      .withFilter(_.nonEmpty)
+      .map(w => {
+        lancaster(w).toLowerCase
+      })
       .distinct
       .filter(t => t.nonEmpty && t != dis)
       .sorted
@@ -177,6 +186,13 @@ object ETL extends LazyLogging {
       .selectExpr("llt_code as meddraId", "llt_name as meddraName")
   }
 
+  def loadMeddraHighLevelTerms(path: String)(implicit sparkSession: SparkSession): DataFrame = {
+    logger.info(s"Loading Meddra low level terms from $path")
+    val lltCols = Seq("hlt_code", "hlt_name")
+    loadMeddraDf(path + "/MedAscii/hlt.asc", lltCols)
+      .selectExpr("hlt_code as meddraId", "hlt_name as meddraName")
+  }
+
   def apply(cosineCutoff: Double, scoreCutoff: Double, prefix: String, meddra: String, output: String) = {
     import SparkSessionWrapper._
     import spark.implicits._
@@ -188,6 +204,7 @@ object ETL extends LazyLogging {
 //    val hp = spark.read.parquet(s"${prefix}/hpo")
     val meddraPT = loadMeddraPreferredTerms(meddra)
     val meddraLT = loadMeddraLowLevelTerms(meddra)
+    val meddraHT = loadMeddraHighLevelTerms(meddra)
 
     val D = diseases
       .selectExpr("id", "name as efoName", "synonyms.*")
@@ -202,7 +219,7 @@ object ETL extends LazyLogging {
       .selectExpr("terms")
 
     val MDTerms = meddraPT
-      .unionByName(meddraLT)
+      .unionByName(meddraLT).unionByName(meddraHT)
       .select($"meddraName")
       .distinct()
       .withColumn("terms", normaliseFn($"meddraName"))
@@ -250,12 +267,25 @@ object ETL extends LazyLogging {
       .persist()
 
     val diseaseLabels = diseases
-      .selectExpr("id as efoId", "name as efoName")
+      .selectExpr("id as efoId", "name", "synonyms.*")
+      .withColumn("broadSynonyms", expr("coalesce(hasBroadSynonym, array())"))
+      .withColumn("exactSynonyms", expr("coalesce(hasExactSynonym, array())"))
+      .withColumn("relatedSynonyms", expr("coalesce(hasRelatedSynonym, array())"))
+      .withColumn("synonym", explode(flatten(array(array($"name"), $"broadSynonyms", $"exactSynonyms", $"relatedSynonyms"))))
+      .filter($"synonym".isNotNull and length($"synonym") > 0)
+      .drop("name")
+      .withColumnRenamed("synonym", "efoName")
       .withColumn("efoTerms", normaliseFn($"efoName"))
       .withColumn("efoTermsPOS", normaliseWithPOSFn($"efoName"))
       .filter($"efoTerms".isNotNull and size($"efoTerms") > 0)
       .orderBy($"efoTerms".asc)
       .persist()
+
+    val pipeline = new PretrainedPipeline("explain_document_dl", lang = "en")
+    val annotations = pipeline
+      .transform(diseaseLabels.withColumnRenamed("efoName", "text"))
+
+    annotations.write.json(s"${output}/DiseaseLabelsAnnotated")
 
     meddraLabels.write.json(s"${output}/MeddraLabels")
     diseaseLabels.write.json(s"${output}/DiseaseLabels")
@@ -274,13 +304,13 @@ object ETL extends LazyLogging {
       "meddraIds",
       "efoId",
       "efoName",
-      "score",
-      "scorePOS",
-      "meddraTerms",
+      "scorePOS as score",
+//      "meddraTerms",
       "meddraTermsPOS",
-      "efoTerms",
+//      "efoTerms",
       "efoTermsPOS",
       "intersectSize",
+      "unionSize",
       "meddraTermsSize",
       "efoTermsSize"
     )
@@ -292,19 +322,17 @@ object ETL extends LazyLogging {
       .withColumn("efoTermsSize", size($"efoTerms"))
       .withColumn("intersectSize", size(array_intersect($"meddraTerms", $"efoTerms")))
       .withColumn("unionSize", size(array_union($"meddraTerms", $"efoTerms")))
-      .filter($"intersectSize" >= functions.round($"unionSize" * 1/2) and
-          $"efoTermsSize" <= $"meddraTermsSize"
-      )
-      .withColumn("score", dynaMaxFn($"meddraTerms", $"efoTerms", lit(cosineCutoff)))
+    // (.intersectSize >= 2 and  .meddraTermsSize > 2)
+      .filter($"intersectSize" >= 2 and $"meddraTermsSize" > 2 and $"intersectSize" >= functions.floor($"unionSize" * 1/2))
+//      .withColumn("scoreNoPOS", dynaMaxFn($"meddraTerms", $"efoTerms", lit(cosineCutoff)))
       .withColumn("scorePOS", dynaMaxPOSFn($"meddraTermsPOS", $"efoTermsPOS", lit(cosineCutoff)))
       .filter($"scorePOS" > scoreCutoff + MathEx.EPSILON)
       .withColumn("rank", row_number().over(w))
       .filter($"rank" === 1)
-      .selectExpr(colNames:_*)
-      .persist(StorageLevel.DISK_ONLY)
-      .filter(($"unionSize" === 2 and $"intersectSize" === 0 and $"scorePOS" >= 0.75) or
-        ($"unionSize" > 1 and $"intersectSize" > 0 and $"scorePOS" > scoreCutoff + MathEx.EPSILON))
       .orderBy($"meddraName".asc, $"intersectSize".desc, $"scorePOS".desc)
+      .selectExpr(colNames:_*)
+//      .filter(($"unionSize" === 2 and $"intersectSize" === 0 and $"scorePOS" >= 0.75) or
+//        ($"unionSize" > 1 and $"intersectSize" > 0 and $"scorePOS" > scoreCutoff + MathEx.EPSILON))
 
     simLabels.write.json(s"${output}/crossJoin")
   }
