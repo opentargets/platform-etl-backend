@@ -431,15 +431,13 @@ object Evidence extends LazyLogging {
         .repartition($"rId")
     )
 
-    val tmpColName = "_tempColName"
-    val tmpCol = if (df.columns.contains(toId)) coalesce(col(toId), col(fromId)) else col(fromId)
+    val fromIdC = col(fromId)
 
     val resolved = df
-      .withColumn(tmpColName, tmpCol)
-      .join(lut, col(tmpColName) === col("rId"), "left_outer")
+      .join(lut, fromIdC === col("rId"), "left_outer")
       .withColumn(columnName, col("dId").isNotNull)
-      .withColumn(toId, coalesce(col("dId"), col(tmpColName)))
-      .drop("dId", "rId", tmpColName)
+      .withColumn(toId, coalesce(col("dId"), fromIdC))
+      .drop("dId", "rId")
 
     resolved
   }
@@ -461,15 +459,13 @@ object Evidence extends LazyLogging {
         .repartition($"dId")
     )
 
-    val tmpColName = "_tempColName"
-    val tmpCol = if (df.columns.contains(toId)) coalesce(col(toId), col(fromId)) else col(fromId)
+    val fromIdC = col(fromId)
 
     val resolved = df
-      .withColumn(tmpColName, tmpCol)
-      .join(lut, col(tmpColName) === col("dId"), "left_outer")
+      .join(lut, fromIdC === col("dId"), "left_outer")
       .withColumn(columnName, col("dId").isNotNull)
-      .withColumn(toId, coalesce(col("dId"), col(tmpColName)))
-      .drop("dId", tmpColName)
+      .withColumn(toId, coalesce(col("dId"), fromIdC))
+      .drop("dId")
 
     resolved
   }
@@ -600,7 +596,7 @@ object Evidence extends LazyLogging {
     val targetId = "targetId"
     val diseaseId = "diseaseId"
     val fromTargetId = "targetFromSourceId"
-    val fromDiseaseId = "diseaseFromSourceId"
+    val fromDiseaseId = "diseaseFromSourceMappedId"
     val datasourceId = "datasourceId"
     val biotypeId = "biotype"
 
@@ -616,7 +612,7 @@ object Evidence extends LazyLogging {
     )
 
     val transformedDF = dfs("rawEvidences").data
-      .transform(reshape)
+//      .transform(reshape)
       .transform(resolveTargets(_, dfs("targets").data, rt, fromTargetId, targetId))
       .transform(resolveDiseases(_, dfs("diseases").data, rd, fromDiseaseId, diseaseId))
       .transform(excludeByBiotype(_, dfs("targets").data, xb, targetId, datasourceId))
