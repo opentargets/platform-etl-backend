@@ -17,7 +17,7 @@ import $ivy.`com.github.haifengl:smile-mkl:2.6.0`
 import $ivy.`com.github.haifengl::smile-scala:2.6.0`
 import $ivy.`com.johnsnowlabs.nlp:spark-nlp_2.12:3.0.0`
 import org.apache.spark.broadcast._
-import org.apache.spark.ml.feature._
+import org.apache.spark.ml.feature.{Word2Vec, Word2VecModel}
 import org.apache.spark.SparkConf
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.functions.col
@@ -30,8 +30,9 @@ import org.apache.spark.ml.functions._
 import org.apache.spark.ml.Pipeline
 import smile.math._
 import smile.math.matrix.{matrix => m}
-import com.johnsnowlabs.nlp.pretrained.PretrainedPipeline
-import com.johnsnowlabs.nlp.{Finisher, LightPipeline, RecursivePipeline}
+import com.johnsnowlabs.nlp.annotator._
+import com.johnsnowlabs.nlp.pretrained._
+import com.johnsnowlabs.nlp.{DocumentAssembler, Finisher, SparkNLP}
 
 object SparkSessionWrapper extends LazyLogging {
   logger.info("Spark Session init")
@@ -86,13 +87,13 @@ object ETL extends LazyLogging {
   val applyModelWithPOSFn = (BU: Broadcast[Map[String, Seq[Double]]],
                              sentence1: Seq[(String, String)],
                              sentence2: Seq[(String, String)], cutoff: Double) => {
-    val words = (sentence1 ++ sentence2).distinct
+    val words = sentence1 ++ sentence2
     val U = BU.value
     val W = m(Array(words.map(w => U(w._1).toArray):_*))
-    val S1 = m(Array(sentence1.sorted.map(w => U(w._1).toArray):_*))
-    val S2 = m(Array(sentence2.sorted.map(w => U(w._1).toArray):_*))
-    val S1w = sentence1.sorted.map(_._2)
-    val S2w = sentence2.sorted.map(_._2)
+    val S1 = m(Array(sentence1.map(w => U(w._1).toArray):_*))
+    val S2 = m(Array(sentence2.map(w => U(w._1).toArray):_*))
+    val S1w = sentence1.map(_._2)
+    val S2w = sentence2.map(_._2)
     val Ww = words.map(_._2)
 
     val SS1 = zeros(S1.nrows, W.nrows)
@@ -120,29 +121,108 @@ object ETL extends LazyLogging {
     val mpS2 = MathEx.colMax(SS2.replaceNaN(0D).toArray)
     val SS = m(mpS1, mpS2)
 
-    val minS = MathEx.colMin(SS.toArray)
-    val maxS = MathEx.colMax(SS.toArray)
-    MathEx.round(minS.sum / maxS.sum, 2)
+    val minS = MathEx.colMin(SS.toArray).sum
+    val maxS = MathEx.colMax(SS.toArray).sum
+
+    if (maxS == 0d) 0d else MathEx.round(minS / maxS, 2)
   }
 
-  private def normaliseSentence(df: DataFrame, pipeline: PretrainedPipeline, columnNamePrefix: String): DataFrame = {
-    val cols = List("stems", "pos")
+  val columnsToInclude = List(
+    "document",
+//    "token",
+//    "norm",
+//    "clean",
+    "stem",
+//    "lemm",
+    "pos"
+  )
 
-    // TODO get the best model for normalisation and pipe them
-    val finisher = new Finisher(columnNamePrefix)
-      .setInputCols(cols:_*)
+  private def generatePipeline(fromCol: String, columns: List[String]): Pipeline = {
+    val documentAssembler = new DocumentAssembler()
+      .setInputCol(fromCol)
+      .setOutputCol("document")
 
-    val pl = new Pipeline().
-      setStages(Array(
-        pipeline.model,
-        finisher
-      ))
+    val tokenizer = new Tokenizer()
+      .setInputCols("document")
+      .setOutputCol("token")
 
-    val annotations = pl
+    val normaliser = new Normalizer()
+      .setInputCols("token")
+      .setOutputCol("norm")
+      .setLowercase(true)
+      .setCleanupPatterns(Array("[^\\w\\d\\s]"))
+
+//    val fullTokensCleaner = new StopWordsCleaner()
+//      .setInputCols("norm")
+//      .setOutputCol("_clean")
+//      .setStopWords(Array("disease", "disorder"))
+//      .setCaseSensitive(false)
+
+    val cleaner = StopWordsCleaner.pretrained()
+      .setCaseSensitive(false)
+      .setInputCols("norm")
+      .setOutputCol("clean")
+
+    val stemmer = new Stemmer()
+      .setInputCols("clean")
+      .setOutputCol("stem")
+
+    val lemmatizer = LemmatizerModel.pretrained()
+      .setInputCols("clean")
+      .setOutputCol("lemm")
+
+    val posTagger = PerceptronModel.pretrained("pos_ud_ewt", "en")
+      .setInputCols("document", "lemm")
+      .setOutputCol("pos")
+
+//    val sentenceEmbeddings = UniversalSentenceEncoder.pretrained("tfhub_use", "en")
+//      .setInputCols("document")
+//      .setOutputCol("sentence_embedding")
+//
+//    val sentimentDetector = SentimentDLModel.pretrained("sentimentdl_use_imdb", "en")
+//      .setInputCols("sentence_embedding")
+//      .setOutputCol("sentiment")
+//
+//    val embeddings = BertEmbeddings.pretrained(name="bert_base_cased", "en")
+//      .setInputCols("document", "clean")
+//      .setOutputCol("embeddings")
+//
+//    val ner = NerDLModel.pretrained("ner_dl_bert", "en")
+//      .setInputCols(Array("document", "clean", "embeddings"))
+//      .setOutputCol("ner")
+
+    val finisher = new Finisher()
+      .setInputCols(columns:_*)
+
+    val pipeline = new Pipeline()
+      .setStages(
+        Array(
+          documentAssembler,
+          tokenizer,
+          normaliser,
+//          fullTokensCleaner,
+          cleaner,
+          stemmer,
+          lemmatizer,
+          posTagger,
+//          embeddings,
+//          sentenceEmbeddings,
+//          sentimentDetector,
+//          ner,
+          finisher
+        )
+      )
+
+    pipeline
+  }
+
+  private def normaliseSentence(df: DataFrame, pipeline: Pipeline, columnNamePrefix: String,
+                                columns: List[String]): DataFrame = {
+    val annotations = pipeline
       .fit(df)
       .transform(df)
 
-    val transCols = cols.map( c => {
+    val transCols = columns.map( c => {
       s"finished_$c" -> s"${columnNamePrefix}_$c"
     })
 
@@ -189,7 +269,7 @@ object ETL extends LazyLogging {
       .selectExpr("hlt_code as meddraId", "hlt_name as meddraName")
   }
 
-  def apply(cosineCutoff: Double, scoreCutoff: Double, prefix: String, meddra: String, output: String) = {
+  def apply(cosineCutoff: Double, scoreCutoff: Double, prefix: String, meddra: String, matches: String, output: String) = {
     import SparkSessionWrapper._
     import spark.implicits._
     implicit val ss: SparkSession = spark
@@ -200,16 +280,15 @@ object ETL extends LazyLogging {
     val meddraLT = loadMeddraLowLevelTerms(meddra)
     val meddraHT = loadMeddraHighLevelTerms(meddra)
 
-    // val pipeline = new PretrainedPipeline("explain_document_dl", lang = "en")
-
-    val pipeline = new PretrainedPipeline("explain_document_ml", lang = "en")
+    val pipeline = generatePipeline("text", columnsToInclude)
 
     val D = diseases
       .selectExpr("id", "name as efoName", "synonyms.*")
       .withColumn("broadSynonyms", expr("coalesce(hasBroadSynonym, array())"))
       .withColumn("exactSynonyms", expr("coalesce(hasExactSynonym, array())"))
       .withColumn("relatedSynonyms", expr("coalesce(hasRelatedSynonym, array())"))
-      .withColumn("text", explode(flatten(array(array($"efoName"), $"broadSynonyms", $"exactSynonyms", $"relatedSynonyms"))))
+      .withColumn("text",
+        explode(flatten(array(array($"efoName"), $"broadSynonyms", $"exactSynonyms", $"relatedSynonyms"))))
       .filter($"text".isNotNull and length($"text") > 0)
 
     val M = meddraPT
@@ -218,29 +297,35 @@ object ETL extends LazyLogging {
       .agg(collect_set($"meddraId").as("meddraIds"))
       .withColumn("text", $"meddraName")
 
-    val DN = D.transform(normaliseSentence(_, pipeline, "efoTerms"))
-      .withColumnRenamed("text", "efoTerms")
-      .withColumn("efoKey", concat(array_sort(arrays_zip($"efoTerms_stems", $"efoTerms_pos"))))
+    val DN = D.transform(normaliseSentence(_, pipeline, "efoTerms", columnsToInclude))
+      .drop("text")
+      .withColumn("efoKey", array_sort(array_distinct($"efoTerms_stem")))
+      .filter($"efoKey".isNotNull and size($"efoKey") > 0)
       .orderBy($"efoKey".asc)
       .persist(StorageLevel.DISK_ONLY)
 
-    val MN = M.transform(normaliseSentence(_, pipeline, "meddraTerms"))
-      .withColumnRenamed("text", "meddraTerms")
-      .withColumn("meddraKey", concat(array_sort(arrays_zip($"meddraTerms_stems", $"meddraTerms_pos"))))
+    val MN = M.transform(normaliseSentence(_, pipeline, "meddraTerms", columnsToInclude))
+      .drop("text")
+      .withColumn("meddraKey", array_sort(array_distinct($"meddraTerms_stem")))
+      .filter($"meddraKey".isNotNull and size($"meddraKey") > 0)
       .orderBy($"meddraKey".asc)
       .persist(StorageLevel.DISK_ONLY)
 
     DN.write.json(s"${output}/DiseaseLabels")
     MN.write.json(s"${output}/MeddraLabels")
 
-    val terms = DN.selectExpr("efoTermsN as terms")
-      .unionByName(MN.selectExpr("meddraTermsN as terms")).persist()
+//    val terms = DN.selectExpr("efoKey as terms")
+//      .unionByName(MN.selectExpr("meddraKey as terms")).persist()
+
+    val terms = DN.selectExpr("efoKey as terms").persist()
+
+    // use matches to build the w2v model
 
     val w2v = new Word2Vec()
       .setWindowSize(5)
       .setVectorSize(100)
       .setNumPartitions(16)
-      .setMaxIter(1)
+      .setMaxIter(3)
       .setMinCount(0)
       .setStepSize(0.025)
       .setInputCol("terms")
@@ -259,6 +344,7 @@ object ETL extends LazyLogging {
       .withColumn("vector", vector_to_array($"vector"))
       .collect()
       .map(r => r.getAs[String]("word") -> r.getSeq[Double](1)).toMap
+      .withDefaultValue(Seq.fill(100)(0d))
     val BU = spark.sparkContext.broadcast(U)
     val dynaMaxPOSFn = udf(applyModelWithPOSFn(BU, _, _, _))
 
@@ -272,20 +358,22 @@ object ETL extends LazyLogging {
     val scoreCN = "score"
     val scoreC = col(scoreCN)
 
-    val w = Window.partitionBy($"meddraKey").orderBy($"intersectSize".desc, scoreC.desc)
+    val w = Window.partitionBy($"meddraKey").orderBy(scoreC.desc, $"intersectSize".desc)
     val simLabels = MN
       .join(eqLabels.select("meddraKey"), Seq("meddraKey"), "left_anti")
       .crossJoin(DN)
-      .withColumn("meddraTermsSize", size($"meddraTermsN"))
-      .withColumn("efoTermsSize", size($"efoTermsN"))
-      .withColumn("intersectSize", size(array_intersect($"meddraTermsN", $"efoTermsN")))
-      .withColumn("unionSize", size(array_union($"meddraTermsN", $"efoTermsN")))
-      .filter($"intersectSize" >= 2 and $"meddraTermsSize" > 2 and $"intersectSize" >= functions.floor($"unionSize" * 1/2))
-      .withColumn(scoreCN, dynaMaxPOSFn($"meddraTermsNPOS", $"efoTermsNPOS", lit(cosineCutoff)))
+      .withColumn("meddraTermsSize", size($"meddraKey"))
+      .withColumn("efoTermsSize", size($"efoKey"))
+      .withColumn("intersectSize", size(array_intersect($"meddraKey", $"efoKey")))
+      .withColumn("unionSize", size(array_union($"meddraKey", $"efoKey")))
+      .withColumn("meddraT", array_sort(arrays_zip($"meddraTerms_stem", $"meddraTerms_pos")))
+      .withColumn("efoT", array_sort(arrays_zip($"efoTerms_stem", $"efoTerms_pos")))
+      .filter($"intersectSize" >= 2 and $"meddraTermsSize" >= 2 and $"intersectSize" >= functions.floor($"unionSize" * 1/2))
+      .withColumn(scoreCN, dynaMaxPOSFn($"meddraT", $"efoT", lit(cosineCutoff)))
       .filter(scoreC > scoreCutoff + MathEx.EPSILON)
       .withColumn("rank", row_number().over(w))
-      .filter($"rank" === 1)
-      .orderBy($"meddraName".asc, $"intersectSize".desc, scoreC.desc)
+      .filter($"rank" <= 2)
+      .orderBy($"meddraName".asc, $"rank".asc)
 //      .filter(($"unionSize" === 2 and $"intersectSize" === 0 and $"scorePOS" >= 0.75) or
 //        ($"unionSize" > 1 and $"intersectSize" > 0 and $"scorePOS" > scoreCutoff + MathEx.EPSILON))
 
@@ -294,5 +382,10 @@ object ETL extends LazyLogging {
 }
 
 @main
-def main(cosineCutoff: Double = 0.5, scoreCutoff: Double = 0.501, prefix: String, meddra: String, output: String): Unit =
-  ETL(cosineCutoff, scoreCutoff, prefix, meddra, output)
+def main(cosineCutoff: Double = 0.5,
+         scoreCutoff: Double = 0.501,
+         prefix: String,
+         meddra: String,
+         matches: String,
+         output: String): Unit =
+  ETL(cosineCutoff, scoreCutoff, prefix, meddra, matches, output)
