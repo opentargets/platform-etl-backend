@@ -372,8 +372,8 @@ object ETL extends LazyLogging {
       .withColumn(scoreCN, dynaMaxPOSFn($"meddraT", $"efoT", lit(cosineCutoff)))
       .filter(scoreC > scoreCutoff + MathEx.EPSILON)
       .withColumn("rank", row_number().over(w))
-      .filter($"rank" <= 2)
-      .orderBy($"meddraName".asc, $"rank".asc)
+      .filter($"rank" === 1)
+      .orderBy($"meddraName".asc, $"score".desc)
 //      .filter(($"unionSize" === 2 and $"intersectSize" === 0 and $"scorePOS" >= 0.75) or
 //        ($"unionSize" > 1 and $"intersectSize" > 0 and $"scorePOS" > scoreCutoff + MathEx.EPSILON))
 
