@@ -70,6 +70,17 @@ object Evidence extends LazyLogging {
   val flattenCAndSetN = H.trans(_, _, identity)
   val flattenCAndSetC = H.trans(_, normAndCCase, _)
 
+  def prepare(df: DataFrame)(implicit ss: SparkSession): DataFrame = {
+    import ss.implicits._
+
+    ss.sqlContext.udf.register("linear_rescale", UDFs.linearRescaling _)
+    ss.sqlContext.udf.register("pvalue_linear_score", UDFs.pValueLinearRescaling _)
+    ss.sqlContext.udf
+      .register("pvalue_linear_score_default", UDFs.pValueLinearRescaling(_, 1, 1e-10, 0, 1))
+
+    df.withColumn("sourceId", $"datasourceId")
+  }
+
   def reshape(df: DataFrame)(implicit ss: SparkSession): DataFrame = {
     import ss.implicits._
 
@@ -613,6 +624,7 @@ object Evidence extends LazyLogging {
 
     val transformedDF = dfs("rawEvidences").data
 //      .transform(reshape)
+      .transform(prepare)
       .transform(resolveTargets(_, dfs("targets").data, rt, fromTargetId, targetId))
       .transform(resolveDiseases(_, dfs("diseases").data, rd, fromDiseaseId, diseaseId))
       .transform(excludeByBiotype(_, dfs("targets").data, xb, targetId, datasourceId))
