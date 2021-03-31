@@ -35,7 +35,7 @@ object Ensembl extends LazyLogging {
         col("seq_region_name").isin(includeChromosomes: _*) || col("Uniprot/SWISSPROT").isNotNull)
       .select(
         trim(col("id")).as("id"),
-        col("biotype"),
+        regexp_replace(col("biotype"), "(?i)tec", "").as("biotype"),
         col("description"),
         col("end").cast(LongType),
         col("start").cast(LongType),
@@ -175,6 +175,7 @@ object Ensembl extends LazyLogging {
     dataFrame
       .withColumn(d, split(col(d), "\\[")) // remove redundant source information.
       .withColumn("approvedName", element_at(col(d), 1))
+      .withColumn("approvedName", regexp_replace(col("approvedName"), "(?i)tec", ""))
       .drop(d)
   }
 

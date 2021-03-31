@@ -308,12 +308,13 @@ release 20.XX consult commits preceeding XXXXXX.
 
 #### Inputs
 
-Inputs to the ETL are prepared by Platform Input Support (PIS). PIS does some minimal preprocessing, so it is 
-possible to manually retrieve them and run the step locally so if you would like to run this step locally, retrieve 
-the necessary inputs from one of the Open Targets public input buckets. eg. `gs://ot-snapshots/...`
+Inputs to the ETL are prepared by Platform Input Support (PIS). PIS does some minimal preprocessing, but it is possible
+to manually retrieve them and run the step locally. If you would like to run this step locally, retrieve the necessary
+inputs from one of the Open Targets public input buckets. eg. `gs://ot-snapshots/...` rather than downloading the files
+directly from the sources listed here which are included _for reference_.
 
-Consult the `reference.conf` file to see how to configure the inputs, most of these require only changing the paths 
-to the data. Options for parsing the inputs should not need to be updated. 
+Consult the `reference.conf` file to see how to configure the inputs, most of these require only changing the paths to
+the data. Options for parsing the inputs should not need to be updated.
 
 1. HGNC
    - `https://storage.googleapis.com/open-targets-data-releases/21.02/input/annotation-files/hgnc_complete_set-2021-02-09.json`
@@ -339,6 +340,7 @@ to the data. Options for parsing the inputs should not need to be updated.
         - [RNAcentral to Ensembl mapping files](ftp://ftp.ebi.ac.uk/pub/databases/RNAcentral/current_release/id_mapping/database_mappings/ensembl.tsv)
 
 5. Tep
+    - Uses files downloaded for `tep` key in PIS's `config.yaml`.
 
 4. NCBI
     - Used for synonyms, data available
@@ -356,14 +358,11 @@ to the data. Options for parsing the inputs should not need to be updated.
     - The file is in `bgz` format, this can be converted to csv with `gunzip -c input > output.csv`.
 10. Homologs
     - Update the release number as required:
-        - ftp://ftp.ensembl.org/pub/release-100/tsv/ensembl-compara/homologies/homo_sapiens/Compara.100.protein_default.
-          homologies.tsv.gz
-        - ftp://ftp.ensembl.org/pub/release-100/tsv/ensembl-compara/homologies/homo_sapiens/Compara.100.ncrna_default.
-          homologies.tsv.gz
+        - ftp://ftp.ensembl.org/pub/release-100/tsv/ensembl-compara/homologies/homo_sapiens/Compara.100.protein_default.homologies.tsv.gz
+        - ftp://ftp.ensembl.org/pub/release-100/tsv/ensembl-compara/homologies/homo_sapiens/Compara.100.ncrna_default.homologies.tsv.gz
         - ftp://ftp.ensembl.org/pub/release-100/species_EnsemblVertebrates.txt
-    - File from PIS
-        - https://storage.googleapis.com/open-targets-data-releases/20.
-          06/input/annotation-files/human_all_hcop_sixteen_column-2020-06-01.txt.gz
+    - File from PIS (outputs to `annotation-files`)
+        - https://storage.googleapis.com/open-targets-data-releases/20.06/input/annotation-files/human_all_hcop_sixteen_column-2020-06-01.txt.gz
 
 ## Development environment notes
 
