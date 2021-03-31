@@ -368,11 +368,12 @@ object ETL extends LazyLogging {
       .withColumn("unionSize", size(array_union($"meddraKey", $"efoKey")))
       .withColumn("meddraT", array_sort(arrays_zip($"meddraTerms_stem", $"meddraTerms_pos")))
       .withColumn("efoT", array_sort(arrays_zip($"efoTerms_stem", $"efoTerms_pos")))
-      .filter($"intersectSize" >= 2 and $"meddraTermsSize" >= 2 and $"intersectSize" >= functions.floor($"unionSize" * 1/2))
+      .filter($"intersectSize" >= 2 and $"meddraTermsSize" > 2 and $"intersectSize" >= functions.floor($"unionSize" * 1/2))
       .withColumn(scoreCN, dynaMaxPOSFn($"meddraT", $"efoT", lit(cosineCutoff)))
       .filter(scoreC > scoreCutoff + MathEx.EPSILON)
       .withColumn("rank", row_number().over(w))
       .filter($"rank" === 1)
+      .drop("rank")
       .orderBy($"meddraName".asc, $"score".desc)
 //      .filter(($"unionSize" === 2 and $"intersectSize" === 0 and $"scorePOS" >= 0.75) or
 //        ($"unionSize" > 1 and $"intersectSize" > 0 and $"scorePOS" > scoreCutoff + MathEx.EPSILON))
