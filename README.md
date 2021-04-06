@@ -161,7 +161,7 @@ List of [dataproc releases]([https://cloud.google.com/dataproc/docs/concepts/ver
 ```sh
 gcloud beta dataproc clusters create \
     etl-cluster \
-    --image-version=preview \
+    --image-version=2.0-debian10 \
     --properties=yarn:yarn.nodemanager.vmem-check-enabled=false,spark:spark.debug.maxToStringFields=1024,spark:spark.master=yarn \
     --master-machine-type=n1-highmem-16 \
     --master-boot-disk-size=500 \

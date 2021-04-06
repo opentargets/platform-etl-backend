@@ -184,6 +184,7 @@ object InteractionsHelpers extends LazyLogging {
           "intB_source",
           "speciesB",
           "intBBiologicalRole",
+          "source_info.source_database as sourceDatabase",
           "source_info as interactionResources",
           "interaction.evidence as evidencesList",
           "interactionScore"
@@ -219,8 +220,7 @@ object InteractionsHelpers extends LazyLogging {
 
       // For intact resource (intact,reactomea and signor) swap (A, B) and add to the dataframe
       val reverseInteractions = interactionMapped
-        .filter(
-          col("interactionResources.source_database").isin(List("reactome", "intact", "signor")))
+        .filter(col("sourceDatabase").isin(List("reactome", "intact", "signor"): _*))
         .select(interactionMapped.columns.map(c => col(c).as(lookup.getOrElse(c, c))): _*)
 
       val fullInteractions = interactionMapped.unionByName(reverseInteractions)
@@ -229,7 +229,7 @@ object InteractionsHelpers extends LazyLogging {
 
       val interactionEvidences = fullInteractions
         .withColumn("evidences", explode(col("evidencesList")))
-        .drop("evidencesList")
+        .drop("evidencesList", "sourceDatabase")
 
       interactionEvidences
     }
