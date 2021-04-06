@@ -139,7 +139,8 @@ object InteractionsHelpers extends LazyLogging {
     }
 
     /** generate the interactions from a common Dataframe schema
-      * If causalInteraction is true -> swap (A, B) and add to the dataframe
+      * For intact resource (intact,reactomea and signor) we swap (A, B) and add to the dataframe
+      * String data is symetrical by definition so no swap is required
       * @param mappingInfo Dataframe with mapping_id, ensembl_id
       * @return a DataFrame
       */
@@ -168,12 +169,6 @@ object InteractionsHelpers extends LazyLogging {
             .otherwise(col("interactorB.biological_role"))
         )
         .withColumn(
-          "causalInteraction",
-          when(col("interaction.causal_interaction").isNull, false).otherwise(
-            col("interaction.causal_interaction").cast("boolean")
-          )
-        )
-        .withColumn(
           "interactionScore",
           when(
             col("interaction.interaction_score") > 1,
@@ -189,7 +184,7 @@ object InteractionsHelpers extends LazyLogging {
           "intB_source",
           "speciesB",
           "intBBiologicalRole",
-          "causalInteraction",
+          "source_info.source_database as sourceDatabase",
           "source_info as interactionResources",
           "interaction.evidence as evidencesList",
           "interactionScore"
@@ -209,7 +204,7 @@ object InteractionsHelpers extends LazyLogging {
         .withColumn("targetB", when(col("gene_id").isNull, col("intB")).otherwise(col("gene_id")))
         .drop("gene_id", "mapping.mapped_id")
 
-      // Causal Interaction = True. Reverse Value and UNION
+      //  Reverse Value and UNION for specific case
       val lookup = Map(
         "targetA" -> "targetB",
         "intA" -> "intB",
@@ -223,9 +218,9 @@ object InteractionsHelpers extends LazyLogging {
         "intBBiologicalRole" -> "intABiologicalRole"
       )
 
-      // Causal Interaction = True. Reverse Value and UNION
+      // For intact resource (intact,reactomea and signor) swap (A, B) and add to the dataframe
       val reverseInteractions = interactionMapped
-        .filter(col("causalInteraction") === true)
+        .filter(col("sourceDatabase").isin(List("reactome", "intact", "signor"): _*))
         .select(interactionMapped.columns.map(c => col(c).as(lookup.getOrElse(c, c))): _*)
 
       val fullInteractions = interactionMapped.unionByName(reverseInteractions)
@@ -234,7 +229,7 @@ object InteractionsHelpers extends LazyLogging {
 
       val interactionEvidences = fullInteractions
         .withColumn("evidences", explode(col("evidencesList")))
-        .drop("evidencesList")
+        .drop("evidencesList", "sourceDatabase")
 
       interactionEvidences
     }
@@ -274,7 +269,6 @@ object InteractionsHelpers extends LazyLogging {
         "speciesB",
         "interactionResources",
         "interactionScore",
-        "causalInteraction",
         "evidences.*",
         "intABiologicalRole",
         "intBBiologicalRole"
