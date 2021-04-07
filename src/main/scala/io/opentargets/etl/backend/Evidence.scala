@@ -526,7 +526,7 @@ object Evidence extends LazyLogging {
     val commonReqFields = config.uniqueFields.toSet
     val dts = config.dataSources.map { dt =>
       (col("sourceId") === dt.id) -> (commonReqFields ++ dt.uniqueFields.toSet).toList.sorted
-        .map(x => when(col(x).isNotNull, col(x).cast(StringType)).otherwise(""))
+        .map(x => when(expr(x).isNotNull, expr(x).cast(StringType)).otherwise(""))
     }
 
     val defaultDts = commonReqFields.toList.sorted.map { x =>

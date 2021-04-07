@@ -52,7 +52,8 @@ object Configuration extends LazyLogging {
 
   case class AOTFInputsSection(evidences: IOResourceConfig,
                                diseases: IOResourceConfig,
-                               targets: IOResourceConfig)
+                               targets: IOResourceConfig,
+                               reactome: IOResourceConfig)
 
   case class AOTFOutputsSection(clickhouse: IOResourceConfig, elasticsearch: IOResourceConfig)
 
@@ -114,7 +115,6 @@ object Configuration extends LazyLogging {
 
   case class Inputs(
       target: InputInfo,
-      reactome: InputInfo,
       eco: InputInfo,
       expression: InputInfo,
       tep: InputInfo,
@@ -149,9 +149,14 @@ object Configuration extends LazyLogging {
 
   case class SearchSection(inputs: SearchInputsSection, outputs: SearchOutputsSection)
 
+  case class ReactomeSectionInputs(pathways: IOResourceConfig, relations: IOResourceConfig)
+
+  case class ReactomeSection(inputs: ReactomeSectionInputs, output: IOResourceConfig)
+
   case class OTConfig(
       sparkUri: Option[String],
       common: Common,
+      reactome: ReactomeSection,
       associations: AssociationsSection,
       evidences: EvidencesSection,
       drug: DrugSection,
