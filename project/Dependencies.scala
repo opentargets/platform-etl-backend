@@ -14,13 +14,16 @@ object Dependencies {
   )
 
   lazy val configDeps = Seq(
-    // "org.yaml" % "snakeyaml" % "1.21",
     "com.github.pureconfig" %% "pureconfig" % "0.14.1"
   )
 
   lazy val loggingDeps = Seq(
     "ch.qos.logback" % "logback-classic" % "1.2.3",
     "com.typesafe.scala-logging" %% "scala-logging" % "3.9.2"
+  )
+
+  lazy val graphDeps = Seq(
+    "org.jgrapht" % "jgrapht-core" % "1.5.1"
   )
 
   lazy val sparkVersion = "3.1.1"

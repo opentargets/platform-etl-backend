@@ -75,23 +75,16 @@ object AssociationOTF extends LazyLogging {
       .agg(collect_set(col(labelCol)).as(vecCol))
   }
 
-  def computeFacetReactome(df: DataFrame, keyCol: String, vecCol: String)(
-      implicit context: ETLSessionContext): DataFrame = {
+  def computeFacetReactome(
+      targets: DataFrame,
+      keyCol: String,
+      vecCol: String,
+      reactomeDF: DataFrame)(implicit context: ETLSessionContext): DataFrame = {
     implicit val ss: SparkSession = context.sparkSession
     import ss.implicits._
 
-    val reactomeSection = context.configuration.common.inputs.reactome
-
-    val mappedInputs = Map(
-      "reactome" -> H.IOResourceConfig(
-        reactomeSection.format,
-        reactomeSection.path
-      )
-    )
-    val dfs = H.readFrom(mappedInputs)
-
     val lutReact = ss.sparkContext.broadcast(
-      dfs("reactome").data
+      reactomeDF
         .selectExpr("id", "label")
         .as[ReactomeEntry]
         .collect()
@@ -100,17 +93,17 @@ object AssociationOTF extends LazyLogging {
 
     val mapLevels = udf((l: Seq[String]) =>
       l match {
-        case Seq(_, a, _, b, _*) => FacetLevel(lutReact.value.get(a), lutReact.value.get(b))
-        case Seq(_, a, _*)       => FacetLevel(lutReact.value.get(a), None)
-        case _                   => FacetLevel(None, None)
+        case Seq(a, _, b, _*) => FacetLevel(lutReact.value.get(a), lutReact.value.get(b))
+        case Seq(a, _*)       => FacetLevel(lutReact.value.get(a), None)
+        case _                => FacetLevel(None, None)
     })
 
-    val reacts = dfs("reactome").data
+    val reacts = reactomeDF
       .withColumn("levels",
                   when(size(col("path")) > 0, transform(col("path"), (c: Column) => mapLevels(c))))
       .selectExpr("id", "levels")
 
-    val tempDF = df
+    val tempDF = targets
       .selectExpr(keyCol, vecCol)
       .withColumn(vecCol + "_tmp", explode_outer(col(vecCol)))
       .join(reacts, reacts("id") === col(vecCol + "_tmp"), "left_outer")
@@ -127,7 +120,8 @@ object AssociationOTF extends LazyLogging {
     val mappedInputs = Map(
       "evidences" -> conf.aotf.inputs.evidences,
       "targets" -> conf.aotf.inputs.targets,
-      "diseases" -> conf.aotf.inputs.diseases
+      "diseases" -> conf.aotf.inputs.diseases,
+      "reactome" -> conf.aotf.inputs.reactome
     )
 
     val dfs = H.readFrom(mappedInputs)
@@ -158,8 +152,9 @@ object AssociationOTF extends LazyLogging {
     val diseasesFacetTAs = computeFacetTAs(diseases, "disease_id", "name", "therapeuticAreas")
       .withColumnRenamed("therapeuticAreas", "facet_therapeuticAreas")
 
-    val targetsFacetReactome = computeFacetReactome(targets, "target_id", "reactome")
-      .withColumnRenamed("reactome", "facet_reactome")
+    val targetsFacetReactome =
+      computeFacetReactome(targets, "target_id", "reactome", dfs("reactome").data)
+        .withColumnRenamed("reactome", "facet_reactome")
 
     val finalTargets = targets
       .computeFacetTractability("tractability")
@@ -175,13 +170,12 @@ object AssociationOTF extends LazyLogging {
       "clinicalUrls"
     )
 
-    // TODO targetsymbol has to be corrected to camelcase due to a bug in the evidences
     val evidenceColumns = Seq(
       "id as row_id",
       "diseaseId as disease_id",
       "concat(diseaseId, ' ',diseaseLabel) as disease_data",
       "targetId as target_id",
-      "concat(targetId, ' ', targetName, ' ', targetsymbol) as target_data",
+      "concat(targetId, ' ', targetName, ' ', targetSymbol) as target_data",
       "datasourceId as datasource_id",
       "datatypeId as datatype_id",
       "score as row_score"
