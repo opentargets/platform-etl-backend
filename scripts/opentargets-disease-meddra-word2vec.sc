@@ -288,13 +288,21 @@ object ETL extends LazyLogging {
     val traits = loadTraits(meddra)
     val pipeline = generatePipeline("text", columnsToInclude)
 
+    // exact > narrow > broad > related
     val D = diseases
-      .selectExpr("id", "name as efoName", "synonyms.*")
-      .withColumn("broadSynonyms", expr("coalesce(hasBroadSynonym, array())"))
-      .withColumn("exactSynonyms", expr("coalesce(hasExactSynonym, array())"))
-      .withColumn("relatedSynonyms", expr("coalesce(hasRelatedSynonym, array())"))
-      .withColumn("text",
-        explode(flatten(array(array($"efoName"), $"broadSynonyms", $"exactSynonyms", $"relatedSynonyms"))))
+      .selectExpr("id as efoId", "name as efoName", "synonyms.*")
+      .withColumn("exactSynonyms", transform(expr("coalesce(hasExactSynonym, array())"),
+        c => struct(c.as("key"), lit(0.99).as("factor"))))
+      .withColumn("narrowSynonyms", transform(expr("coalesce(hasNarrowSynonym, array())"),
+        c => struct(c.as("key"), lit(0.98).as("factor"))))
+      .withColumn("broadSynonyms", transform(expr("coalesce(hasBroadSynonym, array())"),
+        c => struct(c.as("key"), lit(0.97).as("factor"))))
+      .withColumn("relatedSynonyms", transform(expr("coalesce(hasRelatedSynonym, array())"),
+        c => struct(c.as("key"), lit(0.96).as("factor"))))
+      .withColumn("_text",
+        explode(flatten(array(array(struct($"efoName".as("key"), lit(1d).as("factor"))), $"broadSynonyms", $"exactSynonyms", $"narrowSynonyms", $"relatedSynonyms"))))
+      .withColumn("text", $"_text".getField("key"))
+      .withColumn("factor", $"_text".getField("factor"))
       .filter($"text".isNotNull and length($"text") > 0)
 
 //    val M = meddraPT
@@ -363,15 +371,18 @@ object ETL extends LazyLogging {
     val BU = spark.sparkContext.broadcast(U)
     val dynaMaxPOSFn = udf(applyModelWithPOSFn(BU, _, _, _))
 
+    val scoreCN = "score"
+    val scoreC = col(scoreCN)
+
+    val eqW = Window.partitionBy($"traitId", $"efoId").orderBy(scoreC.desc)
     val eqLabels = MN
       .join(DN, $"traitKey" === $"efoKey")
-      .withColumn("score", lit(1D))
+      .withColumn("score", lit(1D) * $"factor")
+      .withColumn("rank", row_number().over(eqW))
+      .filter($"rank" === 1)
       .persist(StorageLevel.DISK_ONLY)
 
     eqLabels.write.json(s"${output}/directJoin")
-
-    val scoreCN = "score"
-    val scoreC = col(scoreCN)
 
     val w = Window.partitionBy($"traitKey").orderBy($"intersectSize".desc, scoreC.desc)
     val simLabels = MN
@@ -384,7 +395,7 @@ object ETL extends LazyLogging {
       .withColumn("traitT", array_sort(arrays_zip($"traitTerms_stem", $"traitTerms_pos")))
       .withColumn("efoT", array_sort(arrays_zip($"efoTerms_stem", $"efoTerms_pos")))
       .filter($"intersectSize" >= 2 and $"traitTermsSize" > 2 and $"intersectSize" >= functions.floor($"unionSize" * 1/2))
-      .withColumn(scoreCN, dynaMaxPOSFn($"traitT", $"efoT", lit(cosineCutoff)))
+      .withColumn(scoreCN, dynaMaxPOSFn($"traitT", $"efoT", lit(cosineCutoff)) * $"factor")
       .filter(scoreC > scoreCutoff + MathEx.EPSILON)
       .withColumn("rank", row_number().over(w))
       .filter($"rank" === 1)
