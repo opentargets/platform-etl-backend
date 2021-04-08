@@ -269,6 +269,11 @@ object ETL extends LazyLogging {
       .selectExpr("hlt_code as meddraId", "hlt_name as meddraName")
   }
 
+  def loadTraits(path: String)(implicit sparkSession: SparkSession): DataFrame = {
+    val traits = sparkSession.read.option("sep", "\t").csv(path)
+    traits.toDF("traitId", "traitName")
+  }
+
   def apply(cosineCutoff: Double, scoreCutoff: Double, prefix: String, meddra: String, matches: String, output: String) = {
     import SparkSessionWrapper._
     import spark.implicits._
@@ -276,10 +281,11 @@ object ETL extends LazyLogging {
 
     logger.info("load required datasets from ETL parquet format")
     val diseases = spark.read.parquet(s"${prefix}/diseases")
-    val meddraPT = loadMeddraPreferredTerms(meddra)
-    val meddraLT = loadMeddraLowLevelTerms(meddra)
-    val meddraHT = loadMeddraHighLevelTerms(meddra)
+//    val meddraPT = loadMeddraPreferredTerms(meddra)
+//    val meddraLT = loadMeddraLowLevelTerms(meddra)
+//    val meddraHT = loadMeddraHighLevelTerms(meddra)
 
+    val traits = loadTraits(meddra)
     val pipeline = generatePipeline("text", columnsToInclude)
 
     val D = diseases
@@ -291,11 +297,13 @@ object ETL extends LazyLogging {
         explode(flatten(array(array($"efoName"), $"broadSynonyms", $"exactSynonyms", $"relatedSynonyms"))))
       .filter($"text".isNotNull and length($"text") > 0)
 
-    val M = meddraPT
-      .unionByName(meddraLT).unionByName(meddraHT)
-      .groupBy($"meddraName")
-      .agg(collect_set($"meddraId").as("meddraIds"))
-      .withColumn("text", $"meddraName")
+//    val M = meddraPT
+//      .unionByName(meddraLT).unionByName(meddraHT)
+//      .groupBy($"meddraName")
+//      .agg(collect_set($"meddraId").as("meddraIds"))
+//      .withColumn("text", $"meddraName")
+
+    val M = traits.withColumn("text", $"traitName")
 
     val DN = D.transform(normaliseSentence(_, pipeline, "efoTerms", columnsToInclude))
       .drop("text")
@@ -304,20 +312,27 @@ object ETL extends LazyLogging {
       .orderBy($"efoKey".asc)
       .persist(StorageLevel.DISK_ONLY)
 
-    val MN = M.transform(normaliseSentence(_, pipeline, "meddraTerms", columnsToInclude))
+//    val MN = M.transform(normaliseSentence(_, pipeline, "meddraTerms", columnsToInclude))
+//      .drop("text")
+//      .withColumn("meddraKey", array_sort(array_distinct($"meddraTerms_stem")))
+//      .filter($"meddraKey".isNotNull and size($"meddraKey") > 0)
+//      .orderBy($"meddraKey".asc)
+//      .persist(StorageLevel.DISK_ONLY)
+
+    val MN = M.transform(normaliseSentence(_, pipeline, "traitTerms", columnsToInclude))
       .drop("text")
-      .withColumn("meddraKey", array_sort(array_distinct($"meddraTerms_stem")))
-      .filter($"meddraKey".isNotNull and size($"meddraKey") > 0)
-      .orderBy($"meddraKey".asc)
+      .withColumn("traitKey", array_sort(array_distinct($"traitTerms_stem")))
+      .filter($"traitKey".isNotNull and size($"traitKey") > 0)
+      .orderBy($"traitKey".asc)
       .persist(StorageLevel.DISK_ONLY)
 
     DN.write.json(s"${output}/DiseaseLabels")
     MN.write.json(s"${output}/MeddraLabels")
 
-//    val terms = DN.selectExpr("efoKey as terms")
-//      .unionByName(MN.selectExpr("meddraKey as terms")).persist()
+    val terms = DN.selectExpr("efoKey as terms")
+      .unionByName(MN.selectExpr("traitKey as terms")).persist()
 
-    val terms = DN.selectExpr("efoKey as terms").persist()
+//    val terms = DN.selectExpr("efoKey as terms").persist()
 
     // use matches to build the w2v model
 
@@ -333,12 +348,12 @@ object ETL extends LazyLogging {
 
     val w2vModel = w2v.fit(terms)
 
-    w2vModel.save(s"${output}/DiseaseMeddraModel")
+    w2vModel.save(s"${output}/Model")
     w2vModel.getVectors
       .withColumn("vector", vector_to_array($"vector"))
-      .write.json(s"${output}/DiseaseMeddraVectors")
+      .write.json(s"${output}/ModelVectors")
 
-    val w2vm = Word2VecModel.load(s"${output}/DiseaseMeddraModel")
+    val w2vm = Word2VecModel.load(s"${output}/Model")
 
     val U = w2vm.getVectors
       .withColumn("vector", vector_to_array($"vector"))
@@ -349,7 +364,7 @@ object ETL extends LazyLogging {
     val dynaMaxPOSFn = udf(applyModelWithPOSFn(BU, _, _, _))
 
     val eqLabels = MN
-      .join(DN, $"meddraKey" === $"efoKey")
+      .join(DN, $"traitKey" === $"efoKey")
       .withColumn("score", lit(1D))
       .persist(StorageLevel.DISK_ONLY)
 
@@ -358,23 +373,23 @@ object ETL extends LazyLogging {
     val scoreCN = "score"
     val scoreC = col(scoreCN)
 
-    val w = Window.partitionBy($"meddraKey").orderBy(scoreC.desc, $"intersectSize".desc)
+    val w = Window.partitionBy($"traitKey").orderBy($"intersectSize".desc, scoreC.desc)
     val simLabels = MN
-      .join(eqLabels.select("meddraKey"), Seq("meddraKey"), "left_anti")
+      .join(eqLabels.select("traitKey"), Seq("traitKey"), "left_anti")
       .crossJoin(DN)
-      .withColumn("meddraTermsSize", size($"meddraKey"))
+      .withColumn("traitTermsSize", size($"traitKey"))
       .withColumn("efoTermsSize", size($"efoKey"))
-      .withColumn("intersectSize", size(array_intersect($"meddraKey", $"efoKey")))
-      .withColumn("unionSize", size(array_union($"meddraKey", $"efoKey")))
-      .withColumn("meddraT", array_sort(arrays_zip($"meddraTerms_stem", $"meddraTerms_pos")))
+      .withColumn("intersectSize", size(array_intersect($"traitKey", $"efoKey")))
+      .withColumn("unionSize", size(array_union($"traitKey", $"efoKey")))
+      .withColumn("traitT", array_sort(arrays_zip($"traitTerms_stem", $"traitTerms_pos")))
       .withColumn("efoT", array_sort(arrays_zip($"efoTerms_stem", $"efoTerms_pos")))
-      .filter($"intersectSize" >= 2 and $"meddraTermsSize" > 2 and $"intersectSize" >= functions.floor($"unionSize" * 1/2))
-      .withColumn(scoreCN, dynaMaxPOSFn($"meddraT", $"efoT", lit(cosineCutoff)))
+      .filter($"intersectSize" >= 2 and $"traitTermsSize" > 2 and $"intersectSize" >= functions.floor($"unionSize" * 1/2))
+      .withColumn(scoreCN, dynaMaxPOSFn($"traitT", $"efoT", lit(cosineCutoff)))
       .filter(scoreC > scoreCutoff + MathEx.EPSILON)
       .withColumn("rank", row_number().over(w))
       .filter($"rank" === 1)
       .drop("rank")
-      .orderBy($"meddraName".asc, $"score".desc)
+      .orderBy($"traitName".asc, $"score".desc)
 //      .filter(($"unionSize" === 2 and $"intersectSize" === 0 and $"scorePOS" >= 0.75) or
 //        ($"unionSize" > 1 and $"intersectSize" > 0 and $"scorePOS" > scoreCutoff + MathEx.EPSILON))
 
