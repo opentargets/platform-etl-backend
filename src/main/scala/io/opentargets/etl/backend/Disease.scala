@@ -136,6 +136,19 @@ object Hpo extends Serializable with LazyLogging {
 
 object Disease extends Serializable with LazyLogging {
 
+  /** This method generates the indirectLocations using the ancestors relationship */
+  private def processLocations(efo: DataFrame): DataFrame = {
+    val indirectLocation = efo
+      .filter(col("locations").isNotNull)
+      .select("ancestors", "locations", "id")
+      .withColumn("father", explode(col("ancestors")))
+      .groupBy("father")
+      .agg(array_distinct(flatten(collect_set("locations"))).as("indirectLocations"))
+      .select("father", "indirectLocations")
+
+    indirectLocation
+  }
+
   def setIdAndSelectFromDiseases(df: DataFrame): DataFrame = {
 
     val efosSummary = df
@@ -165,11 +178,13 @@ object Disease extends Serializable with LazyLogging {
       .join(descendants, Seq("id"), "left")
 
     val efosRenamed = efos
+      .join(processLocations(efos), col("id") === col("father"), "left")
       .withColumnRenamed("label", "name")
       .withColumnRenamed("definition", "description")
       .withColumnRenamed("therapeutic_codes", "therapeuticAreas")
       .withColumnRenamed("obsolete_terms", "obsoleteTerms")
-      .drop("path_codes", "definition_alternatives", "therapeutic_codes")
+      .withColumnRenamed("locations", "directLocations")
+      .drop("path_codes", "definition_alternatives", "therapeutic_codes", "father")
 
     efosRenamed
 
