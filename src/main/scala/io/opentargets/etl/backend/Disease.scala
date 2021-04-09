@@ -143,8 +143,8 @@ object Disease extends Serializable with LazyLogging {
       .select("ancestors", "locations", "id")
       .withColumn("father", explode(col("ancestors")))
       .groupBy("father")
-      .agg(array_distinct(flatten(collect_set("locations"))).as("indirectLocations"))
-      .select("father", "indirectLocations")
+      .agg(array_distinct(flatten(collect_set("locations"))).as("indirectLocationIds"))
+      .select("father", "indirectLocationIds")
 
     indirectLocation
   }
@@ -183,7 +183,7 @@ object Disease extends Serializable with LazyLogging {
       .withColumnRenamed("definition", "description")
       .withColumnRenamed("therapeutic_codes", "therapeuticAreas")
       .withColumnRenamed("obsolete_terms", "obsoleteTerms")
-      .withColumnRenamed("locations", "directLocations")
+      .withColumnRenamed("locations", "directLocationIds")
       .drop("path_codes", "definition_alternatives", "therapeutic_codes", "father")
 
     efosRenamed
