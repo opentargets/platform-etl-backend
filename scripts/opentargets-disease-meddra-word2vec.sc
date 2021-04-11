@@ -64,38 +64,6 @@ object ETL extends LazyLogging {
 
   val allStopWords: Array[String] = Array("a", "i") ++ googleStopWords ++ googleStopWords.map(_.capitalize)
 
-  val applyModelFn = (BU: Broadcast[Map[String, Seq[Double]]], sentence1: Seq[String], sentence2: Seq[String]) => {
-    val words = (sentence1 ++ sentence2).distinct.sorted
-    val U = BU.value
-    val W = m(Array(words.map(w => U(w).toArray):_*))
-    val S1 = m(Array(sentence1.sorted.map(w => U(w).toArray):_*))
-    val S2 = m(Array(sentence2.sorted.map(w => U(w).toArray):_*))
-
-    val SS1 = zeros(S1.nrows, W.nrows)
-    for {
-      i <- 0 until S1.nrows
-      j <- 0 until W.nrows
-    } {
-      SS1(i, j) = MathEx.cos(S1.row(i), W.row(j))
-    }
-
-    val SS2 = zeros(S2.nrows, W.nrows)
-    for {
-      i <- 0 until S2.nrows
-      j <- 0 until W.nrows
-    } {
-      SS2(i, j) = MathEx.cos(S2.row(i), W.row(j))
-    }
-
-    val mpS1 = MathEx.colMax(SS1.replaceNaN(0D).toArray)
-    val mpS2 = MathEx.colMax(SS2.replaceNaN(0D).toArray)
-    val SS = m(mpS1, mpS2)
-
-    val minS = MathEx.colMin(SS.toArray).sum
-    val maxS = MathEx.colMax(SS.toArray).sum
-    if (maxS == 0d) 0d else minS / maxS
-  }
-
   val applyModelWithPOSFn = (BU: Broadcast[Map[String, Seq[Double]]],
                              sentence1: Seq[(String, String)],
                              sentence2: Seq[(String, String)]) => {
@@ -104,17 +72,13 @@ object ETL extends LazyLogging {
     val W = m(Array(words.map(w => U(w._1).toArray):_*))
     val S1 = m(Array(sentence1.map(w => U(w._1).toArray):_*))
     val S2 = m(Array(sentence2.map(w => U(w._1).toArray):_*))
-    val S1w = sentence1.map(_._2)
-    val S2w = sentence2.map(_._2)
-    val Ww = words.map(_._2)
 
     val SS1 = zeros(S1.nrows, W.nrows)
     for {
       i <- 0 until S1.nrows
       j <- 0 until W.nrows
     } {
-      val mask = if (S1w(i) == Ww(j)) 1d else 0.5
-      val sc = MathEx.cos(S1.row(i), W.row(j)) * mask
+      val sc = MathEx.cos(S1.row(i), W.row(j))
       SS1(i, j) = sc
     }
 
@@ -123,8 +87,7 @@ object ETL extends LazyLogging {
       i <- 0 until S2.nrows
       j <- 0 until W.nrows
     } {
-      val mask = if (S2w(i) == Ww(j)) 1d else 0.5
-      val sc = MathEx.cos(S2.row(i), W.row(j)) * mask
+      val sc = MathEx.cos(S2.row(i), W.row(j))
       SS2(i, j) = sc
     }
 
@@ -155,7 +118,7 @@ object ETL extends LazyLogging {
       .setOutputCol("document")
 
     val tokenizer = new Tokenizer()
-      .setSplitChars(Array("-", "/"))
+      .setSplitChars(Array("-", "/", ":", ",", ";"))
       .setInputCols("document")
       .setOutputCol("token")
 
@@ -303,17 +266,16 @@ object ETL extends LazyLogging {
     val traits = loadTraits(traitsPath)
     val pipeline = generatePipeline("text", columnsToInclude)
 
-    // exact > narrow > broad > related
     val D = diseases
       .selectExpr("id as efoId", "name as efoName", "synonyms.*")
       .withColumn("exactSynonyms", transform(expr("coalesce(hasExactSynonym, array())"),
-        c => struct(c.as("key"), lit(0.99).as("factor"))))
+        c => struct(c.as("key"), lit(0.999).as("factor"))))
       .withColumn("narrowSynonyms", transform(expr("coalesce(hasNarrowSynonym, array())"),
-        c => struct(c.as("key"), lit(0.98).as("factor"))))
+        c => struct(c.as("key"), lit(0.998).as("factor"))))
       .withColumn("broadSynonyms", transform(expr("coalesce(hasBroadSynonym, array())"),
-        c => struct(c.as("key"), lit(0.97).as("factor"))))
+        c => struct(c.as("key"), lit(0.997).as("factor"))))
       .withColumn("relatedSynonyms", transform(expr("coalesce(hasRelatedSynonym, array())"),
-        c => struct(c.as("key"), lit(0.96).as("factor"))))
+        c => struct(c.as("key"), lit(0.996).as("factor"))))
       .withColumn("_text",
         explode(flatten(array(array(struct($"efoName".as("key"), lit(1d).as("factor"))), $"broadSynonyms", $"exactSynonyms", $"narrowSynonyms", $"relatedSynonyms"))))
       .withColumn("text", $"_text".getField("key"))
@@ -402,8 +364,7 @@ object ETL extends LazyLogging {
 
     eqLabels.write.json(s"${output}/directJoin")
 
-//    val xqW = Window.partitionBy($"traitId", $"efoId").orderBy($"intersectSize".desc, scoreC.desc)
-    val xqW = Window.partitionBy($"traitId", $"efoId").orderBy($"intersectSizeNN".desc, $"intersectSizeJJ".desc, scoreC.desc)
+    val xqW = Window.partitionBy($"traitId", $"efoId").orderBy($"intersectSizeNN".desc, $"intersectSizeJJ".desc, $"intersectSize".desc, scoreC.desc)
     val w = Window.partitionBy($"traitId").orderBy(scoreC.desc)
     val simLabels = MN
       .crossJoin(DN)
@@ -419,18 +380,13 @@ object ETL extends LazyLogging {
         $"traitTJJ",
         $"efoTJJ",
       )))
-
-//      .filter($"intersectSize" >= 2 and $"traitTermsSize" >= 2 and $"intersectSize" >= functions.floor($"unionSize" * 1/2))
       .filter($"intersectSizeNN" >= 1 and $"intersectSizeJJ" >= 0 and $"traitTermsSize" >= 2)
-      .withColumn(scoreCN, dynaMaxPOSFn($"traitT", $"efoT") * $"factor")
-//      .filter(scoreC > cutoff + MathEx.EPSILON)
+      .withColumn(scoreCN, dynaMaxPOSFn($"traitT", $"efoT") * lit(0.995)) // keep all under direct
       .withColumn("rank", dense_rank().over(xqW))
       .filter($"rank" === 1)
       .drop("rank")
       .orderBy($"traitName".asc, scoreC.desc)
       .persist(StorageLevel.DISK_ONLY)
-//      .filter(($"unionSize" === 2 and $"intersectSize" === 0 and $"scorePOS" >= 0.75) or
-//        ($"unionSize" > 1 and $"intersectSize" > 0 and $"scorePOS" > cutoff + MathEx.EPSILON))
 
     simLabels.write.json(s"${output}/crossJoin")
 
