@@ -64,7 +64,7 @@ object ETL extends LazyLogging {
 
   val allStopWords: Array[String] = Array("a", "i") ++ googleStopWords ++ googleStopWords.map(_.capitalize)
 
-  val applyModelFn = (BU: Broadcast[Map[String, Seq[Double]]], sentence1: Seq[String], sentence2: Seq[String], cutoff: Double) => {
+  val applyModelFn = (BU: Broadcast[Map[String, Seq[Double]]], sentence1: Seq[String], sentence2: Seq[String]) => {
     val words = (sentence1 ++ sentence2).distinct.sorted
     val U = BU.value
     val W = m(Array(words.map(w => U(w).toArray):_*))
@@ -84,17 +84,16 @@ object ETL extends LazyLogging {
       i <- 0 until S2.nrows
       j <- 0 until W.nrows
     } {
-      val sc = MathEx.round(MathEx.cos(S2.row(i), W.row(j)), 2)
-      SS2(i, j) = if (sc > cutoff) sc else 0d
+      SS2(i, j) = MathEx.cos(S2.row(i), W.row(j))
     }
 
     val mpS1 = MathEx.colMax(SS1.replaceNaN(0D).toArray)
     val mpS2 = MathEx.colMax(SS2.replaceNaN(0D).toArray)
     val SS = m(mpS1, mpS2)
 
-    val minS = MathEx.colMin(SS.toArray)
-    val maxS = MathEx.colMax(SS.toArray)
-    MathEx.round(minS.sum / maxS.sum, 2)
+    val minS = MathEx.colMin(SS.toArray).sum
+    val maxS = MathEx.colMax(SS.toArray).sum
+    if (maxS == 0d) 0d else minS / maxS
   }
 
   val applyModelWithPOSFn = (BU: Broadcast[Map[String, Seq[Double]]],
@@ -136,7 +135,6 @@ object ETL extends LazyLogging {
     val minS = MathEx.colMin(SS.toArray).sum
     val maxS = MathEx.colMax(SS.toArray).sum
 
-    // if (maxS == 0d) 0d else MathEx.round(minS / maxS, 2)
     if (maxS == 0d) 0d else minS / maxS
   }
 
@@ -146,16 +144,18 @@ object ETL extends LazyLogging {
     "stop",
     "clean",
     "stem",
-    "lemm",
+//    "lemm",
     "pos"
   )
 
   private def generatePipeline(fromCol: String, columns: List[String]): Pipeline = {
+    // https://nlp.johnsnowlabs.com/docs/en/models#english---models
     val documentAssembler = new DocumentAssembler()
       .setInputCol(fromCol)
       .setOutputCol("document")
 
     val tokenizer = new Tokenizer()
+      .setSplitChars(Array("-", "/"))
       .setInputCols("document")
       .setOutputCol("token")
 
@@ -175,18 +175,19 @@ object ETL extends LazyLogging {
       .setInputCols("stop")
       .setOutputCol("clean")
       .setLowercase(true)
-      .setCleanupPatterns(Array("[^\\w\\d\\s]", "[-]"))
+      .setCleanupPatterns(Array("[^\\w\\d\\s]", "[-]", "[/]"))
 
     val stemmer = new Stemmer()
       .setInputCols("clean")
       .setOutputCol("stem")
 
-    val lemmatizer = LemmatizerModel.pretrained()
-      .setInputCols("clean")
-      .setOutputCol("lemm")
+//    val lemmatizer = LemmatizerModel.pretrained()
+//      .setInputCols("clean")
+//      .setOutputCol("lemm")
 
-    val posTagger = PerceptronModel.pretrained("pos_ud_ewt", "en")
-      .setInputCols("document", "lemm")
+//    val posTagger = PerceptronModel.pretrained("pos_ud_ewt", "en")
+    val posTagger = PerceptronModel.pretrained("pos_anc", "en")
+      .setInputCols("document", "clean")
       .setOutputCol("pos")
 
 //    val sentenceEmbeddings = UniversalSentenceEncoder.pretrained("tfhub_use", "en")
@@ -217,7 +218,7 @@ object ETL extends LazyLogging {
           normaliser,
 //          fullTokensCleaner,
           stemmer,
-          lemmatizer,
+//          lemmatizer,
           posTagger,
 //          embeddings,
 //          sentenceEmbeddings,
@@ -288,7 +289,7 @@ object ETL extends LazyLogging {
     traits.toDF("traitId", "traitName")
   }
 
-  def apply(cosineCutoff: Double, scoreCutoff: Double, prefix: String, traitsPath: String, matches: String, output: String) = {
+  def apply(cutoff: Double, prefix: String, traitsPath: String, matches: String, output: String) = {
     import SparkSessionWrapper._
     import spark.implicits._
     implicit val ss: SparkSession = spark
@@ -332,6 +333,9 @@ object ETL extends LazyLogging {
       .drop("text")
       .withColumn("efoKey", transform(array_sort(array_distinct($"efoTerms_stem")), lower _))
       .filter($"efoKey".isNotNull and size($"efoKey") > 0)
+      .withColumn("efoT", array_sort(arrays_zip($"efoTerms_stem", $"efoTerms_pos")))
+      .withColumn("efoTNN", transform(filter($"efoT", _.getField("efoTerms_pos").startsWith("NN")), _.getField("efoTerms_stem")))
+      .withColumn("efoTJJ", transform(filter($"efoT", _.getField("efoTerms_pos").startsWith("JJ")), _.getField("efoTerms_stem")))
       .orderBy($"efoKey".asc)
       .persist(StorageLevel.DISK_ONLY)
 
@@ -346,6 +350,9 @@ object ETL extends LazyLogging {
       .drop("text")
       .withColumn("traitKey", transform(array_sort(array_distinct($"traitTerms_stem")), lower _))
       .filter($"traitKey".isNotNull and size($"traitKey") > 0)
+      .withColumn("traitT", array_sort(arrays_zip($"traitTerms_stem", $"traitTerms_pos")))
+      .withColumn("traitTNN", transform(filter($"traitT", _.getField("traitTerms_pos").startsWith("NN")), _.getField("traitTerms_stem")))
+      .withColumn("traitTJJ", transform(filter($"traitT", _.getField("traitTerms_pos").startsWith("JJ")), _.getField("traitTerms_stem")))
       .orderBy($"traitKey".asc)
       .persist(StorageLevel.DISK_ONLY)
 
@@ -395,7 +402,8 @@ object ETL extends LazyLogging {
 
     eqLabels.write.json(s"${output}/directJoin")
 
-    val xqW = Window.partitionBy($"traitId", $"efoId").orderBy($"intersectSize".desc, scoreC.desc)
+//    val xqW = Window.partitionBy($"traitId", $"efoId").orderBy($"intersectSize".desc, scoreC.desc)
+    val xqW = Window.partitionBy($"traitId", $"efoId").orderBy($"intersectSizeNN".desc, $"intersectSizeJJ".desc, scoreC.desc)
     val w = Window.partitionBy($"traitId").orderBy(scoreC.desc)
     val simLabels = MN
       .crossJoin(DN)
@@ -403,18 +411,26 @@ object ETL extends LazyLogging {
       .withColumn("efoTermsSize", size($"efoKey"))
       .withColumn("intersectSize", size(array_intersect($"traitKey", $"efoKey")))
       .withColumn("unionSize", size(array_union($"traitKey", $"efoKey")))
-      .withColumn("traitT", array_sort(arrays_zip($"traitTerms_stem", $"traitTerms_pos")))
-      .withColumn("efoT", array_sort(arrays_zip($"efoTerms_stem", $"efoTerms_pos")))
-      .filter($"intersectSize" >= 2 and $"traitTermsSize" >= 2 and $"intersectSize" >= functions.floor($"unionSize" * 1/2))
+      .withColumn("intersectSizeNN", size(array_intersect(
+        $"traitTNN",
+        $"efoTNN",
+      )))
+      .withColumn("intersectSizeJJ", size(array_intersect(
+        $"traitTJJ",
+        $"efoTJJ",
+      )))
+
+//      .filter($"intersectSize" >= 2 and $"traitTermsSize" >= 2 and $"intersectSize" >= functions.floor($"unionSize" * 1/2))
+      .filter($"intersectSizeNN" >= 1 and $"intersectSizeJJ" >= 0 and $"traitTermsSize" >= 2)
       .withColumn(scoreCN, dynaMaxPOSFn($"traitT", $"efoT") * $"factor")
-      .filter(scoreC > scoreCutoff + MathEx.EPSILON)
+//      .filter(scoreC > cutoff + MathEx.EPSILON)
       .withColumn("rank", dense_rank().over(xqW))
       .filter($"rank" === 1)
       .drop("rank")
       .orderBy($"traitName".asc, scoreC.desc)
       .persist(StorageLevel.DISK_ONLY)
 //      .filter(($"unionSize" === 2 and $"intersectSize" === 0 and $"scorePOS" >= 0.75) or
-//        ($"unionSize" > 1 and $"intersectSize" > 0 and $"scorePOS" > scoreCutoff + MathEx.EPSILON))
+//        ($"unionSize" > 1 and $"intersectSize" > 0 and $"scorePOS" > cutoff + MathEx.EPSILON))
 
     simLabels.write.json(s"${output}/crossJoin")
 
@@ -436,10 +452,9 @@ object ETL extends LazyLogging {
 }
 
 @main
-def main(cosineCutoff: Double = 0.5,
-         scoreCutoff: Double = 0.5,
+def main(cutoff: Double = 0.5,
          prefix: String,
          traits: String,
          matches: String,
          output: String): Unit =
-  ETL(cosineCutoff, scoreCutoff, prefix, traits, matches, output)
+  ETL(cutoff, prefix, traits, matches, output)
