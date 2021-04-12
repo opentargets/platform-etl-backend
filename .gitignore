@@ -11,6 +11,8 @@
 /src/target
 /input/
 /output
+/data
+/dataproc
 /output/
 /tmp
 /scratch
