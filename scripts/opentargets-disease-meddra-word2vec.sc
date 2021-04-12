@@ -228,28 +228,41 @@ object ETL extends LazyLogging {
 
   def loadMeddraPreferredTerms(path: String)(implicit ss: SparkSession): DataFrame = {
     logger.info(s"Loading Meddra preferred terms from $path")
-    val cols = Seq("pt_code", "pt_name")
+    val cols = Seq("traitCode", "traitName")
     loadMeddraDf(path + "/MedAscii/pt.asc", cols)
-      .selectExpr("pt_code as meddraId", "pt_name as meddraName")
+      .selectExpr(cols:_*)
   }
 
   def loadMeddraLowLevelTerms(path: String)(implicit sparkSession: SparkSession): DataFrame = {
     logger.info(s"Loading Meddra low level terms from $path")
-    val lltCols = Seq("llt_code", "llt_name")
-    loadMeddraDf(path + "/MedAscii/llt.asc", lltCols)
-      .selectExpr("llt_code as meddraId", "llt_name as meddraName")
+    val cols = Seq("traitCode", "traitName")
+    loadMeddraDf(path + "/MedAscii/llt.asc", cols)
+      .selectExpr(cols:_*)
   }
 
   def loadMeddraHighLevelTerms(path: String)(implicit sparkSession: SparkSession): DataFrame = {
     logger.info(s"Loading Meddra high level terms from $path")
-    val lltCols = Seq("hlt_code", "hlt_name")
-    loadMeddraDf(path + "/MedAscii/hlt.asc", lltCols)
-      .selectExpr("hlt_code as meddraId", "hlt_name as meddraName")
+    val cols = Seq("traitCode", "traitName")
+    loadMeddraDf(path + "/MedAscii/hlt.asc", cols)
+      .selectExpr(cols:_*)
   }
 
   def loadTraits(path: String)(implicit sparkSession: SparkSession): DataFrame = {
     val traits = sparkSession.read.option("sep", "\t").csv(path)
     traits.toDF("traitId", "traitName")
+  }
+
+  def loadMeddraTraits(path: String)(implicit sparkSession: SparkSession): DataFrame = {
+    import sparkSession.implicits._
+    val meddraPT = loadMeddraPreferredTerms(path)
+    val meddraLT = loadMeddraLowLevelTerms(path)
+    val meddraHT = loadMeddraHighLevelTerms(path)
+    val M = meddraPT
+      .unionByName(meddraLT).unionByName(meddraHT)
+      .groupBy($"traitName")
+      .agg(collect_set($"traitCode").as("traitIds"))
+      .withColumn("traitId", array_join($"traitIds", "-"))
+    M
   }
 
   def apply(cutoff: Double, prefix: String, traitsPath: String, matches: String, output: String) = {
@@ -259,11 +272,9 @@ object ETL extends LazyLogging {
 
     logger.info("load required datasets from ETL parquet format")
     val diseases = spark.read.parquet(s"${prefix}/diseases")
-//    val meddraPT = loadMeddraPreferredTerms(meddra)
-//    val meddraLT = loadMeddraLowLevelTerms(meddra)
-//    val meddraHT = loadMeddraHighLevelTerms(meddra)
 
-    val traits = loadTraits(traitsPath)
+    val traits = loadMeddraTraits(traitsPath)
+    // val traits = loadTraits(traitsPath)
     val pipeline = generatePipeline("text", columnsToInclude)
 
     val D = diseases
@@ -283,14 +294,6 @@ object ETL extends LazyLogging {
       .drop("exactSynonyms", "narrowSynonyms", "broadSynonyms", "relatedSynonyms", "_text")
       .filter($"text".isNotNull and length($"text") > 0)
 
-//    val M = meddraPT
-//      .unionByName(meddraLT).unionByName(meddraHT)
-//      .groupBy($"meddraName")
-//      .agg(collect_set($"meddraId").as("meddraIds"))
-//      .withColumn("text", $"meddraName")
-
-    val M = traits.withColumn("text", $"traitName")
-
     val DN = D.transform(normaliseSentence(_, pipeline, "efoTerms", columnsToInclude))
       .drop("text")
       .withColumn("efoKey", transform(array_sort(array_distinct($"efoTerms_stem")), lower _))
@@ -301,12 +304,7 @@ object ETL extends LazyLogging {
       .orderBy($"efoKey".asc)
       .persist(StorageLevel.DISK_ONLY)
 
-//    val MN = M.transform(normaliseSentence(_, pipeline, "meddraTerms", columnsToInclude))
-//      .drop("text")
-//      .withColumn("meddraKey", array_sort(array_distinct($"meddraTerms_stem")))
-//      .filter($"meddraKey".isNotNull and size($"meddraKey") > 0)
-//      .orderBy($"meddraKey".asc)
-//      .persist(StorageLevel.DISK_ONLY)
+    val M = traits.withColumn("text", $"traitName")
 
     val MN = M.transform(normaliseSentence(_, pipeline, "traitTerms", columnsToInclude))
       .drop("text")
