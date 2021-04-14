@@ -11,6 +11,7 @@ import io.opentargets.etl.backend.spark.Helpers.{
   IOResources,
   unionDataframeDifferentSchema
 }
+import io.opentargets.etl.backend.graph.GraphNode
 
 object Hpo extends Serializable with LazyLogging {
   private def getEfoDataframe(rawEfoData: DataFrame): DataFrame = {
@@ -139,52 +140,51 @@ object Disease extends Serializable with LazyLogging {
   /** This method generates the indirectLocations using the ancestors relationship */
   private def processLocations(efo: DataFrame): DataFrame = {
     val indirectLocation = efo
-      .filter(col("locations").isNotNull)
-      .select("ancestors", "locations", "id")
+      .filter(col("locationIds").isNotNull)
+      .select("ancestors", "locationIds", "id")
       .withColumn("father", explode(col("ancestors")))
       .groupBy("father")
-      .agg(array_distinct(flatten(collect_set("locations"))).as("indirectLocationIds"))
+      .agg(array_distinct(flatten(collect_set("locationIds"))).as("indirectLocationIds"))
       .select("father", "indirectLocationIds")
 
     indirectLocation
   }
 
-  def setIdAndSelectFromDiseases(df: DataFrame): DataFrame = {
+  def setIdAndSelectFromDiseases(df: DataFrame)(implicit ss: SparkSession): DataFrame = {
 
-    val efosSummary = df
-      .withColumn(
-        "ancestors",
-        array_except(
-          array_distinct(flatten(col("path_codes"))),
-          array(col("id"))
-        )
-      )
+    val edges = df.withColumn("src", explode(col("parents"))).selectExpr("id as dst", "src")
+    val ancestryDF = GraphNode(df.select("id", "label"), edges).drop("path", "label", "parents")
 
-    val descendants = efosSummary
-      .where(size(col("ancestors")) > 0)
-      .withColumn("ancestor", explode(concat(array(col("id")), col("ancestors"))))
-      .groupBy("ancestor")
-      .agg(collect_set(col("id")).as("descendants"))
-      .withColumnRenamed("ancestor", "id")
-      .withColumn(
-        "descendants",
-        array_except(
-          col("descendants"),
-          array(col("id"))
-        )
-      )
+    val efosAncestry = df.join(ancestryDF, Seq("id"), "left")
 
-    val efos = efosSummary
-      .join(descendants, Seq("id"), "left")
+    val therapeuticAreas = efosAncestry
+      .filter(col("isTherapeuticArea") === true)
+      .select("id")
+      .collect()
+      .map(_(0))
+      .toSeq
+      .map(lit(_))
 
-    val efosRenamed = efos
-      .join(processLocations(efos), col("id") === col("father"), "left")
+    val efosTA = efosAncestry
+      .withColumn("therapeuticAreas",
+                  when(col("isTherapeuticArea") === true, array(col("id")))
+                    .otherwise(array_intersect(col("ancestors"), array(therapeuticAreas: _*))))
+
+    val efosLocations = efosTA
+      .join(processLocations(efosTA), col("id") === col("father"), "left")
+
+    val efosRenamed = efosLocations
+      .withColumn("leaf", when(size(col("children")) === 0, typedLit(true)).otherwise(false))
+      .withColumn("ontology",
+                  struct(col("isTherapeuticArea"),
+                         col("leaf"),
+                         struct(col("code").as("url"), col("id").as("name"))
+                           .as("sources")))
       .withColumnRenamed("label", "name")
       .withColumnRenamed("definition", "description")
-      .withColumnRenamed("therapeutic_codes", "therapeuticAreas")
       .withColumnRenamed("obsolete_terms", "obsoleteTerms")
-      .withColumnRenamed("locations", "directLocationIds")
-      .drop("path_codes", "definition_alternatives", "therapeutic_codes", "father")
+      .withColumnRenamed("locationIds", "directLocationIds")
+      .drop("definition_alternatives", "therapeutic_codes", "father", "leaf", "isTherapeuticArea")
 
     efosRenamed
 
