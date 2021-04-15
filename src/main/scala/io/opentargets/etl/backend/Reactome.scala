@@ -44,7 +44,7 @@ object Reactome extends LazyLogging {
       try {
         jg.addEdge(r.getAs[String]("src"), r.getAs[String]("dst"))
       } catch {
-        case _ =>
+        case _: Throwable =>
       }
     })
 
