@@ -128,7 +128,7 @@ object ETL extends LazyLogging {
 //      .setStopWords(Array("disease", "disorder"))
 //      .setCaseSensitive(false)
 
-    val cleaner = StopWordsCleaner.pretrained()
+    val cleaner = new StopWordsCleaner()
       .setCaseSensitive(true)
       .setStopWords(allStopWords)
       .setInputCols("token")

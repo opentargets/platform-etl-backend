@@ -60,7 +60,7 @@ object Dependencies {
 
   lazy val smileVersion = "2.6.0"
   lazy val smile = Seq(
-    "com.github.haifengl" %% "smile-scala" % smileVersion,
+    "com.github.haifengl" %% "smile-scala" % smileVersion
   )
 
   lazy val johnSVersion = "3.0.0"
