@@ -6,6 +6,7 @@ import org.apache.spark.sql.functions._
 import org.apache.spark.sql.functions.col
 import org.apache.spark.sql._
 import io.opentargets.etl.backend.spark.Helpers.{IOResource, IOResources}
+import io.opentargets.etl.backend.stringProtein.StringProtein
 import org.apache.spark.sql.functions.udf
 import spark.Helpers
 
@@ -371,8 +372,12 @@ object Interactions extends LazyLogging {
     )
 
     val inputDataFrame = Helpers.readFrom(mappedInputs)
+    // String dataset needs some transformation.
+    val stringDataframe =
+      StringProtein(inputDataFrame("strings").data, interactionsConfiguration.scorethreshold)
+
     val ensproteins = inputDataFrame("ensproteins").data.transform(transformEnsemblProtein)
-    val interactionStringsDF = inputDataFrame("strings").data.generateStrings(ensproteins)
+    val interactionStringsDF = stringDataframe.generateStrings(ensproteins)
 
     val interactionIntactDF = inputDataFrame("intact").data.generateIntacts(
       inputDataFrame("targets").data,

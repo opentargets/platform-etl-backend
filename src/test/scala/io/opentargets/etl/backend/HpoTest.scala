@@ -1,7 +1,4 @@
-package io.opentargets.etl.backend.HpoTest
-
-import io.opentargets.etl.backend.EtlSparkUnitTest
-import io.opentargets.etl.backend.Hpo
+package io.opentargets.etl.backend
 
 import io.opentargets.etl.backend.spark.Helpers
 import org.apache.spark.sql.{DataFrame, Dataset, Row, SparkSession}
@@ -50,9 +47,10 @@ class HpoTest extends EtlSparkUnitTest {
     val diseaseDF: DataFrame = Hpo invokePrivate getEfoDataFrame(efoDF)
 
     val inputDF: DataFrame = HpoTest.mondoDf(sparkSession)
-    val expectedColumns = Set("disease", "resource","diseaseFromSourceId","phenotype", "resource","qualifierNot")
+    val expectedColumns =
+      Set("disease", "resource", "diseaseFromSourceId", "phenotype", "resource", "qualifierNot")
     // when
-    val results: DataFrame = getMondo(inputDF,diseaseDF)
+    val results: DataFrame = getMondo(inputDF, diseaseDF)
 
     // then
     assert(expectedColumns.forall(expectedCol => results.columns.contains(expectedCol)))
@@ -65,9 +63,10 @@ class HpoTest extends EtlSparkUnitTest {
     val diseaseDF: DataFrame = Hpo invokePrivate getEfoDataFrame(efoDF)
 
     val inputDF: DataFrame = HpoTest.hpoPhenotypesDf(sparkSession)
-    val expectedColumns = Set("disease", "resource","diseaseFromSourceId","phenotype", "resource","qualifierNot")
+    val expectedColumns =
+      Set("disease", "resource", "diseaseFromSourceId", "phenotype", "resource", "qualifierNot")
     // when
-    val results: DataFrame = getDiseaseHpo(inputDF,diseaseDF)
+    val results: DataFrame = getDiseaseHpo(inputDF, diseaseDF)
 
     // then
     assert(expectedColumns.forall(expectedCol => results.columns.contains(expectedCol)))
