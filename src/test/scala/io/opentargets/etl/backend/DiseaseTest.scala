@@ -1,7 +1,6 @@
-package io.opentargets.etl.backend.DiseaseTest
+package io.opentargets.etl.backend
 
 import io.opentargets.etl.backend.EtlSparkUnitTest
-import io.opentargets.etl.backend.Disease
 import io.opentargets.etl.backend.spark.Helpers
 import org.apache.spark.sql.{DataFrame, Dataset, Row, SparkSession}
 import org.apache.spark.sql.functions.{col, explode}
