@@ -3,9 +3,11 @@ package io.opentargets.etl.backend.stringProtein
 import com.typesafe.scalalogging.LazyLogging
 import org.apache.spark._
 import org.apache.spark.sql._
+import org.apache.spark.sql.functions.col
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.types._
 import org.apache.spark.sql._
+
 /*
 This object returns a specific schema for interaction use.
 The test unit helps to check the output schema
@@ -48,9 +50,36 @@ object StringProtein extends Serializable with LazyLogging {
     import ss.implicits._
 
     logger.info("Compute string protein dataset threshold: " + scorethreshold.toString)
-    stringDataset
+
+    val stringDatasetFiltered = stringDataset
       .withColumn("interaction_score", ltrim(col("combined_score")).cast(IntegerType))
       .filter(col("interaction_score") >= scorethreshold)
+
+    val colsEvidence = Seq(
+      ("coexpression", "MI:2231"),
+      ("cooccurence", "MI:2231"),
+      ("neighborhood", "MI:0057"),
+      ("fusion", "MI:0036"),
+      ("homology", "MI:2163"),
+      ("experimental", "MI:0591"),
+      ("database", ""),
+      ("textmining", "MI:0110")
+    )
+
+    val stringDatasetEvidence = colsEvidence.foldLeft(stringDatasetFiltered)((acc, nxt) => {
+      acc.withColumn(
+        "e_" + nxt._1,
+        struct(
+          lit(nxt._1) as "interaction_detection_method_short_name",
+          lit(nxt._2) as "interaction_detection_method_mi_identifier",
+          col(nxt._1).cast(LongType) as "evidence_score",
+          lit(null) as "interaction_identifier",
+          lit(null) as "pubmed_id"
+        )
+      )
+    })
+
+    stringDatasetEvidence
       .filter(col("protein1").contains("9606."))
       .filter(col("protein2").contains("9606."))
       .withColumn("id_source_p1", regexp_replace(col("protein1"), "9606.", ""))
@@ -75,86 +104,6 @@ object StringProtein extends Serializable with LazyLogging {
                   struct(lit("11") as "database_version", lit("string") as "source_database"))
       .withColumn("causal_interaction", lit("False").cast(BooleanType))
       .drop("protein1", "protein2", "id_source_p1", "id_source_p2", "biological_role", "id_source")
-      .withColumn(
-        "e_coexpression",
-        struct(
-          lit("coexpression") as "interaction_detection_method_short_name",
-          lit("MI:2231") as "interaction_detection_method_mi_identifier",
-          col("coexpression").cast(LongType) as "evidence_score",
-          lit(null) as "interaction_identifier",
-          lit(null) as "pubmed_id"
-        )
-      )
-      .withColumn(
-        "e_cooccurence",
-        struct(
-          lit("cooccurence") as "interaction_detection_method_short_name",
-          lit("MI:2231") as "interaction_detection_method_mi_identifier",
-          col("cooccurence").cast(LongType) as "evidence_score",
-          lit(null) as "interaction_identifier",
-          lit(null) as "pubmed_id"
-        )
-      )
-      .withColumn(
-        "e_neighborhood",
-        struct(
-          lit("neighborhood") as "interaction_detection_method_short_name",
-          lit("MI:0057") as "interaction_detection_method_mi_identifier",
-          col("neighborhood").cast(LongType) as "evidence_score",
-          lit(null) as "interaction_identifier",
-          lit(null) as "pubmed_id"
-        )
-      )
-      .withColumn(
-        "e_fusion",
-        struct(
-          lit("fusion") as "interaction_detection_method_short_name",
-          lit("MI:0036") as "interaction_detection_method_mi_identifier",
-          col("fusion").cast(LongType) as "evidence_score",
-          lit(null) as "interaction_identifier",
-          lit(null) as "pubmed_id"
-        )
-      )
-      .withColumn(
-        "e_homology",
-        struct(
-          lit("homology") as "interaction_detection_method_short_name",
-          lit("MI:2163") as "interaction_detection_method_mi_identifier",
-          col("homology").cast(LongType) as "evidence_score",
-          lit(null) as "interaction_identifier",
-          lit(null) as "pubmed_id"
-        )
-      )
-      .withColumn(
-        "e_experimental",
-        struct(
-          lit("experimental") as "interaction_detection_method_short_name",
-          lit("MI:0591") as "interaction_detection_method_mi_identifier",
-          col("experimental").cast(LongType) as "evidence_score",
-          lit(null) as "interaction_identifier",
-          lit(null) as "pubmed_id"
-        )
-      )
-      .withColumn(
-        "e_database",
-        struct(
-          lit("database") as "interaction_detection_method_short_name",
-          lit("") as "interaction_detection_method_mi_identifier",
-          col("database").cast(LongType) as "evidence_score",
-          lit(null) as "interaction_identifier",
-          lit(null) as "pubmed_id"
-        )
-      )
-      .withColumn(
-        "e_textmining",
-        struct(
-          lit("textmining") as "interaction_detection_method_short_name",
-          lit("MI:0110") as "interaction_detection_method_mi_identifier",
-          col("textmining").cast(LongType) as "evidence_score",
-          lit(null) as "interaction_identifier",
-          lit(null) as "pubmed_id"
-        )
-      )
       .withColumn(
         "all_evidence",
         array(
