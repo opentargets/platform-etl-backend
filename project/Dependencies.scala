@@ -57,4 +57,14 @@ object Dependencies {
     "com.github.julien-truffaut" %% "monocle-core" % monocleVersion,
     "com.github.julien-truffaut" %% "monocle-macro" % monocleVersion
   )
+
+  lazy val smileVersion = "2.6.0"
+  lazy val smile = Seq(
+    "com.github.haifengl" %% "smile-scala" % smileVersion
+  )
+
+  lazy val johnSVersion = "3.0.0"
+  lazy val johnS = Seq(
+    "com.johnsnowlabs.nlp" % "spark-nlp_2.12" % johnSVersion
+  )
 }

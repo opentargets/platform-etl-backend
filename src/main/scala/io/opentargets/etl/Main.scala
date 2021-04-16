@@ -7,9 +7,15 @@ import io.opentargets.etl.backend._
 import io.opentargets.etl.backend.drug.Drug
 
 object ETL extends LazyLogging {
+  val implementedSteps = Map(
+    "evidence" -> Evidence,
+    "search" -> Search
+  )
 
   def applySingleStep(step: String)(implicit context: ETLSessionContext): Unit = {
     step match {
+      case "test" =>
+        ETLPipeline
       case "evidence" =>
         logger.info("run step search")
         Evidence()

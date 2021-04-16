@@ -18,12 +18,13 @@ export ES=${ETL_ES:-"http://localhost:9200"}
 ./load_mp.sh
 ./load_cancerbiomarker.sh
 ./load_reactome.sh
-./load_search.sh
-./load_known_drugs.sh
 ./load_openfda_faers.sh
-./load_disease_relation.sh
-./load_target_relation.sh
 ./load_otars.sh
 ./load_evidences_aotf.sh
+./load_evidences.sh
 ./load_interaction.sh
 ./load_interaction_evidence.sh
+./load_literature.sh
+echo "INDEX_SETTINGS different"
+./load_search.sh
+./load_known_drugs.sh
