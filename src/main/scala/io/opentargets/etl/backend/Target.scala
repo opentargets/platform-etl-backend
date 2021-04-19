@@ -27,16 +27,21 @@ object TargetHelpers {
 
     }
 
-    def transformReactome: DataFrame = {
+    def transformReactome(reactomeDF: DataFrame): DataFrame = {
+
+      val reactomeIds = reactomeDF.select("id").collect().map(_(0)).toSeq.map(lit(_))
+
       df.withColumn(
-        "reactome",
-        when(
-          $"reactome".isNotNull,
-          expr("""
-                 |transform(reactome, r -> r.id)
-                 |""".stripMargin)
+          "reactomeList",
+          when(
+            $"reactome".isNotNull,
+            expr("""
+                   |transform(reactome, r -> r.id)
+                   |""".stripMargin)
+          )
         )
-      )
+        .withColumn("reactome", array_intersect(col("reactomeList"), array(reactomeIds: _*)))
+        .drop("reactomeList")
     }
 
     def getHallMarksInfo: DataFrame = {
@@ -105,7 +110,7 @@ object TargetHelpers {
         .drop("safetyRoot", "safetyTransf")
     }
 
-    def setIdAndSelectFromTargets: DataFrame = {
+    def setIdAndSelectFromTargets(reactomeDF: DataFrame): DataFrame = {
       val selectExpressions = Seq(
         "id",
         "approved_name as approvedName",
@@ -187,7 +192,7 @@ object TargetHelpers {
         )
         .drop("goRoot", "goTransf")
 
-      val targetsDF = dfGoFixed.getHallMarksInfo.transformReactome
+      val targetsDF = dfGoFixed.getHallMarksInfo.transformReactome(reactomeDF)
 
       // Manipulate safety info. Pubmed as long and unspecified_interaction_effects should be null in case of empty array.
       val dfSafetyInfo = targetsDF.getSafetyInfo
@@ -204,7 +209,13 @@ object Target extends LazyLogging {
     import TargetHelpers._
 
     val common = context.configuration.common
+    val reactomeC = context.configuration.reactome
+
     val mappedInputs = Map(
+      "reactome" -> IOResourceConfig(
+        reactomeC.output.format,
+        reactomeC.output.path
+      ),
       "target" -> IOResourceConfig(
         common.inputs.target.format,
         common.inputs.target.path
@@ -221,7 +232,9 @@ object Target extends LazyLogging {
     val targetDFnewSchema = Helpers.replaceSpacesSchema(inputDataFrame("target").data)
     val tepDFnewSchema = Helpers.replaceSpacesSchema(inputDataFrame("tep").data)
 
-    targetDFnewSchema.setIdAndSelectFromTargets.addTEPInfo(tepDFnewSchema)
+    targetDFnewSchema
+      .setIdAndSelectFromTargets(inputDataFrame("reactome").data)
+      .addTEPInfo(tepDFnewSchema)
   }
 
   def apply()(implicit context: ETLSessionContext): IOResources = {
