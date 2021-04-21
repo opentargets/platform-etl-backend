@@ -73,6 +73,11 @@ object Target extends LazyLogging {
     )
     val tractability: Dataset[TractabilityWithId] = Tractability(
       inputDataFrames("tractability").data)
+    val safety: Dataset[TargetSafety] = Safety(
+      inputDataFrames("safetyAE").data,
+      inputDataFrames("safetySR").data,
+      inputDataFrames("safetyTox").data
+    )
 
     // 3. merge intermediate data frames into final
     val hgncEnsemblTepGoDF = mergeHgncAndEnsembl(hgnc, ensemblDf)
@@ -104,6 +109,7 @@ object Target extends LazyLogging {
       .transform(addOrthologue(homology))
       .transform(addTractability(tractability))
       .transform(addNcbiEntrezSynonyms(ncbi))
+      .transform(addTargetSafety(safety))
 
   }
 
@@ -159,6 +165,11 @@ object Target extends LazyLogging {
       .join(ncbi.withColumnRenamed("synonyms", "s"), Seq("id"), "left_outer")
       .withColumn("synonyms", safeArrayUnion(col("synonyms"), col("s")))
       .drop("s")
+  }
+
+  private def addTargetSafety(tsDS: Dataset[TargetSafety])(dataFrame: DataFrame): DataFrame = {
+    logger.info("Adding target safety to dataframe")
+    dataFrame.join(tsDS, Seq("id"), "left_outer")
   }
 
   /** Return map on input IOResources */
@@ -246,6 +257,22 @@ object Target extends LazyLogging {
         targetInputs.psEssentialityMatrix.format,
         targetInputs.psEssentialityMatrix.path,
         options = targetInputs.psEssentialityMatrix.options
+      ),
+      "safetyAE" -> IOResourceConfig(
+        targetInputs.safetyAdverseEvent.format,
+        targetInputs.safetyAdverseEvent.path
+      ),
+      "safetySR" -> IOResourceConfig(
+        targetInputs.safetySafetyRisk.format,
+        targetInputs.safetySafetyRisk.path
+      ),
+      "safetyTox" -> IOResourceConfig(
+        targetInputs.safetyToxicity.format,
+        targetInputs.safetyToxicity.path,
+        options = targetInputs.safetyToxicity.options match {
+          case Some(value) => Option(value)
+          case None        => CsvHelpers.tsvWithHeader
+        }
       ),
       "tep" -> IOResourceConfig(
         targetInputs.tep.format,

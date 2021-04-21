@@ -176,7 +176,10 @@ object Configuration extends LazyLogging {
                          homologyDictionary: IOResourceConfig,
                          homologyCodingProteins: IOResourceConfig,
                          homologyNcRna: IOResourceConfig,
-                         tractability: IOResourceConfig)
+                         tractability: IOResourceConfig,
+                         safetyToxicity: IOResourceConfig,
+                         safetySafetyRisk: IOResourceConfig,
+                         safetyAdverseEvent: IOResourceConfig)
 
   case class TargetOutput(target: IOResourceConfig)
 

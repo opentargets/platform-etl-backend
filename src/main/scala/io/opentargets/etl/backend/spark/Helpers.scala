@@ -131,10 +131,14 @@ object Helpers extends LazyLogging {
     unionDF
   }
 
+  def unionDataframeDifferentSchema(df: Seq[DataFrame]): DataFrame =
+    df.reduce((a, b) => unionDataframeDifferentSchema(a, b))
+
   /** generate a set of String with the union of Columns.
     * Eg, myCols =( a,c,d) and allCols(a,c,d,e,f,h)
     * return (a,c,d,e,f,h)
-    * @param myCols the list of the Columns in a specific Dataframe
+    *
+    * @param myCols  the list of the Columns in a specific Dataframe
     * @param allCols the list of Columns to match
     * @return a sparksession object
     */

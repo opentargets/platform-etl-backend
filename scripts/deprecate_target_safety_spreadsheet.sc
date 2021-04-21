@@ -33,26 +33,25 @@ def safeArrayUnion(columns: Column*): Column = {
     columns.map(coalesce(_, typedLit(Array.empty))).reduce((c1, c2) => array_union(c1, c2))
   }
 def createEnsemblToUniprotLookup(dataFrame: DataFrame): DataFrame = {
-    import ss.implicits._
-    validateDF(Set("id", "approvedSymbol", "proteinIds"), dataFrame)
-    dataFrame
-      .select(col("id"), array("approvedSymbol").as("as"), col("proteinIds.id").as("pid"))
-      .select(col("id"), safeArrayUnion(col("as"), col("pid")).as("uniprot"))
-      .select(col("id").as("ensemblId"), explode(col("uniprot")).as("uniprotId"))
-  }
+  import ss.implicits._
+  validateDF(Set("id", "approvedSymbol", "proteinIds"), dataFrame)
+  dataFrame
+    .select(col("id"), array("approvedSymbol").as("as"), col("proteinIds.id").as("pid"))
+    .select(col("id"), safeArrayUnion(col("as"), col("pid")).as("uniprot"))
+    .select(col("id").as("ensemblId"), explode(col("uniprot")).as("uniprotId"))
+}
 val tsvWithHeader = (str: String) => ss.read.option("sep", "\\t").option("header", true).csv(str)
 
 // INPUTS
-val output = "/home/jarrod/development/platform-etl-backend/data/target-inputs/"
-
-val data = "/home/jarrod/development/platform-etl-backend/data/target-inputs/safety"
+val output = "/home/jarrod/development/platform-etl-backend/data/target-inputs/safety"
+val data = output
 
 val targetBetaDF = createEnsemblToUniprotLookup(
-    ss.read.json(
-      "/home/jarrod/development/platform-etl-backend/data/output/target-beta/target-beta/*.json"))
+  ss.read.json(
+    "/home/jarrod/development/platform-etl-backend/data/output/target-beta/target-beta/*.json"))
 
 val tsRawDF =
-    ss.read.option("sep", "\\t").option("header", true).csv(s"$data/adverse_effects.tsv")
+  ss.read.option("sep", "\\t").option("header", true).csv(s"$data/adverse_effects.tsv")
 
 // df: event, eventID
 val efoCodesRawDF = ss.read
@@ -101,7 +100,7 @@ root
                                             ensgIdDF: DataFrame,
                                             tsReferenceDF: DataFrame): DataFrame = {
     val outputColumns = Seq("ensemblId",
-      "uniprotId",
+      "target",
       "ref",
       "pmid",
       "url",
@@ -149,7 +148,7 @@ root
     def addEnsemblId(dataFrame: DataFrame): DataFrame =
       dataFrame
         .join(ensgIdDF, col("target") === col("uniprotId"))
-        .drop("target")
+        .drop("uniprotId")
     def addReferences(dataFrame: DataFrame): DataFrame =
       dataFrame
         .join(tsReferenceDF, Seq("ref"), "left_outer")
@@ -221,10 +220,10 @@ def translateTargetSafetySafetyRiskDF(dataFrame: DataFrame,
       .withColumnRenamed("term", "biologicalSystem")
       .join(references, Seq("ref"), "left_outer")
       .join(ensgIds, col("target") === col("uniprotId"))
-      .drop("target")
+      .drop("uniprotId")
 
-  df.select("ensemblId", "uniprotId", "term", "uberonId", "liability", "ref", "pmid", "url")
-  }
+  df.select("ensemblId", "target", "biologicalSystem", "uberonId", "liability", "ref", "pmid", "url")
+}
 val srDF = translateTargetSafetySafetyRiskDF(srRawDF, uberonDF, referenceRawDF, targetBetaDF)
-aeDF.write.save(output + "ae_safety")
-srDF.write.save(output + "sr_safety")
+aeDF.distinct.write.save(output + "ae_safety")
+srDF.distinct.write.save(output + "sr_safety")
