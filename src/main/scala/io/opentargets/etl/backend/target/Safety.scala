@@ -15,7 +15,7 @@ import org.apache.spark.sql.functions.{
 }
 import org.apache.spark.sql.{DataFrame, Dataset, SparkSession}
 
-case class TargetSafety(id: String, safety: Array[SafetyEvidence])
+case class TargetSafety(id: String, safetyLiabilities: Array[SafetyEvidence])
 
 case class SafetyEvidence(event: String,
                           eventId: String,
@@ -55,7 +55,7 @@ object Safety extends LazyLogging {
     logger.debug("Transforming target safety adverse events data.")
     val aeDF = df
       .select(
-        col("ensemblId"),
+        col("ensemblId") as "id",
         col("symptom") as "event",
         col("efoId") as "eventId",
         col("ref") as "datasource",
@@ -73,11 +73,11 @@ object Safety extends LazyLogging {
       .drop("effects")
 
     val effectsDF = aeDF
-      .groupBy("ensemblId", "event")
+      .groupBy("id", "event")
       .agg(collect_set(col("effectType")) as "type", collect_set(col("effectDose")) as "dosing")
-      .select(col("ensemblId"), col("event"), struct(col("type"), col("dosing")) as "effects")
+      .select(col("id"), col("event"), struct(col("type"), col("dosing")) as "effects")
 
-    aeDF.join(effectsDF, Seq("ensemblId", "event"), "left_outer").drop("effectType", "effectDose")
+    aeDF.join(effectsDF, Seq("id", "event"), "left_outer").drop("effectType", "effectDose")
   }
 
   private def transformTargetSafety(df: DataFrame): DataFrame = {
@@ -149,6 +149,6 @@ object Safety extends LazyLogging {
         ) as "safety"
       )
       .groupBy("id")
-      .agg(collect_set("safety") as "safety")
+      .agg(collect_set("safety") as "safetyLiabilities")
   }
 }
