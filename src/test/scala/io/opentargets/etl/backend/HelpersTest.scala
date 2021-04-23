@@ -145,4 +145,51 @@ class HelpersTest extends EtlSparkUnitTest with TableDrivenPropertyChecks with L
 
   }
 
+  "unionDataframeDifferentSchema" should "return a dataframe which includes columns from df1 and df2 and all rows in each" in {
+    // given
+    val json1 =
+      """
+        |{
+        |  "cases": [
+        |    { "id": 1, "a": 4, "c": "str"},
+        |    { "id": 2, "a": 5, "b": "str"},
+        |    { "id": 3, "a": 11, "b": "str", "c": "str"}
+        |  ]
+        |}
+        |""".stripMargin
+
+    val json2 =
+      """
+        |{
+        |  "cases": [
+        |    { "id": 4, "d": 'd', "e": 2},
+        |    { "id": 5, "a": 13, "e": 7},
+        |    { "id": 6, "a": 1, "f": 'c', "c": "str"}
+        |  ]
+        |}
+        |""".stripMargin
+    import sparkSession.implicits._
+
+    val df1 = sparkSession.read.json(Seq(json1).toDS).select(explode(col("cases"))).select("col.*")
+    val df2 = sparkSession.read.json(Seq(json2).toDS).select(explode(col("cases"))).select("col.*")
+    // when
+    val result = unionDataframeDifferentSchema(df1, df2)
+    // then
+    val expectedOutputColumns = Seq("id", "a", "b", "c", "d", "e", "f")
+    result.columns.length should be(expectedOutputColumns.length)
+    result.columns sameElements expectedOutputColumns
+  }
+
+  "It" should "return the original data frame if it is merged with an empty dataframe" in {
+    import sparkSession.implicits._
+    // given
+    val cols = Seq("a", "b", "c")
+    val withColsDF = Seq.empty[(String, String, String)].toDF(cols: _*)
+    val emptyDF = sparkSession.emptyDataFrame
+    // when
+    val result = unionDataframeDifferentSchema(emptyDF, withColsDF)
+    // then
+    result.columns sameElements cols
+  }
+
 }
