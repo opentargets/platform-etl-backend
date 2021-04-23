@@ -128,7 +128,7 @@ object Safety extends LazyLogging {
       .join(etWithEfo, Seq("id"), "left_outer")
       .distinct
       .withColumn("tissue", struct(col("label"), col("efoId"), col("modelName")))
-      .drop("label", "efoId", "modelName", "tissue")
+      .drop("label", "efoId", "modelName")
   }
 
   private def groupByEvidence(df: DataFrame): DataFrame = {
