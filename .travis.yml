@@ -15,6 +15,7 @@ deploy:
   provider: releases
   api_key: $GITHUB_TOKEN
   skip_cleanup: true
+  file_glob: true
   file:
     - "target/scala-2.12/io-opentargets-etl-backend-assembly-*"
   on:
