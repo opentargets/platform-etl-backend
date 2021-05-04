@@ -13,15 +13,14 @@ before_deploy:
   - git config --local user.email "administrator@opentargets.org"
 deploy:
   provider: releases
-  api_key:
-    secure: dEu1TtwENaloAAnQb3f5uLz4YqiMpLTeNc2aJzOOjMYQfPQV2HwTPLf+9/299P9g7piiJwInIZaHfvTBzm4vcyVZkQgvVdk4BBtfjyfxtL/8weEaF2BsBqzLcCW2ICRWKph+vF6VG/nPpiqFpSmrwRw2eo/m1d4LbHhDx3F7MhN4I/Pbj13YqQ9ucb26W1qZYzfxhnPG1508mdR2ZNPTatljZz5ETnKK2rRfs+Xmq5sl4KxfvN+8FSSw2j14ts+d52CtilZlvsSI5Rc4ip+QdmRyGPPxcNy9UkDx9kWczLWNLw4/l6TwDnvTq30xmdsVoP2fFu/U4vzUypGgfqX7GlMe21QVncSpTDrk41kY87rBPapP5gPRuPOw5dd2bFh4csjwxyPy+FEMOIM7aug//wRl7rgzVxtcoAnBLLRox/5T0wXcXkRwO8mUMfB5VxMftnPI1q0+2a7WUK1eRhJbEwvjWXyDrUf7AQ+cVJjNwvOI0yR2xa3chtUdqWYsT7ICirL7XxNaueR1cUa5zD0BvBxYhBmr0Rdyg/n7h+oZ5+hQTjDGLij1vIX/Gn/EygNbhPuuppgrhBFO6VgvFB+ZL5CuLErGjfm8k05JtZSVEi2k4yW5SOWxqqUkHGADepYAguY9nDOcn8Mp/3fnmaO/wmD2LrapXOkiDg5nUkPPtjQ=
-    file_glob: true
+  api_key: $GITHUB_TOKEN
+  skip_cleanup: true
+  file_glob: true
   file:
     - "target/scala-2.12/io-opentargets-etl-backend-assembly-*"
   on:
     repo: opentargets/platform-etl-backend
     tags: true
     all_branches: false
-  skip_cleanup: true
 #after_success:
 #  - bash <(curl -s https://codecov.io/bash)

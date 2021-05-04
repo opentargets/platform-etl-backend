@@ -24,7 +24,6 @@ export ES=${ETL_ES:-"http://localhost:9200"}
 ./load_evidences.sh
 ./load_interaction.sh
 ./load_interaction_evidence.sh
-./load_literature.sh
 echo "INDEX_SETTINGS different"
 ./load_search.sh
 ./load_known_drugs.sh
