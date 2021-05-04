@@ -12,7 +12,8 @@ create table if not exists ot.literature
     engine = MergeTree()
         order by (intHash64(pmid))
 as (
-    select pmid, pmcid,
+    select pmid,
+           any(pmcid) as pmcid,
            any(date) as date,
            any(year) as year,
            any(month) as month,
