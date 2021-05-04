@@ -37,6 +37,13 @@ To load word2vec vectors from model:
 
 ```bash
 clickhouse-client --multiline --multiquery < w2v_log.sql
-gsutil -m cat gs://ot-snapshots/etl/outputs/21.03.1/literature/vectors/part\* | clickhouse-client -h localhost --query="insert into ot.ml_w2v_log format JSONEachRow "
+gsutil -m cat gs://open-targets-data-releases/21.04/output/literature/vectors/part\* | clickhouse-client -h localhost --query="insert into ot.ml_w2v_log format JSONEachRow "
 clickhouse-client --multiline --multiquery < w2v.sql
+```
+
+To load literature
+```bash
+clickhouse-client --multiline --multiquery < literature_log.sql
+gsutil -m cat gs://open-targets-data-releases/21.04/output/literature/literatureIndex/part\* | clickhouse-client -h localhost --query="insert into ot.literature_log format JSONEachRow "
+clickhouse-client --multiline --multiquery < literature.sql
 ```
