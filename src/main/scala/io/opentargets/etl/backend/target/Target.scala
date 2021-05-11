@@ -47,6 +47,7 @@ object Target extends LazyLogging {
 
     // 2. prepare intermediate dataframes per source
     val hgnc: Dataset[Hgnc] = Hgnc(inputDataFrames("hgnc").data)
+    val hallmarks: Dataset[HallmarksWithId] = Hallmarks(inputDataFrames("hallmarks").data)
     val ncbi: Dataset[Ncbi] = Ncbi(inputDataFrames("ncbi").data)
     val ensemblDf: Dataset[Ensembl] = Ensembl(inputDataFrames("ensembl").data)
     val uniprotDS: Dataset[Uniprot] = Uniprot(inputDataFrames("uniprot").data)
@@ -86,6 +87,7 @@ object Target extends LazyLogging {
       .join(geneOntologyDf, ensemblDf("id") === geneOntologyDf("ensemblId"), "left_outer")
       .drop("ensemblId")
       .join(projectScoresDS, Seq("id"), "left_outer")
+      .join(hallmarks, Seq("approvedSymbol"), "left_outer")
 
     val uniprotGroupedByEnsemblIdDF =
       addEnsemblIdsToUniprot(hgnc,
@@ -211,6 +213,11 @@ object Target extends LazyLogging {
         targetInputs.geneOntologyRnaLookup.format,
         targetInputs.geneOntologyRnaLookup.path,
         options = targetInputs.geneOntologyRnaLookup.options
+      ),
+      "hallmarks" -> IOResourceConfig(
+        targetInputs.hallmarks.format,
+        targetInputs.hallmarks.path,
+        options = targetInputs.hallmarks.options
       ),
       "hgnc" -> IOResourceConfig(
         targetInputs.hgnc.format,
