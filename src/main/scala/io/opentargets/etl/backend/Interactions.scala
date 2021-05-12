@@ -351,8 +351,8 @@ object Interactions extends LazyLogging {
     val unmatch = unionUnmatch
       .withColumn("id", explode(col("unmatch")))
       .filter(col("id").isNotNull)
-      .distinct
       .select("id")
+      .distinct
 
     unmatch
   }
