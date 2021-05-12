@@ -99,7 +99,8 @@ object Configuration extends LazyLogging {
 
   case class InteractionsOutput(
       interactions: IOResourceConfig,
-      interactionsEvidence: IOResourceConfig
+      interactionsEvidence: IOResourceConfig,
+      interactionsUnmatched: IOResourceConfig
   )
 
   case class InteractionsSection(
