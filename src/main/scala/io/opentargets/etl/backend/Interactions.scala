@@ -193,7 +193,7 @@ object InteractionsHelpers extends LazyLogging {
 
       val interactionMapLeft = interactions
         .join(mappingInfo, getCodeFcn(col("intA")) === col("mapped_id"), "left")
-        .withColumn("targetA", when(col("gene_id").isNull, col("intA")).otherwise(col("gene_id")))
+        .withColumn("targetA", when(col("gene_id").isNull, lit(null)).otherwise(col("gene_id")))
         .drop("gene_id", "mapped_id")
 
       val interactionMapped = interactionMapLeft
@@ -202,7 +202,7 @@ object InteractionsHelpers extends LazyLogging {
           getCodeFcn(col("intB")) === col("mapping.mapped_id"),
           "left"
         )
-        .withColumn("targetB", when(col("gene_id").isNull, col("intB")).otherwise(col("gene_id")))
+        .withColumn("targetB", when(col("gene_id").isNull, lit(null)).otherwise(col("gene_id")))
         .drop("gene_id", "mapping.mapped_id")
 
       //  Reverse Value and UNION for specific case
@@ -233,26 +233,6 @@ object InteractionsHelpers extends LazyLogging {
         .drop("evidencesList", "sourceDatabase")
 
       interactionEvidences
-    }
-
-    /** filter the unmapped entries
-      * @return a DataFrame
-      */
-    def getUnmatch: DataFrame = {
-      val missedMatchA = df
-        .filter(
-          "((targetA = intA) and (speciesA.taxonId = 9606))"
-        )
-        .selectExpr("targetA as target", "intA as interactor")
-
-      val missedMatchB = df
-        .filter(
-          "((targetB = intB) and (speciesB.taxonId = 9606))"
-        )
-        .selectExpr("targetB as target", "intB as interactor")
-
-      missedMatchA.unionByName(missedMatchB)
-
     }
 
     /** select the fields for the intex interaction_evidences
@@ -342,6 +322,49 @@ object InteractionsHelpers extends LazyLogging {
 // This is option/step interaction in the config file
 object Interactions extends LazyLogging {
 
+  /**
+    * @param dataframes with targetA and/or targetB with null value.
+    * @return a DataFrame with the interaction_id unmatched
+    */
+  def getUnmatch(intact: DataFrame, string: DataFrame)(implicit ss: SparkSession): DataFrame = {
+
+    val intactMissing = intact
+      .filter(
+        (col("targetA").isNull && col("speciesA.taxon_id") === 9606) || (col("targetB").isNull && col(
+          "speciesB.taxon_id") === 9606))
+      .withColumn("valIntA", when(col("targetA").isNull, col("intA")))
+      .withColumn("valIntB", when(col("targetB").isNull, col("intB")))
+      .withColumn("unmatch", array(col("valIntA"), col("valIntB")))
+      .select("unmatch")
+
+    val stringMissing = string
+      .filter(
+        (col("targetA").isNull && col("speciesA.taxon_id") === 9606) || (col("targetB").isNull && col(
+          "speciesB.taxon_id") === 9606))
+      .withColumn("valIntA", when(col("targetA").isNull, col("intA")))
+      .withColumn("valIntB", when(col("targetB").isNull, col("intB")))
+      .withColumn("unmatch", array(col("valIntA"), col("valIntB")))
+      .select("unmatch")
+
+    val unionUnmatch = intactMissing.unionByName(stringMissing)
+
+    val unmatch = unionUnmatch
+      .withColumn("id", explode(col("unmatch")))
+      .filter(col("id").isNotNull)
+      .distinct
+      .select("id")
+
+    unmatch
+  }
+
+  /**
+    * @param dataframe with targetA and/or targetB with null value.
+    * @return a DataFrame
+    */
+  def removeNullTargets(df: DataFrame)(implicit ss: SparkSession): DataFrame = {
+    df.filter(col("targetA").isNotNull && col("targetB").isNotNull)
+  }
+
   /** Homo_sapiens.GRCh38.chr.gtf.gz is a tsv file with the first 5 lines are comments
     * @param interactionsConfiguration ensembl protein file path
     * @return a DataFrame
@@ -385,18 +408,24 @@ object Interactions extends LazyLogging {
       inputDataFrame("humanmapping").data
     )
 
-    val aggregationInteractions = interactionIntactDF.interactionAggreation(interactionStringsDF)
-    val interactionEvidences = interactionIntactDF
-      .generateEvidences(interactionStringsDF)
+    /** The filter is applied here in order to retrieve the unmatched interaction */
+    val interactionIntactDFValid = removeNullTargets(interactionIntactDF)
+    val interactionStringsDFValid = removeNullTargets(interactionStringsDF)
+
+    val aggregationInteractions =
+      interactionIntactDFValid.interactionAggreation(interactionStringsDFValid)
+    val interactionEvidences = interactionIntactDFValid
+      .generateEvidences(interactionStringsDFValid)
       .repartitionByRange(500, $"targetA".asc, $"targetB".asc)
 
     val outputs = context.configuration.interactions.outputs
 
     Map(
       "interactionsEvidence" -> IOResource(interactionEvidences, outputs.interactionsEvidence),
-      "interactions" -> IOResource(aggregationInteractions, outputs.interactions)
+      "interactions" -> IOResource(aggregationInteractions, outputs.interactions),
       // This can be transformed into a ammonite script.
-      //"interactionUnmatch" -> interactionEvidences.getUnmatch
+      "interactionUnmatch" -> IOResource(getUnmatch(interactionIntactDF, interactionStringsDF),
+                                         outputs.interactionsUnmatched)
     )
   }
 
