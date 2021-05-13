@@ -329,29 +329,17 @@ object Interactions extends LazyLogging {
   def getUnmatch(intact: DataFrame, string: DataFrame)(implicit ss: SparkSession): DataFrame = {
 
     val intactMissing = intact
-      .filter(
-        (col("targetA").isNull && col("speciesA.taxon_id") === 9606) || (col("targetB").isNull && col(
-          "speciesB.taxon_id") === 9606))
-      .withColumn("valIntA", when(col("targetA").isNull, col("intA")))
-      .withColumn("valIntB", when(col("targetB").isNull, col("intB")))
-      .withColumn("unmatch", array(col("valIntA"), col("valIntB")))
-      .select("unmatch")
+      .filter(col("targetB").isNull && col("speciesB.taxon_id") === 9606)
+      .select("intB")
 
     val stringMissing = string
-      .filter(
-        (col("targetA").isNull && col("speciesA.taxon_id") === 9606) || (col("targetB").isNull && col(
-          "speciesB.taxon_id") === 9606))
-      .withColumn("valIntA", when(col("targetA").isNull, col("intA")))
-      .withColumn("valIntB", when(col("targetB").isNull, col("intB")))
-      .withColumn("unmatch", array(col("valIntA"), col("valIntB")))
-      .select("unmatch")
+      .filter(col("targetB").isNull && col("speciesB.taxon_id") === 9606)
+      .select("intB")
 
     val unionUnmatch = intactMissing.unionByName(stringMissing)
 
     val unmatch = unionUnmatch
-      .withColumn("id", explode(col("unmatch")))
-      .filter(col("id").isNotNull)
-      .select("id")
+      .select("intB")
       .distinct
 
     unmatch
@@ -361,8 +349,8 @@ object Interactions extends LazyLogging {
     * @param dataframe with targetA and/or targetB with null value.
     * @return a DataFrame
     */
-  def removeNullTargets(df: DataFrame)(implicit ss: SparkSession): DataFrame = {
-    df.filter(col("targetA").isNotNull && col("targetB").isNotNull)
+  def removeNullTargetA(df: DataFrame)(implicit ss: SparkSession): DataFrame = {
+    df.filter(col("targetA").isNotNull)
   }
 
   /** Homo_sapiens.GRCh38.chr.gtf.gz is a tsv file with the first 5 lines are comments
@@ -409,8 +397,8 @@ object Interactions extends LazyLogging {
     )
 
     /** The filter is applied here in order to retrieve the unmatched interaction */
-    val interactionIntactDFValid = removeNullTargets(interactionIntactDF)
-    val interactionStringsDFValid = removeNullTargets(interactionStringsDF)
+    val interactionIntactDFValid = removeNullTargetA(interactionIntactDF)
+    val interactionStringsDFValid = removeNullTargetA(interactionStringsDF)
 
     val aggregationInteractions =
       interactionIntactDFValid.interactionAggreation(interactionStringsDFValid)
