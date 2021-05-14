@@ -23,7 +23,9 @@ object Helpers extends LazyLogging {
       format: String,
       path: String,
       options: Option[Seq[IOResourceConfigOption]] = None,
-      partitionBy: Option[Seq[String]] = None
+      partitionBy: Option[Seq[String]] = None,
+      indexName: Option[String] = None,
+      indexId: Option[String] = None
   )
 
   case class Metadata(id: String,
