@@ -15,7 +15,7 @@ case class Ensembl(id: String,
                    genomicLocation: GenomicLocation,
                    approvedSymbol: String,
                    proteinIds: Array[IdAndSource],
-                   transcriptIds: Array[IdAndSource],
+                   transcriptIds: Array[String],
                    signalP: Array[IdAndSource])
 
 case class IdAndSource(id: String, source: String)
@@ -42,7 +42,7 @@ object Ensembl extends LazyLogging {
         col("strand").cast(IntegerType),
         col("seq_region_name").as("chromosome"), // chromosome
         col("name").as("approvedSymbol"),
-        col("transcripts"),
+        col("transcripts.id") as "transcriptIds",
         col("signalP"),
         col("Uniprot/SPTREMBL").as("uniprot_trembl"),
         col("Uniprot/SWISSPROT").as("uniprot_swissprot"),
@@ -52,7 +52,6 @@ object Ensembl extends LazyLogging {
       .transform(nest(_, List("chromosome", "start", "end", "strand"), "genomicLocation"))
       .transform(descriptionToApprovedName)
       .transform(refactorProteinId)
-      .transform(refactorTranscriptId)
       .transform(refactorSignalP)
       .transform(selectBestNonReferenceGene)
 
@@ -112,24 +111,6 @@ object Ensembl extends LazyLogging {
     dataFrame
       .join(nonReferenceIdsWeDontWantDF, Seq("id"), "leftanti")
       .join(nonReferenceAndAlternativeDF, Seq("id"), "left_outer")
-  }
-
-  /** Returns dataframe with column 'transcriptIds' added and column 'transcripts' removed. */
-  def refactorTranscriptId: DataFrame => DataFrame = { df =>
-    {
-      df.join(
-          df.select(col("id").as("i"), explode(col("transcripts")).as("t"))
-            .select(col("i"), col("t.id").as("id"))
-            .withColumn("source", typedLit("Ensembl_TRA"))
-            .transform(nest(_, List("source", "id"), "transcriptIds"))
-            .withColumnRenamed("i", "id")
-            .groupBy("id")
-            .agg(collect_set(col("transcriptIds")).as("transcriptIds")),
-          Seq("id"),
-          "left_outer"
-        )
-        .drop("transcripts")
-    }
   }
 
   /** Returns dataframe with column 'proteinIds' added and columns, 'translations', 'uniprot_trembl'
