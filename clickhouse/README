@@ -1,0 +1,52 @@
+
+Create a new machine with clickhouse.
+
+The Clickhouse SQL script is in the platform-etl-backend repository under the `clickhouse` directory. There are two scripts, run them in the following order:
+
+aotf_log.sql
+aotf.sql
+
+Within the Clickhouse instance copy the repository and then execute the following:
+
+clickhouse-client --multiline --multiquery < aotf_log.sql
+
+Copy the data from cloud storage to somewhere on the local machine.
+Eg.
+
+Use the data to populate the database
+
+cd  <path to data>
+FOLDERS=$(ls -1)
+for folder in $FOLDERS; do
+cat ${folder} | clickhouse-client --query="insert into ot.associations_otf_log format JSONEachRow"
+done
+
+Create the next set of tables with:
+
+clickhouse-client --multiline --multiquery < aotf.sql
+
+To check that the tables have been created, enter the clickhouse client (`clickhouse-client`) and run the following:
+
+`show tables in ot`
+
+If everything has worked correctly you should see that there are three tables listed. You can further check the number of elements with:
+
+`select count() in ot.associations_otf_log`
+
+To load word2vec vectors from model:
+
+```bash
+clickhouse-client --multiline --multiquery < w2v_log.sql
+gsutil -m cat gs://open-targets-data-releases/21.04/output/literature/vectors/part\* | clickhouse-client -h localhost --query="insert into ot.ml_w2v_log format JSONEachRow "
+clickhouse-client --multiline --multiquery < w2v.sql
+```
+
+To load literature
+```bash
+clickhouse-client --multiline --multiquery < literature_log.sql
+gsutil -m cat gs://open-targets-data-releases/21.04/output/literature/literatureIndex/part\* | clickhouse-client -h localhost --query="insert into ot.literature_log format JSONEachRow "
+clickhouse-client --multiline --multiquery < literature.sql
+```
+
+to test it:
+select uniq(pmid) from ot.literature_index

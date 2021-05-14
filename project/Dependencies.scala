@@ -14,13 +14,16 @@ object Dependencies {
   )
 
   lazy val configDeps = Seq(
-    // "org.yaml" % "snakeyaml" % "1.21",
     "com.github.pureconfig" %% "pureconfig" % "0.14.1"
   )
 
   lazy val loggingDeps = Seq(
     "ch.qos.logback" % "logback-classic" % "1.2.3",
     "com.typesafe.scala-logging" %% "scala-logging" % "3.9.2"
+  )
+
+  lazy val graphDeps = Seq(
+    "org.jgrapht" % "jgrapht-core" % "1.4.0"
   )
 
   lazy val sparkVersion = "3.1.1"
@@ -54,5 +57,15 @@ object Dependencies {
   lazy val monocle = Seq(
     "com.github.julien-truffaut" %% "monocle-core" % monocleVersion,
     "com.github.julien-truffaut" %% "monocle-macro" % monocleVersion
+  )
+
+  lazy val smileVersion = "2.6.0"
+  lazy val smile = Seq(
+    "com.github.haifengl" %% "smile-scala" % smileVersion
+  )
+
+  lazy val johnSVersion = "3.0.0"
+  lazy val johnS = Seq(
+    "com.johnsnowlabs.nlp" % "spark-nlp_2.12" % johnSVersion
   )
 }

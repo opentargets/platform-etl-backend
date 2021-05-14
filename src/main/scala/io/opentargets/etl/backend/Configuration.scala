@@ -62,7 +62,8 @@ object Configuration extends LazyLogging {
 
   case class AOTFInputsSection(evidences: IOResourceConfig,
                                diseases: IOResourceConfig,
-                               targets: IOResourceConfig)
+                               targets: IOResourceConfig,
+                               reactome: IOResourceConfig)
 
   case class AOTFOutputsSection(clickhouse: IOResourceConfig, elasticsearch: IOResourceConfig)
 
@@ -77,12 +78,14 @@ object Configuration extends LazyLogging {
 
   case class DrugOutputs(drug: IOResourceConfig,
                          mechanismOfAction: IOResourceConfig,
-                         indications: IOResourceConfig)
+                         indications: IOResourceConfig,
+                         warnings: IOResourceConfig)
   case class DrugSection(
       chemblMolecule: IOResourceConfig,
       chemblIndication: IOResourceConfig,
       chemblMechanism: IOResourceConfig,
       chemblTarget: IOResourceConfig,
+      chemblWarning: IOResourceConfig,
       drugbankToChembl: IOResourceConfig,
       drugExtensions: Seq[InputExtension],
       diseaseEtl: IOResourceConfig,
@@ -106,7 +109,8 @@ object Configuration extends LazyLogging {
 
   case class InteractionsOutput(
       interactions: IOResourceConfig,
-      interactionsEvidence: IOResourceConfig
+      interactionsEvidence: IOResourceConfig,
+      interactionsUnmatched: IOResourceConfig
   )
 
   case class InteractionsSection(
@@ -122,7 +126,6 @@ object Configuration extends LazyLogging {
 
   case class Inputs(
       target: InputInfo,
-      reactome: InputInfo,
       eco: InputInfo,
       expression: InputInfo,
       tep: InputInfo,
@@ -157,6 +160,10 @@ object Configuration extends LazyLogging {
 
   case class SearchSection(inputs: SearchInputsSection, outputs: SearchOutputsSection)
 
+  case class ReactomeSectionInputs(pathways: IOResourceConfig, relations: IOResourceConfig)
+
+  case class ReactomeSection(inputs: ReactomeSectionInputs, output: IOResourceConfig)
+
   case class Target(input: TargetInput, outputs: TargetOutput, hgncOrthologSpecies: List[String])
 
   case class TargetInput(hgnc: IOResourceConfig,
@@ -187,6 +194,7 @@ object Configuration extends LazyLogging {
   case class OTConfig(
       sparkUri: Option[String],
       common: Common,
+      reactome: ReactomeSection,
       associations: AssociationsSection,
       evidences: EvidencesSection,
       drug: DrugSection,

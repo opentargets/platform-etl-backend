@@ -3,7 +3,8 @@ create table if not exists ot.ml_w2v
         order by (word)
         primary key (word)
 as
-select multiIf(startsWith(word, 'ENSG'), 'target', startsWith(word, 'CHEMBL'), 'drug', 'disease') as category,
+select category,
        word,
+       norm,
        vector
-from (select word, vector from ot.ml_w2v_log);
+from (select category, word, norm, vector from ot.ml_w2v_log);

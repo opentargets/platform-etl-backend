@@ -28,6 +28,7 @@ object Drug extends Serializable with LazyLogging {
       "mechanism" -> drugConfiguration.chemblMechanism,
       "molecule" -> drugConfiguration.chemblMolecule,
       "target" -> drugConfiguration.chemblTarget,
+      "warnings" -> drugConfiguration.chemblWarning,
       "drugbankChemblMap" -> drugConfiguration.drugbankToChembl,
       "efo" -> drugConfiguration.diseaseEtl,
       "gene" -> drugConfiguration.targetEtl,
@@ -47,6 +48,7 @@ object Drug extends Serializable with LazyLogging {
       .withColumnRenamed("To src:'2'", "drugbank_id")
     lazy val efoDf: DataFrame = inputDataFrames("efo").data
     lazy val evidenceDf: DataFrame = inputDataFrames("evidence").data
+    lazy val warningRawDf: DataFrame = inputDataFrames("warnings").data
 
     // processed dataframes
     logger.info("Raw inputs for Drug beta loaded.")
@@ -58,6 +60,7 @@ object Drug extends Serializable with LazyLogging {
       MechanismOfAction(mechanismDf, targetDf, geneDf)
     val targetsAndDiseasesDf =
       DrugCommon.getUniqTargetsAndDiseasesPerDrugId(evidenceDf).withColumnRenamed("drugId", "id")
+    val warningsDF = DrugWarning(warningRawDf)
 
     logger.whenTraceEnabled {
       val columnString: DataFrame => String = _.columns.mkString("Columns: [", ",", "]")
@@ -98,13 +101,14 @@ object Drug extends Serializable with LazyLogging {
       .join(targetsAndDiseasesDf, Seq("id"), "left_outer")
       .filter(drugMolecule)
       .transform(addDescription)
-      .drop("indications", "mechanismsOfAction")
+      .drop("indications", "mechanismsOfAction", "withdrawnNotice ")
       .transform(cleanup)
 
     val dataframesToSave: IOResources = Map(
       "drug" -> IOResource(drugDf, outputs.drug),
       "mechanism_of_action" -> IOResource(mechanismOfActionProcessedDf, outputs.mechanismOfAction),
-      "indication" -> IOResource(indicationProcessedDf, outputs.indications)
+      "indication" -> IOResource(indicationProcessedDf, outputs.indications),
+      "drug_warnings" -> IOResource(warningsDF, outputs.warnings)
     )
 
     IoHelpers.writeTo(dataframesToSave)
