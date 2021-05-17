@@ -35,6 +35,7 @@ object Tractability extends LazyLogging {
               array(dataColumns.head, dataColumns.tail: _*).as("tractability"))
       .select(col("ensemblGeneId"), explode(col("tractability")) as "tractability")
       .filter("tractability.value")
+      .drop("value")
       .groupBy("ensemblGeneId")
       .agg(collect_set("tractability") as "tractability")
       .as[TractabilityWithId]
