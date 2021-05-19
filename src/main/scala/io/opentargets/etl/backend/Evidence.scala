@@ -465,7 +465,16 @@ object Evidence extends LazyLogging {
 
     val lut = broadcast(
       diseases
-        .select(col("id").as("dId"), $"name".as("diseaseLabel"))
+        .select(
+          col("id").as("efoId"),
+          explode(
+            concat(
+              array(col("id")),
+              coalesce(col("obsoleteTerms"), typedLit(Array.empty[String]))
+            )
+          ).as("did"),
+          $"name".as("diseaseLabel")
+        )
         .orderBy($"dId".asc)
         .repartition($"dId")
     )
@@ -475,8 +484,8 @@ object Evidence extends LazyLogging {
     val resolved = df
       .join(lut, fromIdC === col("dId"), "left_outer")
       .withColumn(columnName, col("dId").isNotNull)
-      .withColumn(toId, coalesce(col("dId"), fromIdC))
-      .drop("dId")
+      .withColumn(toId, coalesce(col("efoId"), fromIdC))
+      .drop("dId", "efoId")
 
     resolved
   }
