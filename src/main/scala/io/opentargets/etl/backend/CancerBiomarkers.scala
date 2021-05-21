@@ -24,7 +24,16 @@ object CancerBiomarkersHelpers extends LazyLogging {
           when(
             size(col("cancerBiomarkers")) > 0,
             expr(
-              "transform(cancerBiomarkers, bioRow -> named_struct('individualbiomarker',bioRow.individualbiomarker,'biomarkerId', bioRow.biomarker,'diseases', bioRow.diseases,'drugName',bioRow.drugfullname,'associationType',bioRow.association, 'evidenceLevel', bioRow.evidencelevel,'sourcesOtherRoot', bioRow.references.other, 'sourcesPubmedRoot', bioRow.references.pubmed))"
+              "transform(cancerBiomarkers, " +
+                "bioRow -> named_struct(" +
+                "'individualbiomarker',bioRow.individualbiomarker," +
+                "'biomarkerId', bioRow.biomarker," +
+                "'diseases', bioRow.diseases," +
+                "'drugName',bioRow.drugfullname," +
+                "'associationType',bioRow.association, " +
+                "'evidenceLevel', bioRow.evidencelevel," +
+                "'sourcesOtherRoot', bioRow.references.other, " +
+                "'sourcesPubmedRoot', bioRow.references.pubmed))"
             )
           )
         )
