@@ -30,3 +30,4 @@ tmp/.sbtopts
 *.log
 application.conf
 application.xml
+/scripts/.idea
