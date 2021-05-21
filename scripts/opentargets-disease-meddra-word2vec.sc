@@ -252,6 +252,15 @@ object ETL extends LazyLogging {
     traits.toDF("traitId", "traitName")
   }
 
+  def loadTraitsJSON(path: String)(implicit sparkSession: SparkSession): DataFrame = {
+    import sparkSession.implicits._
+
+    val traits = sparkSession.read.json(path)
+    traits.toDF("traitCode", "traitName")
+      .groupBy($"traitName")
+      .agg(collect_set($"traitCode").as("traitId"))
+  }
+
   def loadMeddraTraits(path: String)(implicit sparkSession: SparkSession): DataFrame = {
     import sparkSession.implicits._
     val meddraPT = loadMeddraPreferredTerms(path)
@@ -274,7 +283,8 @@ object ETL extends LazyLogging {
     val diseases = spark.read.parquet(s"${prefix}/diseases")
 
     // val traits = loadMeddraTraits(traitsPath)
-    val traits = loadTraits(traitsPath)
+    // val traits = loadTraits(traitsPath)
+    val traits = loadTraitsJSON(traitsPath)
     val pipeline = generatePipeline("text", columnsToInclude)
 
     val D = diseases
