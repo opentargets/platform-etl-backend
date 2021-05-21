@@ -14,7 +14,7 @@ case class CancerBiomarker(id: String,
                            target: String,
                            disease: String,
                            evidenceLevel: String,
-                           assocationType: String,
+                           associationType: String,
                            sourcesPubmed: Array[Long],
                            sourcesOther: Array[CancerSource])
 
@@ -36,7 +36,7 @@ object CancerBiomarkers {
     IoHelpers.writeTo(dataframesToSave)
   }
 
-  private def compute(
+  def compute(
       biomarkers: DataFrame,
       sourceDF: DataFrame,
       diseaseDF: DataFrame,
@@ -69,7 +69,7 @@ object CancerBiomarkers {
 
     // add in disease information
     val biomarkerWithDisease = biomarkerPreprocess
-      .join(efoIds, col("name") === col("tumor_type"), "left_outer")
+      .join(efoIds, Seq("tumor_type"), "left_outer")
       .drop("name")
 
     // override specific genes and turn GeneId into ENSG ID
