@@ -11,22 +11,23 @@ import org.apache.spark.sql.functions.{
   lit,
   split,
   struct,
-  trim
+  trim,
+  when
 }
 import org.apache.spark.sql.{DataFrame, Dataset, SparkSession}
 
 case class TargetSafety(id: String, safetyLiabilities: Array[SafetyEvidence])
 
+case class TargetSafetyAssay(assayDescription: String, assayFormat: String, assayType: String)
+
 case class SafetyEvidence(event: String,
                           eventId: String,
-                          effects: (Array[String], Array[String]),
+                          effects: Array[(String, String)],
                           tissue: SafetyTissue,
                           datasource: String,
                           pmid: String,
                           url: String,
-                          assayDescription: String,
-                          assayFormat: String,
-                          assayType: String)
+                          assay: Array[TargetSafetyAssay])
 case class SafetyTissue(label: String, efoId: String, modelName: String)
 
 object Safety extends LazyLogging {
@@ -68,16 +69,18 @@ object Safety extends LazyLogging {
         ) as "tissue",
         split(col("effect"), "_") as "effects"
       )
-      .withColumn("effectType", element_at(col("effects"), 1))
-      .withColumn("effectDose", element_at(col("effects"), 2))
-      .drop("effects")
+      .withColumn(
+        "effects",
+        struct(element_at(col("effects"), 1) as "effectType",
+               when(element_at(col("effects"), 2) =!= "general", element_at(col("effects"), 2))
+                 .otherwise(null) as "effectDose")
+      )
 
     val effectsDF = aeDF
-      .groupBy("id", "event")
-      .agg(collect_set(col("effectType")) as "type", collect_set(col("effectDose")) as "dosing")
-      .select(col("id"), col("event"), struct(col("type"), col("dosing")) as "effects")
+      .groupBy("id", "event", "datasource")
+      .agg(collect_set(col("effects")) as "effects")
 
-    aeDF.join(effectsDF, Seq("id", "event"), "left_outer").drop("effectType", "effectDose")
+    aeDF.drop("effects").join(effectsDF, Seq("id", "event", "datasource"), "left_outer")
   }
 
   private def transformTargetSafety(df: DataFrame): DataFrame = {

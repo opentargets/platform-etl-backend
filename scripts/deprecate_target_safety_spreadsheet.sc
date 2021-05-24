@@ -43,12 +43,12 @@ def createEnsemblToUniprotLookup(dataFrame: DataFrame): DataFrame = {
 val tsvWithHeader = (str: String) => ss.read.option("sep", "\\t").option("header", true).csv(str)
 
 // INPUTS
-val output = "/home/jarrod/development/platform-etl-backend/data/target-inputs/safety"
-val data = output
+val output = "/home/jarrod/development/platform-etl-backend/data/target-inputs/safety-revised/"
+val data = "/home/jarrod/development/platform-etl-backend/data/target-inputs/safety/"
 
 val targetBetaDF = createEnsemblToUniprotLookup(
   ss.read.json(
-    "/home/jarrod/development/platform-etl-backend/data/output/target-beta/target-beta/*.json"))
+    "/home/jarrod/development/platform-etl-backend/data/dataproc-out/v8/target-beta/*.json"))
 
 val tsRawDF =
   ss.read.option("sep", "\\t").option("header", true).csv(s"$data/adverse_effects.tsv")
@@ -113,7 +113,7 @@ root
       dataFrame
         .withColumn("symptom", explode(transform(split(col(effectName), ";"), s => trim(s))))
         .select(col("target"),
-          col("biologicalSystem"),
+          col("ref"),
           struct(
             col("symptom"),
             lit(effectName) as "effect"
@@ -123,17 +123,20 @@ root
       val cols = Array(
         "activation_acute",
         "activation_chronic",
+        "activation_general",
         "inhibition_acute",
-        "inhibition_chronic"
+        "inhibition_chronic",
+        "inhibition_general"
       )
       cols
         .foldLeft(dataFrame)((df, c) =>
-          df.drop(c).join(addEffect(df, c), Seq("target", "biologicalSystem"), "full_outer").distinct)
+          df.drop(c).join(addEffect(df, c), Seq("target", "ref"), "left_outer").distinct)
         .withColumn("effect", array(cols.head, cols.tail: _*))
         .drop(cols: _*)
         .withColumn("e", explode(col("effect")))
         .select(col("target"), col("biologicalSystem"), col("ref"), col("e.*"))
         .filter(col("symptom").isNotNull && col("effect").isNotNull)
+        .distinct
     }
     def addUberon(dataFrame: DataFrame): DataFrame =
       dataFrame
@@ -147,7 +150,7 @@ root
         .withColumnRenamed("eventID", "efoId")
     def addEnsemblId(dataFrame: DataFrame): DataFrame =
       dataFrame
-        .join(ensgIdDF, col("target") === col("uniprotId"))
+        .join(ensgIdDF, col("target") === col("uniprotId"), "left_outer")
         .drop("uniprotId")
     def addReferences(dataFrame: DataFrame): DataFrame =
       dataFrame
@@ -159,8 +162,10 @@ root
       ("Main organ/system affected", "biologicalSystem"),
       ("Agonism/Activation effects_Acute dosing", "activation_acute"),
       ("Agonism/Activation effects_Chronic dosing", "activation_chronic"),
+      ("Agonism/Activation effects_General", "activation_general"),
       ("Antagonism/Inhibition effects_Acute dosing", "inhibition_acute"),
-      ("Antagonism/Inhibition effects_Chronic dosing", "inhibition_chronic")
+      ("Antagonism/Inhibition effects_Chronic dosing", "inhibition_chronic"),
+      ("Antagonism/Inhibition effects_General", "inhibition_general")
     )
     val newNames = cols.map(_._2)
 
@@ -225,5 +230,8 @@ def translateTargetSafetySafetyRiskDF(dataFrame: DataFrame,
   df.select("ensemblId", "target", "biologicalSystem", "uberonId", "liability", "ref", "pmid", "url")
 }
 val srDF = translateTargetSafetySafetyRiskDF(srRawDF, uberonDF, referenceRawDF, targetBetaDF)
-aeDF.distinct.write.save(output + "ae_safety")
-srDF.distinct.write.save(output + "sr_safety")
+aeDF.distinct.write.parquet(output + "ae_safety")
+srDF.distinct.write.parquet(output + "sr_safety")
+
+
+
