@@ -1,7 +1,12 @@
 package io.opentargets.etl.backend
 
 import com.typesafe.scalalogging.LazyLogging
-import io.opentargets.etl.backend.spark.Helpers.{IOResource, IOResources, mkFlattenArray}
+import io.opentargets.etl.backend.spark.Helpers.{
+  IOResource,
+  IOResources,
+  mkFlattenArray,
+  mkRandomPrefix
+}
 import org.apache.spark.sql._
 import org.apache.spark.sql.expressions.Window
 import org.apache.spark.sql.functions._
@@ -378,7 +383,7 @@ object Evidence extends LazyLogging {
 
     logger.info("filter evidences by target biotype exclusion list - default is nothing to exclude")
 
-    val tName = Random.alphanumeric.take(5).mkString("", "", "_")
+    val tName = mkRandomPrefix()
     val btsCol = "biotypes"
     implicit val session: SparkSession = context.sparkSession
     import session.implicits._

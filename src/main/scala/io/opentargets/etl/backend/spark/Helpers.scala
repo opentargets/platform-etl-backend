@@ -14,6 +14,16 @@ import scala.util.Random
 import monocle.macros.syntax.lens._
 
 object Helpers extends LazyLogging {
+
+  /**
+    * generate a string prefix with `length` characters and ends like 'abcd_'
+    * where '_' is added at the end automatically
+    * @param length the number of random characters to build the string prefix default to 5
+    * @return the string suffixed with underscore
+    */
+  def mkRandomPrefix(length: Int = 5): String =
+    Random.alphanumeric.take(length).mkString("", "", "_")
+
   type IOResourceConfigurations = Map[String, IOResourceConfig]
   type IOResources = Map[String, IOResource]
 
