@@ -128,12 +128,14 @@ object AssociationOTF extends LazyLogging {
 
     val diseaseColumns = Seq(
       "id as disease_id",
+      "concat(id, ' ',name) as disease_data",
       "therapeuticAreas",
       "name"
     )
 
     val targetColumns = Seq(
       "id as target_id",
+      "concat(id, ' ', approvedName, ' ', approvedSymbol) as target_data",
       "proteinAnnotations.classes as facet_classes",
       "reactome",
       "tractability"
@@ -173,12 +175,21 @@ object AssociationOTF extends LazyLogging {
     val evidenceColumns = Seq(
       "id as row_id",
       "diseaseId as disease_id",
-      "concat(diseaseId, ' ',diseaseLabel) as disease_data",
       "targetId as target_id",
-      "concat(targetId, ' ', targetName, ' ', targetSymbol) as target_data",
       "datasourceId as datasource_id",
       "datatypeId as datatype_id",
       "score as row_score"
+    )
+
+    val evidenceColumnsCleaned = Seq(
+      "row_id",
+      "disease_id",
+      "target_id",
+      "datasource_id",
+      "datatype_id",
+      "row_score",
+      "disease_data",
+      "target_data"
     )
 
     val elasticsearchDF = dfs("evidences").data
@@ -188,8 +199,10 @@ object AssociationOTF extends LazyLogging {
       .join(finalTargets, Seq("target_id"), "left_outer")
 
     val clickhouseDF = dfs("evidences").data
-      .drop(columnsToDrop: _*)
       .selectExpr(evidenceColumns: _*)
+      .join(diseasesFacetTAs, Seq("disease_id"), "left_outer")
+      .join(finalTargets, Seq("target_id"), "left_outer")
+      .selectExpr(evidenceColumnsCleaned: _*)
 
     Map(
       "aotfsElasticsearch" -> IOResource(elasticsearchDF, conf.aotf.outputs.elasticsearch),
