@@ -102,16 +102,23 @@ object Safety extends LazyLogging {
     logger.debug("Transforming target safety toxicity data.")
     val etBaseDF = toxicityDF.select(
       col("ensembl_gene_id") as "id",
-      col("assay_description") as "assayDescription",
-      col("assay_format") as "assayFormat",
-      col("assay_format_type") as "assayType",
+      struct(
+        col("assay_description") as "assayDescription",
+        col("assay_format") as "assayFormat",
+        col("assay_format_type") as "assayType"
+      ) as "assay",
       col("tissue") as "label", // map to uberon term to add tissue.efoId
       col("cell_short_name") as "modelName",
       col("data_source") as "datasource",
       col("data_source_reference_link") as "url"
     )
+
+    val colsToGroupBy = etBaseDF.columns.filterNot(_ == "assay")
+    val etWithAssayArray = etBaseDF
+      .groupBy(colsToGroupBy.head, colsToGroupBy.tail: _*)
+      .agg(collect_set("assay") as "assays")
     // add in efos
-    val etWithEfo = etBaseDF
+    val etWithEfo = etWithAssayArray
       .select(
         col("id"),
         split(col("label"), ",").as("label")
@@ -126,7 +133,7 @@ object Safety extends LazyLogging {
       .drop("term")
       .distinct
 
-    etBaseDF
+    etWithAssayArray
       .drop("label")
       .join(etWithEfo, Seq("id"), "left_outer")
       .distinct
