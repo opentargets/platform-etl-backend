@@ -415,8 +415,6 @@ object Evidence extends LazyLogging {
     def generateTargetsLUT(df: DataFrame): DataFrame = {
       df.select(
           col("id").as("dId"),
-          col("approvedName").as("targetName"),
-          col("approvedSymbol").as("targetSymbol"),
           array_distinct(
             mkFlattenArray(
               array(col("id")),
@@ -472,8 +470,7 @@ object Evidence extends LazyLogging {
               array(col("id")),
               coalesce(col("obsoleteTerms"), typedLit(Array.empty[String]))
             )
-          ).as("did"),
-          $"name".as("diseaseLabel")
+          ).as("did")
         )
         .orderBy($"dId".asc)
         .repartition($"dId")
