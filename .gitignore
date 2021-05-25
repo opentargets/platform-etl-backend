@@ -19,6 +19,7 @@
 project/metals.sbt
 .vscode/
 .bloop/
+.bsp/
 project/.bloop/
 .metals/
 .ammonite/
@@ -29,3 +30,4 @@ tmp/.sbtopts
 *.log
 application.conf
 application.xml
+/scripts/.idea
