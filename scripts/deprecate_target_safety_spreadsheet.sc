@@ -16,6 +16,28 @@ import org.apache.spark.sql.functions.{
 /**
   * The known target safety data comes from a spreadsheet (https://docs.google.com/spreadsheets/d/1EvpcnUkDASUNoBU5PzQPGD5YtZxh7cgotr2MqClJ7t0/edit#gid=650742396)
   * which is rarely (not since 2019) updated.
+  *
+  * This script is to convert that spreadsheet into flat json/parquet/csv files which can be used in the platform ETL.
+  *
+  * To run this script update the paths in the 'INPUTS' section to point to where to find the data. Inputs are as follows:
+  *   - targetBetaDF: any output of the ETL 'target' step since the rewrite of target ~ June 2021
+  *   - tsRawDF: adverse effects table from spreadsheet
+  *   - efoCodesRawDF: efo mapping table from spreadsheet
+  *   - uberonDF: Uberon mapping table from spreadsheet
+  *   - srRawDF: safety risk table from spreadsheet
+  *
+  * Also specify where the outputs should be saved. Outputs are by default parquet files.
+  *
+  * The script is separated into UTILS, INPUTS, LOGIC, OUTPUTS
+  *
+  * UTILS is present because the logic makes use of helper functions which were written for the ETL. So this can be run
+  * withtout dependencies they are pasted here so they are in scope.
+  *
+  * INPUTS points to input files
+  *
+  * LOGIC performs the manipulation of in input files into output structure.
+  *
+  * OUTPUTS saves the results of LOGIC.
   */
 val ss: SparkSession = ???
 
@@ -43,7 +65,7 @@ def createEnsemblToUniprotLookup(dataFrame: DataFrame): DataFrame = {
 val tsvWithHeader = (str: String) => ss.read.option("sep", "\\t").option("header", true).csv(str)
 
 // INPUTS
-val output = "/home/jarrod/development/platform-etl-backend/data/target-inputs/safety-revised/"
+val output = "/home/jarrod/development/platform-etl-backend/data/target-inputs/safety-revised-again/"
 val data = "/home/jarrod/development/platform-etl-backend/data/target-inputs/safety/"
 
 val targetBetaDF = createEnsemblToUniprotLookup(
@@ -69,11 +91,13 @@ val srRawDF = tsvWithHeader(s"$data/safety_risk_information.tsv")
 
 // df ref, pmid, url
 val referenceRawDF = ss.read
-    .option("sep", "\\t")
-    .option("header", true)
-    .csv(s"$data/references.tsv")
-    .select(col("Reference").as("ref"), col("PMID").as("pmid"), col("Other link").as("url"))
+  .option("sep", "\\t")
+  .option("header", true)
+  .csv(s"$data/references.tsv")
+  .select(col("Reference").as("ref"), col("PMID").as("pmid"), col("Other link").as("url"))
 
+
+// LOGIC
 /*
 Returns a dataframe with all the sheets (except safety_risk) from target safety flattened
 into a single structure.
@@ -124,8 +148,10 @@ root
         "activation_acute",
         "activation_chronic",
         "activation_general",
+        "activation_developmental toxicity",
         "inhibition_acute",
         "inhibition_chronic",
+        "inhibition_developmental toxicity",
         "inhibition_general"
       )
       cols
@@ -162,9 +188,11 @@ root
       ("Main organ/system affected", "biologicalSystem"),
       ("Agonism/Activation effects_Acute dosing", "activation_acute"),
       ("Agonism/Activation effects_Chronic dosing", "activation_chronic"),
+      ("Agonism/Activation effects_Developmental toxicity", "activation_developmental toxicity"),
       ("Agonism/Activation effects_General", "activation_general"),
       ("Antagonism/Inhibition effects_Acute dosing", "inhibition_acute"),
       ("Antagonism/Inhibition effects_Chronic dosing", "inhibition_chronic"),
+      ("Antagonism/Inhibition effects_Developmental toxicity", "inhibition_developmental toxicity"),
       ("Antagonism/Inhibition effects_General", "inhibition_general")
     )
     val newNames = cols.map(_._2)
@@ -230,6 +258,8 @@ def translateTargetSafetySafetyRiskDF(dataFrame: DataFrame,
   df.select("ensemblId", "target", "biologicalSystem", "uberonId", "liability", "ref", "pmid", "url")
 }
 val srDF = translateTargetSafetySafetyRiskDF(srRawDF, uberonDF, referenceRawDF, targetBetaDF)
+
+// OUTPUTS
 aeDF.distinct.write.parquet(output + "ae_safety")
 srDF.distinct.write.parquet(output + "sr_safety")
 
