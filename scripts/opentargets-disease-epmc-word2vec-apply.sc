@@ -53,17 +53,16 @@ object SparkSessionWrapper extends LazyLogging {
 }
 
 object ETL extends LazyLogging {
-  val applyModelFn = (model: Broadcast[Word2VecModel], prefixes: Seq[String], vector: DenseVector) => {
+  val applyModelFn = (model: Broadcast[Word2VecModel], vector: DenseVector) => {
     try {
       model.value
-        .findSynonymsArray(vector, 100000)
-        .filter(p => prefixes.contains(p._1.split("_").head.toLowerCase)).take(10)
+        .findSynonymsArray(vector, 10)
     } catch {
       case _: Throwable => Array.empty[(String, Double)]
     }
   }
 
-  def apply(prefix: String, labelsUri: String, model: String, output: String): Unit = {
+  def apply(prefix: String, labelsUri: String, model: String, filteredModel: String, output: String): Unit = {
     import SparkSessionWrapper._
     import spark.implicits._
     implicit val ss: SparkSession = spark
@@ -75,14 +74,22 @@ object ETL extends LazyLogging {
         .orderBy($"efoId")
     )
 
-    val prefixes = diseases.withColumn("prefix", split($"efoId", "_").getItem(0)).select("prefix").distinct.collect.map(_.getAs[String]("prefix"))
+    val prefixes = diseases
+      .withColumn("prefix", split($"efoId", "_").getItem(0))
+      .select("prefix")
+      .distinct.as[String].collect
     val labels = spark.read.parquet(labelsUri).selectExpr("labelsTerms_sentence", "explode(labelsKey) as word")
     val m = Word2VecModel.load(model)
-    val bm = spark.sparkContext.broadcast(m)
 
-    val labelsFn = udf(applyModelFn(bm, prefixes, _))
+    // this is the same model but filtered just ontology terms so we can speed up the similarity
+    // to the whole label dataset (basically load the data from the previous model, filter and write
+    // and then copy the model folder and replace manually the filtered data in parquet
+    val m2 = Word2VecModel.load(filteredModel)
+    val bm = spark.sparkContext.broadcast(m2)
+
+    val labelsFn = udf(applyModelFn(bm, _))
     val lv = labels
-      .join(m.getVectors.orderBy($"word"), Seq("word"),"left_outer")
+      .join(broadcast(m.getVectors.orderBy($"word")), Seq("word"),"left_outer")
       .filter($"vector".isNotNull)
       .groupBy($"labelsTerms_sentence")
       .agg(Summarizer.sum($"vector").as("v"))
@@ -106,5 +113,6 @@ object ETL extends LazyLogging {
 def main(prefix: String,
          labels: String,
          model: String,
+         filteredModel: String,
          output: String): Unit =
-  ETL(prefix, labels, model, output)
+  ETL(prefix, labels, model, filteredModel, output)
