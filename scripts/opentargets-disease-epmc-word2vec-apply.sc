@@ -16,6 +16,7 @@ import $ivy.`com.typesafe.play::play-json:2.9.1`
 import $ivy.`com.github.haifengl:smile-mkl:2.6.0`
 import $ivy.`com.github.haifengl::smile-scala:2.6.0`
 import $ivy.`com.johnsnowlabs.nlp:spark-nlp_2.12:3.0.3`
+import breeze.linalg.Vector.{castFunc, castOps}
 import org.apache.spark.broadcast._
 import org.apache.spark.ml.feature.{Word2Vec, Word2VecModel}
 import org.apache.spark.SparkConf
@@ -33,8 +34,9 @@ import smile.math.matrix.{matrix => m}
 import com.johnsnowlabs.nlp.annotator._
 import com.johnsnowlabs.nlp.pretrained._
 import com.johnsnowlabs.nlp._
-import org.apache.spark.ml.linalg.DenseVector
-import org.apache.spark.ml.stat.Summarizer
+import org.apache.spark.ml.linalg._
+import breeze.linalg.functions.cosineDistance
+import breeze.linalg.{DenseVector => BDV}
 
 object SparkSessionWrapper extends LazyLogging {
   logger.info("Spark Session init")
@@ -53,14 +55,11 @@ object SparkSessionWrapper extends LazyLogging {
 }
 
 object ETL extends LazyLogging {
-  val applyModelFn = (model: Broadcast[Word2VecModel], vector: DenseVector) => {
-    try {
-      model.value
-        .findSynonymsArray(vector, 10)
-    } catch {
-      case _: Throwable => Array.empty[(String, Double)]
-    }
-  }
+  def toBreeze( dv: DenseVector ): BDV[Double] =
+    new BDV[Double](dv.values)
+
+  val cosFn = (v1: DenseVector, v2: DenseVector) => cosineDistance(toBreeze(v1), toBreeze(v2))
+  val scoreFn = udf(cosFn)
 
   def apply(prefix: String, labelsUri: String, model: String, filteredModel: String, output: String): Unit = {
     import SparkSessionWrapper._
@@ -74,36 +73,39 @@ object ETL extends LazyLogging {
         .orderBy($"efoId")
     )
 
-    val prefixes = diseases
-      .withColumn("prefix", split($"efoId", "_").getItem(0))
-      .select("prefix")
-      .distinct.as[String].collect
-    val labels = spark.read.parquet(labelsUri).selectExpr("labelsTerms_sentence", "explode(labelsKey) as word")
-    val m = Word2VecModel.load(model)
+    logger.info("load labels")
+    val labels = spark.read.parquet(labelsUri).selectExpr("labelsTerms_sentence as sentence", "labelsKey as words")
+
+    logger.info("load model1")
+    val m = Word2VecModel
+      .load(model)
+      .setInputCol("words")
+      .setOutputCol("v")
 
     // this is the same model but filtered just ontology terms so we can speed up the similarity
     // to the whole label dataset (basically load the data from the previous model, filter and write
     // and then copy the model folder and replace manually the filtered data in parquet
+    logger.info("load model2")
     val m2 = Word2VecModel.load(filteredModel)
-    val bm = spark.sparkContext.broadcast(m2)
 
-    val labelsFn = udf(applyModelFn(bm, _))
-    val lv = labels
-      .join(broadcast(m.getVectors.orderBy($"word")), Seq("word"),"left_outer")
-      .filter($"vector".isNotNull)
-      .groupBy($"labelsTerms_sentence")
-      .agg(Summarizer.sum($"vector").as("v"))
+    logger.info("transform labels sentences into averaged vectors")
+    val lv = m.transform(labels)
+      .filter($"v".isNotNull)
 
-    val resolvedLabels = lv
-      .withColumn("synonyms", labelsFn($"v"))
-      .withColumn("synonym", explode($"synonyms"))
-      .withColumn("synonymId", $"synonym".getField("_1"))
-      .withColumn("synonymScore", $"synonym".getField("_2"))
-      .selectExpr("labelsTerms_sentence as label", "synonymId", "synonymScore")
-      .join(diseases, $"efoId" === $"synonymId")
-      .drop("efoId")
-      .orderBy($"label".asc, $"synonymScore".desc)
+    val w = Window.partitionBy("sentence").orderBy($"score".desc)
+    val m2V = broadcast(m2.getVectors)
 
+    logger.info("apply UDF fn to find top N synonyms")
+    val resolvedLabels = lv.crossJoin(m2V)
+      .withColumn("score", scoreFn($"v", $"vector"))
+      .selectExpr("sentence", "lower(word) as efoId", "score")
+      .filter($"score" > 0.1)
+      .withColumn("rank", dense_rank().over(w))
+      .filter($"rank" <= 5)
+      .join(diseases, Seq("efoId"))
+      .orderBy($"sentence".asc, $"rank".asc)
+
+    logger.info("save resolved labels")
     resolvedLabels.write.parquet(s"$output/resolved_labels")
 
   }
