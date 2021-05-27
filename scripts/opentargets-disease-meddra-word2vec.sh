@@ -1,0 +1,1 @@
+amm scripts/opentargets-disease-meddra-word2vec.sc --cutoff 0.01 --prefix /home/mkarmona/src/opentargets/data/platform/21.04/parquet --traits /home/mkarmona/src/opentargets/data/platform/finngen_traits-r5.tsv --matches  --output traits-cutoff001-finngen &> salida.log

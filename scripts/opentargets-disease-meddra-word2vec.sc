@@ -15,7 +15,7 @@ import $ivy.`com.github.pathikrit::better-files:3.8.0`
 import $ivy.`com.typesafe.play::play-json:2.9.1`
 import $ivy.`com.github.haifengl:smile-mkl:2.6.0`
 import $ivy.`com.github.haifengl::smile-scala:2.6.0`
-import $ivy.`com.johnsnowlabs.nlp:spark-nlp_2.12:3.0.0`
+import $ivy.`com.johnsnowlabs.nlp:spark-nlp_2.12:3.0.3`
 import org.apache.spark.broadcast._
 import org.apache.spark.ml.feature.{Word2Vec, Word2VecModel}
 import org.apache.spark.SparkConf
@@ -248,8 +248,17 @@ object ETL extends LazyLogging {
   }
 
   def loadTraits(path: String)(implicit sparkSession: SparkSession): DataFrame = {
-    val traits = sparkSession.read.option("sep", "\t").csv(path)
+    val traits = sparkSession.read.option("sep", "\t").option("inferSchema", "true").csv(path)
     traits.toDF("traitId", "traitName")
+  }
+
+  def loadTraitsJSON(path: String)(implicit sparkSession: SparkSession): DataFrame = {
+    import sparkSession.implicits._
+
+    val traits = sparkSession.read.json(path)
+    traits.toDF("traitCode", "traitName")
+      .groupBy($"traitName")
+      .agg(collect_set($"traitCode").as("traitId"))
   }
 
   def loadMeddraTraits(path: String)(implicit sparkSession: SparkSession): DataFrame = {
@@ -273,8 +282,11 @@ object ETL extends LazyLogging {
     logger.info("load required datasets from ETL parquet format")
     val diseases = spark.read.parquet(s"${prefix}/diseases")
 
-    val traits = loadMeddraTraits(traitsPath)
+    // val traits = loadMeddraTraits(traitsPath)
+    val traits = loadTraits(traitsPath)
+    // val traits = loadMeddraTraits(traitsPath)
     // val traits = loadTraits(traitsPath)
+    val traits = loadTraitsJSON(traitsPath)
     val pipeline = generatePipeline("text", columnsToInclude)
 
     val D = diseases
