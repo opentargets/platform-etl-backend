@@ -20,6 +20,7 @@ import org.apache.spark.sql.functions.{
 import org.apache.spark.sql.types.{ArrayType, DataType, StructField, StructType}
 
 import scala.language.postfixOps
+import scala.util.Random
 
 object Helpers extends LazyLogging {
 
