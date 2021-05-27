@@ -16,27 +16,14 @@ import $ivy.`com.typesafe.play::play-json:2.9.1`
 import $ivy.`com.github.haifengl:smile-mkl:2.6.0`
 import $ivy.`com.github.haifengl::smile-scala:2.6.0`
 import $ivy.`com.johnsnowlabs.nlp:spark-nlp_2.12:3.0.3`
-import breeze.linalg.Vector.{castFunc, castOps}
-import org.apache.spark.broadcast._
-import org.apache.spark.ml.feature.{Word2Vec, Word2VecModel}
+import org.apache.spark.ml.feature.Word2VecModel
 import org.apache.spark.SparkConf
 import org.apache.spark.sql.functions._
-import org.apache.spark.sql.functions.col
 import org.apache.spark.sql._
 import org.apache.spark.sql.expressions.Window
-import org.apache.spark.storage.StorageLevel
-import org.apache.spark.ml.fpm._
 import com.typesafe.scalalogging.LazyLogging
-import org.apache.spark.ml.functions._
-import org.apache.spark.ml.Pipeline
 import smile.math._
-import smile.math.matrix.{matrix => m}
-import com.johnsnowlabs.nlp.annotator._
-import com.johnsnowlabs.nlp.pretrained._
-import com.johnsnowlabs.nlp._
 import org.apache.spark.ml.linalg._
-import breeze.linalg.functions.cosineDistance
-import breeze.linalg.{DenseVector => BDV}
 
 object SparkSessionWrapper extends LazyLogging {
   logger.info("Spark Session init")
@@ -55,10 +42,18 @@ object SparkSessionWrapper extends LazyLogging {
 }
 
 object ETL extends LazyLogging {
-  def toBreeze( dv: DenseVector ): BDV[Double] =
-    new BDV[Double](dv.values)
+  val cosFn = (v1: DenseVector, v2: DenseVector) => {
+    val V1 = v1.values
+    val V2 = v2.values
+    val denom = MathEx.norm2(V1) * MathEx.norm2(V2)
+    val dotProduct = MathEx.dot(V1, V2)
+    if (denom == 0.0) {
+      0.0
+    } else {
+      dotProduct / denom
+    }
+  }
 
-  val cosFn = (v1: DenseVector, v2: DenseVector) => cosineDistance(toBreeze(v1), toBreeze(v2))
   val scoreFn = udf(cosFn)
 
   def apply(prefix: String, labelsUri: String, model: String, filteredModel: String, output: String): Unit = {
@@ -75,6 +70,7 @@ object ETL extends LazyLogging {
 
     logger.info("load labels")
     val labels = spark.read.parquet(labelsUri).selectExpr("labelsTerms_sentence as sentence", "labelsKey as words")
+      .groupBy($"words").agg(collect_list($"sentence").as("sentences")).sample(0.001)
 
     logger.info("load model1")
     val m = Word2VecModel
@@ -90,20 +86,18 @@ object ETL extends LazyLogging {
 
     logger.info("transform labels sentences into averaged vectors")
     val lv = m.transform(labels)
-      .filter($"v".isNotNull)
+      .filter($"v".isNotNull).repartition($"words").cache()
 
-    val w = Window.partitionBy("sentence").orderBy($"score".desc)
+    val w = Window.partitionBy("words").orderBy($"score".desc)
     val m2V = broadcast(m2.getVectors)
 
     logger.info("apply UDF fn to find top N synonyms")
-    val resolvedLabels = lv.crossJoin(m2V)
+    val resolvedLabels = lv.join(m2V, scoreFn($"v", $"vector") >= 0.5, "inner")
       .withColumn("score", scoreFn($"v", $"vector"))
-      .selectExpr("sentence", "lower(word) as efoId", "score")
-      .filter($"score" > 0.1)
-      .withColumn("rank", dense_rank().over(w))
-      .filter($"rank" <= 5)
+      .selectExpr("sentences", "words", "lower(word) as efoId", "score")
+//      .withColumn("rank", row_number().over(w))
+//      .filter($"rank" <= 5)
       .join(diseases, Seq("efoId"))
-      .orderBy($"sentence".asc, $"rank".asc)
 
     logger.info("save resolved labels")
     resolvedLabels.write.parquet(s"$output/resolved_labels")
