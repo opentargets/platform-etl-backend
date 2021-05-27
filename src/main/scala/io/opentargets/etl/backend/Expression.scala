@@ -1,8 +1,8 @@
 package io.opentargets.etl.backend
 
 import com.typesafe.scalalogging.LazyLogging
-import io.opentargets.etl.backend.spark.Helpers
-import io.opentargets.etl.backend.spark.Helpers.{IOResource, IOResourceConfig, IOResources}
+import io.opentargets.etl.backend.spark.IoHelpers.IOResources
+import io.opentargets.etl.backend.spark.{IOResource, IOResourceConfig, IoHelpers}
 import org.apache.spark.sql.SparkSession
 
 // This is option/step expression in the config file
@@ -18,7 +18,7 @@ object Expression extends LazyLogging {
         common.inputs.expression.path
       )
     )
-    val inputDataFrame = Helpers.readFrom(mappedInputs)
+    val inputDataFrame = IoHelpers.readFrom(mappedInputs)
 
     val expressionDF = inputDataFrame(dfName).data.withColumnRenamed("gene", "id")
 
@@ -30,6 +30,6 @@ object Expression extends LazyLogging {
                            ))
     )
 
-    Helpers.writeTo(outputs)
+    IoHelpers.writeTo(outputs)
   }
 }

@@ -2,8 +2,6 @@
 /platform-etl-openfda-faers.iml
 /.idea
 /input
-/data
-/dataproc
 /out
 /metorikku-standalone.jar
 /target
@@ -12,6 +10,9 @@
 /elasticsearch/target
 /src/target
 /input/
+/output
+/data
+/dataproc
 /output/
 /tmp
 /scratch

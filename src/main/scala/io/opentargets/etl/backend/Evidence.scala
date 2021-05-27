@@ -2,17 +2,16 @@ package io.opentargets.etl.backend
 
 import com.typesafe.scalalogging.LazyLogging
 import io.opentargets.etl.backend.spark.Helpers.{
-  IOResource,
-  IOResources,
   mkFlattenArray,
   mkRandomPrefix
 }
+import io.opentargets.etl.backend.spark.IoHelpers.IOResources
 import org.apache.spark.sql._
 import org.apache.spark.sql.expressions.Window
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.types._
 import org.apache.spark.storage.StorageLevel
-import spark.{Helpers => H}
+import spark.{IOResource, IoHelpers, Helpers => H}
 
 import scala.util.Random
 
@@ -606,7 +605,7 @@ object Evidence extends LazyLogging {
       "diseases" -> evidencesSec.inputs.diseases,
       "rawEvidences" -> evidencesSec.inputs.rawEvidences
     )
-    val dfs = H.readFrom(mappedInputs)
+    val dfs = IoHelpers.readFrom(mappedInputs)
 
     val rt = "resolvedTarget"
     val rd = "resolvedDisease"
@@ -660,6 +659,7 @@ object Evidence extends LazyLogging {
     implicit val ss: SparkSession = context.sparkSession
 
     val processedEvidences = compute()
-    H.writeTo(processedEvidences)
+    IoHelpers.writeTo(processedEvidences)
+
   }
 }

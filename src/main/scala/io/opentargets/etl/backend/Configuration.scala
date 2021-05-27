@@ -1,14 +1,24 @@
 package io.opentargets.etl.backend
 
-import com.typesafe.scalalogging.LazyLogging
 import com.typesafe.config.ConfigFactory
-import io.opentargets.etl.backend.spark.Helpers.IOResourceConfig
+import com.typesafe.scalalogging.LazyLogging
+import io.opentargets.etl.backend.spark.IOResourceConfig
 import pureconfig.ConfigReader.Result
 import pureconfig._
 import pureconfig.generic.auto._
 
 object Configuration extends LazyLogging {
   lazy val config: Result[OTConfig] = load
+
+  def load: ConfigReader.Result[OTConfig] = {
+    logger.info("load configuration from file")
+    val config = ConfigFactory.load()
+
+    val obj = ConfigSource.fromConfig(config).load[OTConfig]
+    logger.debug(s"configuration properly case classed ${obj.toString}")
+
+    obj
+  }
 
   case class DataSource(id: String, weight: Double, dataType: String, propagate: Boolean)
 
@@ -154,6 +164,33 @@ object Configuration extends LazyLogging {
 
   case class ReactomeSection(inputs: ReactomeSectionInputs, output: IOResourceConfig)
 
+  case class Target(input: TargetInput, outputs: TargetOutput, hgncOrthologSpecies: List[String])
+
+  case class TargetInput(hgnc: IOResourceConfig,
+                         ortholog: IOResourceConfig,
+                         ensembl: IOResourceConfig,
+                         uniprot: IOResourceConfig,
+                         geneOntology: IOResourceConfig,
+                         geneOntologyRna: IOResourceConfig,
+                         geneOntologyRnaLookup: IOResourceConfig,
+                         tep: IOResourceConfig,
+                         hpa: IOResourceConfig,
+                         hallmarks: IOResourceConfig,
+                         ncbi: IOResourceConfig,
+                         psEssentialityMatrix: IOResourceConfig,
+                         psGeneIdentifier: IOResourceConfig,
+                         chembl: IOResourceConfig,
+                         geneticConstraints: IOResourceConfig,
+                         homologyDictionary: IOResourceConfig,
+                         homologyCodingProteins: IOResourceConfig,
+                         homologyNcRna: IOResourceConfig,
+                         tractability: IOResourceConfig,
+                         safetyToxicity: IOResourceConfig,
+                         safetySafetyRisk: IOResourceConfig,
+                         safetyAdverseEvent: IOResourceConfig)
+
+  case class TargetOutput(target: IOResourceConfig)
+
   case class OTConfig(
       sparkUri: Option[String],
       common: Common,
@@ -165,16 +202,7 @@ object Configuration extends LazyLogging {
       interactions: InteractionsSection,
       knownDrugs: KnownDrugsSection,
       search: SearchSection,
-      aotf: AOTFSection
+      aotf: AOTFSection,
+      target: Target
   )
-
-  def load: ConfigReader.Result[OTConfig] = {
-    logger.info("load configuration from file")
-    val config = ConfigFactory.load()
-
-    val obj = ConfigSource.fromConfig(config).load[OTConfig]
-    logger.debug(s"configuration properly case classed ${obj.toString}")
-
-    obj
-  }
 }
