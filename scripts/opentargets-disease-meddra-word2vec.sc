@@ -283,8 +283,6 @@ object ETL extends LazyLogging {
     val diseases = spark.read.parquet(s"${prefix}/diseases")
 
     // val traits = loadMeddraTraits(traitsPath)
-    val traits = loadTraits(traitsPath)
-    // val traits = loadMeddraTraits(traitsPath)
     // val traits = loadTraits(traitsPath)
     val traits = loadTraitsJSON(traitsPath)
     val pipeline = generatePipeline("text", columnsToInclude)
