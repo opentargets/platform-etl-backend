@@ -20,8 +20,30 @@ import org.apache.spark.sql.functions.{
 import org.apache.spark.sql.types.{ArrayType, DataType, StructField, StructType}
 
 import scala.language.postfixOps
+import scala.util.Random
 
 object Helpers extends LazyLogging {
+
+  /**
+    * generate a string prefix with `length` characters and ends like 'abcd_'
+    * where '_' is added at the end automatically
+    * @param length the number of random characters to build the string prefix default to 5
+    * @return the string suffixed with underscore
+    */
+  def mkRandomPrefix(length: Int = 5): String =
+    Random.alphanumeric.take(length).mkString("", "", "_")
+
+  type IOResourceConfigurations = Map[String, IOResourceConfig]
+  type IOResources = Map[String, IOResource]
+
+  case class IOResource(data: DataFrame, configuration: IOResourceConfig)
+  case class IOResourceConfigOption(k: String, v: String)
+  case class IOResourceConfig(
+      format: String,
+      path: String,
+      options: Option[Seq[IOResourceConfigOption]] = None,
+      partitionBy: Option[Seq[String]] = None
+  )
 
   /** Returns input string wrapped in backticks if it contains period character.
     *

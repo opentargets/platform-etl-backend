@@ -1,7 +1,10 @@
 package io.opentargets.etl.backend
 
 import com.typesafe.scalalogging.LazyLogging
-import io.opentargets.etl.backend.spark.Helpers.mkFlattenArray
+import io.opentargets.etl.backend.spark.Helpers.{
+  mkFlattenArray,
+  mkRandomPrefix
+}
 import io.opentargets.etl.backend.spark.IoHelpers.IOResources
 import org.apache.spark.sql._
 import org.apache.spark.sql.expressions.Window
@@ -379,7 +382,7 @@ object Evidence extends LazyLogging {
 
     logger.info("filter evidences by target biotype exclusion list - default is nothing to exclude")
 
-    val tName = Random.alphanumeric.take(5).mkString("", "", "_")
+    val tName = mkRandomPrefix()
     val btsCol = "biotypes"
     implicit val session: SparkSession = context.sparkSession
     import session.implicits._
@@ -416,8 +419,6 @@ object Evidence extends LazyLogging {
     def generateTargetsLUT(df: DataFrame): DataFrame = {
       df.select(
           col("id").as("dId"),
-          col("approvedName").as("targetName"),
-          col("approvedSymbol").as("targetSymbol"),
           array_distinct(
             mkFlattenArray(
               array(col("id")),
@@ -466,7 +467,15 @@ object Evidence extends LazyLogging {
 
     val lut = broadcast(
       diseases
-        .select(col("id").as("dId"), $"name".as("diseaseLabel"))
+        .select(
+          col("id").as("efoId"),
+          explode(
+            concat(
+              array(col("id")),
+              coalesce(col("obsoleteTerms"), typedLit(Array.empty[String]))
+            )
+          ).as("did")
+        )
         .orderBy($"dId".asc)
         .repartition($"dId")
     )
@@ -476,8 +485,8 @@ object Evidence extends LazyLogging {
     val resolved = df
       .join(lut, fromIdC === col("dId"), "left_outer")
       .withColumn(columnName, col("dId").isNotNull)
-      .withColumn(toId, coalesce(col("dId"), fromIdC))
-      .drop("dId")
+      .withColumn(toId, coalesce(col("efoId"), fromIdC))
+      .drop("dId", "efoId")
 
     resolved
   }
