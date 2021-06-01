@@ -41,74 +41,44 @@ Generate MousePhenotypes input file
 ```sh
 cat 20.04_gene-data.json | jq -r '{"id":.id,"phenotypes": [.mouse_phenotypes[]?] }|@json' > mousephenotype.json
 ```
+
 Copy the file in google storage or specific path
 
 ### Load with custom configuration
 
-Add to your run either commandline or sbt task Intellij IDEA `-Dconfig.file=application.conf` and it
-will load the configuration from your `./` path or project root. Missing fields will be resolved
-with `reference.conf`.
+Add to your run either commandline or sbt task Intellij IDEA `-Dconfig.file=application.conf` and it will load the
+configuration from your `./` path or project root. Missing fields will be resolved with `reference.conf`.
 
-If you want to customise local spark run without any submit in your local machine. Example of
-`application.conf`.
+The most common configuration changes you will need to make are pointing towards the correct input files. To load files
+we use a structure:
+
+```
+config-field-name {
+      format = "csv"
+      path = "path to file"
+      options = [
+        {k: "sep", v: "\\t"}
+        {k: "header", v: true}
+      ]
+    }
+```
+
+The `options` field configures how Spark will read the input files. Both Json and CSV files have a large number of
+configurable options, details of which can be
+found [in the documentation](https://spark.apache.org/docs/latest/api/scala/org/apache/spark/sql/DataFrameReader.html)
+
+If you want to use a local installation of Spark customise the `application.conf` with the following spark-uri field and
+adjust any other fields as necessary from the `reference.conf` template:
 
 ```conf
 spark-uri = "local[*]"
 common {
-  output = "etl/latest"
-  inputs {
-    target {
-      format = "parquet"
-      path = "luts/gene_parquet/"
-    }
-    disease  {
-      format = "parquet"
-      path = "luts/efo_parquet/"
-    }
-    drug  {
-      format = "parquet"
-      path = "luts/drug_parquet/"
-    }
-    evidence  {
-      format = "parquet"
-      path = "luts/evidence_parquet/"
-    }
-    associations  {
-      format = "parquet"
-      path = "luts/association_parquet/"
-    }
-    ddr  {
-      format = "parquet"
-      path = "luts/relation_parquet/"
-    }
-    reactome {
-      format = "parquet"
-      path = "luts/rea_parquet/"
-    }
-    eco  {
-      format = "parquet"
-      path = "luts/eco_parquet/"
-    }
-    expression {
-      format = "parquet"
-      path = "luts/expression_parquet/"
-    }
-    tep {
-      format ="json"
-      path = "gs://open-targets-data-releases/20.04/input/annotation-files/tep-2020-05-20.json"
-    }
-    mousephenotypes {
-      format ="json"
-      path = "gs://ot-snapshots/jsonl/20.04/20.04_mousephenotypes.json"
-   }
- }
+ ...  
 }
-
 ```
 
-The same happens with logback configuration. You can add `-Dlogback.configurationFile=application.xml` and
-have a logback.xml hanging on your project root or run path. An example log configuration
-file:
+Similarly update the logback configuration. You can add `-Dlogback.configurationFile=application.xml` and have a
+logback.xml hanging on your project root or run path. An example log configuration file:
 
 ```xml
 <configuration>
@@ -227,6 +197,7 @@ The majority of the ETL was written to process data which has been prepared by t
   from the data pipeline to function correctly. These include:
   
   - Drug
+  - Target
   
 ## Step notes
 
@@ -330,12 +301,75 @@ The `Drug` step writes three files under the common directory specified in the `
   
 Each of these outputs includes a field `id` to allow later linkages between them. 
 
+### Target
+
+These notes refer to the Target step as rewritten in March 2021. If attempting to debug datasets completed before 
+release 20.XX consult commits preceeding XXXXXX. 
+
+#### Inputs
+
+Inputs to the ETL are prepared by Platform Input Support (PIS). PIS does some minimal preprocessing, but it is possible
+to manually retrieve them and run the step locally. If you would like to run this step locally, retrieve the necessary
+inputs from one of the Open Targets public input buckets. eg. `gs://ot-snapshots/...` rather than downloading the files
+directly from the sources listed here which are included _for reference_.
+
+Consult the `reference.conf` file to see how to configure the inputs, most of these require only changing the paths to
+the data. Options for parsing the inputs should not need to be updated.
+
+1. HGNC
+   - `https://storage.googleapis.com/open-targets-data-releases/21.02/input/annotation-files/hgnc_complete_set-2021-02-09.json`
+
+2. Ensembl
+
+    - Use Ensembl human gene JSON file (available
+      from: `ftp://ftp.ensembl. org/pub/release-102/json/homo_sapiens/homo_sapiens. json`) updating the release as
+      required.
+    - It can be useful to convert this file to jsonl format. It can be converted
+      with `jq -c . genes[] homo_sapiens. json >> homo_sapiens.jsonl`. The file is 4GB, so needs a decent machine (min
+      32GB RAM) for conversion.
+
+3. Uniprot
+    - the Uniprot format in flat txt format instead of xml.
+    - This is a flat text file and is provided by PIS. Can be downloaded manually
+      from `https://www.uniprot. org/uniprot/?query=reviewed%3Ayes%2BAND%2Borganism%3A9606&compress=yes&format=txt`
+    - The is a conversion tool to create Scala objects in `io.opentargets.etl.preprocess.uniprot`
+4. Gene Ontology
+    - Requires three files available from EBI:
+        - [Annotation files for human proteins](ftp://ftp.ebi.ac.uk/pub/databases/GO/goa/HUMAN/goa_human.gaf.gz)
+        - [Annotation files for human RNAs](ftp://ftp.ebi.ac.uk/pub/databases/GO/goa/HUMAN/goa_human_rna.gaf.gz)
+        - [RNAcentral to Ensembl mapping files](ftp://ftp.ebi.ac.uk/pub/databases/RNAcentral/current_release/id_mapping/database_mappings/ensembl.tsv)
+
+5. Tep
+    - Uses files downloaded for `tep` key in PIS's `config.yaml`.
+
+4. NCBI
+    - Used for synonyms, data available
+      from: `ftp://ftp.ncbi.nlm.nih.gov/gene/DATA/GENE_INFO/Mammalia/Homo_sapiens. gene_info.gz`
+6. Human Protein Atlas
+
+    - Used for subcellular locations. Data available
+      from [HPA's website](https://www.proteinatlas.org/download/subcellular_location.tsv.zip)
+7. Project Scores
+8. ChEMBL
+    - Target index
+9. Gnomad
+    - Used for genetic constraints. Data available
+      from [Gnomad website](https://storage.googleapis.com/gcp-public-data--gnomad/release/2.1.1/constraint/gnomad.v2.1.1.lof_metrics.by_gene.txt.bgz)
+    - The file is in `bgz` format, this can be converted to csv with `gunzip -c input > output.csv`.
+10. Homologs
+    - Update the release number as required:
+        - ftp://ftp.ensembl.org/pub/release-100/tsv/ensembl-compara/homologies/homo_sapiens/Compara.100.protein_default.homologies.tsv.gz
+        - ftp://ftp.ensembl.org/pub/release-100/tsv/ensembl-compara/homologies/homo_sapiens/Compara.100.ncrna_default.homologies.tsv.gz
+        - ftp://ftp.ensembl.org/pub/release-100/species_EnsemblVertebrates.txt
+    - File from PIS (outputs to `annotation-files`)
+        - https://storage.googleapis.com/open-targets-data-releases/20.06/input/annotation-files/human_all_hcop_sixteen_column-2020-06-01.txt.gz
+
 ## Development environment notes
 
 ### Scalafmt Installation
 
-A pre-commit hook to run [scalafmt](https://scalameta.org/scalafmt/) is recommended for 
-this repo though installation of scalafmt is left to developers. The [Installation Guide](https://scalameta.org/scalafmt/docs/installation.html)
+A pre-commit hook to run [scalafmt](https://scalameta.org/scalafmt/) is recommended for this repo though installation of
+scalafmt is left to developers. The [Installation Guide](https://scalameta.org/scalafmt/docs/installation.html)
 has simple instructions, and the process used for Ubuntu 18.04 was:
 
 ```bash

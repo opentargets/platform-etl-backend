@@ -4,8 +4,10 @@ import org.apache.spark.sql._
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.functions.{pow => powCol}
 import com.typesafe.scalalogging.LazyLogging
-import io.opentargets.etl.backend.spark.Helpers.{IOResource, IOResources, mkRandomPrefix}
+import io.opentargets.etl.backend.spark.Helpers.mkRandomPrefix
 import io.opentargets.etl.backend.spark.{Helpers => H}
+import io.opentargets.etl.backend.spark.IoHelpers.IOResources
+import io.opentargets.etl.backend.spark.{IOResource, IoHelpers}
 import org.apache.spark.sql.expressions._
 import org.apache.spark.storage.StorageLevel
 
@@ -170,7 +172,7 @@ object Association extends LazyLogging {
       "evidences" -> context.configuration.associations.inputs.evidences,
       "diseases" -> context.configuration.associations.inputs.diseases
     )
-    val dfs = H.readFrom(mappedInputs)
+    val dfs = IoHelpers.readFrom(mappedInputs)
     val evidences = dfs("evidences")
 
     val evidenceColumns = Seq(
@@ -326,6 +328,6 @@ object Association extends LazyLogging {
 
     val outputs = directs ++ indirects
 
-    H.writeTo(outputs)
+    IoHelpers.writeTo(outputs)
   }
 }

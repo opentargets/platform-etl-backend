@@ -1,21 +1,17 @@
 package io.opentargets.etl.backend
 
 import com.typesafe.scalalogging.LazyLogging
-import io.opentargets.etl.backend.Configuration.OTConfig
-import io.opentargets.etl.backend.spark.Helpers
+import io.opentargets.etl.backend.spark.{IOResourceConfig, IOResourceConfigOption, IoHelpers}
 import org.apache.spark.sql.types._
-import org.apache.spark.sql.{DataFrame, Row}
+import org.apache.spark.sql.{DataFrame, Row, functions}
 import org.scalatest.prop.TableDrivenPropertyChecks
 import io.opentargets.etl.backend.spark.Helpers._
+import org.apache.spark.sql.functions.{col, explode}
+import org.scalatest.matchers.should.Matchers.convertToAnyShouldWrapper
 
 import scala.util.Random
 
-class HelpersTest
-    extends EtlSparkUnitTest
-    with TableDrivenPropertyChecks
-    with LazyLogging
-    {
-
+class HelpersTest extends EtlSparkUnitTest with TableDrivenPropertyChecks with LazyLogging {
 
   // given
   val renameFun: String => String = _.toUpperCase
@@ -34,7 +30,7 @@ class HelpersTest
       case Right(config) =>
         val inputFileNames = Seq("a", "b", "c")
         // when
-        val results = Helpers.generateDefaultIoOutputConfiguration(inputFileNames: _*)(config)
+        val results = IoHelpers.generateDefaultIoOutputConfiguration(inputFileNames: _*)(config)
         // then
         assert(results.keys.size == inputFileNames.size)
         assert(
@@ -48,26 +44,20 @@ class HelpersTest
     }
   }
 
-//  "separated values files" should "only be processed when they have a header and separator specified" in {
-//    // given
-//    val input = IOResourceConfig("name", "csv")
-//    // when
-//    lazy val results = Helpers.loadFileToDF(input)(sparkSession)
-//    // then
-//    assertThrows[AssertionError](results)
-//  }
-
   they should "load correctly when header and separator as specified" in {
     // given
     val path: String = this.getClass.getResource("/drugbank_v.csv").getPath
-    val input = IOResourceConfig("csv", path, Some(List(
-      IOResourceConfigOption("sep", "\\t"),
-      IOResourceConfigOption("header", "true")
-    )))
+    val input = IOResourceConfig("csv",
+                                 path,
+                                 Some(
+                                   List(
+                                     IOResourceConfigOption("sep", "\\t"),
+                                     IOResourceConfigOption("header", "true")
+                                   )))
     // when
-    val results = Helpers.loadFileToDF(input)(sparkSession)
+    val results = IoHelpers.loadFileToDF(input)(sparkSession)
     // then
-    assert( !results.isEmpty, "The provided dataframe should not be empty.")
+    assert(!results.isEmpty, "The provided dataframe should not be empty.")
   }
 
   "Rename columns" should "rename all columns using given function" in {
@@ -125,6 +115,81 @@ class HelpersTest
       }
     }
 
+  }
+
+  "safeArrayUnion" should "return elements of one array if the other is null" in {
+    // given
+    val json =
+      """
+        |{
+        |  "cases": [
+        |    { "id": 1, "a": [ 4, 5, 6], "c": [2]},
+        |    { "id": 2, "a": [ 1, 2, 3], "b": [7]},
+        |    { "id": 3, "a": [], "b": [], "c": []}
+        |  ]
+        |}
+        |""".stripMargin
+    import sparkSession.implicits._
+
+    val df = sparkSession.read.json(Seq(json).toDS).select(explode(col("cases"))).select("col.*")
+    // when
+    val results = df.withColumn("d", safeArrayUnion(col("a"), col("b"), col("c")))
+
+    // then
+    results.filter($"d".isNotNull).count() should be(3)
+    results
+      .filter($"id" === 1)
+      .select(functions.size($"d").as("union"))
+      .head()
+      .getAs[Int]("union") should be(4)
+
+  }
+
+  "unionDataframeDifferentSchema" should "return a dataframe which includes columns from df1 and df2 and all rows in each" in {
+    // given
+    val json1 =
+      """
+        |{
+        |  "cases": [
+        |    { "id": 1, "a": 4, "c": "str"},
+        |    { "id": 2, "a": 5, "b": "str"},
+        |    { "id": 3, "a": 11, "b": "str", "c": "str"}
+        |  ]
+        |}
+        |""".stripMargin
+
+    val json2 =
+      """
+        |{
+        |  "cases": [
+        |    { "id": 4, "d": 'd', "e": 2},
+        |    { "id": 5, "a": 13, "e": 7},
+        |    { "id": 6, "a": 1, "f": 'c', "c": "str"}
+        |  ]
+        |}
+        |""".stripMargin
+    import sparkSession.implicits._
+
+    val df1 = sparkSession.read.json(Seq(json1).toDS).select(explode(col("cases"))).select("col.*")
+    val df2 = sparkSession.read.json(Seq(json2).toDS).select(explode(col("cases"))).select("col.*")
+    // when
+    val result = unionDataframeDifferentSchema(df1, df2)
+    // then
+    val expectedOutputColumns = Seq("id", "a", "b", "c", "d", "e", "f")
+    result.columns.length should be(expectedOutputColumns.length)
+    result.columns sameElements expectedOutputColumns
+  }
+
+  "It" should "return the original data frame if it is merged with an empty dataframe" in {
+    import sparkSession.implicits._
+    // given
+    val cols = Seq("a", "b", "c")
+    val withColsDF = Seq.empty[(String, String, String)].toDF(cols: _*)
+    val emptyDF = sparkSession.emptyDataFrame
+    // when
+    val result = unionDataframeDifferentSchema(emptyDF, withColsDF)
+    // then
+    result.columns sameElements cols
   }
 
 }

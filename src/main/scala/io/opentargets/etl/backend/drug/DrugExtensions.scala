@@ -2,8 +2,8 @@ package io.opentargets.etl.backend.drug
 
 import com.typesafe.scalalogging.LazyLogging
 import io.opentargets.etl.backend.Configuration.InputExtension
-import io.opentargets.etl.backend.spark.Helpers
-import io.opentargets.etl.backend.spark.Helpers.IOResourceConfig
+import io.opentargets.etl.backend.spark.IoHelpers.seqToIOResourceConfigMap
+import io.opentargets.etl.backend.spark.{Helpers, IOResourceConfig, IoHelpers}
 import org.apache.spark.sql.functions.{
   array_distinct,
   array_except,
@@ -39,7 +39,7 @@ object DrugExtensions extends LazyLogging {
     logger.debug(s"Found ${xrefExtensions.size} cross reference extension files.")
 
     val extensionDataFrames: Iterable[DataFrame] =
-      Helpers.readFrom(Helpers.seqToIOResourceConfigMap(xrefExtensions)) map (_._2.data)
+      IoHelpers.readFrom(seqToIOResourceConfigMap(xrefExtensions)) map (_._2.data)
 
     // add all synonym extensions to molecules
     logger.info("Adding external cross references to molecule dataframe.")
@@ -63,7 +63,7 @@ object DrugExtensions extends LazyLogging {
     logger.debug(s"Found ${synonymExtensions.size} synonym extensions.")
 
     val synonymExtensionDataframes: Iterable[DataFrame] =
-      Helpers.readFrom(Helpers.seqToIOResourceConfigMap(synonymExtensions)) map (_._2.data)
+      IoHelpers.readFrom(seqToIOResourceConfigMap(synonymExtensions)) map (_._2.data)
 
     // validate input dataframes and standardise so that they are all in id -> array format.
     logger.debug(s"Standardising ${synonymExtensionDataframes.size} DataFrames of synonyms")

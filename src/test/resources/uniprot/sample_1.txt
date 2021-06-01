@@ -1,0 +1,683 @@
+ID   OGA_HUMAN               Reviewed;         916 AA.
+AC   O60502; B7WPB9; D3DR79; E9PGF9; O75166; Q86WV0; Q8IV98; Q9BVA5; Q9HAR0;
+DT   03-OCT-2006, integrated into UniProtKB/Swiss-Prot.
+DT   01-MAR-2001, sequence version 2.
+DT   10-FEB-2021, entry version 168.
+DE   RecName: Full=Protein O-GlcNAcase {ECO:0000303|PubMed:11148210, ECO:0000303|PubMed:11788610, ECO:0000305};
+DE            Short=OGA {ECO:0000303|PubMed:20863279};
+DE            EC=3.2.1.169 {ECO:0000269|PubMed:11148210, ECO:0000269|PubMed:11788610, ECO:0000269|PubMed:18586680, ECO:0000269|PubMed:20863279, ECO:0000269|PubMed:22365600, ECO:0000305|PubMed:20673219};
+DE   AltName: Full=Beta-N-acetylglucosaminidase {ECO:0000303|PubMed:11148210};
+DE   AltName: Full=Beta-N-acetylhexosaminidase;
+DE   AltName: Full=Beta-hexosaminidase;
+DE   AltName: Full=Meningioma-expressed antigen 5 {ECO:0000303|PubMed:9811929};
+DE   AltName: Full=N-acetyl-beta-D-glucosaminidase;
+DE   AltName: Full=N-acetyl-beta-glucosaminidase;
+DE   AltName: Full=Nuclear cytoplasmic O-GlcNAcase and acetyltransferase;
+DE            Short=NCOAT;
+GN   Name=OGA {ECO:0000312|HGNC:HGNC:7056};
+GN   Synonyms=HEXC, KIAA0679, MEA5, MGEA5;
+OS   Homo sapiens (Human).
+OC   Eukaryota; Metazoa; Chordata; Craniata; Vertebrata; Euteleostomi; Mammalia;
+OC   Eutheria; Euarchontoglires; Primates; Haplorrhini; Catarrhini; Hominidae;
+OC   Homo.
+OX   NCBI_TaxID=9606;
+RN   [1]
+RP   NUCLEOTIDE SEQUENCE [MRNA] (ISOFORMS 1 AND 3).
+RC   TISSUE=Meningioma;
+RX   PubMed=9811929; DOI=10.1093/hmg/7.12.1859;
+RA   Heckel D., Comtesse N., Brass N., Blin N., Zang K.D., Meese E.;
+RT   "Novel immunogenic antigen homologous to hyaluronidase in meningioma.";
+RL   Hum. Mol. Genet. 7:1859-1872(1998).
+RN   [2]
+RP   NUCLEOTIDE SEQUENCE [GENOMIC DNA] (ISOFORMS 1 AND 3), SUBCELLULAR LOCATION,
+RP   AND TISSUE SPECIFICITY.
+RX   PubMed=11341771; DOI=10.1006/bbrc.2001.4815;
+RA   Comtesse N., Maldener E., Meese E.;
+RT   "Identification of a nuclear variant of MGEA5, a cytoplasmic hyaluronidase
+RT   and a beta-N-acetylglucosaminidase.";
+RL   Biochem. Biophys. Res. Commun. 283:634-640(2001).
+RN   [3]
+RP   NUCLEOTIDE SEQUENCE [MRNA] (ISOFORM 1), FUNCTION, CATALYTIC ACTIVITY,
+RP   SUBCELLULAR LOCATION, TISSUE SPECIFICITY, BIOPHYSICOCHEMICAL PROPERTIES,
+RP   ACTIVITY REGULATION, AND IDENTIFICATION BY MASS SPECTROMETRY.
+RC   TISSUE=Brain;
+RX   PubMed=11148210; DOI=10.1074/jbc.m010420200;
+RA   Gao Y., Wells L., Comer F.I., Parker G.J., Hart G.W.;
+RT   "Dynamic O-glycosylation of nuclear and cytosolic proteins: cloning and
+RT   characterization of a neutral, cytosolic beta-N-acetylglucosaminidase from
+RT   human brain.";
+RL   J. Biol. Chem. 276:9838-9845(2001).
+RN   [4]
+RP   NUCLEOTIDE SEQUENCE [LARGE SCALE MRNA] (ISOFORM 1).
+RC   TISSUE=Brain;
+RX   PubMed=9734811; DOI=10.1093/dnares/5.3.169;
+RA   Ishikawa K., Nagase T., Suyama M., Miyajima N., Tanaka A., Kotani H.,
+RA   Nomura N., Ohara O.;
+RT   "Prediction of the coding sequences of unidentified human genes. X. The
+RT   complete sequences of 100 new cDNA clones from brain which can code for
+RT   large proteins in vitro.";
+RL   DNA Res. 5:169-176(1998).
+RN   [5]
+RP   SEQUENCE REVISION.
+RX   PubMed=12168954; DOI=10.1093/dnares/9.3.99;
+RA   Nakajima D., Okazaki N., Yamakawa H., Kikuno R., Ohara O., Nagase T.;
+RT   "Construction of expression-ready cDNA clones for KIAA genes: manual
+RT   curation of 330 KIAA cDNA clones.";
+RL   DNA Res. 9:99-106(2002).
+RN   [6]
+RP   NUCLEOTIDE SEQUENCE [LARGE SCALE GENOMIC DNA].
+RX   PubMed=15164054; DOI=10.1038/nature02462;
+RA   Deloukas P., Earthrowl M.E., Grafham D.V., Rubenfield M., French L.,
+RA   Steward C.A., Sims S.K., Jones M.C., Searle S., Scott C., Howe K.,
+RA   Hunt S.E., Andrews T.D., Gilbert J.G.R., Swarbreck D., Ashurst J.L.,
+RA   Taylor A., Battles J., Bird C.P., Ainscough R., Almeida J.P.,
+RA   Ashwell R.I.S., Ambrose K.D., Babbage A.K., Bagguley C.L., Bailey J.,
+RA   Banerjee R., Bates K., Beasley H., Bray-Allen S., Brown A.J., Brown J.Y.,
+RA   Burford D.C., Burrill W., Burton J., Cahill P., Camire D., Carter N.P.,
+RA   Chapman J.C., Clark S.Y., Clarke G., Clee C.M., Clegg S., Corby N.,
+RA   Coulson A., Dhami P., Dutta I., Dunn M., Faulkner L., Frankish A.,
+RA   Frankland J.A., Garner P., Garnett J., Gribble S., Griffiths C.,
+RA   Grocock R., Gustafson E., Hammond S., Harley J.L., Hart E., Heath P.D.,
+RA   Ho T.P., Hopkins B., Horne J., Howden P.J., Huckle E., Hynds C.,
+RA   Johnson C., Johnson D., Kana A., Kay M., Kimberley A.M., Kershaw J.K.,
+RA   Kokkinaki M., Laird G.K., Lawlor S., Lee H.M., Leongamornlert D.A.,
+RA   Laird G., Lloyd C., Lloyd D.M., Loveland J., Lovell J., McLaren S.,
+RA   McLay K.E., McMurray A., Mashreghi-Mohammadi M., Matthews L., Milne S.,
+RA   Nickerson T., Nguyen M., Overton-Larty E., Palmer S.A., Pearce A.V.,
+RA   Peck A.I., Pelan S., Phillimore B., Porter K., Rice C.M., Rogosin A.,
+RA   Ross M.T., Sarafidou T., Sehra H.K., Shownkeen R., Skuce C.D., Smith M.,
+RA   Standring L., Sycamore N., Tester J., Thorpe A., Torcasso W., Tracey A.,
+RA   Tromans A., Tsolas J., Wall M., Walsh J., Wang H., Weinstock K., West A.P.,
+RA   Willey D.L., Whitehead S.L., Wilming L., Wray P.W., Young L., Chen Y.,
+RA   Lovering R.C., Moschonas N.K., Siebert R., Fechtel K., Bentley D.,
+RA   Durbin R.M., Hubbard T., Doucette-Stamm L., Beck S., Smith D.R., Rogers J.;
+RT   "The DNA sequence and comparative analysis of human chromosome 10.";
+RL   Nature 429:375-381(2004).
+RN   [7]
+RP   NUCLEOTIDE SEQUENCE [LARGE SCALE GENOMIC DNA].
+RA   Mural R.J., Istrail S., Sutton G.G., Florea L., Halpern A.L., Mobarry C.M.,
+RA   Lippert R., Walenz B., Shatkay H., Dew I., Miller J.R., Flanigan M.J.,
+RA   Edwards N.J., Bolanos R., Fasulo D., Halldorsson B.V., Hannenhalli S.,
+RA   Turner R., Yooseph S., Lu F., Nusskern D.R., Shue B.C., Zheng X.H.,
+RA   Zhong F., Delcher A.L., Huson D.H., Kravitz S.A., Mouchard L., Reinert K.,
+RA   Remington K.A., Clark A.G., Waterman M.S., Eichler E.E., Adams M.D.,
+RA   Hunkapiller M.W., Myers E.W., Venter J.C.;
+RL   Submitted (SEP-2005) to the EMBL/GenBank/DDBJ databases.
+RN   [8]
+RP   NUCLEOTIDE SEQUENCE [LARGE SCALE MRNA] (ISOFORM 1), AND VARIANT LYS-602.
+RC   TISSUE=Cervix, Eye, and Skin;
+RX   PubMed=15489334; DOI=10.1101/gr.2596504;
+RG   The MGC Project Team;
+RT   "The status, quality, and expansion of the NIH full-length cDNA project:
+RT   the Mammalian Gene Collection (MGC).";
+RL   Genome Res. 14:2121-2127(2004).
+RN   [9]
+RP   FUNCTION, CATALYTIC ACTIVITY, BIOPHYSICOCHEMICAL PROPERTIES, SUBUNIT, PTM,
+RP   AND SUBCELLULAR LOCATION.
+RX   PubMed=11788610; DOI=10.1074/jbc.m109656200;
+RA   Wells L., Gao Y., Mahoney J.A., Vosseller K., Chen C., Rosen A., Hart G.W.;
+RT   "Dynamic O-glycosylation of nuclear and cytosolic proteins: further
+RT   characterization of the nucleocytoplasmic beta-N-acetylglucosaminidase, O-
+RT   GlcNAcase.";
+RL   J. Biol. Chem. 277:1755-1761(2002).
+RN   [10]
+RP   ACTIVE SITE, CATALYTIC ACTIVITY, AND MUTAGENESIS OF ASP-174 AND ASP-175.
+RX   PubMed=16533067; DOI=10.1021/bi052370b;
+RA   Cetinbas N., Macauley M.S., Stubbs K.A., Drapala R., Vocadlo D.J.;
+RT   "Identification of Asp174 and Asp175 as the key catalytic residues of human
+RT   O-GlcNAcase by functional analysis of site-directed mutants.";
+RL   Biochemistry 45:3835-3844(2006).
+RN   [11]
+RP   PTM, SITE, MUTAGENESIS OF ASP-413, AND CATALYTIC ACTIVITY.
+RX   PubMed=18586680; DOI=10.1074/jbc.m804116200;
+RA   Butkinaree C., Cheung W.D., Park S., Park K., Barber M., Hart G.W.;
+RT   "Characterization of beta-N-acetylglucosaminidase cleavage by caspase-3
+RT   during apoptosis.";
+RL   J. Biol. Chem. 283:23557-23566(2008).
+RN   [12]
+RP   PHOSPHORYLATION [LARGE SCALE ANALYSIS] AT SER-364, AND IDENTIFICATION BY
+RP   MASS SPECTROMETRY [LARGE SCALE ANALYSIS].
+RC   TISSUE=Cervix carcinoma;
+RX   PubMed=18669648; DOI=10.1073/pnas.0805139105;
+RA   Dephoure N., Zhou C., Villen J., Beausoleil S.A., Bakalarski C.E.,
+RA   Elledge S.J., Gygi S.P.;
+RT   "A quantitative atlas of mitotic phosphorylation.";
+RL   Proc. Natl. Acad. Sci. U.S.A. 105:10762-10767(2008).
+RN   [13]
+RP   IDENTIFICATION BY MASS SPECTROMETRY [LARGE SCALE ANALYSIS].
+RX   PubMed=19413330; DOI=10.1021/ac9004309;
+RA   Gauci S., Helbig A.O., Slijper M., Krijgsveld J., Heck A.J., Mohammed S.;
+RT   "Lys-N and trypsin cover complementary parts of the phosphoproteome in a
+RT   refined SCX-based approach.";
+RL   Anal. Chem. 81:4493-4501(2009).
+RN   [14]
+RP   PHOSPHORYLATION [LARGE SCALE ANALYSIS] AT SER-364, AND IDENTIFICATION BY
+RP   MASS SPECTROMETRY [LARGE SCALE ANALYSIS].
+RC   TISSUE=Leukemic T-cell;
+RX   PubMed=19690332; DOI=10.1126/scisignal.2000007;
+RA   Mayya V., Lundgren D.H., Hwang S.-I., Rezaul K., Wu L., Eng J.K.,
+RA   Rodionov V., Han D.K.;
+RT   "Quantitative phosphoproteomic analysis of T cell receptor signaling
+RT   reveals system-wide modulation of protein-protein interactions.";
+RL   Sci. Signal. 2:RA46-RA46(2009).
+RN   [15]
+RP   FUNCTION, CATALYTIC ACTIVITY, AND MUTAGENESIS OF TYR-69; ASP-175; VAL-255;
+RP   TYR-286; ASP-287 AND TRP-679.
+RX   PubMed=20863279; DOI=10.1042/bj20101338;
+RA   Schimpl M., Schuttelkopf A.W., Borodkin V.S., van Aalten D.M.;
+RT   "Human OGA binds substrates in a conserved peptide recognition groove.";
+RL   Biochem. J. 432:1-7(2010).
+RN   [16]
+RP   FUNCTION OF ISOFORMS 1 AND 3, AND CATALYTIC ACTIVITY.
+RX   PubMed=20673219; DOI=10.1134/s0006297910070175;
+RA   Li J., Huang C.L., Zhang L.W., Lin L., Li Z.H., Zhang F.W., Wang P.;
+RT   "Isoforms of human O-GlcNAcase show distinct catalytic efficiencies.";
+RL   Biochemistry (Mosc.) 75:938-943(2010).
+RN   [17]
+RP   PHOSPHORYLATION [LARGE SCALE ANALYSIS] AT SER-364, AND IDENTIFICATION BY
+RP   MASS SPECTROMETRY [LARGE SCALE ANALYSIS].
+RC   TISSUE=Cervix carcinoma;
+RX   PubMed=20068231; DOI=10.1126/scisignal.2000475;
+RA   Olsen J.V., Vermeulen M., Santamaria A., Kumar C., Miller M.L.,
+RA   Jensen L.J., Gnad F., Cox J., Jensen T.S., Nigg E.A., Brunak S., Mann M.;
+RT   "Quantitative phosphoproteomics reveals widespread full phosphorylation
+RT   site occupancy during mitosis.";
+RL   Sci. Signal. 3:RA3-RA3(2010).
+RN   [18]
+RP   IDENTIFICATION BY MASS SPECTROMETRY [LARGE SCALE ANALYSIS].
+RX   PubMed=21269460; DOI=10.1186/1752-0509-5-17;
+RA   Burkard T.R., Planyavsky M., Kaupe I., Breitwieser F.P., Buerckstuemmer T.,
+RA   Bennett K.L., Superti-Furga G., Colinge J.;
+RT   "Initial characterization of the human central proteome.";
+RL   BMC Syst. Biol. 5:17-17(2011).
+RN   [19]
+RP   PHOSPHORYLATION [LARGE SCALE ANALYSIS] AT SER-364, AND IDENTIFICATION BY
+RP   MASS SPECTROMETRY [LARGE SCALE ANALYSIS].
+RX   PubMed=21406692; DOI=10.1126/scisignal.2001570;
+RA   Rigbolt K.T., Prokhorova T.A., Akimov V., Henningsen J., Johansen P.T.,
+RA   Kratchmarova I., Kassem M., Mann M., Olsen J.V., Blagoev B.;
+RT   "System-wide temporal characterization of the proteome and phosphoproteome
+RT   of human embryonic stem cell differentiation.";
+RL   Sci. Signal. 4:RS3-RS3(2011).
+RN   [20]
+RP   IDENTIFICATION BY MASS SPECTROMETRY [LARGE SCALE ANALYSIS].
+RX   PubMed=22814378; DOI=10.1073/pnas.1210303109;
+RA   Van Damme P., Lasa M., Polevoda B., Gazquez C., Elosegui-Artola A.,
+RA   Kim D.S., De Juan-Pardo E., Demeyer K., Hole K., Larrea E., Timmerman E.,
+RA   Prieto J., Arnesen T., Sherman F., Gevaert K., Aldabe R.;
+RT   "N-terminal acetylome analyses and functional insights of the N-terminal
+RT   acetyltransferase NatB.";
+RL   Proc. Natl. Acad. Sci. U.S.A. 109:12449-12454(2012).
+RN   [21]
+RP   PHOSPHORYLATION [LARGE SCALE ANALYSIS] AT SER-364, AND IDENTIFICATION BY
+RP   MASS SPECTROMETRY [LARGE SCALE ANALYSIS].
+RC   TISSUE=Cervix carcinoma, and Erythroleukemia;
+RX   PubMed=23186163; DOI=10.1021/pr300630k;
+RA   Zhou H., Di Palma S., Preisinger C., Peng M., Polat A.N., Heck A.J.,
+RA   Mohammed S.;
+RT   "Toward a comprehensive characterization of a human cancer cell
+RT   phosphoproteome.";
+RL   J. Proteome Res. 12:260-271(2013).
+RN   [22]
+RP   LACK OF ACETYLTRANSFERASE ACTIVITY, AND FUNCTION.
+RX   PubMed=24088714; DOI=10.1098/rsob.130021;
+RA   Rao F.V., Schuttelkopf A.W., Dorfmueller H.C., Ferenbach A.T.,
+RA   Navratilova I., van Aalten D.M.;
+RT   "Structure of a bacterial putative acetyltransferase defines the fold of
+RT   the human O-GlcNAcase C-terminal domain.";
+RL   Open Biol. 3:130021-130021(2013).
+RN   [23]
+RP   INTERACTION WITH HUMAN T-CELL LEUKEMIA VIRUS 1/HTLV-1 PROTEIN TAX.
+RX   PubMed=28742148; DOI=10.1371/journal.ppat.1006518;
+RA   Groussaud D., Khair M., Tollenaere A.I., Waast L., Kuo M.S., Mangeney M.,
+RA   Martella C., Fardini Y., Coste S., Souidi M., Benit L., Pique C., Issad T.;
+RT   "Hijacking of the O-GlcNAcZYME complex by the HTLV-1 Tax oncoprotein
+RT   facilitates viral transcription.";
+RL   PLoS Pathog. 13:E1006518-E1006518(2017).
+RN   [24]
+RP   X-RAY CRYSTALLOGRAPHY (2.60 ANGSTROMS) OF 402-408, MUTAGENESIS OF TYR-69,
+RP   FUNCTION, AND CATALYTIC ACTIVITY.
+RX   PubMed=22365600; DOI=10.1016/j.chembiol.2012.01.011;
+RA   Schimpl M., Borodkin V.S., Gray L.J., van Aalten D.M.;
+RT   "Synergy of peptide and sugar in O-GlcNAcase substrate recognition.";
+RL   Chem. Biol. 19:173-178(2012).
+CC   -!- FUNCTION: [Isoform 1]: Cleaves GlcNAc but not GalNAc from O-
+CC       glycosylated proteins. Can use p-nitrophenyl-beta-GlcNAc and 4-
+CC       methylumbelliferone-GlcNAc as substrates but not p-nitrophenyl-beta-
+CC       GalNAc or p-nitrophenyl-alpha-GlcNAc (in vitro) (PubMed:11148210). Does
+CC       not bind acetyl-CoA and does not have histone acetyltransferase
+CC       activity (PubMed:24088714). {ECO:0000269|PubMed:11148210,
+CC       ECO:0000269|PubMed:11788610, ECO:0000269|PubMed:20673219,
+CC       ECO:0000269|PubMed:22365600, ECO:0000269|PubMed:24088714}.
+CC   -!- FUNCTION: [Isoform 3]: Cleaves GlcNAc but not GalNAc from O-
+CC       glycosylated proteins. Can use p-nitrophenyl-beta-GlcNAc as substrate
+CC       but not p-nitrophenyl-beta-GalNAc or p-nitrophenyl-alpha-GlcNAc (in
+CC       vitro), but has about six times lower specific activity than isoform 1.
+CC       {ECO:0000269|PubMed:20673219}.
+CC   -!- CATALYTIC ACTIVITY:
+CC       Reaction=3-O-(N-acetyl-beta-D-glucosaminyl)-L-seryl-[protein] + H2O =
+CC         L-seryl-[protein] + N-acetyl-D-glucosamine; Xref=Rhea:RHEA:48876,
+CC         Rhea:RHEA-COMP:9863, Rhea:RHEA-COMP:12251, ChEBI:CHEBI:15377,
+CC         ChEBI:CHEBI:29999, ChEBI:CHEBI:90838, ChEBI:CHEBI:506227;
+CC         EC=3.2.1.169; Evidence={ECO:0000269|PubMed:11148210,
+CC         ECO:0000269|PubMed:11788610, ECO:0000269|PubMed:18586680,
+CC         ECO:0000269|PubMed:20863279, ECO:0000269|PubMed:22365600,
+CC         ECO:0000305|PubMed:20673219};
+CC   -!- CATALYTIC ACTIVITY:
+CC       Reaction=3-O-(N-acetyl-beta-D-glucosaminyl)-L-threonyl-[protein] + H2O
+CC         = L-threonyl-[protein] + N-acetyl-D-glucosamine;
+CC         Xref=Rhea:RHEA:48892, Rhea:RHEA-COMP:11060, Rhea:RHEA-COMP:12252,
+CC         ChEBI:CHEBI:15377, ChEBI:CHEBI:30013, ChEBI:CHEBI:90840,
+CC         ChEBI:CHEBI:506227; EC=3.2.1.169;
+CC         Evidence={ECO:0000269|PubMed:11148210, ECO:0000269|PubMed:11788610,
+CC         ECO:0000269|PubMed:18586680, ECO:0000269|PubMed:20863279,
+CC         ECO:0000269|PubMed:22365600, ECO:0000305|PubMed:20673219};
+CC   -!- ACTIVITY REGULATION: Inhibited by N-acetylglucosamine and not N-
+CC       acetylgalactosamine. {ECO:0000269|PubMed:11148210}.
+CC   -!- BIOPHYSICOCHEMICAL PROPERTIES:
+CC       Kinetic parameters:
+CC         KM=1.1 mM for pNP-GlcNAc {ECO:0000269|PubMed:11788610};
+CC         Vmax=652 umol/min/mg enzyme with pNP-GLcNAc as substrate
+CC         {ECO:0000269|PubMed:11788610};
+CC       pH dependence:
+CC         Optimum pH is 5.7-7. {ECO:0000269|PubMed:11148210};
+CC   -!- SUBUNIT: Monomer (PubMed:11788610). Interacts with CLOCK (By
+CC       similarity). {ECO:0000250|UniProtKB:Q9EQQ9,
+CC       ECO:0000269|PubMed:11788610}.
+CC   -!- SUBUNIT: (Microbial infection) Interacts with human T-cell leukemia
+CC       virus 1/HTLV-1 protein Tax; this interaction increases Tax interacting
+CC       partner CREB1 O-GlcNAcylation. {ECO:0000269|PubMed:28742148}.
+CC   -!- SUBCELLULAR LOCATION: [Isoform 3]: Nucleus
+CC       {ECO:0000269|PubMed:11341771}.
+CC   -!- SUBCELLULAR LOCATION: [Isoform 1]: Cytoplasm
+CC       {ECO:0000269|PubMed:11148210, ECO:0000269|PubMed:11341771,
+CC       ECO:0000269|PubMed:11788610}.
+CC   -!- ALTERNATIVE PRODUCTS:
+CC       Event=Alternative splicing; Named isoforms=4;
+CC       Name=1;
+CC         IsoId=O60502-1; Sequence=Displayed;
+CC       Name=2;
+CC         IsoId=O60502-2; Sequence=VSP_020866, VSP_020869;
+CC       Name=3; Synonyms=MGEA5s;
+CC         IsoId=O60502-3; Sequence=VSP_020867, VSP_020868;
+CC       Name=4;
+CC         IsoId=O60502-4; Sequence=VSP_020866;
+CC   -!- TISSUE SPECIFICITY: Ubiquitous. Shows highest expression in the brain,
+CC       placenta and pancreas. {ECO:0000269|PubMed:11148210,
+CC       ECO:0000269|PubMed:11341771}.
+CC   -!- PTM: Proteolytically cleaved by caspase-3 during apoptosis. The
+CC       fragments interact with each other; cleavage does not decrease enzyme
+CC       activity. {ECO:0000269|PubMed:11788610, ECO:0000269|PubMed:18586680}.
+CC   -!- SIMILARITY: Belongs to the glycosyl hydrolase 84 family. {ECO:0000305}.
+CC   -!- CAUTION: The mouse and rat orthologs were initially identified as bi-
+CC       functional proteins containing an N-terminal domain with O-GlcNAcase
+CC       activity and a C-terminal domain with histone acetyltransferase
+CC       activity. The histone acetyltransferase activity was detected only when
+CC       the protein was expressed in mammalian cells, but not when expressed in
+CC       bacterial cells, suggesting that the histone acetyltransferase activity
+CC       might be due to the presence of a contaminant. Comparison of the human
+CC       protein with a bacterial putative acetyltransferase (AC Q2CEE2) shows
+CC       that the residues important for acetyl-CoA binding are not conserved,
+CC       and that the residues proposed to be important for histone
+CC       acetyltransferase activity are not in a position where they could
+CC       participate in catalysis. Characterization of the human protein shows
+CC       that it does not bind acetyl-CoA and therefore cannot have
+CC       acetyltransferase activity. {ECO:0000269|PubMed:24088714,
+CC       ECO:0000305|PubMed:24088714}.
+CC   -!- SEQUENCE CAUTION:
+CC       Sequence=AAH47877.1; Type=Miscellaneous discrepancy; Note=Contaminating sequence. Potential poly-A sequence.; Evidence={ECO:0000305};
+CC       Sequence=BAA31654.2; Type=Erroneous initiation; Note=Extended N-terminus.; Evidence={ECO:0000305};
+CC   ---------------------------------------------------------------------------
+CC   Copyrighted by the UniProt Consortium, see https://www.uniprot.org/terms
+CC   Distributed under the Creative Commons Attribution (CC BY 4.0) License
+CC   ---------------------------------------------------------------------------
+DR   EMBL; AF036144; AAD05385.2; -; mRNA.
+DR   EMBL; AF307332; AAG21428.1; -; mRNA.
+DR   EMBL; AB014579; BAA31654.2; ALT_INIT; mRNA.
+DR   EMBL; AC010789; -; NOT_ANNOTATED_CDS; Genomic_DNA.
+DR   EMBL; CH471066; EAW49744.1; -; Genomic_DNA.
+DR   EMBL; CH471066; EAW49741.1; -; Genomic_DNA.
+DR   EMBL; CH471066; EAW49742.1; -; Genomic_DNA.
+DR   EMBL; BC001343; AAH01343.1; -; mRNA.
+DR   EMBL; BC039583; AAH39583.2; -; mRNA.
+DR   EMBL; BC047877; AAH47877.1; ALT_SEQ; mRNA.
+DR   CCDS; CCDS44471.1; -. [O60502-4]
+DR   CCDS; CCDS7520.1; -. [O60502-1]
+DR   PIR; T00360; T00360.
+DR   RefSeq; NP_001135906.1; NM_001142434.1. [O60502-4]
+DR   RefSeq; NP_036347.1; NM_012215.3. [O60502-1]
+DR   PDB; 2YDQ; X-ray; 2.60 A; T=402-408.
+DR   PDB; 5M7R; X-ray; 2.35 A; A/B=1-916.
+DR   PDB; 5M7S; X-ray; 2.40 A; A/B=1-916.
+DR   PDB; 5M7T; X-ray; 2.60 A; A/B=1-916.
+DR   PDB; 5M7U; X-ray; 2.30 A; A/B=1-916.
+DR   PDB; 5TKE; X-ray; 2.48 A; A/B=60-400, A/B=553-704.
+DR   PDB; 5UHK; X-ray; 2.97 A; A/C=56-400, B/D=544-705.
+DR   PDB; 5UHL; X-ray; 3.14 A; A/C=56-400, B/D=544-705.
+DR   PDB; 5UHO; X-ray; 3.21 A; A/C=56-400, B/D=544-705.
+DR   PDB; 5UHP; X-ray; 2.79 A; A/B/C/D=14-400, E/F/G/H=554-705.
+DR   PDB; 5UN8; X-ray; 2.13 A; A/B/C/D=60-400, A/B/C/D=553-704.
+DR   PDB; 5UN9; X-ray; 2.50 A; A/B=60-400, A/B=553-704.
+DR   PDB; 5VVO; X-ray; 2.60 A; A/B=60-400, A/B=553-704.
+DR   PDB; 5VVT; X-ray; 2.80 A; A/C=60-400, A/C=553-704.
+DR   PDB; 5VVU; X-ray; 2.70 A; A/C=60-400, A/C=553-704.
+DR   PDB; 5VVV; X-ray; 2.80 A; A/C=60-400, A/C=553-704.
+DR   PDB; 5VVX; X-ray; 2.90 A; A/C=60-400, A/C=553-704.
+DR   PDB; 6HKI; X-ray; 3.30 A; A/B=1-916.
+DR   PDB; 6PM9; X-ray; 2.86 A; A/B/C/D=14-400, E/F/G/H=553-705.
+DR   PDBsum; 2YDQ; -.
+DR   PDBsum; 5M7R; -.
+DR   PDBsum; 5M7S; -.
+DR   PDBsum; 5M7T; -.
+DR   PDBsum; 5M7U; -.
+DR   PDBsum; 5TKE; -.
+DR   PDBsum; 5UHK; -.
+DR   PDBsum; 5UHL; -.
+DR   PDBsum; 5UHO; -.
+DR   PDBsum; 5UHP; -.
+DR   PDBsum; 5UN8; -.
+DR   PDBsum; 5UN9; -.
+DR   PDBsum; 5VVO; -.
+DR   PDBsum; 5VVT; -.
+DR   PDBsum; 5VVU; -.
+DR   PDBsum; 5VVV; -.
+DR   PDBsum; 5VVX; -.
+DR   PDBsum; 6HKI; -.
+DR   PDBsum; 6PM9; -.
+DR   SMR; O60502; -.
+DR   BioGRID; 115948; 44.
+DR   IntAct; O60502; 34.
+DR   MINT; O60502; -.
+DR   STRING; 9606.ENSP00000354850; -.
+DR   BindingDB; O60502; -.
+DR   ChEMBL; CHEMBL5921; -.
+DR   DrugBank; DB00428; Streptozocin.
+DR   GuidetoPHARMACOLOGY; 3101; -.
+DR   CAZy; GH84; Glycoside Hydrolase Family 84.
+DR   GlyGen; O60502; 1 site, 1 O-linked glycan (1 site).
+DR   iPTMnet; O60502; -.
+DR   MetOSite; O60502; -.
+DR   PhosphoSitePlus; O60502; -.
+DR   SwissPalm; O60502; -.
+DR   BioMuta; MGEA5; -.
+DR   CPTAC; CPTAC-1223; -.
+DR   EPD; O60502; -.
+DR   jPOST; O60502; -.
+DR   MassIVE; O60502; -.
+DR   MaxQB; O60502; -.
+DR   PaxDb; O60502; -.
+DR   PeptideAtlas; O60502; -.
+DR   PRIDE; O60502; -.
+DR   ProteomicsDB; 20314; -.
+DR   ProteomicsDB; 49438; -. [O60502-1]
+DR   ProteomicsDB; 49439; -. [O60502-2]
+DR   ProteomicsDB; 49440; -. [O60502-3]
+DR   Antibodypedia; 31340; 166 antibodies.
+DR   DNASU; 10724; -.
+DR   Ensembl; ENST00000357797; ENSP00000350445; ENSG00000198408. [O60502-2]
+DR   Ensembl; ENST00000361464; ENSP00000354850; ENSG00000198408. [O60502-1]
+DR   Ensembl; ENST00000370094; ENSP00000359112; ENSG00000198408. [O60502-3]
+DR   Ensembl; ENST00000439817; ENSP00000409973; ENSG00000198408. [O60502-4]
+DR   GeneID; 10724; -.
+DR   KEGG; hsa:10724; -.
+DR   UCSC; uc001ktv.3; human. [O60502-1]
+DR   CTD; 10724; -.
+DR   DisGeNET; 10724; -.
+DR   GeneCards; OGA; -.
+DR   HGNC; HGNC:7056; OGA.
+DR   HPA; ENSG00000198408; Low tissue specificity.
+DR   MIM; 604039; gene.
+DR   neXtProt; NX_O60502; -.
+DR   OpenTargets; ENSG00000198408; -.
+DR   PharmGKB; PA30787; -.
+DR   VEuPathDB; HostDB:ENSG00000198408.13; -.
+DR   eggNOG; KOG3698; Eukaryota.
+DR   GeneTree; ENSGT00390000007726; -.
+DR   HOGENOM; CLU_009837_1_0_1; -.
+DR   InParanoid; O60502; -.
+DR   OMA; QFGCEAY; -.
+DR   OrthoDB; 159999at2759; -.
+DR   PhylomeDB; O60502; -.
+DR   TreeFam; TF313732; -.
+DR   BioCyc; MetaCyc:HS03036-MONOMER; -.
+DR   BRENDA; 3.2.1.35; 2681.
+DR   PathwayCommons; O60502; -.
+DR   BioGRID-ORCS; 10724; 97 hits in 881 CRISPR screens.
+DR   ChiTaRS; MGEA5; human.
+DR   GeneWiki; MGEA5; -.
+DR   GenomeRNAi; 10724; -.
+DR   Pharos; O60502; Tchem.
+DR   PRO; PR:O60502; -.
+DR   Proteomes; UP000005640; Chromosome 10.
+DR   RNAct; O60502; protein.
+DR   Bgee; ENSG00000198408; Expressed in forebrain and 244 other tissues.
+DR   ExpressionAtlas; O60502; baseline and differential.
+DR   Genevisible; O60502; HS.
+DR   GO; GO:0005829; C:cytosol; IDA:UniProtKB.
+DR   GO; GO:0016020; C:membrane; HDA:UniProtKB.
+DR   GO; GO:0005634; C:nucleus; IEA:UniProtKB-SubCell.
+DR   GO; GO:0102167; F:[protein]-3-O-(N-acetyl-D-glucosaminyl)-L-serine O-N-acetyl-alpha-D-glucosaminase activity; IEA:UniProtKB-EC.
+DR   GO; GO:0102571; F:[protein]-3-O-(N-acetyl-D-glucosaminyl)-L-serine/L-threonine O-N-acetyl-alpha-D-glucosaminase activity; IEA:UniProtKB-EC.
+DR   GO; GO:0102166; F:[protein]-3-O-(N-acetyl-D-glucosaminyl)-L-threonine O-N-acetyl-alpha-D-glucosaminase activity; IEA:UniProtKB-EC.
+DR   GO; GO:0016231; F:beta-N-acetylglucosaminidase activity; IDA:UniProtKB.
+DR   GO; GO:0004415; F:hyalurononglucosaminidase activity; TAS:ProtInc.
+DR   GO; GO:0006516; P:glycoprotein catabolic process; TAS:ProtInc.
+DR   GO; GO:0009100; P:glycoprotein metabolic process; IBA:GO_Central.
+DR   GO; GO:0006044; P:N-acetylglucosamine metabolic process; IDA:UniProtKB.
+DR   GO; GO:0006517; P:protein deglycosylation; IDA:UniProtKB.
+DR   GO; GO:0006493; P:protein O-linked glycosylation; NAS:ParkinsonsUK-UCL.
+DR   GO; GO:0016032; P:viral process; IEA:UniProtKB-KW.
+DR   DisProt; DP02479; -.
+DR   IDEAL; IID00643; -.
+DR   InterPro; IPR016181; Acyl_CoA_acyltransferase.
+DR   InterPro; IPR011496; Beta-N-acetylglucosaminidase.
+DR   InterPro; IPR017853; Glycoside_hydrolase_SF.
+DR   Pfam; PF07555; NAGidase; 1.
+DR   SUPFAM; SSF51445; SSF51445; 1.
+DR   SUPFAM; SSF55729; SSF55729; 1.
+PE   1: Evidence at protein level;
+KW   3D-structure; Alternative splicing; Cytoplasm; Glycosidase;
+KW   Host-virus interaction; Hydrolase; Nucleus; Phosphoprotein;
+KW   Reference proteome.
+FT   CHAIN           1..916
+FT                   /note="Protein O-GlcNAcase"
+FT                   /id="PRO_0000252118"
+FT   REGION          278..280
+FT                   /note="Substrate binding"
+FT                   /evidence="ECO:0000250|UniProtKB:Q2CEE3"
+FT   ACT_SITE        175
+FT                   /note="Proton donor"
+FT                   /evidence="ECO:0000305|PubMed:16533067"
+FT   BINDING         67
+FT                   /note="Substrate; via carbonyl oxygen"
+FT                   /evidence="ECO:0000250|UniProtKB:Q2CEE3"
+FT   BINDING         98
+FT                   /note="Substrate"
+FT                   /evidence="ECO:0000250|UniProtKB:Q0TR53"
+FT   BINDING         174
+FT                   /note="Substrate"
+FT                   /evidence="ECO:0000250|UniProtKB:Q0TR53"
+FT   BINDING         219
+FT                   /note="Substrate"
+FT                   /evidence="ECO:0000250|UniProtKB:Q2CEE3"
+FT   BINDING         285
+FT                   /note="Substrate"
+FT                   /evidence="ECO:0000250|UniProtKB:Q2CEE3"
+FT   BINDING         313
+FT                   /note="Substrate"
+FT                   /evidence="ECO:0000250|UniProtKB:Q2CEE3"
+FT   SITE            413..414
+FT                   /note="Cleavage; by caspase-3"
+FT                   /evidence="ECO:0000269|PubMed:18586680"
+FT   MOD_RES         364
+FT                   /note="Phosphoserine"
+FT                   /evidence="ECO:0000244|PubMed:18669648,
+FT                   ECO:0000244|PubMed:19690332, ECO:0000244|PubMed:20068231,
+FT                   ECO:0000244|PubMed:21406692, ECO:0000244|PubMed:23186163"
+FT   VAR_SEQ         346..398
+FT                   /note="Missing (in isoform 2 and isoform 4)"
+FT                   /evidence="ECO:0000305"
+FT                   /id="VSP_020866"
+FT   VAR_SEQ         663..677
+FT                   /note="CRSHSSAQFLIGDQE -> RCTRNNLFSSNILSL (in isoform 3)"
+FT                   /evidence="ECO:0000303|PubMed:9811929"
+FT                   /id="VSP_020867"
+FT   VAR_SEQ         678..916
+FT                   /note="Missing (in isoform 3)"
+FT                   /evidence="ECO:0000303|PubMed:9811929"
+FT                   /id="VSP_020868"
+FT   VAR_SEQ         691..704
+FT                   /note="Missing (in isoform 2)"
+FT                   /evidence="ECO:0000305"
+FT                   /id="VSP_020869"
+FT   VARIANT         46
+FT                   /note="G -> E (in dbSNP:rs3740421)"
+FT                   /id="VAR_027761"
+FT   VARIANT         602
+FT                   /note="E -> K (in dbSNP:rs17853930)"
+FT                   /evidence="ECO:0000269|PubMed:15489334"
+FT                   /id="VAR_027762"
+FT   MUTAGEN         69
+FT                   /note="Y->K,Q: Strongly reduces affinity for glycopeptide
+FT                   substrates. Nearly abolishes enzyme activity."
+FT                   /evidence="ECO:0000269|PubMed:20863279,
+FT                   ECO:0000269|PubMed:22365600"
+FT   MUTAGEN         69
+FT                   /note="Y->S: Strongly reduces affinity for glycopeptide
+FT                   substrates. Nearly abolishes enzyme activity."
+FT                   /evidence="ECO:0000269|PubMed:20863279,
+FT                   ECO:0000269|PubMed:22365600"
+FT   MUTAGEN         174
+FT                   /note="D->A: Nearly abolishes enzyme activity."
+FT                   /evidence="ECO:0000269|PubMed:16533067"
+FT   MUTAGEN         175
+FT                   /note="D->A: Nearly abolishes enzyme activity."
+FT                   /evidence="ECO:0000269|PubMed:16533067"
+FT   MUTAGEN         175
+FT                   /note="D->N: Nearly abolishes enzyme activity."
+FT                   /evidence="ECO:0000269|PubMed:20863279"
+FT   MUTAGEN         255
+FT                   /note="V->G,T: Nearly abolishes enzyme activity."
+FT                   /evidence="ECO:0000269|PubMed:20863279"
+FT   MUTAGEN         286
+FT                   /note="Y->S: Nearly abolishes enzyme activity."
+FT                   /evidence="ECO:0000269|PubMed:20863279"
+FT   MUTAGEN         287
+FT                   /note="D->A: Nearly abolishes enzyme activity."
+FT                   /evidence="ECO:0000269|PubMed:20863279"
+FT   MUTAGEN         413
+FT                   /note="D->A: Abrogates cleavage by caspase-3."
+FT                   /evidence="ECO:0000269|PubMed:18586680"
+FT   MUTAGEN         679
+FT                   /note="W->N: Nearly abolishes enzyme activity."
+FT                   /evidence="ECO:0000269|PubMed:20863279"
+FT   TURN            50..52
+FT                   /evidence="ECO:0000244|PDB:6PM9"
+FT   TURN            54..57
+FT                   /evidence="ECO:0000244|PDB:5UHP"
+FT   STRAND          61..66
+FT                   /evidence="ECO:0000244|PDB:5UN8"
+FT   STRAND          69..71
+FT                   /evidence="ECO:0000244|PDB:5UN8"
+FT   HELIX           75..87
+FT                   /evidence="ECO:0000244|PDB:5UN8"
+FT   STRAND          92..95
+FT                   /evidence="ECO:0000244|PDB:5UN8"
+FT   HELIX           101..103
+FT                   /evidence="ECO:0000244|PDB:5UN8"
+FT   TURN            104..108
+FT                   /evidence="ECO:0000244|PDB:5UN8"
+FT   HELIX           113..128
+FT                   /evidence="ECO:0000244|PDB:5UN8"
+FT   STRAND          132..137
+FT                   /evidence="ECO:0000244|PDB:5UN8"
+FT   TURN            140..142
+FT                   /evidence="ECO:0000244|PDB:5UN8"
+FT   HELIX           148..162
+FT                   /evidence="ECO:0000244|PDB:5UN8"
+FT   TURN            163..165
+FT                   /evidence="ECO:0000244|PDB:5UN8"
+FT   STRAND          168..172
+FT                   /evidence="ECO:0000244|PDB:5UN8"
+FT   HELIX           182..187
+FT                   /evidence="ECO:0000244|PDB:5UN8"
+FT   STRAND          188..190
+FT                   /evidence="ECO:0000244|PDB:5VVU"
+FT   HELIX           191..205
+FT                   /evidence="ECO:0000244|PDB:5UN8"
+FT   STRAND          212..215
+FT                   /evidence="ECO:0000244|PDB:5UN8"
+FT   HELIX           221..223
+FT                   /evidence="ECO:0000244|PDB:5UN8"
+FT   STRAND          224..226
+FT                   /evidence="ECO:0000244|PDB:5UN8"
+FT   TURN            228..230
+FT                   /evidence="ECO:0000244|PDB:5M7R"
+FT   HELIX           232..240
+FT                   /evidence="ECO:0000244|PDB:5UN8"
+FT   STRAND          245..249
+FT                   /evidence="ECO:0000244|PDB:5UN8"
+FT   STRAND          252..255
+FT                   /evidence="ECO:0000244|PDB:5UN8"
+FT   HELIX           261..271
+FT                   /evidence="ECO:0000244|PDB:5UN8"
+FT   STRAND          276..279
+FT                   /evidence="ECO:0000244|PDB:5UN8"
+FT   HELIX           285..287
+FT                   /evidence="ECO:0000244|PDB:5UHK"
+FT   HELIX           301..306
+FT                   /evidence="ECO:0000244|PDB:5UN8"
+FT   STRAND          308..312
+FT                   /evidence="ECO:0000244|PDB:5UN8"
+FT   HELIX           318..321
+FT                   /evidence="ECO:0000244|PDB:5UN8"
+FT   HELIX           322..332
+FT                   /evidence="ECO:0000244|PDB:5UN8"
+FT   TURN            334..337
+FT                   /evidence="ECO:0000244|PDB:5UHL"
+FT   HELIX           376..388
+FT                   /evidence="ECO:0000244|PDB:5UN8"
+FT   TURN            389..391
+FT                   /evidence="ECO:0000244|PDB:5M7R"
+FT   STRAND          542..544
+FT                   /evidence="ECO:0000244|PDB:5M7T"
+FT   HELIX           555..564
+FT                   /evidence="ECO:0000244|PDB:5UN8"
+FT   HELIX           573..587
+FT                   /evidence="ECO:0000244|PDB:5UN8"
+FT   HELIX           589..591
+FT                   /evidence="ECO:0000244|PDB:5UN8"
+FT   TURN            601..603
+FT                   /evidence="ECO:0000244|PDB:6HKI"
+FT   HELIX           605..628
+FT                   /evidence="ECO:0000244|PDB:5UN8"
+FT   HELIX           634..661
+FT                   /evidence="ECO:0000244|PDB:5UN8"
+FT   TURN            662..666
+FT                   /evidence="ECO:0000244|PDB:5M7R"
+FT   TURN            680..683
+FT                   /evidence="ECO:0000244|PDB:5UN8"
+FT   HELIX           684..692
+FT                   /evidence="ECO:0000244|PDB:5UN8"
+FT   TURN            694..699
+FT                   /evidence="ECO:0000244|PDB:5UN8"
+FT   TURN            710..712
+FT                   /evidence="ECO:0000244|PDB:5M7R"
+SQ   SEQUENCE   916 AA;  102915 MW;  01F8A64A9B1475C6 CRC64;
+     MVQKESQATL EERESELSSN PAASAGASLE PPAAPAPGED NPAGAGGAAV AGAAGGARRF
+     LCGVVEGFYG RPWVMEQRKE LFRRLQKWEL NTYLYAPKDD YKHRMFWREM YSVEEAEQLM
+     TLISAAREYE IEFIYAISPG LDITFSNPKE VSTLKRKLDQ VSQFGCRSFA LLFDDIDHNM
+     CAADKEVFSS FAHAQVSITN EIYQYLGEPE TFLFCPTEYC GTFCYPNVSQ SPYLRTVGEK
+     LLPGIEVLWT GPKVVSKEIP VESIEEVSKI IKRAPVIWDN IHANDYDQKR LFLGPYKGRS
+     TELIPRLKGV LTNPNCEFEA NYVAIHTLAT WYKSNMNGVR KDVVMTDSED STVSIQIKLE
+     NEGSDEDIET DVLYSPQMAL KLALTEWLQE FGVPHQYSSR QVAHSGAKAS VVDGTPLVAA
+     PSLNATTVVT TVYQEPIMSQ GAALSGEPTT LTKEEEKKQP DEEPMDMVVE KQEETDHKND
+     NQILSEIVEA KMAEELKPMD TDKESIAESK SPEMSMQEDC ISDIAPMQTD EQTNKEQFVP
+     GPNEKPLYTA EPVTLEDLQL LADLFYLPYE HGPKGAQMLR EFQWLRANSS VVSVNCKGKD
+     SEKIEEWRSR AAKFEEMCGL VMGMFTRLSN CANRTILYDM YSYVWDIKSI MSMVKSFVQW
+     LGCRSHSSAQ FLIGDQEPWA FRGGLAGEFQ RLLPIDGAND LFFQPPPLTP TSKVYTIRPY
+     FPKDEASVYK ICREMYDDGV GLPFQSQPDL IGDKLVGGLL SLSLDYCFVL EDEDGICGYA
+     LGTVDVTPFI KKCKISWIPF MQEKYTKPNG DKELSEAEKI MLSFHEEQEV LPETFLANFP
+     SLIKMDIHKK VTDPSVAKSM MACLLSSLKA NGSRGAFCEV RPDDKRILEF YSKLGCFEIA
+     KMEGFPKDVV ILGRSL
+//

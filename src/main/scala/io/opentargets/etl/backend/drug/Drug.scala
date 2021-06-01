@@ -3,13 +3,8 @@ package io.opentargets.etl.backend.drug
 import com.typesafe.scalalogging.LazyLogging
 import io.opentargets.etl.backend.ETLSessionContext
 import io.opentargets.etl.backend.drug.DrugCommon._
-import io.opentargets.etl.backend.spark.Helpers
-import io.opentargets.etl.backend.spark.Helpers.{
-  IOResource,
-  IOResourceConfig,
-  IOResourceConfigurations,
-  IOResources
-}
+import io.opentargets.etl.backend.spark.IoHelpers.IOResources
+import io.opentargets.etl.backend.spark.{IOResource, IoHelpers}
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.{Column, DataFrame, SparkSession}
 
@@ -40,7 +35,7 @@ object Drug extends Serializable with LazyLogging {
       "evidence" -> drugConfiguration.evidenceEtl
     )
 
-    val inputDataFrames = Helpers.readFrom(mappedInputs)
+    val inputDataFrames = IoHelpers.readFrom(mappedInputs)
 
     // raw input dataframes
     lazy val moleculeDf: DataFrame = inputDataFrames("molecule").data
@@ -116,7 +111,7 @@ object Drug extends Serializable with LazyLogging {
       "drug_warnings" -> IOResource(warningsDF, outputs.warnings)
     )
 
-    Helpers.writeTo(dataframesToSave)
+    IoHelpers.writeTo(dataframesToSave)
   }
 
   /*

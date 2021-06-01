@@ -1,8 +1,9 @@
 package io.opentargets.etl.backend
 
 import com.typesafe.scalalogging.LazyLogging
-import io.opentargets.etl.backend.spark.Helpers._
-import io.opentargets.etl.backend.spark.{Helpers => C}
+import io.opentargets.etl.backend.spark.Helpers.{flattenCat, nest}
+import io.opentargets.etl.backend.spark.IoHelpers.IOResources
+import io.opentargets.etl.backend.spark.{IOResource, IoHelpers, Helpers => C}
 import org.apache.spark.sql._
 import org.apache.spark.sql.expressions._
 import org.apache.spark.sql.functions._
@@ -477,7 +478,7 @@ object Search extends LazyLogging {
       "association" -> searchSec.inputs.associations
     )
 
-    val inputDataFrame = C.readFrom(mappedInputs)
+    val inputDataFrame = IoHelpers.readFrom(mappedInputs)
 
     logger.info("process diseases and compute ancestors and descendants and persist")
     val diseases = inputDataFrame("disease").data
@@ -655,6 +656,6 @@ object Search extends LazyLogging {
       "search_drugs" -> IOResource(searchDrugs, conf.outputs.drugs)
     )
 
-    C.writeTo(outputs)
+    IoHelpers.writeTo(outputs)
   }
 }
