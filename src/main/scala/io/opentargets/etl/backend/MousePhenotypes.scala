@@ -2,8 +2,10 @@ package io.opentargets.etl.backend
 
 import com.typesafe.scalalogging.LazyLogging
 import org.apache.spark.sql._
-import io.opentargets.etl.backend.spark.Helpers
-import io.opentargets.etl.backend.spark.Helpers.{IOResource, IOResourceConfig, IOResources}
+import org.apache.spark.sql.types._
+import com.typesafe.config.Config
+import io.opentargets.etl.backend.spark.{Helpers, IOResource, IOResourceConfig, IoHelpers}
+import io.opentargets.etl.backend.spark.IoHelpers.IOResources
 
 // This is option/step MousePhenotypes in the config file. JQ file input
 object MousePhenotypes extends LazyLogging {
@@ -18,7 +20,7 @@ object MousePhenotypes extends LazyLogging {
         common.inputs.mousephenotypes.path
       )
     )
-    val inputDataFrame = Helpers.readFrom(mappedInputs)
+    val inputDataFrame = IoHelpers.readFrom(mappedInputs)
     val mousePhenotypesDF = inputDataFrame(dfName).data
 
     val outputs = Map(
@@ -30,6 +32,6 @@ object MousePhenotypes extends LazyLogging {
         )
       )
     )
-    Helpers.writeTo(outputs)
+    IoHelpers.writeTo(outputs)
   }
 }

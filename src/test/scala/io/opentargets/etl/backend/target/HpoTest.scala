@@ -1,6 +1,6 @@
-package io.opentargets.etl.backend
+package io.opentargets.etl.backend.target
 
-import io.opentargets.etl.backend.spark.Helpers
+import io.opentargets.etl.backend.{EtlSparkUnitTest, Hpo}
 import org.apache.spark.sql.{DataFrame, Dataset, Row, SparkSession}
 import org.apache.spark.sql.functions.{col, explode}
 import org.apache.spark.sql.types.{StringType, StructField, StructType}

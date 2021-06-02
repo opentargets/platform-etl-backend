@@ -1,11 +1,11 @@
 package io.opentargets.etl.backend
 
 import com.typesafe.scalalogging.LazyLogging
+import io.opentargets.etl.backend.spark.IoHelpers.IOResources
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.functions.col
 import org.apache.spark.sql._
-import io.opentargets.etl.backend.spark.Helpers
-import io.opentargets.etl.backend.spark.Helpers.{IOResource, IOResourceConfig, IOResources}
+import io.opentargets.etl.backend.spark.{Helpers, IOResource, IOResourceConfig, IoHelpers}
 
 object TargetHelpers {
   implicit class AggregationHelpers(df: DataFrame)(implicit ss: SparkSession) {
@@ -226,7 +226,7 @@ object Target extends LazyLogging {
       )
     )
 
-    val inputDataFrame = Helpers.readFrom(mappedInputs)
+    val inputDataFrame = IoHelpers.readFrom(mappedInputs)
 
     // The gene index contains keys with spaces. This step creates a new Dataframe with the proper keys
     val targetDFnewSchema = Helpers.replaceSpacesSchema(inputDataFrame("target").data)
@@ -252,6 +252,6 @@ object Target extends LazyLogging {
       )
     )
 
-    Helpers.writeTo(outputs)
+    IoHelpers.writeTo(outputs)
   }
 }
