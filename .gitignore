@@ -32,3 +32,5 @@ tmp/.sbtopts
 application.conf
 application.xml
 /scripts/.idea
+/.classpath
+/.project
