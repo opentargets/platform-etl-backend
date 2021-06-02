@@ -1,9 +1,11 @@
-package io.opentargets.etl.backend.target
+package io.opentargets.etl.backend.safety
 
 import com.typesafe.scalalogging.LazyLogging
+import io.opentargets.etl.backend.ETLSessionContext
 import io.opentargets.etl.backend.spark.Helpers.unionDataframeDifferentSchema
+import io.opentargets.etl.backend.spark.IoHelpers.IOResources
+import io.opentargets.etl.backend.spark.{CsvHelpers, IOResource, IOResourceConfig, IoHelpers}
 import org.apache.spark.sql.functions.{
-  array,
   col,
   collect_set,
   element_at,
@@ -27,22 +29,48 @@ case class SafetyEvidence(event: String,
                           datasource: String,
                           pmid: String,
                           url: String,
-                          assay: Array[TargetSafetyAssay])
+                          assays: Array[TargetSafetyAssay])
+
 case class SafetyTissue(label: String, efoId: String, modelName: String)
 
-object Safety extends LazyLogging {
+object TargetSafety extends LazyLogging {
 
-  def apply(adverseEventsDF: DataFrame, safetyRiskDF: DataFrame, toxicityDF: DataFrame)(
-      implicit sparkSession: SparkSession): Dataset[TargetSafety] = {
-    import sparkSession.implicits._
+  def compute()(implicit context: ETLSessionContext): Dataset[TargetSafety] = {
+    implicit val ss: SparkSession = context.sparkSession
+    import ss.implicits._
+
+    val targetInputs = context.configuration.safety.input
+
+    val mappedInputs = Map(
+      "safetyAE" -> IOResourceConfig(
+        targetInputs.safetyAdverseEvent.format,
+        targetInputs.safetyAdverseEvent.path
+      ),
+      "safetySR" -> IOResourceConfig(
+        targetInputs.safetySafetyRisk.format,
+        targetInputs.safetySafetyRisk.path
+      ),
+      "safetyTox" -> IOResourceConfig(
+        targetInputs.safetyToxicity.format,
+        targetInputs.safetyToxicity.path,
+        options = targetInputs.safetyToxicity.options match {
+          case Some(value) => Option(value)
+          case None        => CsvHelpers.tsvWithHeader
+        }
+      )
+    )
+
+    val inputDataFrame = IoHelpers.readFrom(mappedInputs)
 
     logger.info("Computing target safety information.")
 
     // transform raw data frames into desired format
-    val aeDF: DataFrame = transformAdverseEvents(adverseEventsDF)
-    val tsDF: DataFrame = transformTargetSafety(safetyRiskDF)
+    val adverseEventsRawDF = inputDataFrame("safetyAE").data
+    val aeDF: DataFrame = transformAdverseEvents(adverseEventsRawDF)
+    val tsDF: DataFrame = transformTargetSafety(inputDataFrame("safetySR").data)
     val toxDF: DataFrame =
-      transformToxicity(toxicityDF, adverseEventsDF.select(col("symptom") as "term", col("efoId")))
+      transformToxicity(inputDataFrame("safetyTox").data,
+                        adverseEventsRawDF.select(col("symptom") as "term", col("efoId")))
 
     // combine into single dataframe and group by Ensembl id.
     // The data is relatively sparse, so expect lots of nulls.
@@ -50,6 +78,19 @@ object Safety extends LazyLogging {
       .transform(groupByEvidence)
 
     combinedDF.as[TargetSafety]
+
+  }
+
+  def apply()(implicit context: ETLSessionContext): IOResources = {
+    implicit val ss: SparkSession = context.sparkSession
+
+    val safetyDS = compute()
+
+    val dataframesToSave: IOResources = Map(
+      "safety" -> IOResource(safetyDS.toDF, context.configuration.safety.output)
+    )
+
+    IoHelpers.writeTo(dataframesToSave)
   }
 
   private def transformAdverseEvents(df: DataFrame): DataFrame = {
@@ -153,9 +194,7 @@ object Safety extends LazyLogging {
           col("datasource"),
           col("pmid"),
           col("url"),
-          col("assayDescription"),
-          col("assayFormat"),
-          col("assayType")
+          col("assays")
         ) as "safety"
       )
       .groupBy("id")

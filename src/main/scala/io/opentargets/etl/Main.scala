@@ -5,6 +5,7 @@ import com.typesafe.scalalogging.LazyLogging
 import scala.util._
 import io.opentargets.etl.backend._
 import io.opentargets.etl.backend.drug.Drug
+import io.opentargets.etl.backend.safety.TargetSafety
 
 object ETL extends LazyLogging {
   val implementedSteps = Map(
@@ -37,6 +38,9 @@ object ETL extends LazyLogging {
       case "target" =>
         logger.info("run step target")
         Target()
+      case "safety" =>
+        logger.info("run step target safety")
+        TargetSafety()
       case "mousePhenotypes" =>
         logger.info("run step mousephenotypes")
         MousePhenotypes()

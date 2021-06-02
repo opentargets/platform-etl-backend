@@ -164,6 +164,12 @@ object Configuration extends LazyLogging {
 
   case class ReactomeSection(inputs: ReactomeSectionInputs, output: IOResourceConfig)
 
+  case class SafetySection(input: SafetyInput, output: IOResourceConfig)
+
+  case class SafetyInput(safetyToxicity: IOResourceConfig,
+                         safetySafetyRisk: IOResourceConfig,
+                         safetyAdverseEvent: IOResourceConfig)
+
   case class Target(input: TargetInput, outputs: TargetOutput, hgncOrthologSpecies: List[String])
 
   case class TargetInput(hgnc: IOResourceConfig,
@@ -185,9 +191,7 @@ object Configuration extends LazyLogging {
                          homologyCodingProteins: IOResourceConfig,
                          homologyNcRna: IOResourceConfig,
                          tractability: IOResourceConfig,
-                         safetyToxicity: IOResourceConfig,
-                         safetySafetyRisk: IOResourceConfig,
-                         safetyAdverseEvent: IOResourceConfig)
+  )
 
   case class TargetOutput(target: IOResourceConfig)
 
@@ -201,6 +205,7 @@ object Configuration extends LazyLogging {
       disease: DiseaseSection,
       interactions: InteractionsSection,
       knownDrugs: KnownDrugsSection,
+      safety: SafetySection,
       search: SearchSection,
       aotf: AOTFSection,
       target: Target
