@@ -1,0 +1,74 @@
+@startuml
+' inputs
+
+' steps
+artifact association
+artifact associationOTF
+artifact cancerBiomarkers
+artifact disease
+artifact drug
+artifact eco
+artifact evidence
+artifact expression
+artifact interactions
+artifact knownDrugs
+artifact mousePhenotypes
+artifact reactome
+artifact search
+artifact target
+
+' links between steps / inputs
+
+'association step
+evidence --> association
+disease --> association
+target --> association
+
+'association OTF
+evidence --> associationOTF
+disease --> associationOTF
+target --> associationOTF
+
+'cancerBiomarkers
+target --> cancerBiomarkers
+
+'connections
+  ' not used
+'disease
+  ' no step dependencies
+'drug
+target --> drug
+disease --> drug
+evidence --> drug
+'eco
+  ' not used
+'evidence
+target --> evidence
+disease --> evidence
+'expression
+  ' could be removed?
+'interactions
+target --> interactions
+
+'knownDrugs
+target --> knownDrugs
+disease --> knownDrugs
+evidence --> knownDrugs
+drug --> knownDrugs
+
+'mousePhenotypes
+target --> mousePhenotypes
+'reactome
+
+'search
+association --> search
+disease --> search
+drug --> search
+evidence --> search
+target --> search
+
+'target
+reactome --> target
+
+
+@enduml

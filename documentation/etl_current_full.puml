@@ -1,0 +1,274 @@
+@startuml
+skinparam interface {
+    backgroundColor<<input>> darkblue
+    backgroundColor<<output>> cyan
+}
+skinparam artifact {
+     backgroundColor<<noDependency>> orchid
+     backgroundColor<<dependencies>> darkturquoise
+ }
+' steps
+artifact associations <<dependencies>>
+artifact associationOTF <<dependencies>>
+artifact cancerBiomarkers <<dependencies>>
+artifact disease <<noDependency>>
+artifact drug <<dependencies>>
+artifact eco <<noDependency>>
+artifact evidence <<dependencies>>
+artifact expression <<noDependency>>
+artifact interactions <<dependencies>>
+artifact knownDrugs <<dependencies>>
+artifact mousePhenotypes <<noDependency>>
+artifact reactome <<noDependency>>
+artifact search <<dependencies>>
+artifact target <<noDependency>>
+artifact safety <<dependencies>>
+
+'inputs
+' association
+
+' cancer biomarkers
+interface biomarkers <<input>>
+  ' disease and source mapping static files
+interface diseaseMapping <<input>>
+interface sourceMapping <<input>>
+' disease
+interface efoOntology <<input>>
+interface hpoOntology <<input>>
+interface mondoOntology <<input>>
+interface hpoPhenotype <<input>>
+' drug
+interface chemblMolecule <<input>>
+interface chemblIndication <<input>>
+interface chemblMechanism <<input>>
+interface chemblTarget <<input>>
+interface chemblWarning <<input>>
+interface drugbankToChembl <<input>>
+' eco
+interface ecoInput <<input>>
+' evidences
+interface rawEvidences <<input>>
+' expression
+interface expressionData <<input>>
+' interactions
+interface ensproteins <<input>>
+interface rnaCentral <<input>>
+interface humanMapping <<input>>
+interface intact <<input>>
+interface strings <<input>>
+' known drugs
+' mouse phenotypes
+interface mousePhenotypesData <<input>>
+' reactome
+interface pathways <<input>>
+interface relations <<input>>
+' target
+interface ensembl <<input>>
+interface geneticConstraint <<input>>
+interface geneOntology <<input>>
+interface geneOntologyRna <<input>>
+interface geneOntologyRnaLookup <<input>>
+interface hallmarks <<input>>
+interface hgnc <<input>>
+interface homologyDictionary <<input>>
+interface homologyCodingProteins <<input>>
+interface homologyNcRna <<input>>
+interface hpa <<input>>
+interface ncbi <<input>>
+interface ortholog <<input>>
+interface psGeneIdentifier <<input>>
+interface psEssentialityMatrix <<input>>
+interface tep <<input>>
+interface tractability <<input>>
+interface uniprot <<input>>
+
+'safety
+interface safetyToxicity <<input>>
+interface safetyAdverseEvent <<input>>
+interface safetySafetyRisk <<input>>
+
+'outputs
+  ' associations
+interface associationByDatatypeDirect <<output>>
+interface associationByDatasourceDirect <<output>>
+interface associationByOverallDirect <<output>>
+interface associationByDatasourceIndirect <<output>>
+interface associationByDatatypeIndirect <<output>>
+interface associationByOverallIndirect <<output>>
+  ' aotf
+interface AotfClickhouseOutput <<output>>
+interface AotfElasticsearchOutput <<output>>
+  ' cancer biomarkers
+interface cancerBiomarkersOutput <<output>>
+  ' disease
+interface diseaseOutput <<output>>
+interface diseaseHpoOutput <<output>>
+interface diseaseToPhenotypeOutput <<output>>
+  ' drug
+interface moleculeOutput <<output>>
+interface mechanismOfActionOutput <<output>>
+interface IndicationOutput <<output>>
+interface WarningsOutput <<output>>
+  ' eco
+interface ecoOutput <<output>>
+  ' evidences
+interface evidenceOutput <<output>>
+  ' expression
+interface expressionOutput <<output>>
+  ' interactions
+interface interactionsOutput <<output>>
+interface interactionsEvidenceOutput <<output>>
+interface interactionsUnmatchedOutput <<output>>
+  ' known drugs
+interface knownDrugsOutput <<output>>
+  ' mouse phenotypes
+interface mousePhenotypesOutput <<output>>
+  ' reactome
+interface reactomeOutput <<output>>
+  ' target
+interface targetOutput <<output>>
+  ' safety
+interface safetyOutput <<output>>
+  ' search
+interface searchTargetOutput <<output>>
+interface searchDiseaseOutput <<output>>
+interface searchDrugOutput <<output>>
+
+
+
+' relations
+  ' assocations
+targetOutput --> associations
+diseaseOutput --> associations
+associations --> associationByDatasourceDirect
+associations --> associationByDatasourceIndirect
+associations --> associationByDatatypeDirect
+associations --> associationByDatatypeIndirect
+associations --> associationByOverallDirect
+associations --> associationByOverallIndirect
+
+  ' AOTF
+reactomeOutput --> associationOTF
+evidenceOutput --> associationOTF
+diseaseOutput --> associationOTF
+targetOutput --> associationOTF
+associationOTF --> AotfClickhouseOutput
+associationOTF --> AotfElasticsearchOutput
+
+  ' cancer biomarkers
+biomarkers --> cancerBiomarkers
+diseaseMapping --> cancerBiomarkers
+sourceMapping --> cancerBiomarkers
+targetOutput --> cancerBiomarkers
+cancerBiomarkers --> cancerBiomarkersOutput
+
+  ' disease
+efoOntology --> disease
+hpoOntology --> disease
+mondoOntology --> disease
+hpoPhenotype --> disease
+disease --> diseaseOutput
+disease --> diseaseHpoOutput
+disease --> diseaseToPhenotypeOutput
+
+  ' drug
+targetOutput --> drug
+diseaseOutput --> drug
+evidenceOutput --> drug
+chemblMolecule --> drug
+chemblIndication--> drug
+chemblMechanism --> drug
+chemblTarget --> drug
+chemblWarning --> drug
+drugbankToChembl --> drug
+drug --> moleculeOutput
+drug -->  mechanismOfActionOutput
+drug --> IndicationOutput
+drug --> WarningsOutput
+
+  ' eco
+ecoInput --> eco
+eco --> ecoOutput
+
+  ' evidences
+targetOutput --> evidence
+diseaseOutput --> evidence
+rawEvidences --> evidence
+evidence --> evidenceOutput
+
+  ' expression
+expressionData --> expression
+expression --> expressionOutput
+
+  ' interactions
+targetOutput --> interactions
+rnaCentral --> interactions
+humanMapping --> interactions
+ensproteins --> interactions
+intact --> interactions
+strings --> interactions
+interactions --> interactionsOutput
+interactions --> interactionsEvidenceOutput
+interactions --> interactionsUnmatchedOutput
+
+  ' known drugs
+evidenceOutput --> knownDrugs
+diseaseOutput --> knownDrugs
+targetOutput --> knownDrugs
+moleculeOutput --> knownDrugs
+mechanismOfActionOutput --> knownDrugs
+knownDrugs --> knownDrugsOutput
+
+  ' mouse phenotypes
+mousePhenotypesData --> mousePhenotypes
+mousePhenotypes --> mousePhenotypesOutput
+
+  ' reactome
+pathways --> reactome
+relations --> reactome
+reactome --> reactomeOutput
+
+  'safety
+safetyToxicity --> safety
+safetyAdverseEvent --> safety
+safetySafetyRisk --> safety
+targetOutput --> safety
+safety --> safetyOutput
+
+  ' search
+evidenceOutput --> search
+diseaseOutput --> search
+diseaseToPhenotypeOutput --> search
+diseaseHpoOutput --> search
+targetOutput --> search
+moleculeOutput --> search
+mechanismOfActionOutput --> search
+IndicationOutput --> search
+associationByOverallIndirect --> search
+search --> searchTargetOutput
+search --> searchDiseaseOutput
+search --> searchDrugOutput
+
+' target
+chemblTarget --> target
+target --> targetOutput
+ensembl --> target
+geneticConstraint --> target
+geneOntology --> target
+geneOntologyRna  --> target
+geneOntologyRnaLookup --> target
+hallmarks --> target
+hgnc --> target
+homologyDictionary --> target
+homologyCodingProteins --> target
+homologyNcRna --> target
+hpa --> target
+ncbi --> target
+ortholog --> target
+psGeneIdentifier --> target
+psEssentialityMatrix --> target
+tep --> target
+tractability --> target
+uniprot --> target
+
+@enduml
