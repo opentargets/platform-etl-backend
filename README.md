@@ -185,20 +185,30 @@ a preconfigured ElasticSearch instance.
     - `PREFIX` refers to the path to the data to be loaded into Elasticsearch
     - `ES` is the url of Elasticsearch
     - `INDEX_SETTINGS` is the index configuration file. Typically this will be the `index_settings.json` file provided
-   in the _elasticsearch_ directory.
+      in the _elasticsearch_ directory.
 
 4. Export the necessary environment variables by running `source [path to file]env.sh`
-4. Run scripts relevant to the index you wish to create, or `load_all.sh` to load all of them.  
+4. Run scripts relevant to the index you wish to create, or `load_all.sh` to load all of them.
 
-## Steps independent of the Data Pipeline
+## Step dependencies
+
+As of June 2021 some steps of the ETL maintain dependencies on the old Data Pipeline which is being progressively
+deprecated.
+
+Considering only the inputs/outputs of the ETL there are component diagrams available in the 'documentation'
+directory. _etl\_current_ shows the relationships between steps in the ETL. _etl\_current\_full_ shows those
+relationships at a more granular level, where inputs and outputs are specifically specified.
+
+_etl\_dp\_dependencies_ shows similar relationships, but often includes dependencies which result from the data
+pipeline. This document will be removed once the deprecation of the data pipeline is complete.
 
 The majority of the ETL was written to process data which has been prepared by the data pipeline for subsequent
- processing. It is intended that this pipeline will be deprecated; because of this some steps do not require inputs
-  from the data pipeline to function correctly. These include:
-  
-  - Drug
-  - Target
-  
+processing. It is intended that this pipeline will be deprecated; because of this some steps do not require inputs from
+the data pipeline to function correctly. These include:
+
+- Drug
+- Target
+
 ## Step notes
 
 ### Drug
