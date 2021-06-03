@@ -37,7 +37,10 @@ elasticdump --input=http://localhost:9200/<indexyouneed> \
     --sourceOnly
 ```
 
+### Mouse Phenotype input for ETL
+
 Generate MousePhenotypes input file
+
 ```sh
 cat 20.04_gene-data.json | jq -r '{"id":.id,"phenotypes": [.mouse_phenotypes[]?] }|@json' > mousephenotype.json
 ```

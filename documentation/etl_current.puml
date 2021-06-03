@@ -26,7 +26,7 @@ artifact targetSafety <<dependencies>>
 
 target --> targetSafety
 
-target --> associations
+evidence --> associations
 disease --> associations
 
 reactome --> associationOTF
