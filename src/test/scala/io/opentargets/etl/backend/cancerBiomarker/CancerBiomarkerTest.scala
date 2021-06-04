@@ -21,11 +21,11 @@ object CancerBiomarkerTest {
 
   def cb_disease(implicit sparkSession: SparkSession): DataFrame =
     sparkSession.read.json(
-      this.getClass.getResource("/cancerBiomarkers/cancer_biomarker_disease.json").getPath)
+      this.getClass.getResource("/cancerBiomarkers/cancer_biomarker_disease.jsonl").getPath)
 
   def cb_source(implicit sparkSession: SparkSession): DataFrame =
     sparkSession.read.json(
-      this.getClass.getResource("/cancerBiomarkers/cancer_biomarker_source.json").getPath)
+      this.getClass.getResource("/cancerBiomarkers/cancer_biomarker_source.jsonl").getPath)
 
   def cb_target(implicit sparkSession: SparkSession): DataFrame =
     sparkSession.read.parquet(
