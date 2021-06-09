@@ -37,7 +37,7 @@ elasticdump --input=http://localhost:9200/<indexyouneed> \
     --sourceOnly
 ```
 
-### Mouse Phenotype input for ETL
+### Mouse Phenotype input for ETL (deprecated as of 21.06 release!)
 
 Generate MousePhenotypes input file
 
@@ -316,16 +316,28 @@ The `Drug` step also relies on several other outputs from the ETL:
 #### Outputs
 
 The `Drug` step writes three files under the common directory specified in the `drug.output.path` configuration field:
-  - drugs
-  - mechanismsOfAction
-  - Indications
-  
-Each of these outputs includes a field `id` to allow later linkages between them. 
+
+- drugs
+- mechanismsOfAction
+- Indications
+
+Each of these outputs includes a field `id` to allow later linkages between them.
+
+### Mouse Phenotypes
+
+#### Inputs
+
+| Input | Source | Notes |
+| --- | --- | --- |
+| mp-classes | PIS | This is preprocessed by PIS using a project `opentargets-ontologyutils` to extract needed data from an OWL file in jsonl format. |
+| mp-report | PIS | |
+| mp-orthology | PIS | |
+| mp-categories | Static | This file was a hard-coded map in the deprecated data-pipeline. |
 
 ### Target
 
-These notes refer to the Target step as rewritten in March 2021. If attempting to debug datasets completed before 
-release 20.XX consult commits preceeding XXXXXX. 
+These notes refer to the Target step as rewritten in March 2021. If attempting to debug datasets completed before
+release 20.XX consult commits preceeding XXXXXX.
 
 #### Inputs
 

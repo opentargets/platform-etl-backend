@@ -151,6 +151,12 @@ object Configuration extends LazyLogging {
 
   case class KnownDrugsSection(inputs: KnownDrugsInputsSection, output: IOResourceConfig)
 
+  case class MousePhenotypes(mpClasses: IOResourceConfig,
+                             mpReports: IOResourceConfig,
+                             mpOrthology: IOResourceConfig,
+                             mpCategories: IOResourceConfig,
+                             output: IOResourceConfig)
+
   case class SearchInputsSection(evidences: IOResourceConfig,
                                  diseases: IOResourceConfig,
                                  diseaseHpo: IOResourceConfig,
@@ -216,6 +222,7 @@ object Configuration extends LazyLogging {
       knownDrugs: KnownDrugsSection,
       search: SearchSection,
       aotf: AOTFSection,
-      target: Target
+      target: Target,
+      mousePhenotypes: MousePhenotypes
   )
 }
