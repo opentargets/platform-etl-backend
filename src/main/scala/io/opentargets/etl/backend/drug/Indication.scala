@@ -22,90 +22,60 @@ import org.apache.spark.sql.functions._
   * ------ ids
   */
 object Indication extends Serializable with LazyLogging {
-  private val efoIdName: String = "efo_id"
+  private val efoIdName: String = "disease"
 
   def apply(indicationsRaw: DataFrame, efoRaw: DataFrame)(implicit ss: SparkSession): DataFrame = {
-
     logger.info("Processing indications.")
     // efoDf for therapeutic areas
     val efoDf = getEfoDataframe(efoRaw)
-    val indicationAndEfoDf = processIndicationsRawData(indicationsRaw)
-      .join(efoDf, Seq(efoIdName))
-
-    val indicationDf: DataFrame = indicationAndEfoDf
-      .withColumn("struct",
-        struct(col(efoIdName).as("disease"),
-          col("efoName"),
-          col("max_phase_for_indications").as("maxPhaseForIndication"),
-          col("references")))
-      .groupBy("id")
-      .agg(collect_list("struct").as("indications"))
-      .withColumn("count", size(col("indications")))
-      .join(approvedIndications(indicationAndEfoDf), Seq("id"), "left_outer")
-
-    indicationDf
+    processIndicationsRawData(indicationsRaw).join(efoDf, Seq(efoIdName))
   }
+
   /**
     *
     * @param rawEfoData taken from the `disease` input data
-    * @return dataframe of `efo_id`
+    * @return dataframe of `efo_id`, `efoName`
     */
   private def getEfoDataframe(rawEfoData: DataFrame): DataFrame = {
-
+    // there are obsolete EFOs in the ChEMBL data so we need to create a table with obsolete
+    // terms included in the list of possible ids.
     rawEfoData
-      .select(
-        col("id").as(efoIdName),
-        trim(lower(col("name"))).as("efoName"))
-      .transform(formatEfoIds(_, efoIdName))
-  }
-
-  private def processIndicationsRawData(indicationsRaw: DataFrame): DataFrame = {
-
-    val df = formatEfoIds(indicationsRaw, efoIdName)
-
-    // flatten hierarchy
-    df.withColumn("r", explode(col("indication_refs")))
-      .select(col("molecule_chembl_id").as("id"),
-        col(efoIdName),
-        col("max_phase_for_ind"),
-        col("r.ref_id"),
-        col("r.ref_type"))
-      // remove indications we can't link to a disease.
-      .filter(col(efoIdName).isNotNull)
-      // handle case where clinical trials packs multiple ids into a csv string
-      .withColumn("ref_id", split(col("ref_id"), ","))
-      .withColumn("ref_id", explode(col("ref_id")))
-      // group reference ids and urls by ref_type
-      .groupBy("id", efoIdName, "ref_type")
-      .agg(max("max_phase_for_ind").as("max_phase_for_ind"),
-        collect_list("ref_id").as("ids"))
-      // nest references and find max_phase
-      .withColumn("references",
-        struct(
-          col("ref_type").as("source"),
-          col("ids")
-        ))
-      .groupBy("id", efoIdName)
-      .agg(
-        max("max_phase_for_ind").as("max_phase_for_indications"),
-        collect_list("references").as("references")
-      )
+      .select(array_union(array(col("id")), coalesce(col("obsoleteTerms"), array())) as "ids",
+              col("name"))
+      .select(explode(col("ids")) as efoIdName, col("name"))
+      .select(translate(col(efoIdName), ":", "_") as efoIdName,
+              trim(lower(col("name"))).as("efoName"))
   }
 
   /**
     *
-    * @param indicationDf dataframe of ChEMBL indications
-    * @param idCol the column to be used as ID
-    * @return dataframe with efo_ids in form EFO_xxxx instead of EFO:xxxx
+    * @param indicationsRaw data as provided by ChEMBL
+    * @return dataframe with columns: ids, references, maxPhaseForIndication, disease
     */
-  private def formatEfoIds(indicationDf: DataFrame, idCol: String): DataFrame = {
-    indicationDf.withColumn(efoIdName, translate(col(idCol), ":", "_"))
+  private def processIndicationsRawData(indicationsRaw: DataFrame): DataFrame = {
+
+    val maxP = "maxPhaseForIndication"
+    val ref = "references"
+    indicationsRaw
+      .select(
+        col("_metadata.all_molecule_chembl_ids") as "ids",
+        explode(col("indication_refs")) as ref,
+        col("max_phase_for_ind") as maxP,
+        translate(col("efo_id"), ":", "_") as "disease"
+      )
+      .withColumn("ref_id", split(col(s"$ref.ref_id"), ","))
+      .withColumn("source", col(s"$ref.ref_type"))
+      .drop(ref)
+      // group reference ids by source
+      .groupBy("ids", maxP, "disease", "source")
+      .agg(collect_set("ref_id") as "ref_id")
+      // create structure of references and group
+      .withColumn(ref,
+                  struct(
+                    col("source"),
+                    flatten(col("ref_id")) as "ids"
+                  ))
+      .groupBy("ids", maxP, "disease")
+      .agg(collect_set(col(ref)) as ref)
   }
-
-  private def approvedIndications(df: DataFrame): DataFrame =
-    df.select("id", efoIdName, "max_phase_for_indications")
-      .filter("max_phase_for_indications = 4")
-      .groupBy("id")
-      .agg(collect_set(col(efoIdName)).as("approvedIndications"))
-
 }
