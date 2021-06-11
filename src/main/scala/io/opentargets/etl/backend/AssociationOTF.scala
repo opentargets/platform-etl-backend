@@ -71,8 +71,9 @@ object AssociationOTF extends LazyLogging {
 
     tas
       .join(labels, Seq(taID), "left_outer")
-      .groupBy(col(keyCol))
+      .groupBy(col(keyCol), col(labelCol))
       .agg(collect_set(col(labelCol)).as(vecCol))
+
   }
 
   def computeFacetReactome(
@@ -151,8 +152,9 @@ object AssociationOTF extends LazyLogging {
       .orderBy(col("target_id").asc)
       .persist()
 
-    val diseasesFacetTAs = computeFacetTAs(diseases, "disease_id", "name", "therapeuticAreas")
-      .withColumnRenamed("therapeuticAreas", "facet_therapeuticAreas")
+    val diseasesFacetTAs =
+      computeFacetTAs(diseases, "disease_id", "disease_data", "therapeuticAreas")
+        .withColumnRenamed("therapeuticAreas", "facet_therapeuticAreas")
 
     val targetsFacetReactome =
       computeFacetReactome(targets, "target_id", "reactome", dfs("reactome").data)
