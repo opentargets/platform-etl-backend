@@ -1,0 +1,58 @@
+@startuml
+skinparam interface {
+    backgroundColor<<input>> darkblue
+    backgroundColor<<output>> cyan
+}
+skinparam artifact {
+     backgroundColor<<noDependency>> orchid
+     backgroundColor<<dependencies>> darkturquoise
+ }
+' steps
+artifact associations <<dependencies>>
+artifact associationOTF <<dependencies>>
+artifact cancerBiomarkers <<dependencies>>
+artifact disease <<noDependency>>
+artifact drug <<dependencies>>
+artifact eco <<noDependency>>
+artifact evidence <<dependencies>>
+artifact expression <<noDependency>>
+artifact interactions <<dependencies>>
+artifact knownDrugs <<dependencies>>
+artifact mousePhenotypes <<noDependency>>
+artifact reactome <<noDependency>>
+artifact search <<dependencies>>
+artifact target <<noDependency>>
+artifact targetSafety <<dependencies>>
+
+target --> targetSafety
+
+evidence --> associations
+disease --> associations
+
+reactome --> associationOTF
+evidence --> associationOTF
+disease --> associationOTF
+target --> associationOTF
+
+target --> cancerBiomarkers
+
+target --> drug
+disease --> drug
+evidence --> drug
+target --> evidence
+disease --> evidence
+
+evidence --> knownDrugs
+disease --> knownDrugs
+target --> knownDrugs
+drug --> knownDrugs
+
+evidence --> search
+disease --> search
+disease --> search
+drug --> search
+associations --> search
+
+target --> interactions
+
+@enduml

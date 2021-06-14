@@ -248,6 +248,7 @@ object Association extends LazyLogging {
     val cols = Seq(
       dId,
       tId,
+      dtId,
       dtIdScore,
       dtEvsCount
     )
