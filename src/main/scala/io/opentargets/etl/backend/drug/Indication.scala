@@ -1,8 +1,6 @@
 package io.opentargets.etl.backend.drug
 
 import com.typesafe.scalalogging.LazyLogging
-import io.opentargets.etl.backend.spark.Helpers
-import io.opentargets.etl.backend.spark.Helpers.nest
 import org.apache.spark.sql.{DataFrame, SparkSession}
 import org.apache.spark.sql.functions._
 
@@ -10,41 +8,48 @@ import org.apache.spark.sql.functions._
   * Object to process ChEMBL indications for incorporation into Drug.
   *
   * Output schema:
-  * id
-  * approvedIndications
-  * indications
-  * -- count
-  * -- rows
-  * ---- disease
-  * ---- maxPhaseForIndication
-  * ---- references
-  * ------ source
-  * ------ ids
+  * ids
+  * maxPhaseForIndication
+  * references
+  * -- source
+  * -- ids
+  * efoName
+  * disease
   */
 object Indication extends Serializable with LazyLogging {
-  private val efoIdName: String = "disease"
+  private val efoId: String = "disease"
 
   def apply(indicationsRaw: DataFrame, efoRaw: DataFrame)(implicit ss: SparkSession): DataFrame = {
     logger.info("Processing indications.")
     // efoDf for therapeutic areas
     val efoDf = getEfoDataframe(efoRaw)
-    processIndicationsRawData(indicationsRaw).join(efoDf, Seq(efoIdName))
+    val indicationDf = processIndicationsRawData(indicationsRaw)
+
+    // add disease name and replace obsolete EfoId with new term.
+    indicationDf
+      .join(efoDf, array_contains(efoDf("allEfoIds"), indicationDf(efoId)))
+      .drop("allEfoIds", efoId)
+      .withColumnRenamed("updatedEfo", efoId)
   }
 
   /**
     *
     * @param rawEfoData taken from the `disease` input data
-    * @return dataframe of `efo_id`, `efoName`
+    * @return dataframe of `updatedEfo`, `efoName`, `allEfoIds`
     */
   private def getEfoDataframe(rawEfoData: DataFrame): DataFrame = {
-    // there are obsolete EFOs in the ChEMBL data so we need to create a table with obsolete
-    // terms included in the list of possible ids.
     rawEfoData
-      .select(array_union(array(col("id")), coalesce(col("obsoleteTerms"), array())) as "ids",
-              col("name"))
-      .select(explode(col("ids")) as efoIdName, col("name"))
-      .select(translate(col(efoIdName), ":", "_") as efoIdName,
-              trim(lower(col("name"))).as("efoName"))
+      .select(
+        col("id") as "updatedEfo",
+        col("name"),
+        array_union(array(col("id")), coalesce(col("obsoleteTerms"), array())) as "allEfoIds"
+      )
+      .select(
+        transform(col("allEfoIds"), it => translate(it, ":", "_")) as "allEfoIds",
+        trim(lower(col("name"))).as("efoName"),
+        col("updatedEfo")
+      )
+
   }
 
   /**
