@@ -80,7 +80,6 @@ object KnownDrugs extends LazyLogging {
           $"synonyms",
           $"drugType",
           $"mechanismOfAction",
-          $"references",
           $"targetName",
           $"targets"
         )
