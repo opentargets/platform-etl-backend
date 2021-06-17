@@ -521,6 +521,7 @@ object Search extends LazyLogging {
       .join(
         inputDataFrame("indication").data
           .select(
+            col("id"),
             col("indications") as "rows",
             col("indicationCount") as "count"
           )
