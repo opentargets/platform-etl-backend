@@ -520,7 +520,11 @@ object Search extends LazyLogging {
       )
       .join(
         inputDataFrame("indication").data
-          .withColumnRenamed("indications", "rows")
+          .select(
+            col("id"),
+            col("indications") as "rows",
+            col("indicationCount") as "count"
+          )
           .transform(nest(_: DataFrame, List("rows", "count"), "indications")),
         Seq("id"),
         "left_outer"
