@@ -7,14 +7,24 @@ import org.apache.spark.sql.functions._
 /**
   * Object to process ChEMBL indications for incorporation into Drug.
   *
-  * Output schema:
-  * ids
-  * maxPhaseForIndication
-  * references
-  * -- source
-  * -- ids
-  * efoName
-  * disease
+  * |-- id: string
+  * |-- indications: array
+  * |    |-- element: struct
+  * |    |    |-- disease: string
+  * |    |    |-- efoName: string
+  * |    |    |-- disease: string
+  * |    |    |-- references: array
+  * |    |    |    |-- element: struct
+  * |    |    |    |    |-- ids: array
+  * |    |    |    |    |    |-- element: string
+  * |    |    |    |    |-- source: string
+  * |    |    |-- maxPhaseForIndication: long
+  * |-- approvedIndications: array
+  * |    |-- element: string
+  * |-- indicationCount: integer
+  *
+  * There is some duplication of results here as the same ChEMBL ID can have the same indication, but this implementation
+  * is much faster in ES to serve the API.
   */
 object Indication extends Serializable with LazyLogging {
   private val efoId: String = "disease"
@@ -26,10 +36,22 @@ object Indication extends Serializable with LazyLogging {
     val indicationDf = processIndicationsRawData(indicationsRaw)
 
     // add disease name and replace obsolete EfoId with new term.
-    indicationDf
+    val indicationWithDiseaseDf = indicationDf
       .join(efoDf, array_contains(efoDf("allEfoIds"), indicationDf(efoId)))
       .drop("allEfoIds", efoId)
       .withColumnRenamed("updatedEfo", efoId)
+
+    indicationWithDiseaseDf
+      .withColumn("id", explode(col("ids")))
+      .withColumn(
+        "indications",
+        struct(col("disease"), col("efoName"), col("references"), col("maxPhaseForIndication")))
+      .groupBy(col("id"))
+      .agg(
+        collect_set("indications") as "indications",
+        collect_set(when(col("maxPhaseForIndication") === 4, col("disease"))) as "approvedIndications"
+      )
+      .withColumn("indicationCount", size(col("indications")))
   }
 
   /**

@@ -28,12 +28,14 @@ class IndicationTest extends EtlSparkUnitTest {
   "Processing EFO metadata" should "return a dataframe with the EFO's id, label" in {
     // given
     val inputDF: DataFrame = IndicationTest.efoDf(sparkSession)
-    val expectedColumns = Set("disease", "efoName")
+    val expectedColumns = Set("updatedEfo", "efoName", "allEfoIds")
     // when
     val results: DataFrame = Indication invokePrivate getEfoDataFrame(inputDF)
 
     // then
-    assert(results.columns.forall(expectedColumns.contains))
+    assert(
+      results.columns.forall(expectedColumns.contains),
+      s"Expected columns $expectedColumns but found ${results.columns.mkString("Array(", ", ", ")")}")
   }
 
   "Processing ChEMBL indications data" should "correctly process raw ChEMBL data into expected format" in {
@@ -45,7 +47,7 @@ class IndicationTest extends EtlSparkUnitTest {
     val results: DataFrame = Indication(indicationDf, efoDf)(sparkSession)
     // then
     val expectedColumns: Set[String] =
-      Set("ids", "disease", "maxPhaseForIndication", "references", "efoName")
+      Set("id", "indications", "approvedIndications", "indicationCount")
 
     assert(
       results.columns
@@ -62,7 +64,8 @@ class IndicationTest extends EtlSparkUnitTest {
     val indication: DataFrame = Indication(indicationDf, efoDf)
     // when
     val results: DataFrame = indication
-      .select(col("disease").as("efoId"))
+      .withColumn("inds", explode(col("indications")))
+      .select(col("inds.disease").as("efoId"))
       .filter(col("efoId").isNull)
     // then
     assert(results.count() == 0L)
