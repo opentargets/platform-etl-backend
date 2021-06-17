@@ -89,7 +89,10 @@ object Drug extends Serializable with LazyLogging {
     // using left_outer joins as we want to keep all molecules until the filter clause which defines a 'drug' for the
     // purposes of the index.
     val drugDf: DataFrame = moleculeProcessedDf
-      .join(indicationProcessedDf, Seq("id"), "left_outer")
+      .join(indicationProcessedDf
+              .select("id", "indications"),
+            Seq("id"),
+            "left_outer")
       .join(
         mechanismOfActionProcessedDf
           .select(explode(col("chemblIds")).as("id"))
