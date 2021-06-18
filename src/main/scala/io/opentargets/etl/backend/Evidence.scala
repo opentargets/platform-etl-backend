@@ -116,8 +116,7 @@ object Evidence extends LazyLogging {
               array(col("id")),
               array(col("proteinAnnotations.id")),
               col("proteinAnnotations.accessions"),
-              array(col("approvedSymbol")),
-              col("symbolSynonyms")
+              array(col("approvedSymbol"))
             )).as("rIds"),
         )
         .withColumn("rId", explode(col("rIds")))

@@ -82,14 +82,17 @@ object Drug extends Serializable with LazyLogging {
       "Joining molecules, indications, mechanisms of action, and target and disease linkages.")
 
     // We define a drug as having either a drugbank id, a mechanism of action, or an indication.
-    val drugMolecule: Column = array_contains(map_keys(col("crossReferences")), "drugbank") ||
+    val isDrugMolecule: Column = array_contains(map_keys(col("crossReferences")), "drugbank") ||
       col("indications").isNotNull ||
       col("mechanismsOfAction").isNotNull
 
     // using left_outer joins as we want to keep all molecules until the filter clause which defines a 'drug' for the
     // purposes of the index.
     val drugDf: DataFrame = moleculeProcessedDf
-      .join(indicationProcessedDf, Seq("id"), "left_outer")
+      .join(indicationProcessedDf
+              .select("id", "indications"),
+            Seq("id"),
+            "left_outer")
       .join(
         mechanismOfActionProcessedDf
           .select(explode(col("chemblIds")).as("id"))
@@ -99,7 +102,7 @@ object Drug extends Serializable with LazyLogging {
         "left_outer"
       )
       .join(targetsAndDiseasesDf, Seq("id"), "left_outer")
-      .filter(drugMolecule)
+      .filter(isDrugMolecule)
       .transform(addDescription)
       .drop("indications", "mechanismsOfAction", "withdrawnNotice ")
       .transform(cleanup)
@@ -118,6 +121,7 @@ object Drug extends Serializable with LazyLogging {
   Final tidying up that aren't business logic but are nice to have for consistent outputs.
    */
   def cleanup(df: DataFrame): DataFrame = {
+    // add empty collection as value instead of null values.
     Seq("tradeNames", "synonyms").foldLeft(df)((dataF, column) => {
       dataF.withColumn(column, coalesce(col(column), typedLit(Seq.empty)))
     })
