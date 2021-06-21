@@ -247,9 +247,21 @@ object ETL extends LazyLogging {
       .selectExpr(cols:_*)
   }
 
-  def loadTraits(path: String)(implicit sparkSession: SparkSession): DataFrame = {
-    val traits = sparkSession.read.option("sep", "\t").option("inferSchema", "true").csv(path)
-    traits.toDF("traitId", "traitName")
+  def loadTraitsGenetics(path: String)(implicit sparkSession: SparkSession): DataFrame = {
+    import sparkSession.implicits._
+    val options = Map(
+      "sep" -> ",",
+      "inferSchema" -> "true",
+      "header" -> "false"
+    )
+
+    val traits = sparkSession.read.options(options).csv(path)
+
+    traits.toDF("studyId", "traitName", "currentEfo")
+      .selectExpr(
+        "traitName",
+        "struct('studyId', studyId, 'currentEfo', currentEfo) as traitId"
+      )
   }
 
   def loadTraitsJSON(path: String)(implicit sparkSession: SparkSession): DataFrame = {
@@ -283,8 +295,10 @@ object ETL extends LazyLogging {
     val diseases = spark.read.parquet(s"${prefix}/diseases")
 
     // val traits = loadMeddraTraits(traitsPath)
+    val traits = loadTraitsGenetics(traitsPath)
+    // val traits = loadMeddraTraits(traitsPath)
     // val traits = loadTraits(traitsPath)
-    val traits = loadTraitsJSON(traitsPath)
+    // val traits = loadTraitsJSON(traitsPath)
     val pipeline = generatePipeline("text", columnsToInclude)
 
     val D = diseases
@@ -326,30 +340,32 @@ object ETL extends LazyLogging {
       .orderBy($"traitKey".asc)
       .persist(StorageLevel.DISK_ONLY)
 
-    DN.write.json(s"${output}/DiseaseLabels")
-    MN.write.json(s"${output}/TraitLabels")
+//    DN.write.json(s"${output}/DiseaseLabels")
+//    MN.write.json(s"${output}/TraitLabels")
 
-    val terms = DN.selectExpr("efoKey as terms")
-      .unionByName(MN.selectExpr("traitKey as terms")).persist()
+//    val terms = DN.selectExpr("efoKey as terms")
+//      .unionByName(MN.selectExpr("traitKey as terms")).persist()
 
-    val w2v = new Word2Vec()
-      .setWindowSize(5)
-      .setVectorSize(100)
-      .setNumPartitions(16)
-      .setMaxIter(3)
-      .setMinCount(0)
-      .setStepSize(0.025)
-      .setInputCol("terms")
-      .setOutputCol("predictions")
+//    val w2v = new Word2Vec()
+//      .setWindowSize(5)
+//      .setVectorSize(100)
+//      .setNumPartitions(16)
+//      .setMaxIter(3)
+//      .setMinCount(0)
+//      .setStepSize(0.025)
+//      .setInputCol("terms")
+//      .setOutputCol("predictions")
+//
+//    val w2vModel = w2v.fit(terms)
+//
+//    w2vModel.save(s"${output}/Model")
+//    w2vModel.getVectors
+//      .withColumn("vector", vector_to_array($"vector"))
+//      .write.json(s"${output}/ModelVectors")
+//
+//    val w2vm = Word2VecModel.load(s"${output}/Model")
 
-    val w2vModel = w2v.fit(terms)
-
-    w2vModel.save(s"${output}/Model")
-    w2vModel.getVectors
-      .withColumn("vector", vector_to_array($"vector"))
-      .write.json(s"${output}/ModelVectors")
-
-    val w2vm = Word2VecModel.load(s"${output}/Model")
+    val w2vm = Word2VecModel.load(matches)
 
     val U = w2vm.getVectors
       .withColumn("vector", vector_to_array($"vector"))
