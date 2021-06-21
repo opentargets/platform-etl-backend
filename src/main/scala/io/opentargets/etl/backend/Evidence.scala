@@ -11,6 +11,7 @@ import org.apache.spark.storage.StorageLevel
 import spark.{IOResource, IoHelpers}
 
 object Evidence extends LazyLogging {
+  val rawScoreColumnName: String = "resourceScore"
 
   object UDFs {
 
@@ -57,7 +58,13 @@ object Evidence extends LazyLogging {
     ss.sqlContext.udf
       .register("pvalue_linear_score_default", UDFs.pValueLinearRescaling(_, 1, 1e-10, 0, 1))
 
-    df.withColumn("sourceId", $"datasourceId")
+    val prepared = df.withColumn("sourceId", $"datasourceId")
+
+    // you cannot operate with a column name that is actually not present in the columns schema
+    if (prepared.columns.contains(rawScoreColumnName))
+      prepared.withColumn(rawScoreColumnName, col(rawScoreColumnName).cast(DoubleType))
+    else
+      prepared.withColumn(rawScoreColumnName, lit(null).cast(DoubleType))
   }
 
   def excludeByBiotype(df: DataFrame,
