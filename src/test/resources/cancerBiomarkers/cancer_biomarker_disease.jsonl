@@ -1,0 +1,88 @@
+{"name": "Acute_lymphoblastic_leukemia", "label": "Acute lymphoblastic leukemia", "url": "http://www.ebi.ac.uk/efo/EFO_0000220"}
+{"name": "Acute_myeloid_leukemia", "label": "Acute myeloid leukemia", "url": "http://www.ebi.ac.uk/efo/EFO_0000222"}
+{"name": "Acute_promyelocytic_leukemia", "label": "Acute promyelocytic leukemia", "url": "http://www.ebi.ac.uk/efo/EFO_0000224"}
+{"name": "Adenoid_cystic_carcinoma", "label": "Adenoid cystic carcinoma", "url": "http://www.ebi.ac.uk/efo/EFO_0000231"}
+{"name": "Anaplastic_oligodendroglioma", "label": "Anaplastic oligodendroglioma", "url": "http://www.ebi.ac.uk/efo/EFO_0002501"}
+{"name": "Angiosarcoma", "label": "Angiosarcoma", "url": "http://www.ebi.ac.uk/efo/EFO_0003968"}
+{"name": "Basal_cell_carcinoma", "label": "Basal cell carcinoma", "url": "http://www.ebi.ac.uk/efo/EFO_0004193"}
+{"name": "Breast_adenocarcinoma", "label": "Breast adenocarcinoma", "url": "http://www.ebi.ac.uk/efo/EFO_0000304"}
+{"name": "Cholangiocarcinoma", "label": "Cholangiocarcinoma", "url": "http://www.ebi.ac.uk/efo/EFO_0005221"}
+{"name": "Chronic_lymphocytic_leukemia", "label": "Chronic lymphocytic leukemia", "url": "http://www.ebi.ac.uk/efo/EFO_0000095"}
+{"name": "Chronic_myeloid_leukemia", "label": "Chronic myeloid leukemia", "url": "http://www.ebi.ac.uk/efo/EFO_0000339"}
+{"name": "Colorectal_adenocarcinoma", "label": "Colorectal adenocarcinoma", "url": "http://www.ebi.ac.uk/efo/EFO_0000365"}
+{"name": "Cutaneous_melanoma", "label": "Cutaneous melanoma", "url": "http://www.ebi.ac.uk/efo/EFO_0000389"}
+{"name": "Glioblastoma_multiforme", "label": "Glioblastoma multiforme", "url": "http://www.ebi.ac.uk/efo/EFO_0000519"}
+{"name": "Glioma", "label": "Glioma", "url": "http://www.ebi.ac.uk/efo/EFO_0005543"}
+{"name": "Leukemia", "label": "Leukemia", "url": "http://www.ebi.ac.uk/efo/EFO_0000565"}
+{"name": "Liposarcoma", "label": "Liposarcoma", "url": "http://www.ebi.ac.uk/efo/EFO_0000569"}
+{"name": "Lung_adenocarcinoma", "label": "Lung adenocarcinoma", "url": "http://www.ebi.ac.ukefo/EFO_0000571"}
+{"name": "Lymphoma", "label": "Lymphoma", "url": "http://www.ebi.ac.uk/efo/EFO_0000574"}
+{"name": "Medulloblastoma", "label": "Medulloblastoma", "url": "http://www.ebi.ac.uk/efo/EFO_0002939"}
+{"name": "Mesothelioma", "label": "Mesothelioma", "url": "http://www.ebi.ac.uk/efo/EFO_0000588"}
+{"name": "Multiple_myeloma", "label": "Multiple myeloma", "url": "http://www.ebi.ac.uk/efo/EFO_0001378"}
+{"name": "Neuroblastoma", "label": "Neuroblastoma", "url": "http://www.ebi.ac.uk/efo/EFO_0000621"}
+{"name": "Neurofibroma", "label": "Neurofibroma", "url": "http://www.ebi.ac.uk/efo/EFO_0000622"}
+{"name": "Osteosarcoma", "label": "Osteosarcoma", "url": "http://www.ebi.ac.uk/efo/EFO_0000637"}
+{"name": "Pancreas_adenocarcinoma", "label": "Pancreatic adenocarcinoma", "url": "http://www.ebi.ac.uk/efo/EFO_1000044"}
+{"name": "Plexiform_neurofibroma", "label": "Plexiform neurofibroma", "url": "http://www.ebi.ac.uk/efo/EFO_0000658"}
+{"name": "Prostate_adenocarcinoma", "label": "Prostate adenocarcinoma", "url": "http://www.ebi.ac.uk/efo/EFO_0000673"}
+{"name": "Rhabdomyosarcoma", "label": "Rhabdomyosarcoma", "url": "http://www.ebi.ac.uk/efo/EFO_0002918"}
+{"name": "Sarcoma", "label": "Sarcoma", "url": "http://www.ebi.ac.uk/efo/EFO_0000691"}
+{"name": "Schwannoma", "label": "Schwannoma", "url": "http://www.ebi.ac.uk/efo/EFO_0000693"}
+{"name": "Adrenal_adenoma", "label": "Adrenocortical adenoma", "url": "http://www.ebi.ac.uk/efo/EFO_0003104"}
+{"name": "Any_cancer_type", "label": "Any cancer type", "url": "http://www.ebi.ac.uk/efo/EFO_0000311"}
+{"name": "Atypical_chronic_myeloid_leukemia", "label": "Atypical chronic myeloid leukemia", "url": "http://purl.obolibrary.org/obo/MONDO_0020312"}
+{"name": "Biliary_tract_cancer", "label": "Biliary tract cancer", "url": "http://www.ebi.ac.uk/efo/EFO_0003891"}
+{"name": "Cervical_squamous_cell_carcinoma", "label": "Cervical squamous cell carcinoma", "url": "http://www.ebi.ac.uk/efo/EFO_1000172"}
+{"name": "Dermatofibrosarcoma", "label": "Dermatofibrosarcome protuberans", "url": "http://www.orpha.net/ORDO/Orphanet_31112"}
+{"name": "Eosinophilic_chronic_leukemia", "label": "Chronic Eosinophilic Leukemia, Not Otherwise Specified", "url": "http://ww.ebi.ac.uk/efo/EFO_1000178"}
+{"name": "Erdheim_Chester_histiocytosis", "label": "Erdheim-Chester disease", "url": "http://www.ebi.ac.uk/efo/EFO_1000926"}
+{"name": "Female_germ_cell_tumor", "label": "Ovarian germ cell tumor", "url": "http://www.ebi.ac.uk/efo/EFO_1000419"}
+{"name": "Fibrous_histiocytoma", "label": "Malignant fibrous histiocytoma", "url": "http://www.ebi.ac.uk/efo/EFO_0005561"}
+{"name": "Gastrointestinal_stromal", "label": "Gastrointestinal stromal tumor", "url": "http://www.orpha.net/ORDO/Orphanet_44890"}
+{"name": "Giant_cell_astrocytoma", "label": "Subependymal giant cell astrocytoma", "url": "http://www.ebi.ac.uk/efo/EFO_0000272"}
+{"name": "Hairy_Cell_leukemia", "label": "Hairy cell leukemia", "url": "http://www.ebi.ac.uk/efo/EFO_1000956"}
+{"name": "Head_and_neck_cancer", "label": "Head and neck cancer", "url": "http://www.ebi.ac.uk/efo/EFO_0006859"}
+{"name": "Head_and_neck_squamous_cell_carcinoma", "label": "Head and neck squamous cell carcinoma", "url": "http://www.ebi.ac.uk/efo/EFO_0000181"}
+{"name": "Hematologic_malignancies", "label": "Hematological system disease", "url": "http://www.ebi.ac.uk/efo/EFO_0005803"}
+{"name": "Hepatic_carcinoma", "label": "Hepatocellular carcinoma", "url": "http://www.ebi.ac.uk/efo/EFO_0000182"}
+{"name": "Hyper_eosinophilic_advanced_snydrome", "label": "Hypereosinophilic syndrome", "url": "http://www.ebi.ac.uk/efo/EFO_1001467"}
+{"name": "Inflammatory_myofibroblastic", "label": "Inflammatory myofibroblastic tumor", "url": "http://www.orpha.net/ORDO/Orphanet_178342"}
+{"name": "Lagerhans_cell_histiocytosis", "label": "Langerhans Cell Histiocytosis", "url": "http://www.ebi.ac.uk/efo/EFO_1000318"}
+{"name": "Squamous_cell_lung_carcinoma", "label": "Squamous cell lung carcinoma", "url": "http://www.ebi.ac.uk/efo/EFO_0000708"}
+{"name": "Lymphangioleiomyomatosis", "label": "Lymphangioleiomyomatosis", "url": "http://www.orpha.net/ORDO/Orphanet_538"}
+{"name": "Male_germ_cell_tumor", "label": "Germ cell tumor", "url": "http://www.ebi.ac.uk/efo/EFO_0000514"}
+{"name": "Malignant_astrocytoma", "label": "Astrocytoma", "url": "http://www.ebi.ac.uk/efo/EFO_0000272"}
+{"name": "Malignant_peripheral_nerve_sheat_tumor", "label": "Malignant peripheral nerve sheath tumor", "url": "http://www.ebi.ac.uk/efo/EFO_0000760"}
+{"name": "Malignant_rhabdoid_tumor", "label": "Malignant rhabdoid tumour", "url": "http://www.ebi.ac.uk/efo/EFO_0005701"}
+{"name": "Megakaryoblastic_leukemia", "label": "Adult acute megakaryoblastic leukemia", "url": "http://www.ebi.ac.uk/ef/EFO_1001932"}
+{"name": "Myelodisplasic_proliferative_syndrome", "label": "Myelodysplastic proliferative syndrome", "url": "http://www.ebi.ac.uk/efo/EFO_1000388"}
+{"name": "Myelodisplasic_syndrome", "label": "Myelodysplastic syndrome", "url": "http://www.ebi.ac.uk/efo/EFO_0000198"}
+{"name": "Neuroendocrine_tumor", "label": "Neuroendocrine tumor", "url": "http://www.ebi.ac.uk/efo/EFO_1001901"}
+{"name": "Non_small_cell_lung_cancer", "label": "Non-small cell lung cancer", "url": "http://www.ebi.ac.uk/efo/EFO_0003060"}
+{"name": "NUT_midline_carcinoma", "label": "NUT midline carcinoma", "url": "http://www.ebi.ac.uk/efo/EFO_0005783"}
+{"name": "Pediatric_glioma", "label": "Pediatric glioma", "url": "http://www.ebi.ac.uk/efo/EFO_0005543"}
+{"name": "Renal_carcinoma", "label": "Renal carcinoma", "url": "http://www.ebi.ac.uk/efo/EFO_0002890"}
+{"name": "Salivary_glands_tumor", "label": "Salivary gland tumor", "url": "http://purl.obolibrary.org/obo/NCIT_C3361"}
+{"name": "Systemic_mastocytosis", "label": "Systemic mastocytosis", "url": "http://purl.obolibrary.org/obo/NCIT_C9235"}
+{"name": "Thymic_carcinoma", "label": "Thymic carcinoma", "url": "http://www.ebi.ac.uk/efo/EFO_1000576"}
+{"name": "Urinary_tract_carcinoma", "label": "Urothelial carcinoma", "url": "http://www.ebi.ac.uk/efo/EFO_0008528"}
+{"name": "Waldenstroem_macroglobulinemia", "label": "Waldenstroem macroglobulinemia", "url": "http://www.ebi.ac.uk/efo/EFO_0002616"}
+{"name": "B_cell_lymphoma", "label": "B-cell lymphoma", "url": "http://purl.obolibrary.org/obo/HP_0012191"}
+{"name": "Myelofibrosis", "label": "Myelofibrosis", "url": "http://purl.obolibrary.org/obo/HP_0011974"}
+{"name": "Renal_angiomyolipoma", "label": "Renal angiomyolipoma", "url": "http://purl.obolibrary.org/bo/HP_0006772"}
+{"name": "Glioblastoma", "label": "Glioblastoma multiforme", "url": "http://www.ebi.ac.uk/efo/EFO_0000519"}
+{"name": "Meningioma", "label": "Meningioma", "url": "http://www.orpha.net/ORDO/Orphanet_2495"}
+{"name": "Retinoblastoma", "label": "Retinoblastoma", "url": "http://www.orpha.net/ORDO/Orphanet_790"}
+{"name": "Mantle_cell_lymphoma", "label": "Mantle cell lymphoma", "url": "http://www.ebi.ac.uk/efo/EFO_1001469"}
+{"name": "Myeloma", "label": "Myeloma", "url": "http://www.ebi.ac.uk/efo/EFO_0001378"}
+{"name": "Bladder_carcinoma", "label": "Bladder carcinoma", "url": "http://www.ebi.ac.uk/efo/EFO_0000292"}
+{"name": "Cervical_carcinoma", "label": "Cervical carcinoma", "url": "http://www.ebi.ac.uk/efo/EFO_0001061"}
+{"name": "Endometrial_carcinoma", "label": "Endometrial carcinoma", "url": "http://www.ebi.ac.uk/efo/EFO_1001512"}
+{"name": "Gastroesophageal_junction_adenocarcinoma", "label": "Gastroesophageal junction adenocarcinoma", "url": "http://purl.obolibrary.org/obo/NCIT_C9296"}
+{"name": "Lung_carcinoma", "label": "Lung carcinoma", "url": "http://www.ebi.ac.uk/efo/EFO_0001071"}
+{"name": "Ovarian_carcinoma", "label": "Ovarian carcinoma", "url": "http://www.ebi.ac.uk/efo/EFO_0001075"}
+{"name": "Pancreatic_carcinoma", "label": "Pancreatic carcinoma", "url": "http://www.ebi.ac.uk/efo/EFO_0002618"}
+{"name": "Solid_tumors", "label": "Solid tumors", "url": "http://purl.obolibrary.org/obo/NCIT_C9292"}
+{"name": "Gastric_carcinoma", "label": "Gastric carcinoma", "url": "http://www.ebi.ac.uk/efo/EFO_0000178"}
+{"name": "Thyroid_carcinoma", "label": "Thyroid carcinoma", "url": "http://www.ebi.ac.uk/efo/EFO_0002892"}
