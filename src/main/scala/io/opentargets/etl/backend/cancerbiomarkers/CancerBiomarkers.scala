@@ -1,7 +1,8 @@
 package io.opentargets.etl.backend.cancerbiomarkers
 
+import com.typesafe.scalalogging.LazyLogging
 import io.opentargets.etl.backend.spark.IoHelpers.IOResources
-import io.opentargets.etl.backend.spark.{IOResource, IOResourceConfig, IoHelpers}
+import io.opentargets.etl.backend.spark.{IOResource, IoHelpers}
 import io.opentargets.etl.backend.{Configuration, ETLSessionContext}
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.types.LongType
@@ -18,9 +19,11 @@ case class CancerBiomarker(id: String,
                            sourcesPubmed: Array[Long],
                            sourcesOther: Array[CancerSource])
 
-object CancerBiomarkers {
+object CancerBiomarkers extends LazyLogging {
   def apply()(implicit context: ETLSessionContext): IOResources = {
     implicit val ss: SparkSession = context.sparkSession
+
+    logger.info("Processing Cancer Biomarkers.")
 
     val inputs = getMappedInputs(context.configuration.cancerbiomarkers)
 
@@ -28,7 +31,7 @@ object CancerBiomarkers {
                                                                inputs("sourceMapping").data,
                                                                inputs("diseaseMapping").data,
                                                                inputs("targetMapping").data)
-
+    logger.info("Writing Cancer Biomarkers ouput.")
     val dataframesToSave: IOResources = Map(
       "cancerbiomarkers" -> IOResource(cancerBiomarkersDS.toDF,
                                        context.configuration.cancerbiomarkers.output)
@@ -144,24 +147,12 @@ object CancerBiomarkers {
     val inputs = config.inputs
 
     val mappedInputs = Map(
-      "biomarkers" -> IOResourceConfig(
-        inputs.biomarkers.format,
-        inputs.biomarkers.path,
-        inputs.biomarkers.options
-      ),
-      "diseaseMapping" -> IOResourceConfig(
-        inputs.diseaseMapping.format,
-        inputs.diseaseMapping.path
-      ),
-      "sourceMapping" -> IOResourceConfig(
-        inputs.diseaseMapping.format,
-        inputs.sourceMapping.path
-      ),
-      "targetMapping" -> IOResourceConfig(
-        inputs.targetMapping.format,
-        inputs.targetMapping.path
-      )
+      "biomarkers" -> inputs.biomarkers,
+      "diseaseMapping" -> inputs.diseaseMapping,
+      "sourceMapping" -> inputs.sourceMapping,
+      "targetMapping" -> inputs.targetMapping
     )
+
     IoHelpers
       .readFrom(mappedInputs)
   }
