@@ -97,6 +97,9 @@ object IoHelpers extends LazyLogging {
   private def writeTo(output: IOResource)(implicit context: ETLSessionContext): IOResource = {
     implicit val spark: SparkSession = context.sparkSession
 
+    val writeMode = context.configuration.sparkSettings.writeMode
+    logger.debug(s"Write mode set to $writeMode")
+
     logger.info(s"save IOResource ${output.toString}")
     val data = output.data
     val conf = output.configuration
@@ -116,6 +119,7 @@ object IoHelpers extends LazyLogging {
 
       }
       .format(conf.format)
+      .mode(writeMode)
       .save(conf.path)
 
     output
