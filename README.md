@@ -70,6 +70,8 @@ The `options` field configures how Spark will read the input files. Both Json an
 configurable options, details of which can be
 found [in the documentation](https://spark.apache.org/docs/latest/api/scala/org/apache/spark/sql/DataFrameReader.html)
 
+#### Configuring Spark
+
 If you want to use a local installation of Spark customise the `application.conf` with the following spark-uri field and
 adjust any other fields as necessary from the `reference.conf` template:
 
@@ -80,10 +82,16 @@ common {
 }
 ```
 
+By default Spark will only write to non-existent directories. This behaviour can be modified using the settings field
+`spark-settings.write-mode` using one of the valid inputs "error", "errorifexists", "append", "overwrite", "ignore".
+
+#### Configuring Loggging
+
 Similarly update the logback configuration. You can add `-Dlogback.configurationFile=application.xml` and have a
 logback.xml hanging on your project root or run path. An example log configuration file:
 
 ```xml
+
 <configuration>
 
     <appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender">

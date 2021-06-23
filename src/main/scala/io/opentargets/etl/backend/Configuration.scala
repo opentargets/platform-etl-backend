@@ -198,8 +198,15 @@ object Configuration extends LazyLogging {
 
   case class TargetOutput(target: IOResourceConfig)
 
+  case class SparkSettings(writeMode: String) {
+    val validWriteModes = Set("error", "errorifexists", "append", "overwrite", "ignore")
+    require(validWriteModes.contains(writeMode),
+            s"$writeMode is not valid. Must be one of ${validWriteModes.toString()}")
+  }
+
   case class OTConfig(
       sparkUri: Option[String],
+      sparkSettings: SparkSettings,
       common: Common,
       cancerbiomarkers: CancerBiomarkersSection,
       reactome: ReactomeSection,

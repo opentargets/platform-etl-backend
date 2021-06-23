@@ -11,12 +11,25 @@ class ConfigurationTest extends AnyFlatSpecLike with Matchers with LazyLogging {
   "Pureconfig" should "successfully load standard configuration without error" in {
     val conf: ConfigReader.Result[OTConfig] = Configuration.config
     val msg = conf match {
-      case Right(_) => logger.info("configuration loaded right")
+      case Right(_) =>
+        logger.info("configuration loaded right")
         None
-      case Left(ex) => logger.info(s"Failed to load configuration in ${ex.prettyPrint()}")
+      case Left(ex) =>
+        logger.info(s"Failed to load configuration in ${ex.prettyPrint()}")
         Some(ex.prettyPrint())
     }
 
     assert(conf.isRight, s"Failed with ${msg.getOrElse("")}")
+  }
+
+  "SparkSettings" should "only accept valid write modes as input parameters" in {
+    // given
+    val invalidMode = "concatenate"
+    val validModes = Seq("error", "errorifexists", "append", "overwrite", "ignore")
+    // when
+    val settings = validModes.map(SparkSettings)
+    // then
+    assertThrows[IllegalArgumentException](SparkSettings(invalidMode))
+    assertResult(validModes.sorted)(settings.map(_.writeMode).sorted)
   }
 }
