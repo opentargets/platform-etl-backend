@@ -60,18 +60,21 @@ object AssociationOTF extends LazyLogging {
     implicit val ss: SparkSession = context.sparkSession
 
     val taID = vecCol + "_tmp"
+
+    // [disease_id, therapeuticAreas_tmp]
     val tas = df
       .selectExpr(keyCol, vecCol)
       .withColumn(taID, explode_outer(col(vecCol)))
       .drop(vecCol)
 
+    // [therapeuticAreas_tmp, name]
     val labels = df
       .selectExpr(keyCol, labelCol)
       .withColumnRenamed(keyCol, taID)
 
     tas
       .join(labels, Seq(taID), "left_outer")
-      .groupBy(col(keyCol), col(labelCol))
+      .groupBy(col(keyCol))
       .agg(collect_set(col(labelCol)).as(vecCol))
 
   }
@@ -153,7 +156,7 @@ object AssociationOTF extends LazyLogging {
       .persist()
 
     val diseasesFacetTAs =
-      computeFacetTAs(diseases, "disease_id", "disease_data", "therapeuticAreas")
+      computeFacetTAs(diseases, "disease_id", "name", "therapeuticAreas")
         .withColumnRenamed("therapeuticAreas", "facet_therapeuticAreas")
 
     val targetsFacetReactome =
@@ -165,6 +168,10 @@ object AssociationOTF extends LazyLogging {
       .computeFacetClasses("facet_classes")
       .join(targetsFacetReactome, Seq("target_id"), "left_outer")
       .drop("tractability", "reactome")
+
+    val finalDiseases = diseases
+      .join(diseasesFacetTAs, Seq("disease_id"), "left_outer")
+      .drop("therapeuticAreas")
 
     val columnsToDrop = Seq(
       "mutatedSamples",
@@ -197,12 +204,12 @@ object AssociationOTF extends LazyLogging {
     val elasticsearchDF = dfs("evidences").data
       .drop(columnsToDrop: _*)
       .selectExpr(evidenceColumns: _*)
-      .join(diseasesFacetTAs, Seq("disease_id"), "left_outer")
+      .join(finalDiseases, Seq("disease_id"), "left_outer")
       .join(finalTargets, Seq("target_id"), "left_outer")
 
     val clickhouseDF = dfs("evidences").data
       .selectExpr(evidenceColumns: _*)
-      .join(diseasesFacetTAs, Seq("disease_id"), "left_outer")
+      .join(finalDiseases, Seq("disease_id"), "left_outer")
       .join(finalTargets, Seq("target_id"), "left_outer")
       .selectExpr(evidenceColumnsCleaned: _*)
 
