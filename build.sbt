@@ -29,6 +29,8 @@ lazy val root = (project in file("."))
     libraryDependencies ++= cats,
     libraryDependencies ++= monocle,
     testFrameworks += new TestFramework("minitest.runner.Framework"),
+    mainClass in (Compile, run) := Some("io.opentargets.etl.Main"),
+    mainClass in (Compile, packageBin) := Some("io.opentargets.etl.Main"),
     assemblyMergeStrategy in assembly := {
       case PathList("META-INF", "services", "org.apache.hadoop.fs.FileSystem") =>
         MergeStrategy.filterDistinctLines
