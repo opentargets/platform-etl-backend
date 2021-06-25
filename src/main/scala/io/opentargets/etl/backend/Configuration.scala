@@ -41,9 +41,7 @@ object Configuration extends LazyLogging {
                               dataSources: List[EvidenceEntry],
                               outputs: EvidenceOutputsSection)
 
-  case class AssociationInputsSection(evidences: IOResourceConfig,
-                                      diseases: IOResourceConfig,
-                                      targets: IOResourceConfig)
+  case class AssociationInputsSection(evidences: IOResourceConfig, diseases: IOResourceConfig)
 
   case class AssociationOutputsSection(directByDatasource: IOResourceConfig,
                                        directByDatatype: IOResourceConfig,
