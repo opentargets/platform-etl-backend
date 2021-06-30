@@ -2,21 +2,25 @@ package io.opentargets.etl.backend
 
 import com.typesafe.scalalogging.LazyLogging
 import org.apache.spark.sql._
-import io.opentargets.etl.backend.spark.{IOResource, IOResourceConfig, IoHelpers}
+import io.opentargets.etl.backend.spark.{IOResource, IoHelpers}
 import io.opentargets.etl.backend.spark.IoHelpers.IOResources
 import org.apache.spark.sql.functions.{
+  array,
+  array_contains,
   array_distinct,
   broadcast,
   col,
   collect_list,
   collect_set,
   explode,
+  flatten,
   regexp_extract,
   split,
   struct,
   transform,
   translate,
-  trim
+  trim,
+  upper
 }
 
 object MousePhenotypes extends LazyLogging {
@@ -37,30 +41,19 @@ object MousePhenotypes extends LazyLogging {
   def compute(context: ETLSessionContext)(implicit ss: SparkSession): DataFrame = {
     val config = context.configuration.mousePhenotypes
     val mappedInputs = Map(
-      "mp" -> IOResourceConfig(
-        config.mpClasses.format,
-        config.mpClasses.path
-      ),
-      "reports" -> IOResourceConfig(
-        config.mpReports.format,
-        config.mpReports.path
-      ),
-      "orthology" -> IOResourceConfig(
-        config.mpOrthology.format,
-        config.mpOrthology.path
-      ),
-      "categories" -> IOResourceConfig(
-        config.mpCategories.format,
-        config.mpCategories.path
-      )
+      "mp" -> config.mpClasses,
+      "reports" -> config.mpReports,
+      "orthology" -> config.mpOrthology,
+      "categories" -> config.mpCategories,
+      "targets" -> config.target
     )
     val inputDataFrame = IoHelpers.readFrom(mappedInputs)
 
     val mousePhenotypesRawDF = inputDataFrame("mp").data
-    val reportsRawDF = inputDataFrame("reports").data
+    val orthologyRawDF = inputDataFrame("orthology").data
       .toDF("human_gene_symbol", "a", "b", "c", "gene_symbol", "gene_id", "phenotypes_raw", "d")
       .drop("a", "b", "c", "d")
-    val orthologyRawDF = inputDataFrame("orthology").data
+    val reportsRawDF = inputDataFrame("reports").data
       .toDF("allelic_composition",
             "allele_symbol",
             "genetic_background",
@@ -73,8 +66,14 @@ object MousePhenotypes extends LazyLogging {
         col("mp") as "category_mp_identifier",
         col("category") as "category_mp_label"
       )
+    val geneToEnsembl = inputDataFrame("targets").data
+      .select(col("id"),
+              flatten(array(array(col("approvedSymbol")), col("synonyms.label"))) as "gene")
+      .withColumn("gene", explode(col("gene")))
+      .withColumn("geneU", upper(col("gene")))
+      .distinct
 
-    // prepare othology
+    // prepare reports
     val orthologyDF = orthologyRawDF
       .filter(col("phenotypes_raw").isNotNull)
       .withColumn("phenotypes_summary", split(col("phenotypes_raw"), ","))
@@ -88,7 +87,7 @@ object MousePhenotypes extends LazyLogging {
       )
       .agg(collect_set(col("human_gene_symbol")) as "human_genes")
 
-    // prepare reports
+    // prepare orthology
     val reportsDF = reportsRawDF
       .withColumn("mp_id", translate(col("mp_id"), ":", "_"))
       .withColumn("gene_id", explode(split(col("mouse_gene_ids"), "\\|")))
@@ -140,6 +139,7 @@ object MousePhenotypes extends LazyLogging {
                "category_mp_label")
       .agg(collect_list("genotype_phenotype") as "genotype_phenotype")
 
+    // "human_genes", "mouse_gene_id", "mouse_gene_symbol", "phenotypes"
     val groupedByHumanAndMouseGene = groupedByGenotypePhenotypeDF
       .select(
         col("human_genes"),
@@ -150,7 +150,20 @@ object MousePhenotypes extends LazyLogging {
       .groupBy("human_genes", "mouse_gene_id", "mouse_gene_symbol")
       .agg(collect_set("phenotypes") as "phenotypes")
 
-    ???
+    // id, phenotypes
+    groupedByHumanAndMouseGene
+      .join(broadcast(geneToEnsembl),
+            array_contains(col("human_genes"), col("gene")) || col("gene") === upper(
+              col("mouse_gene_symbol")),
+            "left_outer")
+      .select(col("id"),
+              struct(
+                col("mouse_gene_id"),
+                col("mouse_gene_symbol"),
+                col("phenotypes")
+              ) as "phenotypes")
+      .groupBy("id")
+      .agg(collect_list("phenotypes") as "phenotypes")
   }
 
 }

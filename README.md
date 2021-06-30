@@ -333,6 +333,7 @@ Each of these outputs includes a field `id` to allow later linkages between them
 | mp-report | PIS | |
 | mp-orthology | PIS | |
 | mp-categories | Static | This file was a hard-coded map in the deprecated data-pipeline. |
+| target | ETL | Output of target step of ETL | 
 
 ### Target
 

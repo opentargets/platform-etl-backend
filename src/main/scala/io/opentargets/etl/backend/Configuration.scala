@@ -155,6 +155,7 @@ object Configuration extends LazyLogging {
                              mpReports: IOResourceConfig,
                              mpOrthology: IOResourceConfig,
                              mpCategories: IOResourceConfig,
+                             target: IOResourceConfig,
                              output: IOResourceConfig)
 
   case class SearchInputsSection(evidences: IOResourceConfig,
