@@ -18,7 +18,7 @@ artifact evidence <<dependencies>>
 artifact expression <<noDependency>>
 artifact interactions <<dependencies>>
 artifact knownDrugs <<dependencies>>
-artifact mousePhenotypes <<noDependency>>
+artifact mousePhenotypes <<dependencies>>
 artifact reactome <<noDependency>>
 artifact search <<dependencies>>
 artifact target <<noDependency>>
@@ -35,6 +35,8 @@ disease --> associationOTF
 target --> associationOTF
 
 target --> cancerBiomarkers
+
+target --> mousePhenotypes
 
 target --> drug
 disease --> drug

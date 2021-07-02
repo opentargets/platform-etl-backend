@@ -27,7 +27,7 @@ case class SafetyEvidence(event: String,
                           datasource: String,
                           pmid: String,
                           url: String,
-                          assay: Array[TargetSafetyAssay])
+                          assays: Array[TargetSafetyAssay])
 case class SafetyTissue(label: String, efoId: String, modelName: String)
 
 object Safety extends LazyLogging {
@@ -153,9 +153,7 @@ object Safety extends LazyLogging {
           col("datasource"),
           col("pmid"),
           col("url"),
-          col("assayDescription"),
-          col("assayFormat"),
-          col("assayType")
+          col("assays")
         ) as "safety"
       )
       .groupBy("id")
