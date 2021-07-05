@@ -16,6 +16,9 @@ object ETL extends LazyLogging {
     step match {
       case "test" =>
         ETLPipeline
+      case "aop" =>
+        logger.info("run step aop")
+        AdverseOutcomePathway()
       case "evidence" =>
         logger.info("run step search")
         Evidence()

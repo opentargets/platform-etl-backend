@@ -58,6 +58,8 @@ object Configuration extends LazyLogging {
       dataSources: List[DataSource]
   )
 
+  case class AopSection(input: IOResourceConfig, output: IOResourceConfig)
+
   case class AOTFInputsSection(evidences: IOResourceConfig,
                                diseases: IOResourceConfig,
                                targets: IOResourceConfig,
@@ -213,6 +215,7 @@ object Configuration extends LazyLogging {
       sparkUri: Option[String],
       sparkSettings: SparkSettings,
       common: Common,
+      aop: AopSection,
       cancerbiomarkers: CancerBiomarkersSection,
       reactome: ReactomeSection,
       associations: AssociationsSection,
