@@ -18,7 +18,7 @@ artifact evidence <<dependencies>>
 artifact expression <<noDependency>>
 artifact interactions <<dependencies>>
 artifact knownDrugs <<dependencies>>
-artifact mousePhenotypes <<noDependency>>
+artifact mousePhenotypes <<dependencies>>
 artifact reactome <<noDependency>>
 artifact search <<dependencies>>
 artifact target <<noDependency>>
@@ -58,7 +58,10 @@ interface intact <<input>>
 interface strings <<input>>
 ' known drugs
 ' mouse phenotypes
-interface mousePhenotypesData <<input>>
+interface mpClasses <<input>>
+interface mpReport <<input>>
+interface mpOrthology <<input>>
+interface mpCategories <<input>>
 ' reactome
 interface pathways <<input>>
 interface relations <<input>>
@@ -220,7 +223,11 @@ mechanismOfActionOutput --> knownDrugs
 knownDrugs --> knownDrugsOutput
 
   ' mouse phenotypes
-mousePhenotypesData --> mousePhenotypes
+mpClasses --> mousePhenotypes
+mpCategories --> mousePhenotypes
+mpReport --> mousePhenotypes
+mpOrthology --> mousePhenotypes
+targetOutput --> mousePhenotypes
 mousePhenotypes --> mousePhenotypesOutput
 
   ' reactome

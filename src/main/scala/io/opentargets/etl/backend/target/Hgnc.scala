@@ -32,7 +32,7 @@ object Hgnc extends LazyLogging {
         col("symbol") as "approvedSymbol",
         col("name") as "approvedName",
         col("uniprot_ids"),
-        safeArrayUnion(col("alias_symbol"), col("alias_name")) as "hgncSynonyms"
+        safeArrayUnion(col("prev_symbol"), col("alias_symbol"), col("alias_name")) as "hgncSynonyms"
       )
       .transform(Helpers.snakeToLowerCamelSchema)
 
