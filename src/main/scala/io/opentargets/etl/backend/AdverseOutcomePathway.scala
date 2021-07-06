@@ -1,7 +1,6 @@
 package io.opentargets.etl.backend
 
 import com.typesafe.scalalogging.LazyLogging
-import io.opentargets.etl.backend.MousePhenotypes.compute
 import io.opentargets.etl.backend.spark.{IOResource, IoHelpers}
 import io.opentargets.etl.backend.spark.IoHelpers.IOResources
 import org.apache.spark.sql.functions.{
@@ -14,6 +13,7 @@ import org.apache.spark.sql.functions.{
   explode,
   explode_outer,
   flatten,
+  monotonically_increasing_id,
   regexp_extract,
   split,
   struct,
@@ -23,13 +23,15 @@ import org.apache.spark.sql.functions.{
 import org.apache.spark.sql.{Column, DataFrame, SparkSession, functions}
 
 object AdverseOutcomePathway extends LazyLogging {
-  def computeAop(context: ETLSessionContext): DataFrame = {
+  private val xrefId = "xrefId"
+
+  def apply()(implicit context: ETLSessionContext): IOResources = {
+
     implicit val ss: SparkSession = context.sparkSession
 
-    /**
-      * The input xml file has several sections which Spark needs to know about to read in the
-      * whole file. Each of the dataSources below is a `rowTag` and represents it's own Dataframe.
-      */
+    logger.debug("Setting up input files for Adverse Outcome Pathways")
+
+    // 1. Set up logic to read in raw dataframes from XML file.
     val path = context.configuration.aop.input.path
 
     def aopDFReader: String => DataFrame =
@@ -58,11 +60,9 @@ object AdverseOutcomePathway extends LazyLogging {
     lazy val chemicalRawDF = dataSources("chemical")
     lazy val stressorRawDF = dataSources("stressor")
     lazy val keyEventRawDF = dataSources("key-event")
-
-    val xrefId = "xrefId"
-    val ke = "key-event"
-    val mie = "molecular-initiating-event"
-    val ao = "adverse-outcome"
+    lazy val biologicalActionRawDf = dataSources("biological-action")
+    lazy val biologicalProcessRawDf = dataSources("biological-process")
+    lazy val biologicalObjectRawDf = dataSources("biological-object")
 
     /*
     The raw data uses random strings for identifiers, as the actual identifiers are simple numbers. Presumably the AOP
@@ -96,6 +96,47 @@ object AdverseOutcomePathway extends LazyLogging {
     val keyEventIdLookup = getIdLookup("key-event")
     val chemicalIdLookupDF = getIdLookup("chemical")
 
+    // 2. Calculate data frames of interest
+    val aopDF = computeAop(aopRawDF,
+                           chemicalRawDF,
+                           stressorRawDF,
+                           chemicalIdLookupDF,
+                           aopIdLookup,
+                           keyEventIdLookup)
+    val keyEventDF = computeKeyEvents(keyEventRawDF,
+                                      biologicalActionRawDf,
+                                      biologicalProcessRawDf,
+                                      biologicalObjectRawDf,
+                                      stressorRawDF,
+                                      keyEventIdLookup)
+
+    // 3. Save dataframes
+    logger.info("Writing AOP outputs")
+    val dataframesToSave: IOResources = Map(
+      "aopDF" -> IOResource(aopDF, context.configuration.aop.output.aop),
+      "keDF" -> IOResource(keyEventDF, context.configuration.aop.output.keyEvents)
+    )
+
+    IoHelpers.writeTo(dataframesToSave)
+
+  }
+
+  def computeAop(aopRawDF: DataFrame,
+                 chemicalRawDF: DataFrame,
+                 stressorRawDF: DataFrame,
+                 chemicalIdLookup: DataFrame,
+                 aopIdLookup: DataFrame,
+                 keyEventIdLookup: DataFrame)(implicit ss: SparkSession): DataFrame = {
+
+    logger.info("Calculating Adverse Outcome Pathways: AOP")
+    val ke = "key-event"
+    val mie = "molecular-initiating-event"
+    val ao = "adverse-outcome"
+
+    /**
+      * The input xml file has several sections which Spark needs to know about to read in the
+      * whole file. Each of the dataSources below is a `rowTag` and represents it's own Dataframe.
+      */
     val aopIdRawDF = aopRawDF
       .select(
         col("_id"),
@@ -145,7 +186,7 @@ object AdverseOutcomePathway extends LazyLogging {
         col("preferred-name") as "preferredName",
         col("synonyms.synonym") as "synonyms"
       )
-      .join(broadcast(chemicalIdLookupDF), col("_chemical-id") === col(xrefId))
+      .join(broadcast(chemicalIdLookup), col("_chemical-id") === col(xrefId))
       .drop(xrefId)
       .withColumnRenamed("aopId", "chemicalId")
 
@@ -192,17 +233,76 @@ object AdverseOutcomePathway extends LazyLogging {
       .drop(xrefId, "_id_aop")
   }
 
-  def apply()(implicit context: ETLSessionContext): IOResources = {
+  def computeKeyEvents(
+      keyEventDf: DataFrame,
+      baDf: DataFrame,
+      bpDf: DataFrame,
+      boDf: DataFrame,
+      stressorDf: DataFrame,
+      keyEventIdLookup: DataFrame
+  )(implicit ss: SparkSession): DataFrame = {
 
-    implicit val ss: SparkSession = context.sparkSession
+    logger.info("Calculating Adverse Outcome Pathways: Key events")
+    val keSelectedFieldsDf = keyEventDf
+      .select(
+        col("_id") as "keId",
+        col("title"),
+        col("references"),
+        col("organ-term.*"),
+        col("biological-organization-level") as "biologicalOrganisationLevel",
+        col("biological-events.biological-event") as "biologicalEvents",
+        col("key-event-stressors.key-event-stressor") as "kes"
+      )
+      .withColumn("organTerm",
+                  struct(
+                    col("name"),
+                    col("source-id") as "sourceId"
+                  ))
+      .drop("name", "source", "source-id")
+      .withColumn("groupingId", monotonically_increasing_id)
+      .withColumn("biologicalEvents", explode_outer(col("biologicalEvents")))
 
-    val aopDF = computeAop(context)
+    val beIds = keSelectedFieldsDf
+      .select(
+        col("groupingId"),
+        col("biologicalEvents.*")
+      )
+      .join(broadcast(baDf), col("_id") === col("_action-id"), "left_outer")
+      .drop("_id", "source", "source-id", "_action-id", "_VALUE")
+      .withColumnRenamed("name", "action")
+      .join(broadcast(bpDf), col("_id") === col("_process-id"), "left_outer")
+      .drop("_id", "source", "source-id", "_process-id")
+      .withColumnRenamed("name", "process")
+      .join(broadcast(boDf), col("_id") === col("_object-id"), "left_outer")
+      .select(
+        col("groupingId"),
+        struct(
+          col("action"),
+          col("process"),
+          struct(
+            col("name"),
+            col("source"),
+            col("source-id") as "sourceId"
+          ) as "object",
+        ) as "biologicalEvent"
+      )
+      .groupBy("groupingId")
+      .agg(collect_list("biologicalEvent") as "biologicalEvents")
 
-    val dataframesToSave: IOResources = Map(
-      "aopDF" -> IOResource(aopDF, context.configuration.aop.output)
-    )
+    val keStressor = keSelectedFieldsDf
+      .select(col("groupingId"), explode_outer(col("kes")) as "kes")
+      .select(col("groupingId"), col("kes.*"))
+      .join(broadcast(stressorDf), col("_stressor-id") === col("_id"))
+      .select(col("groupingId"), col("name") as "keyEventStressor")
+      .groupBy("groupingId")
+      .agg(collect_set(col("keyEventStressor")) as "keyEventStressors")
 
-    IoHelpers.writeTo(dataframesToSave)
-
+    keSelectedFieldsDf
+      .drop("kes", "biologicalEvents")
+      .join(broadcast(beIds), Seq("groupingId"), "left_outer")
+      .join(broadcast(keStressor), Seq("groupingId"), "left_outer")
+      .join(broadcast(keyEventIdLookup), col("xrefId") === col("keId"))
+      .drop("groupingId", "xrefId", "keId")
+      .withColumnRenamed("aopId", "id")
   }
 }

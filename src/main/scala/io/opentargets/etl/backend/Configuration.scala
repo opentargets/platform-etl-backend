@@ -58,7 +58,9 @@ object Configuration extends LazyLogging {
       dataSources: List[DataSource]
   )
 
-  case class AopSection(input: IOResourceConfig, output: IOResourceConfig)
+  case class AopOutputSection(aop: IOResourceConfig, keyEvents: IOResourceConfig)
+
+  case class AopSection(input: IOResourceConfig, output: AopOutputSection)
 
   case class AOTFInputsSection(evidences: IOResourceConfig,
                                diseases: IOResourceConfig,
