@@ -13,12 +13,16 @@ import org.apache.spark.sql.functions.{
   explode,
   explode_outer,
   flatten,
+  lit,
   monotonically_increasing_id,
   regexp_extract,
+  regexp_replace,
   split,
   struct,
   transform,
-  typedLit
+  trim,
+  typedLit,
+  when
 }
 import org.apache.spark.sql.{Column, DataFrame, SparkSession, functions}
 
@@ -141,7 +145,7 @@ object AdverseOutcomePathway extends LazyLogging {
       .select(
         col("_id"),
         col("title"),
-        col("status.oecd-status") as "status",
+        col("status.oecd-status") as "oecdStatus",
         col("aop-stressors.aop-stressor") as "aopStressors",
         explode_outer(col("molecular-initiating-event._key-event-id")) as mie,
         col("adverse-outcome._key-event-id") as ao,
@@ -167,11 +171,11 @@ object AdverseOutcomePathway extends LazyLogging {
       })
       .select(
         col("_id") as xrefId,
-        col("title"),
-        col("status"),
+        trim(col("title")) as "title",
+        trim(col("oecdStatus")) as "oecdStatus",
         functions.filter(array(ke, mie, ao), x => x("id").isNotNull) as "keyEvents"
       )
-      .groupBy(xrefId, "title", "status")
+      .groupBy(xrefId, "title", "oecdStatus")
       .agg(flatten(collect_set("keyEvents")) as "keyEvents")
       .withColumn("keyEvents", array_distinct(col("keyEvents")))
       // convert id hash to meaningful id
@@ -182,9 +186,9 @@ object AdverseOutcomePathway extends LazyLogging {
     val chemDF = chemicalRawDF
       .select(
         col("_id") as "_chemical-id",
-        col("jchem-inchi-key") as "inchiKey",
-        col("preferred-name") as "preferredName",
-        col("synonyms.synonym") as "synonyms"
+        trim(col("jchem-inchi-key")) as "inchiKey",
+        trim(col("preferred-name")) as "preferredName",
+        transform(col("synonyms.synonym"), x => regexp_replace(x, "\n", "")) as "synonyms"
       )
       .join(broadcast(chemicalIdLookup), col("_chemical-id") === col(xrefId))
       .drop(xrefId)
@@ -194,9 +198,12 @@ object AdverseOutcomePathway extends LazyLogging {
     // extract quality assurance stressor field from aopDF
     val stressFromAop = aopIdRawDF
       .select(col("_id"), explode(col("aopStressors")) as "x")
-      .select(col("_id") as "_id_aop",
-              col("x._stressor-id") as "_stressor-id",
-              col("x.evidence") as "qualityAssurance")
+      .select(
+        col("_id") as "_id_aop",
+        col("x._stressor-id") as "_stressor-id",
+        when(col("x.evidence") === lit("Not Specified"), lit(null))
+          .otherwise(col("x.evidence")) as "qualityAssurance"
+      )
     // select needed fields and turn raw stressor id into legible id
     val stressDF = stressorRawDF
       .select(
@@ -247,7 +254,7 @@ object AdverseOutcomePathway extends LazyLogging {
       .select(
         col("_id") as "keId",
         col("title"),
-        col("references"),
+        trim(col("references")) as "references",
         col("organ-term.*"),
         col("biological-organization-level") as "biologicalOrganisationLevel",
         col("biological-events.biological-event") as "biologicalEvents",
