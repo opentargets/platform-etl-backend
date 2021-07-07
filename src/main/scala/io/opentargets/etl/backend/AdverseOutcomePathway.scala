@@ -64,6 +64,7 @@ object AdverseOutcomePathway extends LazyLogging {
     lazy val chemicalRawDF = dataSources("chemical")
     lazy val stressorRawDF = dataSources("stressor")
     lazy val keyEventRawDF = dataSources("key-event")
+    lazy val keyEventRelationshipRawDF = dataSources("key-event-relationship")
     lazy val biologicalActionRawDf = dataSources("biological-action")
     lazy val biologicalProcessRawDf = dataSources("biological-process")
     lazy val biologicalObjectRawDf = dataSources("biological-object")
@@ -99,6 +100,7 @@ object AdverseOutcomePathway extends LazyLogging {
     val aopIdLookup = getIdLookup("aop")
     val keyEventIdLookup = getIdLookup("key-event")
     val chemicalIdLookupDF = getIdLookup("chemical")
+    val relationshipIdLookupDF = getIdLookup("key-event-relationship")
 
     // 2. Calculate data frames of interest
     val aopDF = computeAop(aopRawDF,
