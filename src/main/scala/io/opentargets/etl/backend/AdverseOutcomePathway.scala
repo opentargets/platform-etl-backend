@@ -313,5 +313,10 @@ object AdverseOutcomePathway extends LazyLogging {
       .join(broadcast(keyEventIdLookup), col("xrefId") === col("keId"))
       .drop("groupingId", "xrefId", "keId")
       .withColumnRenamed("aopId", "id")
+      .filter(
+        col("keyEventStressors").isNotNull ||
+          col("biologicalOrganisationLevel").isNotNull ||
+          col("references").isNotNull ||
+          col("title").isNotNull)
   }
 }
