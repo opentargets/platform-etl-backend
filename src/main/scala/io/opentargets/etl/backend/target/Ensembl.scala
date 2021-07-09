@@ -61,16 +61,57 @@ object Ensembl extends LazyLogging {
   /** Returns dataframe with only one non-encoding gene per approvedSymbol. The other gene ids pointing to the same
     * approvedSymbol are listed in `alternativeGenes`
     *
+    * In cases where there is a gene on the canonical chromosome with the same approvedSymbol as the non-encoding gene,
+    * all non-encoding genes will be listed as alternative genes to the gene on the canonical chromosome.
+    *
     * In cases where there are multiple gene ids, the longest will be chosen, with the longest being calculated as
     * gene_end - gene_start. If there are multiple gene ids with the same length one will be chosen at random.
     *
     * All alternative gene ids which are reviewed are not included in the index will be included in the alternative id
     * field.
-    * ENSG00000282841
-    *
-    * @return
     */
   def selectBestNonReferenceGene(dataFrame: DataFrame): DataFrame = {
+    /*
+     * fixme: `selectBestNonReferenceGene` should be refactored as the changes introduced by commit ba6c4cf take the
+     *  running time from ~10 to ~17 minutes. The logic of `groupNonReferenceGeneOnCanonicalGene` can be incorporated
+     *  into the main body of `selectBestNonReferenceGene` so we don't have to duplicate the work.
+     */
+    def groupNonReferenceGeneOnCanonicalGene(df: DataFrame): DataFrame = {
+
+      // 1 all the genes with more than 1 approvedSymbol
+      val genesWithMoreThanOneApprovedSymbol = df
+        .join(
+          broadcast(
+            df.select(col("approvedSymbol"))
+              .filter(col("approvedSymbol") =!= "")
+              .groupBy(col("approvedSymbol"))
+              .count
+              .filter(col("count") > 1)),
+          Seq("approvedSymbol")
+        )
+        .select(col("id"),
+                col("approvedSymbol"),
+                col("genomicLocation.chromosome"),
+                col("alternativeGenes"))
+
+      // 2, 3
+      val nonCanonicalChromosomes = genesWithMoreThanOneApprovedSymbol
+        .filter(!col("chromosome").isInCollection(includeChromosomes))
+        .select(col("id"), col("approvedSymbol"), col("alternativeGenes"))
+        .filter(col("alternativeGenes").isNotNull)
+        .withColumn("ag", array_union(array(col("id")), col("alternativeGenes")))
+        .drop("alternativeGenes")
+
+      // 4
+      val nonCanonicalGenesRemoved =
+        df.join(broadcast(nonCanonicalChromosomes), Seq("id"), "left_anti")
+
+      // 5
+      nonCanonicalGenesRemoved
+        .join(broadcast(nonCanonicalChromosomes.drop("id")), Seq("approvedSymbol"), "left_outer")
+        .withColumn("alternativeGenes", coalesce(col("alternativeGenes"), col("ag")))
+        .drop("ag")
+    }
 
     // remove genes in standard chromosomes
     val proteinEncodingGenesDF = dataFrame
@@ -94,6 +135,7 @@ object Ensembl extends LazyLogging {
       .groupBy("approvedSymbol")
       .agg(collect_set(col("id")).as("alternativeGenes"))
 
+    // id, approvedSymbol, alternativeGenes
     val nonReferenceAndAlternativeDF = bestGuessByLengthDF
       .join(symbolsWithAlternativesDF, Seq("approvedSymbol"))
       .withColumn("alternativeGenes", array_remove(col("alternativeGenes"), col("id")))
@@ -111,6 +153,7 @@ object Ensembl extends LazyLogging {
     dataFrame
       .join(nonReferenceIdsWeDontWantDF, Seq("id"), "leftanti")
       .join(nonReferenceAndAlternativeDF, Seq("id"), "left_outer")
+      .transform(groupNonReferenceGeneOnCanonicalGene)
   }
 
   /** Returns dataframe with column 'proteinIds' added and columns, 'translations', 'uniprot_trembl'
