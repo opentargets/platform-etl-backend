@@ -19,11 +19,11 @@ object GeneOntologyTest {
       GenomicLocation("12", 55820960, 55830824, -1),
       "DNAJC14",
       Array(
-        IdAndSource("AAI7147", "Uniprot"),
-        IdAndSource("EAW96834", "Uniprot"),
-        IdAndSource("AAK56241", "Uniprot"),
-        IdAndSource("AAH80655", "Uniprot"),
-        IdAndSource("ABQ59051", "Uniprot"),
+        IdAndSource("AAI7147", "uniprot"),
+        IdAndSource("EAW96834", "uniprot"),
+        IdAndSource("AAK56241", "uniprot"),
+        IdAndSource("AAH80655", "uniprot"),
+        IdAndSource("ABQ59051", "uniprot"),
         IdAndSource("ENSP00000504134", "ensembl_PRO")
       ),
       Array(),
@@ -54,7 +54,7 @@ class GeneOntologyTest extends EtlSparkUnitTest {
     val results = GeneOntology invokePrivate methodUnderTest(input, sparkSession)
 
     // then
-    results.count() should be(5)
+    results.count() should be(6)
   }
 
 }
