@@ -116,6 +116,9 @@ object GeneOntology extends LazyLogging {
       .withColumn("ensemblId", regexp_extract(col("ensemblId"), "ENSG[0-9]+", 0))
   }
 
+  /**
+    * @return dataframe with columns 'ensemblId', 'uniprotId'
+    */
   private def ensemblDfToHumanLookupTable(dataset: Dataset[Ensembl])(
       implicit sparkSession: SparkSession): DataFrame = {
     import sparkSession.implicits._
@@ -124,8 +127,8 @@ object GeneOntology extends LazyLogging {
       .map(row => {
         val ensembId = row.id
         val accessions = row.proteinIds
-          .withFilter(_.source.equalsIgnoreCase("Uniprot"))
-          .map(pids => pids.id)
+          .withFilter(_.source.contains("uniprot"))
+          .map(pids => pids.id) :+ row.approvedSymbol
         (ensembId, accessions.distinct)
       })
       .toDF("ensemblId", "uniprotId")
