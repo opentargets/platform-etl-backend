@@ -117,6 +117,32 @@ object AssociationOTF extends LazyLogging {
     tempDF
   }
 
+  def expandFacets(df: DataFrame)(implicit context: ETLSessionContext): DataFrame = {
+    val facetSchema = ArrayType(
+      StructType(StructField("l1", StringType) :: StructField("l2", StringType) :: Nil))
+
+    val (fields, fieldsDup) = df.schema.toIterator
+      .filter(_.name.contains("facet"))
+      .duplicate
+
+    val (l2Fields, l1Fields) = fieldsDup
+      .partition(_.dataType == facetSchema)
+
+    val opers = l1Fields.map(x => s"${x.name}_l1" -> col(x.name)) ++ l2Fields.flatMap { x =>
+      List(
+        s"${x.name}_l1" -> array_distinct(transform(col(s"${x.name}"), c => c.getField("l1"))),
+        s"${x.name}_l2" -> filter(col(s"${x.name}"), c => c.getField("l2").isNotNull)
+      )
+    }
+
+    opers
+      .foldLeft(df) { (B, r) =>
+        logger.info(s"facet oper: ${r.toString}")
+        B.withColumn(r._1, r._2)
+      }
+      .drop(fields.map(_.name).toList: _*)
+  }
+
   def compute()(implicit context: ETLSessionContext): IOResources = {
     implicit val ss: SparkSession = context.sparkSession
 
@@ -190,6 +216,15 @@ object AssociationOTF extends LazyLogging {
       "score as row_score"
     )
 
+    val evidenceColumnsRenames = Seq(
+      "id" -> "row_id",
+      "diseaseId" -> "disease_id",
+      "targetId" -> "target_id",
+      "datasourceId" -> "datasource_id",
+      "datatypeId" -> "datatype_id",
+      "score" -> "row_score"
+    )
+
     val evidenceColumnsCleaned = Seq(
       "row_id",
       "disease_id",
@@ -213,9 +248,22 @@ object AssociationOTF extends LazyLogging {
       .join(finalTargets, Seq("target_id"), "left_outer")
       .selectExpr(evidenceColumnsCleaned: _*)
 
+    val clickhouseDF2 = dfs("evidences").data
+      .transform(df =>
+        evidenceColumnsRenames.foldLeft(df) { (B, r) =>
+          B.withColumnRenamed(r._1, r._2)
+      })
+      .join(finalDiseases.transform(expandFacets), Seq("disease_id"), "left_outer")
+      .join(finalTargets.transform(expandFacets), Seq("target_id"), "left_outer")
+      .drop(columnsToDrop: _*)
+
     Map(
-      "aotfsElasticsearch" -> IOResource(elasticsearchDF, conf.aotf.outputs.elasticsearch),
-      "aotfsClickhouse" -> IOResource(clickhouseDF, conf.aotf.outputs.clickhouse)
+      "aotfsClickhouse2" -> IOResource(
+        clickhouseDF2,
+        conf.aotf.outputs.clickhouse
+          .copy(path = conf.aotf.outputs.clickhouse.path.stripSuffix("/") + "Beta")),
+//      "aotfsElasticsearch" -> IOResource(elasticsearchDF, conf.aotf.outputs.elasticsearch),
+//      "aotfsClickhouse" -> IOResource(clickhouseDF, conf.aotf.outputs.clickhouse)
     )
   }
 
