@@ -3,10 +3,9 @@ package io.opentargets.etl.backend.target
 import com.typesafe.scalalogging.LazyLogging
 import io.opentargets.etl.backend.spark.Helpers.{nest, safeArrayUnion}
 import io.opentargets.etl.backend.target.TargetUtils.transformColumnToIdAndSourceStruct
-import org.apache.spark.sql.expressions.Window
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.types.{IntegerType, LongType}
-import org.apache.spark.sql.{DataFrame, Dataset, SparkSession}
+import org.apache.spark.sql.{Column, DataFrame, Dataset, SparkSession}
 
 case class Ensembl(id: String,
                    biotype: String,
@@ -59,101 +58,93 @@ object Ensembl extends LazyLogging {
   }
 
   /** Returns dataframe with only one non-encoding gene per approvedSymbol. The other gene ids pointing to the same
-    * approvedSymbol are listed in `alternativeGenes`
+    * approvedSymbol are listed in `alternativeGenes`.
+    *
+    * The exception is that when more than one gene with the same gene ID points to different chromosomes, each are
+    * retained: eg.U2, U4, Y_RNA each have multiple EnsemblIds on different chromosomes.
     *
     * In cases where there is a gene on the canonical chromosome with the same approvedSymbol as the non-encoding gene,
     * all non-encoding genes will be listed as alternative genes to the gene on the canonical chromosome.
     *
-    * In cases where there are multiple gene ids, the longest will be chosen, with the longest being calculated as
-    * gene_end - gene_start. If there are multiple gene ids with the same length one will be chosen at random.
+    * In cases where there are multiple gene ids on non-canonical chromosomes, the longest will be chosen, with the
+    * longest being calculated as gene_end - gene_start. If there are multiple gene ids with the same length one will
+    * be chosen at random.
     *
     * All alternative gene ids which are reviewed are not included in the index will be included in the alternative id
     * field.
     */
   def selectBestNonReferenceGene(dataFrame: DataFrame): DataFrame = {
+
+    val approvedSymbolWithMoreThanOneGeneId = dataFrame
+      .select("id", "approvedSymbol", "genomicLocation.*")
+      .groupBy(col("approvedSymbol"))
+      .agg(
+        count(lit(1)) as "count",
+        collect_set(
+          struct(
+            // we need the -1 to use array_sort later which takes the 'natural ordering'. This ensure the longest is first.
+            lit(-1) * (col("end") - col("start")) as "length",
+            col("chromosome"),
+            col("id")
+          )
+        ) as "agTemp"
+      )
+      .filter(col("count") > 1)
+
+    // in cases where there is a gene id on a canonical chromosome we want to use that as the 'reference' id.
+    val geneOptionsContainCanonicalChromosome = approvedSymbolWithMoreThanOneGeneId.withColumn(
+      "isCanonical",
+      exists(col("agTemp.chromosome"), (col: Column) => col.isInCollection(includeChromosomes)))
+
     /*
-     * fixme: `selectBestNonReferenceGene` should be refactored as the changes introduced by commit ba6c4cf take the
-     *  running time from ~10 to ~17 minutes. The logic of `groupNonReferenceGeneOnCanonicalGene` can be incorporated
-     *  into the main body of `selectBestNonReferenceGene` so we don't have to duplicate the work.
+    Use this df to add the alt genes to the ensemblId with an approved symbol on a canonical chromosome, and then remove
+    the altGenes from the main index.
      */
-    def groupNonReferenceGeneOnCanonicalGene(df: DataFrame): DataFrame = {
+    val altGenesOnCanonicalId = geneOptionsContainCanonicalChromosome
+      .filter(col("isCanonical"))
+      .withColumn("canonicalId", filter(col("agTemp"), (col: Column) => {
+        col.getField("chromosome").isInCollection(includeChromosomes)
+      }))
+      .withColumn("altGenes", filter(col("agTemp"), (col: Column) => {
+        !col.getField("chromosome").isInCollection(includeChromosomes)
+      }))
+      .filter(size(col("canonicalId")) === 1) // filter because we don't want to aggregate AG on symbols on several canonical chromosomes.
+      .select(
+        expr("canonicalId.id[0]") as "id",
+        col("altGenes.id") as "altGenes"
+      )
 
-      // 1 all the genes with more than 1 approvedSymbol
-      val genesWithMoreThanOneApprovedSymbol = df
-        .join(
-          broadcast(
-            df.select(col("approvedSymbol"))
-              .filter(col("approvedSymbol") =!= "")
-              .groupBy(col("approvedSymbol"))
-              .count
-              .filter(col("count") > 1)),
-          Seq("approvedSymbol")
-        )
-        .select(col("id"),
-                col("approvedSymbol"),
-                col("genomicLocation.chromosome"),
-                col("alternativeGenes"))
+    /*
+    Use this df to add the alt genes to the ensemblIds with no approved symbol on canonical chromosome,
+    then remove the alt genes from main index
+     */
+    val altGenesOnNonCanonicalId = geneOptionsContainCanonicalChromosome
+      .filter(!col("isCanonical"))
+      .select(
+        col("approvedSymbol"),
+        array_sort(col("agTemp")) as "ag"
+      )
+      .select(col("approvedSymbol"),
+              col("ag.id").getItem(0) as "id",
+              col("ag.id") as "alternativeGenes")
+      .select(col("id"), array_remove(col("alternativeGenes"), col("id")) as "alternativeGenes")
 
-      // 2, 3
-      val nonCanonicalChromosomes = genesWithMoreThanOneApprovedSymbol
-        .filter(!col("chromosome").isInCollection(includeChromosomes))
-        .select(col("id"), col("approvedSymbol"), col("alternativeGenes"))
-        .filter(col("alternativeGenes").isNotNull)
-        .withColumn("ag", array_union(array(col("id")), col("alternativeGenes")))
-        .drop("alternativeGenes")
+    val IdsToRemove = altGenesOnCanonicalId
+      .join(altGenesOnNonCanonicalId,
+            altGenesOnCanonicalId("id") === altGenesOnNonCanonicalId("id"),
+            "full_outer")
+      .select(
+        flatten(array(coalesce(col("altGenes"), array()),
+                      coalesce(col("alternativeGenes"), array()))) as "genes"
+      )
+      .select(explode(col("genes")) as "geneToRemove")
 
-      // 4
-      val nonCanonicalGenesRemoved =
-        df.join(broadcast(nonCanonicalChromosomes), Seq("id"), "left_anti")
-
-      // 5
-      nonCanonicalGenesRemoved
-        .join(broadcast(nonCanonicalChromosomes.drop("id")), Seq("approvedSymbol"), "left_outer")
-        .withColumn("alternativeGenes", coalesce(col("alternativeGenes"), col("ag")))
-        .drop("ag")
-    }
-
-    // remove genes in standard chromosomes
-    val proteinEncodingGenesDF = dataFrame
-      .select("id", "genomicLocation.*", "approvedSymbol")
-      .filter(!col("chromosome").isin(includeChromosomes: _*))
-
-    // rank by length (per approvedSymbol)
-    val proteinEncodingGenesRankedDF = proteinEncodingGenesDF
-      .withColumn("length", col("end") - col("start"))
-      .withColumn("rank", rank().over(Window.partitionBy("approvedSymbol").orderBy("length")))
-
-    // get best ranked id and symbol
-    val bestGuessByLengthDF = proteinEncodingGenesRankedDF
-      .filter(col("rank") === 1)
-      .dropDuplicates(Seq("approvedSymbol", "rank")) // get first ranked (longest)
-      .dropDuplicates("approvedSymbol") // remove duplicates where there was a tie for length
-      .select("id", "approvedSymbol")
-
-    // group nth ranked ids
-    val symbolsWithAlternativesDF = proteinEncodingGenesRankedDF
-      .groupBy("approvedSymbol")
-      .agg(collect_set(col("id")).as("alternativeGenes"))
-
-    // id, approvedSymbol, alternativeGenes
-    val nonReferenceAndAlternativeDF = bestGuessByLengthDF
-      .join(symbolsWithAlternativesDF, Seq("approvedSymbol"))
-      .withColumn("alternativeGenes", array_remove(col("alternativeGenes"), col("id")))
-      .drop("approvedSymbol")
-      .filter(size(col("alternativeGenes")) > 1) // remove empty arrays
-
-    val allNonReferenceIds = proteinEncodingGenesDF.select("id")
-    // get list of reference ids we want
-    val nonReferenceIdsWeWantDF = nonReferenceAndAlternativeDF.select("id")
-    // remove the non-reference ids from the list to be discarded
-    val nonReferenceIdsWeDontWantDF =
-      allNonReferenceIds.join(nonReferenceIdsWeWantDF, Seq("id"), "leftanti")
-
-    // filter final dataframe.
     dataFrame
-      .join(nonReferenceIdsWeDontWantDF, Seq("id"), "leftanti")
-      .join(nonReferenceAndAlternativeDF, Seq("id"), "left_outer")
-      .transform(groupNonReferenceGeneOnCanonicalGene)
+      .join(altGenesOnCanonicalId, Seq("id"), "left_outer")
+      .join(altGenesOnNonCanonicalId, Seq("id"), "left_outer")
+      .join(IdsToRemove, col("id") === col("geneToRemove"), "left_anti")
+      .withColumn("alternativeGenes", coalesce(col("alternativeGenes"), col("altGenes")))
+      .drop("altGenes")
   }
 
   /** Returns dataframe with column 'proteinIds' added and columns, 'translations', 'uniprot_trembl'
