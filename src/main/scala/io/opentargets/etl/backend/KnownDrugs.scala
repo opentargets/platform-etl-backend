@@ -40,6 +40,7 @@ object KnownDrugs extends LazyLogging {
     val inputDataFrame = IoHelpers.readFrom(mappedInputs)
 
     val dfDirectInfoAnnotated = compute(List("chembl"), inputDataFrame)
+
     IoHelpers.writeTo(dfDirectInfoAnnotated)
   }
 
@@ -60,14 +61,13 @@ object KnownDrugs extends LazyLogging {
 
     val targets = broadcast(
       inputs("target").data
-        .select(
-          $"id".as("targetId"),
-          $"approvedSymbol",
-          $"approvedName",
-          array_distinct(transform(expr("proteinAnnotations.classes"),
-                                   c => c.getField("l1").getField("label"))).as("targetClass")
+        .select(col("id") as "targetId",
+                col("approvedSymbol"),
+                col("approvedName"),
+                filter(col("targetClass"), x => x.getField("level") === "l1") as "targetClass",
         )
-        .orderBy($"targetId".asc))
+        .withColumn("targetClass", array_distinct(col("targetClass.label")))
+        .orderBy(col("targetId").asc))
 
     val drugs = broadcast(
       inputs("drug").data
