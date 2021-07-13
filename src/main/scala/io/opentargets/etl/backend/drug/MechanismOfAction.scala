@@ -93,7 +93,7 @@ object MechanismOfAction extends LazyLogging {
 
   private def chemblTarget(target: DataFrame, gene: DataFrame): DataFrame = {
     val targetCols = Set("target_components", "pref_name", "target_type", "target_chembl_id")
-    val geneCols = List(col("id").as("geneId"), col("proteinAnnotations.id").as("uniprot_id"))
+    val geneCols = List(col("id").as("geneId"), explode(col("proteinIds.id")).as("uniprot_id"))
 
     // validate incoming dataframes
     validateDF(targetCols, target)
