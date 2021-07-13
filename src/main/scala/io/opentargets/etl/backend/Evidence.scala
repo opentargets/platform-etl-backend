@@ -121,8 +121,7 @@ object Evidence extends LazyLogging {
           array_distinct(
             mkFlattenArray(
               array(col("id")),
-              array(col("proteinAnnotations.id")),
-              col("proteinAnnotations.accessions"),
+              col("proteinIds.id"),
               array(col("approvedSymbol"))
             )).as("rIds"),
         )

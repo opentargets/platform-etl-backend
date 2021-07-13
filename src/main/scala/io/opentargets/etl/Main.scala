@@ -17,7 +17,7 @@ object ETL extends LazyLogging {
       case "test" =>
         ETLPipeline
       case "evidence" =>
-        logger.info("run step search")
+        logger.info("run step evidence")
         Evidence()
       case "search" =>
         logger.info("run step search")

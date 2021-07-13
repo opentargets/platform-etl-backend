@@ -102,9 +102,15 @@ object Helpers extends LazyLogging {
   def stripIDFromURI(uri: Column): Column =
     substring_index(uri, "/", -1)
 
+  /**
+    * @param col  Column of array type
+    * @param cols Columns of array type
+    * @return column of array type with input columns combined into single array with duplicates
+    *         removed.
+    */
   def mkFlattenArray(col: Column, cols: Column*): Column = {
-    val colss = col +: cols
-    val colV = array(colss: _*)
+    val colss: Seq[Column] = col +: cols
+    val colV: Column = array(colss: _*)
 
     filter(
       array_distinct(
