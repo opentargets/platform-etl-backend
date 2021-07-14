@@ -66,10 +66,13 @@ object InteractionsHelpers extends LazyLogging {
       */
     def generateMapping(rnaCentral: DataFrame, humanMapping: DataFrame): DataFrame = {
       val targetsProteins = df
-        .withColumn("proteins", coalesce(col("proteinAnnotations.accessions"), array()))
+        .withColumn("proteins", coalesce(col("proteinIds.id"), array()))
         .select("id", "proteins")
-      val targetHGNC =
-        df.filter(col("hgncId").isNotNull).selectExpr("id as gene_id", "hgncId as mapped_id")
+      val targetHGNC = df
+        .select(col("id"),
+                filter(col("dbXRefs"), col => { col.getField("source") === "HGNC" }) as "h")
+        .withColumn("mapped_id", explode(col("h.id")))
+        .select(col("id") as "gene_id", concat(lit("HGNC:"), col("mapped_id")) as "mapped_id")
       val humanMappingDF = humanMapping.transformHumanMapping
       val rnaMappingDF = rnaCentral.transformRnacentral
 
