@@ -47,7 +47,6 @@ object Ensembl extends LazyLogging {
         col("Uniprot/SWISSPROT").as("uniprot_swissprot"),
         flatten(col("transcripts.translations")).as("translations")
       )
-      .withColumn("end", col("end").cast(IntegerType))
       .orderBy(col("id").asc)
       .persist()
       .transform(nest(_, List("chromosome", "start", "end", "strand"), "genomicLocation"))
@@ -144,7 +143,9 @@ object Ensembl extends LazyLogging {
     dataFrame
       .join(altGenesOnCanonicalId.orderBy(col("id")), Seq("id"), "left_outer")
       .join(altGenesOnNonCanonicalId.orderBy(col("id")), Seq("id"), "left_outer")
-      .join(IdsToRemove.orderBy(col("id")), col("id") === col("geneToRemove"), "left_anti")
+      .join(IdsToRemove.orderBy(col("geneToRemove")),
+            col("id") === col("geneToRemove"),
+            "left_anti")
       .withColumn("alternativeGenes", coalesce(col("alternativeGenes"), col("altGenes")))
       .drop("altGenes")
   }
