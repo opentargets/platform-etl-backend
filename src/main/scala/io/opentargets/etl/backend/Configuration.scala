@@ -209,8 +209,27 @@ object Configuration extends LazyLogging {
             s"$writeMode is not valid. Must be one of ${validWriteModes.toString()}")
   }
 
-  // TODO OpenFDA FAERS configuration
+  // --- OpenFDA FAERS configuration --- //
+  case class OpenfdaMontecarloSection(permutations: Int, percentile: Double)
 
+  case class OpenfdaSamplingSection(size: Double, output: String, enabled: Boolean)
+
+  case class OpenfdaFdaInputsSection(
+                                      blacklist: String,
+                                      chemblData: String,
+                                      fdaData: String,
+                                      meddraRelease: String
+                                    )
+
+  case class OpenfdaSection(
+                             input: String,
+                             output: String,
+                             montecarlo: OpenfdaMontecarloSection,
+                             sampling: OpenfdaSamplingSection,
+                             outputFormats: List[String],
+                             fdaInputs: OpenfdaFdaInputsSection
+                           )
+  // --- END --- //
 
   case class OTConfig(
       sparkUri: Option[String],
@@ -227,6 +246,7 @@ object Configuration extends LazyLogging {
       search: SearchSection,
       aotf: AOTFSection,
       target: Target,
-      mousePhenotypes: MousePhenotypes
+      mousePhenotypes: MousePhenotypes,
+      openfda: OpenfdaSection
   )
 }
