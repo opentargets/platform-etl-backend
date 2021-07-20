@@ -209,6 +209,9 @@ object Configuration extends LazyLogging {
             s"$writeMode is not valid. Must be one of ${validWriteModes.toString()}")
   }
 
+  // TODO OpenFDA FAERS configuration
+
+
   case class OTConfig(
       sparkUri: Option[String],
       sparkSettings: SparkSettings,
