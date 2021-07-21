@@ -4,6 +4,7 @@ import com.typesafe.scalalogging.LazyLogging
 import io.opentargets.etl.backend.spark.Helpers.nest
 import org.apache.spark.sql.functions.{
   array_union,
+  broadcast,
   coalesce,
   col,
   collect_set,
@@ -14,18 +15,22 @@ import org.apache.spark.sql.functions.{
   typedLit
 }
 import org.apache.spark.sql.{DataFrame, Dataset, SparkSession}
+import org.apache.spark.storage.StorageLevel
 
 object GeneOntology extends LazyLogging {
 
   /**
-    * // todo Add ECO codes as described in #1037
-    *
     * @param human       gene ontology available from [[ftp://ftp.ebi.ac.uk/pub/databases/GO/goa/HUMAN/goa_human.gaf.gz EBI's database]]
     * @param rna         (human) gene ontology available from [[ftp://ftp.ebi.ac.uk/pub/databases/GO/goa/HUMAN/goa_human_rna.gaf.gz EBI's database]]
     * @param rnaLookup   to map from RNACentral -> Ensembl ids available from [[ftp://ftp.ebi.ac.uk/pub/databases/RNAcentral/current_release/id_mapping/database_mappings/ensembl.tsv EBI]]
+    * @param ecoLookup   to map from goId -> eco ids available from [[ftp://ftp.ebi.ac.uk/pub/databases/GO/goa/HUMAN/goa_human.gpa.gz EBI]]
     * @param humanLookup to map from Uniprot accession to Ensembl Id
     */
-  def apply(human: DataFrame, rna: DataFrame, rnaLookup: DataFrame, humanLookup: Dataset[Ensembl])(
+  def apply(human: DataFrame,
+            rna: DataFrame,
+            rnaLookup: DataFrame,
+            ecoLookup: DataFrame,
+            humanLookup: Dataset[Ensembl])(
       implicit sparkSession: SparkSession): Dataset[GeneOntologyByEnsembl] = {
     import sparkSession.implicits._
 
@@ -33,24 +38,30 @@ object GeneOntology extends LazyLogging {
     // these are all from UniprotKB
     logger.debug("Transforming human gene ontology.")
     val humanGo = extractRequiredColumnsFromRawDf(human)
+      .orderBy("goId")
 
     // all from RNACentral. sample db object id: URS0000001346_9606
     logger.debug("Transforming rna gene ontology")
     val humanRnaGo = extractRequiredColumnsFromRawDf(rna)
       .withColumn("dbObjectId", element_at(split(col("dbObjectId"), "_", 0), 1))
+      .orderBy("goId")
 
     logger.debug("Creating gene ontology lookup tables")
     val rnaLU = rnaToEnsemblLookupTable(rnaLookup)
     val humanLU = ensemblDfToHumanLookupTable(humanLookup)
+    val ecoLU = ecoLookupTable(ecoLookup)
 
     logger.debug("Linking gene ontologies with Ensembl Ids")
-    val rnaWithEnsemblId: Dataset[GeneOntologyByEnsembl] = humanRnaGo
-      .join(rnaLU, humanRnaGo("dbObjectId") === rnaLU("rnaCentralId"))
+    val rnaWithEnsemblId: Dataset[GeneOntologyByEnsembl] = broadcast(
+      humanRnaGo
+        .join(rnaLU, humanRnaGo("dbObjectId") === rnaLU("rnaCentralId")))
+      .join(ecoLU, Seq("goId", "geneProduct", "evidence"), "left_outer")
       .drop("rnaCentralId")
       .transform(nestGO)
 
     val humanWithEnsemblId: Dataset[GeneOntologyByEnsembl] = humanGo
-      .join(humanLU, humanGo("dbObjectId") === humanLU("uniprotId"))
+      .join(broadcast(humanLU), humanGo("dbObjectId") === humanLU("uniprotId"))
+      .join(ecoLU, Seq("goId", "geneProduct", "evidence"), "left_outer")
       .drop("uniprotId")
       .transform(nestGO)
 
@@ -142,14 +153,30 @@ object GeneOntology extends LazyLogging {
     dataFrame
       .drop("dbObjectId")
       .withColumnRenamed("goId", "id")
-      .transform(nest(_, List("id", "source", "evidence", "aspect", "geneProduct"), "go"))
+      .transform(nest(_, List("id", "source", "evidence", "aspect", "geneProduct", "ecoId"), "go"))
       .groupBy("ensemblId")
       .agg(collect_set(col("go")).as("go"))
       .withColumn("go", coalesce(col("go"), typedLit(Seq.empty)))
       .as[GeneOntologyByEnsembl]
   }
+
+  /** Returns a dataframe with columns [goId, ecoId] */
+  private def ecoLookupTable(df: DataFrame): DataFrame = {
+    df.select(col("_c3") as "goId",
+              col("_c1") as "geneProduct",
+              col("_c5") as "ecoId",
+              split(col("_c11"), "=")(1) as "evidence")
+      .orderBy(col("goId"))
+      .distinct
+      .persist(StorageLevel.MEMORY_AND_DISK)
+  }
 }
 
 case class GeneOntologyByEnsembl(ensemblId: String, go: Array[GO])
 
-case class GO(id: String, source: String, evidence: String, aspect: String, geneProduct: String)
+case class GO(id: String,
+              source: String,
+              evidence: String,
+              aspect: String,
+              geneProduct: String,
+              ecoId: String)
