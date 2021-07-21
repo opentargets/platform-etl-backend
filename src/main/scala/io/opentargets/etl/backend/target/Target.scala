@@ -55,7 +55,9 @@ object Target extends LazyLogging {
       inputDataFrames("geneOntologyHuman").data,
       inputDataFrames("geneOntologyRna").data,
       inputDataFrames("geneOntologyRnaLookup").data,
-      ensemblDf)
+      inputDataFrames("geneOntologyEcoLookup").data,
+      ensemblDf
+    )
     val tep: Dataset[TepWithId] = Tep(inputDataFrames("tep").data)
     val hpa: Dataset[GeneWithLocation] = GeneWithLocation(inputDataFrames("hpa").data)
     val projectScoresDS: Dataset[GeneWithDbXRef] = ProjectScores(
@@ -213,6 +215,7 @@ object Target extends LazyLogging {
         targetInputs.geneOntologyRnaLookup.path,
         options = targetInputs.geneOntologyRnaLookup.options
       ),
+      "geneOntologyEcoLookup" -> targetInputs.geneOntologyEco,
       "hallmarks" -> IOResourceConfig(
         targetInputs.hallmarks.format,
         targetInputs.hallmarks.path,

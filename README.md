@@ -368,9 +368,10 @@ the data. Options for parsing the inputs should not need to be updated.
       from `https://www.uniprot. org/uniprot/?query=reviewed%3Ayes%2BAND%2Borganism%3A9606&compress=yes&format=txt`
     - The is a conversion tool to create Scala objects in `io.opentargets.etl.preprocess.uniprot`
 4. Gene Ontology
-    - Requires three files available from EBI:
+    - Requires files available from EBI:
         - [Annotation files for human proteins](ftp://ftp.ebi.ac.uk/pub/databases/GO/goa/HUMAN/goa_human.gaf.gz)
         - [Annotation files for human RNAs](ftp://ftp.ebi.ac.uk/pub/databases/GO/goa/HUMAN/goa_human_rna.gaf.gz)
+        - [File for eco lookup](ftp://ftp.ebi.ac.uk/pub/databases/GO/goa/HUMAN/goa_human.gpa.gz)
         - [RNAcentral to Ensembl mapping files](ftp://ftp.ebi.ac.uk/pub/databases/RNAcentral/current_release/id_mapping/database_mappings/ensembl.tsv)
 
 5. Tep
