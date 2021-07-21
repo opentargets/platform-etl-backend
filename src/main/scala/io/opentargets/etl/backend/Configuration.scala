@@ -195,7 +195,7 @@ object Configuration extends LazyLogging {
                          geneticConstraints: IOResourceConfig,
                          homologyDictionary: IOResourceConfig,
                          homologyCodingProteins: IOResourceConfig,
-                         homologyNcRna: IOResourceConfig,
+                         homologyGeneDictionary: IOResourceConfig,
                          tractability: IOResourceConfig,
                          safetyToxicity: IOResourceConfig,
                          safetySafetyRisk: IOResourceConfig,

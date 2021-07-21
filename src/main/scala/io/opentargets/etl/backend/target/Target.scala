@@ -66,10 +66,9 @@ object Target extends LazyLogging {
     val geneticConstraints: Dataset[GeneticConstraintsWithId] = GeneticConstraints(
       inputDataFrames("geneticConstraints").data)
     val homology: Dataset[LinkedOrtholog] = Ortholog(
-      inputDataFrames("orthologs").data,
       inputDataFrames("homologyDictionary").data,
       inputDataFrames("homologyCodingProteins").data,
-      inputDataFrames("homologyNcRna").data,
+      inputDataFrames("homologyGeneDictionary").data,
       context.configuration.target.hgncOrthologSpecies
     )
     val tractability: Dataset[TractabilityWithId] = Tractability(
@@ -233,11 +232,7 @@ object Target extends LazyLogging {
         targetInputs.homologyDictionary.path,
         options = targetInputs.homologyDictionary.options
       ),
-      "homologyNcRna" -> IOResourceConfig(
-        targetInputs.homologyNcRna.format,
-        targetInputs.homologyNcRna.path,
-        options = targetInputs.homologyNcRna.options
-      ),
+      "homologyGeneDictionary" -> targetInputs.homologyGeneDictionary,
       "hpa" -> IOResourceConfig(
         targetInputs.hpa.format,
         targetInputs.hpa.path,
