@@ -1,7 +1,6 @@
 package io.opentargets.etl.preprocess.go
 
 import scala.annotation.tailrec
-import scala.collection.mutable
 
 case class Go(id: String, name: String)
 
@@ -28,14 +27,14 @@ object GoConverter {
         case true =>
           val entryIt = lines.dropWhile(startEntry)
           val vec = entryIt
-            .drop(1)
             .takeWhile(endEntry)
-            .withFilter(el => fields.exists(el.startsWith))
-            .flatMap(_.split(separator).drop(1).map(_.trim))
+            .map(_.split(separator, 2).map(_.trim))
+            .withFilter(el => fields.contains(el.head))
+            .map(_.tail.head)
             .toList
           vec match {
-            case "GO" :: id :: name :: Nil => go(lines, entries :+ Go("GO:" + id, name))
-            case _                         => go(lines, entries)
+            case id :: name :: Nil if id.startsWith("GO") => go(lines, entries :+ Go(id, name))
+            case _                                        => go(lines, entries)
           }
         case false => entries
       }
