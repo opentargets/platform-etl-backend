@@ -1,15 +1,12 @@
 package io.opentargets.etl.preprocess.go
 
 import scala.annotation.tailrec
-import scala.collection.mutable
 
 case class Go(id: String, name: String)
 
 object GoConverter {
-
-  private val startEntry = (line: String) => line.startsWith("[Term]")
-  private val endEntry = (line: String) => line.isEmpty
-  private val excludedEntry = (line: String) => line.startsWith("[Typedef]")
+  private val startEntry = (line: String) => line.trim.startsWith("[Term]")
+  private val endEntry = (line: String) => line.trim.nonEmpty
   private val separator = ":"
 
   /**
@@ -25,42 +22,24 @@ object GoConverter {
     */
   def convertFileToGo(file: Iterator[String], fields: Set[String] = Set("id", "name")): Seq[Go] = {
     @tailrec
-    def getSingleEntry(acc: Seq[String] = Seq.empty[String]): Seq[String] = {
-      if (file.hasNext) {
-        val line = file.next()
-        if (endEntry(line)) acc
-        else if (excludedEntry(line)) {
-          scrollToNext()
-          getSingleEntry()
-        } else if (startEntry(line)) getSingleEntry(acc)
-        else getSingleEntry(line +: acc)
-      } else acc
+    def go(lines: Iterator[String], entries: Seq[Go]): Seq[Go] = {
+      lines.hasNext match {
+        case true =>
+          val entryIt = lines.dropWhile(startEntry)
+          val vec = entryIt
+            .takeWhile(endEntry)
+            .map(_.split(separator, 2).map(_.trim))
+            .withFilter(el => fields.contains(el.head))
+            .map(_.tail.head)
+            .toList
+          vec match {
+            case id :: name :: Nil if id.startsWith("GO") => go(lines, entries :+ Go(id, name))
+            case _                                        => go(lines, entries)
+          }
+        case false => entries
+      }
     }
 
-    @tailrec
-    def go(acc: Seq[Go] = List.empty): Seq[Go] = {
-      val entry = getSingleEntry()
-      if (entry.nonEmpty) {
-        val map: mutable.Map[String, String] = scala.collection.mutable.Map()
-        for (line <- entry) {
-          val kv = line.split(separator, 2)
-          val key = kv.head
-          if (fields.contains(key)) map(key) = kv.tail.head
-        }
-        val goEntry = Go(map("id").trim, map("name").trim)
-
-        if (file.hasNext) go(goEntry +: acc) else goEntry +: acc
-      } else acc
-
-    }
-
-    // scroll to start
-    @tailrec
-    def scrollToNext(): Unit = {
-      if (file.hasNext && !startEntry(file.next())) scrollToNext()
-    }
-
-    scrollToNext()
-    go()
+    go(file, Seq.empty[Go])
   }
 }
