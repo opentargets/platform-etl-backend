@@ -33,10 +33,9 @@ object GoConverter {
             .withFilter(el => fields.exists(el.startsWith))
             .flatMap(_.split(separator).drop(1).map(_.trim))
             .toList
-            .sorted
           vec match {
-            case id :: name :: Nil => go(lines, entries :+ Go(id, name))
-            case _                 => go(lines, entries)
+            case "GO" :: id :: name :: Nil => go(lines, entries :+ Go("GO:" + id, name))
+            case _                         => go(lines, entries)
           }
         case false => entries
       }
