@@ -46,6 +46,9 @@ object ETL extends LazyLogging {
       case "eco" =>
         logger.info("run step eco")
         Eco()
+      case "go" =>
+        logger.info("run step go")
+        Go()
       case "interactions" =>
         logger.info("run step interactions")
         Interactions()
