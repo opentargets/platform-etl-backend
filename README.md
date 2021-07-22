@@ -323,6 +323,20 @@ The `Drug` step writes three files under the common directory specified in the `
 
 Each of these outputs includes a field `id` to allow later linkages between them.
 
+### GO
+
+The 'Go' step generates a small lookup table of gene ontologies.
+
+#### Inputs
+
+| Input | Source | Notes |
+| --- | --- | --- |
+| go-input | PIS | Provided by PIS from http://geneontology.org/docs/download-ontology/#go_obo_and_owl |
+
+The input is a flat file which does not lend itself to columnar processing so its currently a 'preprocessor' step. If
+more complicated logic becomes required this should be ported. There is also to option of querying the EBI API but this
+is quite slow and results in a moderately large dataset which we don't otherwise need.
+
 ### Mouse Phenotypes
 
 #### Inputs

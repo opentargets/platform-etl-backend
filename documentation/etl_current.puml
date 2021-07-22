@@ -16,6 +16,7 @@ artifact drug <<dependencies>>
 artifact eco <<noDependency>>
 artifact evidence <<dependencies>>
 artifact expression <<noDependency>>
+artifact go <<noDependency>>
 artifact interactions <<dependencies>>
 artifact knownDrugs <<dependencies>>
 artifact mousePhenotypes <<dependencies>>
