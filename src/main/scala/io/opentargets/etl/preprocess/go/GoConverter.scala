@@ -30,9 +30,10 @@ object GoConverter {
           val vec = entryIt
             .drop(1)
             .takeWhile(endEntry)
-            .toList
             .withFilter(el => fields.exists(el.startsWith))
             .flatMap(_.split(separator).drop(1).map(_.trim))
+            .toList
+            .sorted
           vec match {
             case id :: name :: Nil => go(lines, entries :+ Go(id, name))
             case _                 => go(lines, entries)
