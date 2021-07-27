@@ -218,7 +218,7 @@ object Configuration extends LazyLogging {
                                       blacklist: String,
                                       chemblData: String,
                                       fdaData: String,
-                                      meddraRelease: String
+                                      meddraRelease: Option[String]
                                     )
 
   case class OpenfdaSection(
@@ -226,7 +226,7 @@ object Configuration extends LazyLogging {
                              output: String,
                              montecarlo: OpenfdaMontecarloSection,
                              sampling: OpenfdaSamplingSection,
-                             outputFormats: List[String],
+                             outputFormats: Seq[String],
                              fdaInputs: OpenfdaFdaInputsSection
                            )
   // --- END --- //
