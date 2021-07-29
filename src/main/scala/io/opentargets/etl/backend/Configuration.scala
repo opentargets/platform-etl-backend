@@ -151,6 +151,8 @@ object Configuration extends LazyLogging {
 
   case class KnownDrugsSection(inputs: KnownDrugsInputsSection, output: IOResourceConfig)
 
+  case class GeneOntologySection(goInput: IOResourceConfig, output: IOResourceConfig)
+
   case class MousePhenotypes(mpClasses: IOResourceConfig,
                              mpReports: IOResourceConfig,
                              mpOrthology: IOResourceConfig,
@@ -185,6 +187,7 @@ object Configuration extends LazyLogging {
                          geneOntology: IOResourceConfig,
                          geneOntologyRna: IOResourceConfig,
                          geneOntologyRnaLookup: IOResourceConfig,
+                         geneOntologyEco: IOResourceConfig,
                          tep: IOResourceConfig,
                          hpa: IOResourceConfig,
                          hallmarks: IOResourceConfig,
@@ -195,7 +198,7 @@ object Configuration extends LazyLogging {
                          geneticConstraints: IOResourceConfig,
                          homologyDictionary: IOResourceConfig,
                          homologyCodingProteins: IOResourceConfig,
-                         homologyNcRna: IOResourceConfig,
+                         homologyGeneDictionary: IOResourceConfig,
                          tractability: IOResourceConfig,
                          safetyToxicity: IOResourceConfig,
                          safetySafetyRisk: IOResourceConfig,
@@ -243,6 +246,7 @@ object Configuration extends LazyLogging {
       disease: DiseaseSection,
       interactions: InteractionsSection,
       knownDrugs: KnownDrugsSection,
+      geneOntology: GeneOntologySection,
       search: SearchSection,
       aotf: AOTFSection,
       target: Target,

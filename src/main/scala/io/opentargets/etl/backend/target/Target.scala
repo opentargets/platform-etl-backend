@@ -55,7 +55,9 @@ object Target extends LazyLogging {
       inputDataFrames("geneOntologyHuman").data,
       inputDataFrames("geneOntologyRna").data,
       inputDataFrames("geneOntologyRnaLookup").data,
-      ensemblDf)
+      inputDataFrames("geneOntologyEcoLookup").data,
+      ensemblDf
+    )
     val tep: Dataset[TepWithId] = Tep(inputDataFrames("tep").data)
     val hpa: Dataset[GeneWithLocation] = GeneWithLocation(inputDataFrames("hpa").data)
     val projectScoresDS: Dataset[GeneWithDbXRef] = ProjectScores(
@@ -66,10 +68,9 @@ object Target extends LazyLogging {
     val geneticConstraints: Dataset[GeneticConstraintsWithId] = GeneticConstraints(
       inputDataFrames("geneticConstraints").data)
     val homology: Dataset[LinkedOrtholog] = Ortholog(
-      inputDataFrames("orthologs").data,
       inputDataFrames("homologyDictionary").data,
       inputDataFrames("homologyCodingProteins").data,
-      inputDataFrames("homologyNcRna").data,
+      inputDataFrames("homologyGeneDictionary").data,
       context.configuration.target.hgncOrthologSpecies
     )
     val tractability: Dataset[TractabilityWithId] = Tractability(
@@ -214,6 +215,7 @@ object Target extends LazyLogging {
         targetInputs.geneOntologyRnaLookup.path,
         options = targetInputs.geneOntologyRnaLookup.options
       ),
+      "geneOntologyEcoLookup" -> targetInputs.geneOntologyEco,
       "hallmarks" -> IOResourceConfig(
         targetInputs.hallmarks.format,
         targetInputs.hallmarks.path,
@@ -233,11 +235,7 @@ object Target extends LazyLogging {
         targetInputs.homologyDictionary.path,
         options = targetInputs.homologyDictionary.options
       ),
-      "homologyNcRna" -> IOResourceConfig(
-        targetInputs.homologyNcRna.format,
-        targetInputs.homologyNcRna.path,
-        options = targetInputs.homologyNcRna.options
-      ),
+      "homologyGeneDictionary" -> targetInputs.homologyGeneDictionary,
       "hpa" -> IOResourceConfig(
         targetInputs.hpa.format,
         targetInputs.hpa.path,

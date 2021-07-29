@@ -10,6 +10,7 @@ artifact drug
 artifact eco
 artifact evidence
 artifact expression
+artifact go
 artifact interactions
 artifact knownDrugs
 artifact mousePhenotypes

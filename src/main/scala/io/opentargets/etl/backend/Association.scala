@@ -57,15 +57,16 @@ object Association extends LazyLogging {
       val tName = mkRandomPrefix()
       val w = Window.partitionBy(pairColNames.map(col): _*)
       val weightC = weightColName.map(col).getOrElse(lit(1D))
-
+      val wScore = tName + "_ths_w"
       val tDF = df
-        .withColumn(tName + "_ths_k", row_number() over w.orderBy(col(scoreColName).desc))
+        .withColumn(wScore, col(scoreColName) * weightC)
+        .withColumn(tName + "_ths_k", row_number() over w.orderBy(col(wScore).desc))
         .withColumn(tName + "_ths_dx_max", typedLit(1D) / powCol(col(tName + "_ths_k"), 2D))
-        .withColumn(tName + "_ths_dx", col(scoreColName) / powCol(col(tName + "_ths_k"), 2D))
+        .withColumn(tName + "_ths_dx", col(wScore) / powCol(col(tName + "_ths_k"), 2D))
         .withColumn(tName + "_ths_t", sum(col(tName + "_ths_dx")).over(w))
         .withColumn(tName + "_ths_t_max", sum(col(tName + "_ths_dx_max")).over(w))
         .withColumn(outputColName,
-                    col(tName + "_ths_t") * weightC / scaler.getOrElse(col(tName + "_ths_t_max")))
+                    col(tName + "_ths_t") / scaler.getOrElse(col(tName + "_ths_t_max")))
 
       // remove temporal cols
       tDF.drop(tDF.columns.filter(_.startsWith(tName)): _*)
