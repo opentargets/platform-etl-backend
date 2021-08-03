@@ -14,17 +14,17 @@ import org.apache.spark.storage.StorageLevel
 */
 
 // Data Sources
-sealed trait DataSource
-case object DrugData extends DataSource {
+sealed trait FdaDataSource
+case object DrugData extends FdaDataSource {
   def apply(): String = "drugData"
 }
-case object Blacklisting extends DataSource {
+case object Blacklisting extends FdaDataSource {
   def apply(): String = "blacklisting"
 }
-case object FdaData extends DataSource {
+case object FdaData extends FdaDataSource {
   def apply(): String = "fdaData"
 }
-case object MeddraData extends DataSource {
+case object MeddraData extends FdaDataSource {
   def apply(): String = "meddraData"
 }
 
