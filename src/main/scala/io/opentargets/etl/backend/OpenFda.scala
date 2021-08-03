@@ -16,7 +16,7 @@ object OpenFda extends LazyLogging {
 
   def apply()(implicit context: ETLSessionContext): Unit = {
     implicit val sparkSession = context.sparkSession
-
+    // TODO - REFACTORING -
     val fdaConfig = context.configuration.openfda
     logger.info("Aggregating FDA data...")
     val openFdaDataAggByChembl: DataFrame =

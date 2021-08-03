@@ -16,7 +16,14 @@ object OpenFdaEtl extends LazyLogging {
   def apply(implicit etLSessionContext: ETLSessionContext): DataFrame = {
     implicit val ss: SparkSession = etLSessionContext.sparkSession
 
-    // TODO - Load the data
+    // TODO --- Load the data ---
+    // TODO - Drug data
+    // TODO - Blacklisting
+    // TODO - OpenFDA FAERS source data
+    // TODO --- Data transformation ---
+    // TODO - Drug list
+    // TODO - OpenFDA FAERS
+    // TODO - Adverse Events
 
     // TODO - REFACTOR
     // Paths to data
@@ -30,7 +37,7 @@ object OpenFdaEtl extends LazyLogging {
     val fdaRawData = Loaders.loadFDA(pathFda)
     val fdaData = prepareAdverseEventsData(fdaRawData)
     // TODO - END - REFACTOR
-    
+
     // remove blacklisted reactions using a left_anti which is the complement of
     // left_semi so the ones from the left side which are not part of the equality
     val fdaDataFilteredByBlackListAndJoinedWithDrug = filterBlacklist(pathBlacklist, fdaData)
