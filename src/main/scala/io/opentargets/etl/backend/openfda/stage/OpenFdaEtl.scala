@@ -21,8 +21,6 @@ object OpenFdaEtl extends LazyLogging {
     val pathChembl = etLSessionContext.configuration.openfda.fdaInputs.chemblData
     val pathFda = etLSessionContext.configuration.openfda.fdaInputs.fdaData
 
-    
-
     // load inputs
     // the curated drug list we want
     val drugList: DataFrame = generateDrugList(pathChembl)
