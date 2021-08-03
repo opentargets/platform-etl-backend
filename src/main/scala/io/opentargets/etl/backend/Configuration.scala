@@ -215,22 +215,23 @@ object Configuration extends LazyLogging {
   // --- OpenFDA FAERS configuration --- //
   case class OpenfdaMontecarloSection(permutations: Int, percentile: Double)
 
-  case class OpenfdaSamplingSection(size: Double, output: String, enabled: Boolean)
+  case class OpenfdaSamplingSection(size: Double, enabled: Boolean)
 
-  case class OpenfdaFdaInputsSection(
-                                      blacklist: String,
-                                      chemblData: String,
-                                      fdaData: String,
-                                      meddraRelease: Option[String]
-                                    )
+  case class OpenfdaOutputs(
+      fda: IOResourceConfig,
+      sampling: IOResourceConfig
+                           )
 
   case class OpenfdaSection(
-                             input: String,
-                             output: String,
+                             stepRootInputPath: String,
+                             stepRootOutputPath: String,
+                             chemblDrugs: IOResourceConfig,
+                             fdaData: IOResourceConfig,
+                             blacklistedEvents: IOResourceConfig,
+                             meddra: IOResourceConfig,
                              montecarlo: OpenfdaMontecarloSection,
                              sampling: OpenfdaSamplingSection,
-                             outputFormats: Seq[String],
-                             fdaInputs: OpenfdaFdaInputsSection
+                             outputs: OpenfdaOutputs
                            )
   // --- END --- //
 
