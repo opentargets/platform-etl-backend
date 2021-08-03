@@ -1,7 +1,8 @@
 package io.opentargets.etl.backend
 
 import com.typesafe.scalalogging.LazyLogging
-import io.opentargets.etl.backend.openfda.stage.{MonteCarloSampling, OpenFdaEtl}
+import io.opentargets.etl.backend.openfda.OpenFdaEtl
+import io.opentargets.etl.backend.openfda.stage.MonteCarloSampling
 import io.opentargets.etl.backend.openfda.utils.Writers
 import org.apache.spark.sql.DataFrame
 import org.apache.spark.storage.StorageLevel
@@ -23,6 +24,7 @@ object OpenFda extends LazyLogging {
       OpenFdaEtl(context)
 
     logger.info("Performing Monte Carlo sampling...")
+    // TODO - Refactor this into the ETL itself
     val mcResults =
       MonteCarloSampling(
         openFdaDataAggByChembl,
