@@ -18,13 +18,15 @@ object OpenFdaEtl extends LazyLogging {
 
     // Paths to data
     val pathBlacklist: String = etLSessionContext.configuration.openfda.fdaInputs.blacklist
-    val chemblPath = etLSessionContext.configuration.openfda.fdaInputs.chemblData
-    val fdaPath = etLSessionContext.configuration.openfda.fdaInputs.fdaData
+    val pathChembl = etLSessionContext.configuration.openfda.fdaInputs.chemblData
+    val pathFda = etLSessionContext.configuration.openfda.fdaInputs.fdaData
+
+    
 
     // load inputs
     // the curated drug list we want
-    val drugList: DataFrame = generateDrugList(chemblPath)
-    val fdaRawData = Loaders.loadFDA(fdaPath)
+    val drugList: DataFrame = generateDrugList(pathChembl)
+    val fdaRawData = Loaders.loadFDA(pathFda)
     val fdaData = prepareAdverseEventsData(fdaRawData)
 
     // remove blacklisted reactions using a left_anti which is the complement of
