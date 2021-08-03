@@ -16,7 +16,8 @@ object OpenFdaEtl extends LazyLogging {
   def apply(implicit etLSessionContext: ETLSessionContext): DataFrame = {
     implicit val ss: SparkSession = etLSessionContext.sparkSession
 
-    val blackListPath: String = etLSessionContext.configuration.openfda.fdaInputs.blacklist
+    // Paths to data
+    val pathBlacklist: String = etLSessionContext.configuration.openfda.fdaInputs.blacklist
     val chemblPath = etLSessionContext.configuration.openfda.fdaInputs.chemblData
     val fdaPath = etLSessionContext.configuration.openfda.fdaInputs.fdaData
 
@@ -28,7 +29,7 @@ object OpenFdaEtl extends LazyLogging {
 
     // remove blacklisted reactions using a left_anti which is the complement of
     // left_semi so the ones from the left side which are not part of the equality
-    val fdaDataFilteredByBlackListAndJoinedWithDrug = filterBlacklist(blackListPath, fdaData)
+    val fdaDataFilteredByBlackListAndJoinedWithDrug = filterBlacklist(pathBlacklist, fdaData)
       .join(drugList, Seq("drug_name"), "inner")
 
     val groupedByIds = prepareSummaryStatistics(fdaDataFilteredByBlackListAndJoinedWithDrug)
