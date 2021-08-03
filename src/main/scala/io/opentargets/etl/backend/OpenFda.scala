@@ -13,6 +13,21 @@ import org.apache.spark.storage.StorageLevel
     Author      : Manuel Bernal Llinares <mbdebian@gmail.com>
 */
 
+// Data Sources
+sealed trait DataSource
+case object DrugData extends DataSource {
+  def apply(): String = "drugData"
+}
+case object Blacklisting extends DataSource {
+  def apply(): String = "blacklisting"
+}
+case object FdaData extends DataSource {
+  def apply(): String = "fdaData"
+}
+case object MeddraData extends DataSource {
+  def apply(): String = "meddraData"
+}
+
 object OpenFda extends LazyLogging {
 
   def apply()(implicit context: ETLSessionContext): Unit = {
