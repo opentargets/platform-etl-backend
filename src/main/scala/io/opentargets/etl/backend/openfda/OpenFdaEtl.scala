@@ -23,14 +23,7 @@ object OpenFdaEtl extends LazyLogging {
   def apply(implicit etLSessionContext: ETLSessionContext): DataFrame = {
     implicit val ss: SparkSession = etLSessionContext.sparkSession
 
-    // TODO --- Load the data ---
-    // TODO - Drug data
-    // TODO - Blacklisting
-    // TODO - OpenFDA FAERS source data
-    // TODO --- Data transformation ---
-    // TODO - Drug list
-    // TODO - OpenFDA FAERS
-    // TODO - Adverse Events
+
 
     // TODO - REFACTOR - REMOVE
     // Paths to data
