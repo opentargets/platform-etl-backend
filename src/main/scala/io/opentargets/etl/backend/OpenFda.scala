@@ -2,7 +2,7 @@ package io.opentargets.etl.backend
 
 import com.typesafe.scalalogging.LazyLogging
 import io.opentargets.etl.backend.openfda.OpenFdaEtl
-import io.opentargets.etl.backend.openfda.stage.{EventsFiltering, LoadData, MonteCarloSampling, PrepareAdverseEventData, PrepareDrugList, PrepareSummaryStatistics}
+import io.opentargets.etl.backend.openfda.stage.{EventsFiltering, LoadData, MonteCarloSampling, PrepareAdverseEventData, PrepareDrugList, PrepareForMontecarlo, PrepareSummaryStatistics}
 import io.opentargets.etl.backend.openfda.utils.Writers
 import org.apache.spark.sql.DataFrame
 import org.apache.spark.storage.StorageLevel
@@ -47,7 +47,8 @@ object OpenFda extends LazyLogging {
     val fdaDataFilteredWithDrug = fdaFilteredData.join(drugList, Seq("drug_name"), "inner")
     // Prepare Summary Statistics
     val fdaDataWithSummaryStats = PrepareSummaryStatistics(fdaDataFilteredWithDrug)
-    // TODO - Montecarlo data preparation
+    // Montecarlo data preparation
+    val fdaDataMontecarloReady = PrepareForMontecarlo(fdaDataWithSummaryStats)
     // TODO - Add Meddra
     // TODO - Compute Montecarlo Sampling
     // TODO - Produce Output
