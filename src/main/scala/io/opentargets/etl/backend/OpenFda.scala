@@ -62,6 +62,7 @@ object OpenFda extends LazyLogging {
         .withColumn("meddraCode", typedLit[String](""))
         .persist(StorageLevel.MEMORY_AND_DISK_SER)
     }
+    // TODO - Conditional generation of Stratified Sampling
     // TODO - Compute Montecarlo Sampling
     // TODO - Produce Output
 
