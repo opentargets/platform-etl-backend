@@ -5,6 +5,7 @@ import io.opentargets.etl.backend.openfda.OpenFdaEtl
 import io.opentargets.etl.backend.openfda.stage.{AttachMeddraData, EventsFiltering, LoadData, MonteCarloSampling, PrepareAdverseEventData, PrepareDrugList, PrepareForMontecarlo, PrepareSummaryStatistics}
 import io.opentargets.etl.backend.openfda.utils.Writers
 import org.apache.spark.sql.DataFrame
+import org.apache.spark.sql.functions.typedLit
 import org.apache.spark.storage.StorageLevel
 
 /*
@@ -52,10 +53,14 @@ object OpenFda extends LazyLogging {
     val fdaDataWithSummaryStats = PrepareSummaryStatistics(fdaDataFilteredWithDrug)
     // Montecarlo data preparation
     val fdaDataMontecarloReady = PrepareForMontecarlo(fdaDataWithSummaryStats)
-    // TODO - Add Meddra
+    // Add Meddra
     val fdaDataWithMeddra = context.configuration.openfda.meddra match {
-      case Some(value) => AttachMeddraData(fdaDataMontecarloReady, dfsData(MeddraData()).data)
+      case Some(value) => AttachMeddraData(fdaDataMontecarloReady,
+        dfsData(MeddraPreferredTermsData()).data,
+        dfsData(MeddraLowLevelTermsData()).data).persist(StorageLevel.MEMORY_AND_DISK_SER)
       case _ => fdaDataMontecarloReady
+        .withColumn("meddraCode", typedLit[String](""))
+        .persist(StorageLevel.MEMORY_AND_DISK_SER)
     }
     // TODO - Compute Montecarlo Sampling
     // TODO - Produce Output
