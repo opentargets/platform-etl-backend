@@ -228,7 +228,7 @@ object Configuration extends LazyLogging {
                              chemblDrugs: IOResourceConfig,
                              fdaData: IOResourceConfig,
                              blacklistedEvents: IOResourceConfig,
-                             meddra: IOResourceConfig,
+                             meddra: Option[IOResourceConfig],
                              montecarlo: OpenfdaMontecarloSection,
                              sampling: OpenfdaSamplingSection,
                              outputs: OpenfdaOutputs
