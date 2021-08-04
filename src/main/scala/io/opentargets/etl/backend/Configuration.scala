@@ -221,6 +221,10 @@ object Configuration extends LazyLogging {
       fda: IOResourceConfig,
       sampling: IOResourceConfig
                            )
+  case class OpenfdaMeddraSection(
+                                   meddraPreferredTerms: IOResourceConfig,
+                                   meddraLowLevelTerms: IOResourceConfig,
+                                 )
 
   case class OpenfdaSection(
                              stepRootInputPath: String,
@@ -228,7 +232,9 @@ object Configuration extends LazyLogging {
                              chemblDrugs: IOResourceConfig,
                              fdaData: IOResourceConfig,
                              blacklistedEvents: IOResourceConfig,
-                             meddra: Option[IOResourceConfig],
+                             meddra: Option[OpenfdaMeddraSection],
+                             meddraPreferredTermsCols: List[String],
+                             meddraLowLevelTermsCols: List[String],
                              montecarlo: OpenfdaMontecarloSection,
                              sampling: OpenfdaSamplingSection,
                              outputs: OpenfdaOutputs
