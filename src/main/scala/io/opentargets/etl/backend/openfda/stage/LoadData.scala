@@ -37,9 +37,8 @@ object LoadData {
           FdaData() -> context.configuration.openfda.fdaData,
         )
       }
-
     }
-    // TODO - Load the data
+    // Load the data
     IoHelpers.readFrom(sourceData)
   }
 }
