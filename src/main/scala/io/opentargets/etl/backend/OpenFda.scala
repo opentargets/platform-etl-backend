@@ -41,9 +41,10 @@ object OpenFda extends LazyLogging {
     val fdaData = PrepareAdverseEventData(dfsData(FdaData()).data)
     // Prepare Drug list
     val drugList = PrepareDrugList(dfsData(DrugData()).data)
-    // TODO - OpenFDA FAERS Event filtering
+    // OpenFDA FAERS Event filtering
     val fdaFilteredData = EventsFiltering(fdaData, dfsData(Blacklisting()).data)
-    // TODO - Attach drug data
+    // Attach drug data
+    val fdaDataFilteredWithDrug = fdaFilteredData.join(drugList, Seq("drug_name"), "inner")
     // TODO - Prepare Summary Statistics
     // TODO - Montecarlo data preparation
     // TODO - Add Meddra
