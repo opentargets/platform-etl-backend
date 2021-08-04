@@ -28,6 +28,7 @@ case object MeddraData extends FdaDataSource {
   def apply(): String = "meddraData"
 }
 
+// OpenFDA FAERS ETL Step
 object OpenFda extends LazyLogging {
 
   def apply()(implicit context: ETLSessionContext): Unit = {
