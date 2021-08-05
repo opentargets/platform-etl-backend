@@ -218,7 +218,8 @@ object Configuration extends LazyLogging {
   case class OpenfdaSamplingSection(size: Double, enabled: Boolean)
 
   case class OpenfdaOutputsSection(
-      fda: IOResourceConfig,
+      fdaUnfiltered: IOResourceConfig,
+      fdaResults: IOResourceConfig,
       sampling: IOResourceConfig
                            )
   case class OpenfdaMeddraSection(

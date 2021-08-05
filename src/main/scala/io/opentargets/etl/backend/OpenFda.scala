@@ -74,18 +74,8 @@ object OpenFda extends LazyLogging {
     ).persist(StorageLevel.MEMORY_AND_DISK_SER)
     // TODO - Produce Output
 
-    val fdaConfig = context.configuration.openfda
-    logger.info("Aggregating FDA data...")
-    val openFdaDataAggByChembl: DataFrame =
-      OpenFdaEtl(context)
 
-    logger.info("Performing Monte Carlo sampling...")
-    // TODO - Refactor this into the ETL itself
-    val mcResults =
-      MonteCarloSampling(
-        openFdaDataAggByChembl,
-        fdaConfig.montecarlo.percentile,
-        fdaConfig.montecarlo.permutations).persist(StorageLevel.MEMORY_AND_DISK_SER)
+
 
     // Writing results of FDA pipeline
     if (fdaConfig.outputFormats.nonEmpty) {
