@@ -66,7 +66,12 @@ object OpenFda extends LazyLogging {
     if (context.configuration.openfda.sampling.enabled) {
       StratifiedSampling(dfsData(FdaData()).data, fdaDataWithSummaryStats, fdaDataWithMeddra)
     }
-    // TODO - Compute Montecarlo Sampling
+    // Compute Montecarlo Sampling
+    val montecarloResults = MonteCarloSampling(
+      fdaDataWithMeddra,
+      context.configuration.openfda.montecarlo.percentile,
+      context.configuration.openfda.montecarlo.permutations
+    ).persist(StorageLevel.MEMORY_AND_DISK_SER)
     // TODO - Produce Output
 
     val fdaConfig = context.configuration.openfda
