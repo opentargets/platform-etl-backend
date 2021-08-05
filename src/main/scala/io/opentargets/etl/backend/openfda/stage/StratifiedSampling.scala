@@ -2,6 +2,9 @@ package io.opentargets.etl.backend.openfda.stage
 
 import com.typesafe.scalalogging.LazyLogging
 import io.opentargets.etl.backend.ETLSessionContext
+import io.opentargets.etl.backend.spark.Helpers.IOResourceConfig
+import io.opentargets.etl.backend.spark.{IOResource, IoHelpers}
+import io.opentargets.etl.backend.spark.IoHelpers.IOResources
 import org.apache.spark.sql.DataFrame
 
 object StratifiedSampling extends LazyLogging {
@@ -11,14 +14,13 @@ object StratifiedSampling extends LazyLogging {
     * @param significantFda significantFda is the data that has been prepared for MC sampling, as at this point we have already removed all log-likelihood rations that are effectively zero.
     * @param sampleSize proportion of dataset to take
     */
-  def apply(cleanFda: DataFrame, significantFda: DataFrame, sampleSize: Double = 0.1)(
+  def apply(rawFda: DataFrame, cleanFda: DataFrame, significantFda: DataFrame, sampleSize: Double = 0.1)(
       implicit context: ETLSessionContext): Unit = {
     import org.apache.spark.sql.functions._
 
     val idCol = "chembl_id"
     logger.debug("Generating ChEMBL ids for sample")
-    val rawFda: DataFrame = context.sparkSession.read
-      .json(context.configuration.openfda.fdaInputs.fdaData)
+
     val significantChembls = significantFda.select(idCol).distinct.sample(sampleSize)
     val allChembls = cleanFda.select(idCol).distinct.sample(sampleSize)
 
@@ -34,12 +36,16 @@ object StratifiedSampling extends LazyLogging {
       .distinct()
 
     logger.info("Writing statified...")
-    rawFda
-      .withColumn("seriousnessdeath", lit(1))
-      .join(reportIds, Seq("safetyreportid"))
-      .write
-      .json(context.configuration.openfda.sampling.output)
-
+    // Write Stratified Sampling information
+    val writeMap: IOResources = Map(
+      "stratifiedSampling" -> IOResource(
+        rawFda
+          .withColumn("seriousnessdeath", lit(1))
+          .join(reportIds, Seq("safetyreportid")),
+        context.configuration.openfda.outputs.sampling
+      )
+    )
+    IoHelpers.writeTo(writeMap)
   }
 
 }
