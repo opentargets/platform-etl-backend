@@ -4,7 +4,7 @@ import akka.actor.TypedActor.context
 import io.opentargets.etl.backend.spark.Helpers.IOResourceConfig
 import io.opentargets.etl.backend.spark.IoHelpers
 import io.opentargets.etl.backend.spark.IoHelpers.IOResourceConfigurations
-import io.opentargets.etl.backend.{Blacklisting, DrugData, ETLSessionContext, FdaData, MeddraData, MeddraLowLevelTermsData, MeddraPreferredTermsData}
+import io.opentargets.etl.backend.{Blacklisting, DrugData, ETLSessionContext, FdaData, MeddraLowLevelTermsData, MeddraPreferredTermsData}
 import org.apache.spark.sql.SparkSession
 
 import scala.collection.immutable.Stream.Empty
