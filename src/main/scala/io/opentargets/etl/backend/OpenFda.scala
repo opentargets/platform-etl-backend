@@ -2,7 +2,7 @@ package io.opentargets.etl.backend
 
 import com.typesafe.scalalogging.LazyLogging
 import io.opentargets.etl.backend.openfda.OpenFdaEtl
-import io.opentargets.etl.backend.openfda.stage.{AttachMeddraData, EventsFiltering, LoadData, MonteCarloSampling, PrepareAdverseEventData, PrepareDrugList, PrepareForMontecarlo, PrepareSummaryStatistics}
+import io.opentargets.etl.backend.openfda.stage.{AttachMeddraData, EventsFiltering, LoadData, MonteCarloSampling, PrepareAdverseEventData, PrepareDrugList, PrepareForMontecarlo, PrepareSummaryStatistics, StratifiedSampling}
 import io.opentargets.etl.backend.openfda.utils.Writers
 import org.apache.spark.sql.DataFrame
 import org.apache.spark.sql.functions.typedLit
@@ -62,7 +62,10 @@ object OpenFda extends LazyLogging {
         .withColumn("meddraCode", typedLit[String](""))
         .persist(StorageLevel.MEMORY_AND_DISK_SER)
     }
-    // TODO - Conditional generation of Stratified Sampling
+    // Conditional generation of Stratified Sampling
+    if (context.configuration.openfda.sampling.enabled) {
+      StratifiedSampling(dfsData(FdaData()).data, fdaDataWithSummaryStats, fdaDataWithMeddra)
+    }
     // TODO - Compute Montecarlo Sampling
     // TODO - Produce Output
 
