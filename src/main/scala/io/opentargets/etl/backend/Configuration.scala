@@ -217,7 +217,7 @@ object Configuration extends LazyLogging {
 
   case class OpenfdaSamplingSection(size: Double, enabled: Boolean)
 
-  case class OpenfdaOutputs(
+  case class OpenfdaOutputsSection(
       fda: IOResourceConfig,
       sampling: IOResourceConfig
                            )
@@ -237,7 +237,7 @@ object Configuration extends LazyLogging {
                              meddraLowLevelTermsCols: List[String],
                              montecarlo: OpenfdaMontecarloSection,
                              sampling: OpenfdaSamplingSection,
-                             outputs: OpenfdaOutputs
+                             outputs: OpenfdaOutputsSection
                            )
   // --- END --- //
 
