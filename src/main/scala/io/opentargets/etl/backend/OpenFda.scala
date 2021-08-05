@@ -1,10 +1,10 @@
 package io.opentargets.etl.backend
 
 import com.typesafe.scalalogging.LazyLogging
-import io.opentargets.etl.backend.openfda.OpenFdaEtl
 import io.opentargets.etl.backend.openfda.stage.{AttachMeddraData, EventsFiltering, LoadData, MonteCarloSampling, PrepareAdverseEventData, PrepareDrugList, PrepareForMontecarlo, PrepareSummaryStatistics, StratifiedSampling}
 import io.opentargets.etl.backend.openfda.utils.Writers
-import org.apache.spark.sql.DataFrame
+import io.opentargets.etl.backend.spark.IoHelpers.IOResources
+import io.opentargets.etl.backend.spark.{IOResource, IOResourceConfig, IoHelpers}
 import org.apache.spark.sql.functions.typedLit
 import org.apache.spark.storage.StorageLevel
 
@@ -73,24 +73,11 @@ object OpenFda extends LazyLogging {
       context.configuration.openfda.montecarlo.permutations
     ).persist(StorageLevel.MEMORY_AND_DISK_SER)
     // TODO - Produce Output
-
-
-
-
-    // Writing results of FDA pipeline
-    if (fdaConfig.outputFormats.nonEmpty) {
-      fdaConfig.outputFormats.foreach { extension =>
-        Writers.writeFdaResults(openFdaDataAggByChembl, fdaConfig.output, extension)
-      }
-    }
-    if (fdaConfig.outputFormats.nonEmpty) {
-      fdaConfig.outputFormats.foreach { extension =>
-        Writers.writeMonteCarloResults(mcResults,
-          fdaConfig.output,
-          extension)
-      }
-    }
-
+    val outputMap: IOResources = Map(
+      "unfiltered" -> IOResource(fdaDataWithMeddra, context.configuration.openfda.outputs.fdaUnfiltered),
+      "openFdaResults" -> IOResource(montecarloResults, context.configuration.openfda.outputs.fdaResults)
+    )
+    IoHelpers.writeTo(outputMap)
     logger.info("OpenFDA FAERS step completed")
   }
 }
