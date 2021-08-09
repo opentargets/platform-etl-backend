@@ -6,7 +6,7 @@ import org.apache.spark.sql.{DataFrame, Dataset, SparkSession}
 
 case class TractabilityWithId(ensemblGeneId: String, tractability: Array[Tractability])
 
-case class Tractability(modality: String, id: String)
+case class Tractability(modality: String, value: Boolean, id: String)
 
 object Tractability extends LazyLogging {
 
@@ -33,11 +33,6 @@ object Tractability extends LazyLogging {
     columnsAsTractabilityStructDF
       .select(col(gid).as("ensemblGeneId"),
               array(dataColumns.head, dataColumns.tail: _*).as("tractability"))
-      .select(col("ensemblGeneId"), explode(col("tractability")) as "tractability")
-      .filter("tractability.value")
-      .drop("value")
-      .groupBy("ensemblGeneId")
-      .agg(collect_set("tractability") as "tractability")
       .as[TractabilityWithId]
 
   }
