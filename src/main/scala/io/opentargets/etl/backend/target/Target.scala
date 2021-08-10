@@ -10,6 +10,7 @@ import org.apache.spark.sql.functions.{
   array,
   array_join,
   array_union,
+  broadcast,
   coalesce,
   col,
   collect_list,
@@ -46,6 +47,7 @@ object Target extends LazyLogging {
     val inputDataFrames = getMappedInputs(context.configuration.target)
 
     // 2. prepare intermediate dataframes per source
+    val chemicalProbes: DataFrame = inputDataFrames("chemicalProbes").data
     val hgnc: Dataset[Hgnc] = Hgnc(inputDataFrames("hgnc").data)
     val hallmarks: Dataset[HallmarksWithId] = Hallmarks(inputDataFrames("hallmarks").data)
     val ncbi: Dataset[Ncbi] = Ncbi(inputDataFrames("ncbi").data)
@@ -107,6 +109,7 @@ object Target extends LazyLogging {
       .withColumn("synonyms", safeArrayUnion(col("synonyms"), col("hgncSynonyms")))
       .drop("pid", "hgncId", "hgncSynonyms", "uniprotIds", "signalP", "xRef")
       .join(geneticConstraints, Seq("id"), "left_outer")
+      .transform(addChemicalProbes(chemicalProbes))
       .transform(filterAndSortProteinIds)
       .transform(removeRedundantXrefs)
       .transform(addOrthologue(homology))
@@ -173,6 +176,29 @@ object Target extends LazyLogging {
   private def addTargetSafety(tsDS: Dataset[TargetSafety])(dataFrame: DataFrame): DataFrame = {
     logger.info("Adding target safety to dataframe")
     dataFrame.join(tsDS, Seq("id"), "left_outer")
+  }
+
+  /**
+    * Group chemical probes by ensembl ID and add to interim target dataframe.
+    *
+    * @param cpDF     raw chemical probes dataset provided by PIS
+    * @param targetDF interim target dataset
+    * @return target dataset with chemical probes added
+    */
+  private def addChemicalProbes(cpDF: DataFrame)(targetDF: DataFrame): DataFrame = {
+    logger.info("Add chemical probes to target.")
+    val cpGroupedById = cpDF
+      .select(
+        col("targetId") as "id",
+        struct(
+          cpDF.columns.filterNot(_ == "targetId").map(col): _*
+        ) as "probe"
+      )
+      .groupBy(col("id"))
+      .agg(
+        collect_list(col("probe")) as "chemicalProbes"
+      )
+    targetDF.join(broadcast(cpGroupedById), Seq("id"), "left_outer")
   }
 
   /** Return map on input IOResources */
