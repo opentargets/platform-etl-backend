@@ -180,7 +180,8 @@ object Configuration extends LazyLogging {
 
   case class Target(input: TargetInput, outputs: TargetOutput, hgncOrthologSpecies: List[String])
 
-  case class TargetInput(hgnc: IOResourceConfig,
+  case class TargetInput(chemicalProbes: IOResourceConfig,
+                         hgnc: IOResourceConfig,
                          ortholog: IOResourceConfig,
                          ensembl: IOResourceConfig,
                          uniprot: IOResourceConfig,

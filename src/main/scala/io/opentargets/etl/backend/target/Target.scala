@@ -1,7 +1,7 @@
 package io.opentargets.etl.backend.target
 
 import com.typesafe.scalalogging.LazyLogging
-import io.opentargets.etl.backend.spark.Helpers.{mkFlattenArray, nest, safeArrayUnion}
+import io.opentargets.etl.backend.spark.Helpers.{mkFlattenArray, nest, safeArrayUnion, validateDF}
 import io.opentargets.etl.backend.{Configuration, ETLSessionContext}
 import io.opentargets.etl.backend.spark.IoHelpers.IOResources
 import io.opentargets.etl.backend.spark.{CsvHelpers, IOResource, IOResourceConfig, IoHelpers}
@@ -111,6 +111,7 @@ object Target extends LazyLogging {
       .withColumn("synonyms", safeArrayUnion(col("synonyms"), col("hgncSynonyms")))
       .drop("pid", "hgncId", "hgncSynonyms", "uniprotIds", "signalP", "xRef")
       .join(geneticConstraints, Seq("id"), "left_outer")
+      .transform(filterAndSortProteinIds)
       .transform(removeRedundantXrefs)
       .transform(filterAndSortProteinIds)
       .transform(addOrthologue(homology))
@@ -219,109 +220,38 @@ object Target extends LazyLogging {
 
     val targetInputs = targetConfig.input
     val mappedInputs = Map(
-      "chembl" -> IOResourceConfig(
-        targetInputs.chembl.format,
-        targetInputs.chembl.path
-      ),
-      "ensembl" -> IOResourceConfig(
-        targetInputs.ensembl.format,
-        targetInputs.ensembl.path
-      ),
-      "geneticConstraints" -> IOResourceConfig(
-        targetInputs.geneticConstraints.format,
-        targetInputs.geneticConstraints.path,
-        options = targetInputs.geneticConstraints.options
-      ),
-      "geneOntologyHuman" -> IOResourceConfig(
-        targetInputs.geneOntology.format,
-        targetInputs.geneOntology.path,
-        options = targetInputs.geneOntology.options
-      ),
-      "geneOntologyRna" -> IOResourceConfig(
-        targetInputs.geneOntologyRna.format,
-        targetInputs.geneOntologyRna.path,
-        options = targetInputs.geneOntologyRna.options
-      ),
-      "geneOntologyRnaLookup" -> IOResourceConfig(
-        targetInputs.geneOntologyRnaLookup.format,
-        targetInputs.geneOntologyRnaLookup.path,
-        options = targetInputs.geneOntologyRnaLookup.options
-      ),
+      "chembl" -> targetInputs.chembl,
+      "chemicalProbes" -> targetInputs.chemicalProbes,
+      "ensembl" -> targetInputs.ensembl,
+      "geneticConstraints" -> targetInputs.geneticConstraints,
+      "geneOntologyHuman" -> targetInputs.geneOntology,
+      "geneOntologyRna" -> targetInputs.geneOntologyRna,
+      "geneOntologyRnaLookup" -> targetInputs.geneOntologyRnaLookup,
       "geneOntologyEcoLookup" -> targetInputs.geneOntologyEco,
-      "hallmarks" -> IOResourceConfig(
-        targetInputs.hallmarks.format,
-        targetInputs.hallmarks.path,
-        options = targetInputs.hallmarks.options
-      ),
-      "hgnc" -> IOResourceConfig(
-        targetInputs.hgnc.format,
-        targetInputs.hgnc.path
-      ),
-      "homologyCodingProteins" -> IOResourceConfig(
-        targetInputs.homologyCodingProteins.format,
-        targetInputs.homologyCodingProteins.path,
-        options = targetInputs.homologyCodingProteins.options
-      ),
-      "homologyDictionary" -> IOResourceConfig(
-        targetInputs.homologyDictionary.format,
-        targetInputs.homologyDictionary.path,
-        options = targetInputs.homologyDictionary.options
-      ),
+      "hallmarks" -> targetInputs.hallmarks,
+      "hgnc" -> targetInputs.hgnc,
+      "homologyCodingProteins" -> targetInputs.homologyCodingProteins,
+      "homologyDictionary" -> targetInputs.homologyDictionary,
       "homologyGeneDictionary" -> targetInputs.homologyGeneDictionary,
-      "hpa" -> IOResourceConfig(
-        targetInputs.hpa.format,
-        targetInputs.hpa.path,
-        options = targetInputs.hpa.options
-      ),
-      "ncbi" -> IOResourceConfig(
-        targetInputs.ncbi.format,
-        targetInputs.ncbi.path,
-        options =
-          if (targetInputs.ncbi.options.isDefined) targetInputs.ncbi.options
-          else CsvHelpers.tsvWithHeader
-      ),
-      "orthologs" -> IOResourceConfig(
-        targetInputs.ortholog.format,
-        targetInputs.ortholog.path,
-        options = CsvHelpers.tsvWithHeader
-      ),
-      "projectScoresIds" -> IOResourceConfig(
-        targetInputs.psGeneIdentifier.format,
-        targetInputs.psGeneIdentifier.path,
-        options = targetInputs.psGeneIdentifier.options
-      ),
-      "projectScoresEssentialityMatrix" -> IOResourceConfig(
-        targetInputs.psEssentialityMatrix.format,
-        targetInputs.psEssentialityMatrix.path,
-        options = targetInputs.psEssentialityMatrix.options
-      ),
+      "hpa" -> targetInputs.hpa,
+      "ncbi" -> targetInputs.ncbi.copy(options = targetInputs.ncbi.options match {
+        case Some(value) => Option(value)
+        case None        => CsvHelpers.tsvWithHeader
+      }),
+      "orthologs" -> targetInputs.ortholog.copy(options = CsvHelpers.tsvWithHeader),
+      "projectScoresIds" -> targetInputs.psGeneIdentifier,
+      "projectScoresEssentialityMatrix" -> targetInputs.psEssentialityMatrix,
       "reactomeEtl" -> targetInputs.reactomeEtl,
       "reactomePathways" -> targetInputs.reactomePathways,
-      "safetyAE" -> IOResourceConfig(
-        targetInputs.safetyAdverseEvent.format,
-        targetInputs.safetyAdverseEvent.path
-      ),
-      "safetySR" -> IOResourceConfig(
-        targetInputs.safetySafetyRisk.format,
-        targetInputs.safetySafetyRisk.path
-      ),
-      "safetyTox" -> IOResourceConfig(
-        targetInputs.safetyToxicity.format,
-        targetInputs.safetyToxicity.path,
+      "safetyAE" -> targetInputs.safetyAdverseEvent,
+      "safetySR" -> targetInputs.safetySafetyRisk,
+      "safetyTox" -> targetInputs.safetyToxicity.copy(
         options = targetInputs.safetyToxicity.options match {
           case Some(value) => Option(value)
           case None        => CsvHelpers.tsvWithHeader
-        }
-      ),
-      "tep" -> IOResourceConfig(
-        targetInputs.tep.format,
-        targetInputs.tep.path
-      ),
-      "tractability" -> IOResourceConfig(
-        targetInputs.tractability.format,
-        targetInputs.tractability.path,
-        options = targetInputs.tractability.options
-      )
+        }),
+      "tep" -> targetInputs.tep,
+      "tractability" -> targetInputs.tractability
     )
 
     IoHelpers
