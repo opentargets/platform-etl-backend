@@ -202,7 +202,9 @@ object Configuration extends LazyLogging {
                          tractability: IOResourceConfig,
                          safetyToxicity: IOResourceConfig,
                          safetySafetyRisk: IOResourceConfig,
-                         safetyAdverseEvent: IOResourceConfig)
+                         safetyAdverseEvent: IOResourceConfig,
+                         reactomeEtl: IOResourceConfig,
+                         reactomePathways: IOResourceConfig)
 
   case class TargetOutput(target: IOResourceConfig)
 
