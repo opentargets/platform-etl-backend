@@ -22,7 +22,7 @@ artifact knownDrugs <<dependencies>>
 artifact mousePhenotypes <<dependencies>>
 artifact reactome <<noDependency>>
 artifact search <<dependencies>>
-artifact target <<noDependency>>
+artifact target <<dependencies>>
 artifact safety <<dependencies>>
 
 'inputs
@@ -85,6 +85,7 @@ interface psEssentialityMatrix <<input>>
 interface tep <<input>>
 interface tractability <<input>>
 interface uniprot <<input>>
+interface reactomePathways <<input>>
 
 'safety
 interface safetyToxicity <<input>>
@@ -275,6 +276,8 @@ ncbi --> target
 ortholog --> target
 psGeneIdentifier --> target
 psEssentialityMatrix --> target
+reactomeOutput --> target
+reactomePathways --> target
 tep --> target
 tractability --> target
 uniprot --> target
