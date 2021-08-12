@@ -26,6 +26,7 @@ import org.apache.spark.sql.functions.{
   when
 }
 import org.apache.spark.sql.{DataFrame, Dataset, SparkSession, functions}
+import org.apache.spark.storage.StorageLevel
 
 import scala.jdk.CollectionConverters.asScalaIteratorConverter
 
@@ -71,7 +72,7 @@ object Target extends LazyLogging {
       inputDataFrames("chembl").data)
     val geneticConstraints: Dataset[GeneticConstraintsWithId] = GeneticConstraints(
       inputDataFrames("geneticConstraints").data)
-    val homology: Dataset[Ortholog] = Ortholog(
+    val homology: Dataset[LinkedOrtholog] = Ortholog(
       inputDataFrames("homologyDictionary").data,
       inputDataFrames("homologyCodingProteins").data,
       inputDataFrames("homologyGeneDictionary").data,
@@ -105,7 +106,7 @@ object Target extends LazyLogging {
                     mkFlattenArray(col("subcellularLocations"), col("locations")))
         .drop("locations")
 
-    hgncEnsemblTepGoDF
+    val targetInterim = hgncEnsemblTepGoDF
       .join(uniprotGroupedByEnsemblIdDF, Seq("id"), "left_outer")
       .withColumn("proteinIds", safeArrayUnion(col("proteinIds"), col("pid")))
       .withColumn("dbXrefs",
@@ -116,12 +117,34 @@ object Target extends LazyLogging {
       .transform(addChemicalProbes(chemicalProbes))
       .transform(filterAndSortProteinIds)
       .transform(removeRedundantXrefs)
+
+    val ensemblIdLookupDf = generateEnsgToSymbolLookup(targetInterim)
+
+    targetInterim
+      .transform(addChemicalProbes(chemicalProbes, ensemblIdLookupDf))
+      .transform(filterAndSortProteinIds)
       .transform(addOrthologue(homology))
       .transform(addTractability(tractability))
       .transform(addNcbiEntrezSynonyms(ncbi))
       .transform(addTargetSafety(safety))
       .transform(addReactome(reactome))
 
+  }
+
+  /*
+  Returns dataframe [ensgId, name] mapping ensembl Ids to other common names.
+
+  Some of the input data sets do not use Ensembl Ids. Commonly we see uniprot accessions or protein Ids. This dataframe
+  can be used as a 'helper' to link these datasets together.
+   */
+  private def generateEnsgToSymbolLookup(df: DataFrame): DataFrame = {
+    df.select(col("id"),
+              coalesce(col("proteinIds.id"), array()) as "pid",
+              array(col("approvedSymbol")) as "as")
+      .select(col("id"), flatten(array(col("pid"), col("as"))) as "s")
+      .select(col("id") as "ensgId", explode(col("s")) as "name")
+      .distinct
+      .persist(StorageLevel.MEMORY_AND_DISK_SER)
   }
 
   def addEnsemblIdsToUniprot(hgnc: Dataset[Hgnc], uniprot: DataFrame): DataFrame = {
@@ -213,13 +236,18 @@ object Target extends LazyLogging {
   /**
     * Group chemical probes by ensembl ID and add to interim target dataframe.
     *
-    * @param cpDF     raw chemical probes dataset provided by PIS
-    * @param targetDF interim target dataset
+    * @param cpDF              raw chemical probes dataset provided by PIS
+    * @param targetDF          interim target dataset
     * @return target dataset with chemical probes added
     */
-  private def addChemicalProbes(cpDF: DataFrame)(targetDF: DataFrame): DataFrame = {
+  private def addChemicalProbes(cpDF: DataFrame, ensemblIdLookupDF: DataFrame)(
+      targetDF: DataFrame): DataFrame = {
     logger.info("Add chemical probes to target.")
-    val cpGroupedById = cpDF
+    val cpWithEnsgId = cpDF
+      .join(ensemblIdLookupDF, col("targetFromSourceId") === col("name"))
+      .drop("name")
+
+    val cpGroupedById = cpWithEnsgId
       .select(
         col("targetId") as "id",
         struct(
