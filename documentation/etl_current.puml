@@ -22,8 +22,10 @@ artifact knownDrugs <<dependencies>>
 artifact mousePhenotypes <<dependencies>>
 artifact reactome <<noDependency>>
 artifact search <<dependencies>>
-artifact target <<noDependency>>
+artifact target <<dependencies>>
 artifact targetSafety <<dependencies>>
+
+reactome --> target
 
 target --> targetSafety
 

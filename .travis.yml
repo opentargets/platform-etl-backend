@@ -6,7 +6,7 @@ jdk:
 script:
   - sbt ++$TRAVIS_SCALA_VERSION clean compile
   - sbt ++$TRAVIS_SCALA_VERSION coverage test coverageReport
-  - sbt ++$TRAVIS_SCALA_VERSION assembly
+  - sbt ++$TRAVIS_SCALA_VERSION 'set test in assembly := {}' assembly
 before_deploy:
   # Set up git user name and tag this commit
   - git config --local user.name "opentargets-admin"

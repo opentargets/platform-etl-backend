@@ -1,7 +1,7 @@
 package io.opentargets.etl.backend.target
 
 import com.typesafe.scalalogging.LazyLogging
-import io.opentargets.etl.backend.spark.Helpers.{mkFlattenArray, nest, safeArrayUnion, validateDF}
+import io.opentargets.etl.backend.spark.Helpers.{mkFlattenArray, nest, safeArrayUnion}
 import io.opentargets.etl.backend.{Configuration, ETLSessionContext}
 import io.opentargets.etl.backend.spark.IoHelpers.IOResources
 import io.opentargets.etl.backend.spark.{CsvHelpers, IOResource, IOResourceConfig, IoHelpers}
@@ -73,6 +73,8 @@ object Target extends LazyLogging {
       inputDataFrames("homologyGeneDictionary").data,
       context.configuration.target.hgncOrthologSpecies
     )
+    val reactome: Dataset[Reactomes] =
+      Reactome(inputDataFrames("reactomePathways").data, inputDataFrames("reactomeEtl").data)
     val tractability: Dataset[TractabilityWithId] = Tractability(
       inputDataFrames("tractability").data)
     val safety: Dataset[TargetSafety] = Safety(
@@ -107,12 +109,13 @@ object Target extends LazyLogging {
       .withColumn("synonyms", safeArrayUnion(col("synonyms"), col("hgncSynonyms")))
       .drop("pid", "hgncId", "hgncSynonyms", "uniprotIds", "signalP", "xRef")
       .join(geneticConstraints, Seq("id"), "left_outer")
-      .transform(filterAndSortProteinIds)
       .transform(removeRedundantXrefs)
+      .transform(filterAndSortProteinIds)
       .transform(addOrthologue(homology))
       .transform(addTractability(tractability))
       .transform(addNcbiEntrezSynonyms(ncbi))
       .transform(addTargetSafety(safety))
+      .transform(addReactome(reactome))
 
   }
 
@@ -173,6 +176,12 @@ object Target extends LazyLogging {
   private def addTargetSafety(tsDS: Dataset[TargetSafety])(dataFrame: DataFrame): DataFrame = {
     logger.info("Adding target safety to dataframe")
     dataFrame.join(tsDS, Seq("id"), "left_outer")
+  }
+
+  private def addReactome(reactomeDataDf: Dataset[Reactomes])(
+      interimTargetDf: DataFrame): DataFrame = {
+    logger.info("Adding reactome pathways to dataframe")
+    interimTargetDf.join(reactomeDataDf, Seq("id"), "left_outer")
   }
 
   /** Return map on input IOResources */
@@ -263,6 +272,8 @@ object Target extends LazyLogging {
         targetInputs.psEssentialityMatrix.path,
         options = targetInputs.psEssentialityMatrix.options
       ),
+      "reactomeEtl" -> targetInputs.reactomeEtl,
+      "reactomePathways" -> targetInputs.reactomePathways,
       "safetyAE" -> IOResourceConfig(
         targetInputs.safetyAdverseEvent.format,
         targetInputs.safetyAdverseEvent.path
@@ -305,6 +316,7 @@ object Target extends LazyLogging {
       proteinClassification: Dataset[ProteinClassification]): DataFrame = {
     logger.debug("Add protein classifications to UniprotDS")
     val proteinClassificationWithUniprot = uniprot
+    // todo the first 3 lines can be refactored into a single select statement
       .select(col("uniprotId"), col("proteinIds.id").as("pid"))
       .withColumn("uid", array(col("uniprotId")))
       .withColumn("pid", array_union(col("uid"), col("pid")))
