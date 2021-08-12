@@ -23,7 +23,6 @@ import org.apache.spark.sql.functions.{
   udf
 }
 import org.apache.spark.sql.{DataFrame, Dataset, SparkSession}
-import org.apache.spark.storage.StorageLevel
 
 import scala.jdk.CollectionConverters.asScalaIteratorConverter
 
@@ -51,8 +50,7 @@ object Target extends LazyLogging {
     val hallmarks: Dataset[HallmarksWithId] = Hallmarks(inputDataFrames("hallmarks").data)
     val ncbi: Dataset[Ncbi] = Ncbi(inputDataFrames("ncbi").data)
     val ensemblDf: Dataset[Ensembl] = Ensembl(inputDataFrames("ensembl").data)
-    val uniprotDS: Dataset[Uniprot] =
-      Uniprot(inputDataFrames("uniprot").data).persist(StorageLevel.MEMORY_AND_DISK_SER)
+    val uniprotDS: Dataset[Uniprot] = Uniprot(inputDataFrames("uniprot").data)
     val geneOntologyDf: Dataset[GeneOntologyByEnsembl] = GeneOntology(
       inputDataFrames("geneOntologyHuman").data,
       inputDataFrames("geneOntologyRna").data,
@@ -103,7 +101,7 @@ object Target extends LazyLogging {
                     mkFlattenArray(col("subcellularLocations"), col("locations")))
         .drop("locations")
 
-    val targetInterim = hgncEnsemblTepGoDF
+    hgncEnsemblTepGoDF
       .join(uniprotGroupedByEnsemblIdDF, Seq("id"), "left_outer")
       .withColumn("proteinIds", safeArrayUnion(col("proteinIds"), col("pid")))
       .withColumn("dbXrefs",
@@ -112,21 +110,6 @@ object Target extends LazyLogging {
       .drop("pid", "hgncId", "hgncSynonyms", "uniprotIds", "signalP", "xRef")
       .join(geneticConstraints, Seq("id"), "left_outer")
       .transform(removeRedundantXrefs)
-
-    /** Lookup table from ensgId -> protein identifiers
-      * dataframe with columns: ensgId, name
-      *
-      * */
-    val ensemblIdLookupDf = targetInterim
-      .select(col("id"),
-              coalesce(col("proteinIds.id"), array()) as "pid",
-              array(col("approvedSymbol")) as "as")
-      .select(col("id"), flatten(array(col("pid"), col("as"))) as "s")
-      .select(col("id") as "ensgId", explode(col("s")) as "name")
-      .distinct
-      .persist(StorageLevel.MEMORY_AND_DISK_SER)
-
-    targetInterim
       .transform(filterAndSortProteinIds)
       .transform(addOrthologue(homology))
       .transform(addTractability(tractability))
