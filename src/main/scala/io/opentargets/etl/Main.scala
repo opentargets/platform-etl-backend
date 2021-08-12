@@ -75,8 +75,6 @@ object ETL extends LazyLogging {
       case Right(otContext) =>
         implicit val ctxt: ETLSessionContext = otContext
 
-        logger.debug(ctxt.configuration.toString)
-
         val etlSteps =
           if (steps.isEmpty) otContext.configuration.common.defaultSteps
           else steps
