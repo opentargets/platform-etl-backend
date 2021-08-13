@@ -7,12 +7,6 @@ import io.opentargets.etl.backend.spark.{IOResource, IOResourceConfig, IoHelpers
 import org.apache.spark.sql.functions.typedLit
 import org.apache.spark.storage.StorageLevel
 
-/*
-    Project     : io-opentargets-etl-backend
-    Timestamp   : 2021-07-27T11:37
-    Author      : Manuel Bernal Llinares <mbdebian@gmail.com>
-*/
-
 // Data Sources
 sealed trait FdaDataSource
 case object DrugData extends FdaDataSource {

@@ -4,12 +4,6 @@ import io.opentargets.etl.backend.ETLSessionContext
 import org.apache.spark.sql.DataFrame
 import org.apache.spark.sql.functions.{col, lit, log}
 
-/*
-    Project     : io-opentargets-etl-backend
-    Timestamp   : 2021-08-04T14:03
-    Author      : Manuel Bernal Llinares <mbdebian@gmail.com>
-*/
-
 object PrepareForMontecarlo {
   def apply(fdaData: DataFrame)(implicit context: ETLSessionContext) = {
     import context.sparkSession.implicits._

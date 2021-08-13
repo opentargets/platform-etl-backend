@@ -4,12 +4,6 @@ import io.opentargets.etl.backend.ETLSessionContext
 import org.apache.spark.sql.DataFrame
 import org.apache.spark.sql.functions.{coalesce, col, lower, regexp_replace, split}
 
-/*
-    Project     : io-opentargets-etl-backend
-    Timestamp   : 2021-08-04T14:07
-    Author      : Manuel Bernal Llinares <mbdebian@gmail.com>
- */
-
 object AttachMeddraData {
   def apply(fdaData: DataFrame,
             meddraPreferredTermsData: DataFrame,

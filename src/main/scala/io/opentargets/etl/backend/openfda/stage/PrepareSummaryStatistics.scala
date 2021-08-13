@@ -5,12 +5,6 @@ import org.apache.spark.sql.DataFrame
 import org.apache.spark.sql.expressions.Window
 import org.apache.spark.sql.functions.{approx_count_distinct, col}
 
-/*
-    Project     : io-opentargets-etl-backend
-    Timestamp   : 2021-08-04T13:57
-    Author      : Manuel Bernal Llinares <mbdebian@gmail.com>
-*/
-
 object PrepareSummaryStatistics {
   def apply(fdaData: DataFrame)(implicit context: ETLSessionContext) = {
 

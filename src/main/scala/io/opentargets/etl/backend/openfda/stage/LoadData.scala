@@ -9,12 +9,6 @@ import org.apache.spark.sql.SparkSession
 
 import scala.collection.immutable.Stream.Empty
 
-/*
-    Project     : io-opentargets-etl-backend
-    Timestamp   : 2021-08-04T00:47
-    Author      : Manuel Bernal Llinares <mbdebian@gmail.com>
-*/
-
 object LoadData {
   def apply()(implicit context: ETLSessionContext) = {
 

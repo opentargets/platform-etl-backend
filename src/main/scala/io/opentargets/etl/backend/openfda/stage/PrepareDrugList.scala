@@ -4,12 +4,6 @@ import io.opentargets.etl.backend.ETLSessionContext
 import org.apache.spark.sql.DataFrame
 import org.apache.spark.sql.functions.{array, array_distinct, col, explode, flatten, lower}
 
-/*
-    Project     : io-opentargets-etl-backend
-    Timestamp   : 2021-08-04T11:44
-    Author      : Manuel Bernal Llinares <mbdebian@gmail.com>
-*/
-
 object PrepareDrugList {
   def apply(dfChembl: DataFrame)(implicit context: ETLSessionContext) = {
     val drugList = dfChembl
