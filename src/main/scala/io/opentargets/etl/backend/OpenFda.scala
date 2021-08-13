@@ -53,7 +53,7 @@ object OpenFda extends LazyLogging {
     val fdaDataMontecarloReady = PrepareForMontecarlo(fdaDataWithSummaryStats)
     // Add Meddra
     val fdaDataWithMeddra = context.configuration.openfda.meddra match {
-      case Some(value) => AttachMeddraData(fdaDataMontecarloReady,
+      case Some(_) => AttachMeddraData(fdaDataMontecarloReady,
         dfsData(MeddraPreferredTermsData()).data,
         dfsData(MeddraLowLevelTermsData()).data).persist(StorageLevel.MEMORY_AND_DISK_SER)
       case _ => fdaDataMontecarloReady
