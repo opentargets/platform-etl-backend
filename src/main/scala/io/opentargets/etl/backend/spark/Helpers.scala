@@ -10,6 +10,7 @@ import org.apache.spark.sql.functions.{
   coalesce,
   col,
   expr,
+  explode,
   filter,
   flatten,
   lit,
@@ -17,6 +18,7 @@ import org.apache.spark.sql.functions.{
   substring_index,
   typedLit
 }
+
 import org.apache.spark.sql.types.{ArrayType, DataType, StructField, StructType}
 
 import scala.language.postfixOps
@@ -139,6 +141,35 @@ object Helpers extends LazyLogging {
             | )
             |),
             |t -> isnotnull(t))""".stripMargin)
+  }
+
+  /** Transpose a Dataframe column to row
+    * df is the implicit dataframe
+    *|  ID     |abdomen| aorta |col_...|
+    *|  ENSG1  |  0.0|  0.6    |  ...  |
+    *|  ENSG2  |  0.5|  0.7    |  ...  |
+    * to
+    *|  ID     |  key     | val   |
+    *|  ENSG1  |  abdomen |  0.00 |
+    *|  ENSG1  |  aorta   |  0.6  |
+    *|  ENSG2  |  abdomen |  0.5  |
+    *|  ENSG2  |  aorta   |  0.7  |
+    * @param by Column name pivot
+    * @return a DataFrame
+    */
+  def transposeDataframe(df: DataFrame, by: Seq[String]): DataFrame = {
+    val (cols, types) = df.dtypes.filter { case (c, _) => !by.contains(c) }.unzip
+    //require(types.distinct.size == 1, s"${types.distinct.toString}.length != 1")
+
+    val kvs = explode(
+      array(
+        cols.map(c => struct(lit(c).alias("key"), col(c).alias("val"))): _*
+      ))
+
+    val byExprs = by.map(col(_))
+
+    df.select(byExprs :+ kvs.alias("_kvs"): _*)
+      .select(byExprs ++ Seq(col("_kvs.key"), col("_kvs.val")): _*)
   }
 
   /** generate the union between two dataframe with different Schema.
