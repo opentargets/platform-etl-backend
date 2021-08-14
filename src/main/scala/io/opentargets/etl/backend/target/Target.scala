@@ -67,7 +67,7 @@ object Target extends LazyLogging {
       inputDataFrames("chembl").data)
     val geneticConstraints: Dataset[GeneticConstraintsWithId] = GeneticConstraints(
       inputDataFrames("geneticConstraints").data)
-    val homology: Dataset[LinkedOrtholog] = Ortholog(
+    val homology: Dataset[Ortholog] = Ortholog(
       inputDataFrames("homologyDictionary").data,
       inputDataFrames("homologyCodingProteins").data,
       inputDataFrames("homologyGeneDictionary").data,
@@ -149,11 +149,21 @@ object Target extends LazyLogging {
     dataFrame.selectExpr(cols: _*)
   }
 
-  private def addOrthologue(orthologue: Dataset[LinkedOrtholog])(
-      dataFrame: DataFrame): DataFrame = {
+  private def addOrthologue(orthologue: Dataset[Ortholog])(dataFrame: DataFrame): DataFrame = {
     logger.info("Adding Homologues to dataframe")
+
+    // add in gene symbol for paralogs (human genes)
+    val homoDF = orthologue
+      .join(dataFrame.select(col("id"), col("approvedSymbol")), Seq("id"))
+      .withColumn("targetGeneSymbol", coalesce(col("targetGeneSymbol"), col("approvedSymbol")))
+      .drop("approvedSymbol")
+
+    val groupedById = nest(homoDF, homoDF.columns.filter(_ != "id").toList, "homologues")
+      .groupBy("id")
+      .agg(collect_list("homologues") as "homologues")
+
     dataFrame
-      .join(orthologue, col("humanGeneId") === col("id"), "left_outer")
+      .join(groupedById, Seq("id"), "left_outer")
       .drop("humanGeneId")
   }
 
