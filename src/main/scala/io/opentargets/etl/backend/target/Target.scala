@@ -16,13 +16,15 @@ import org.apache.spark.sql.functions.{
   collect_set,
   explode,
   flatten,
+  size,
   split,
   struct,
   trim,
   typedLit,
-  udf
+  udf,
+  when
 }
-import org.apache.spark.sql.{DataFrame, Dataset, SparkSession}
+import org.apache.spark.sql.{DataFrame, Dataset, SparkSession, functions}
 
 import scala.jdk.CollectionConverters.asScalaIteratorConverter
 
@@ -137,6 +139,8 @@ object Target extends LazyLogging {
         collect_set(col("uniprotProteinId")).as("uniprotProteinId"),
         flatten(collect_set(col("targetClass"))).as("targetClass")
       )
+      .withColumn("targetClass",
+                  when(size(col("targetClass")) < 1, null).otherwise(col("targetClass")))
       .withColumnRenamed("ensemblId", "id")
       .withColumn("proteinIds", safeArrayUnion(col("proteinIds"), col("uniprotProteinId")))
       .drop("uniprotId", "uniprotProteinId")
