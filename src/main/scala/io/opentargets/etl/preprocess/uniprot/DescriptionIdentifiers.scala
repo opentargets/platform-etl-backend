@@ -12,12 +12,13 @@ trait DescriptionIdentifiers {
 
   def processNames(descriptions: Seq[String]): (Seq[String], Seq[String]) = {
     val removeLeadingMetadata: String => String = (s: String) => s.split("=").last
+
+    def processLines(lines: Seq[String]): Seq[String] =
+      lines.map(removeLeadingMetadata.andThen(_.dropRight(1).takeWhile(_ != '{')).andThen(_.trim))
+
     val recAndAlt = descriptions
       .filter(ln => ln.startsWith(RECOMMENDED) || ln.startsWith(ALTERNATIVE))
       .partition(_.startsWith(RECOMMENDED))
-    val recommended = recAndAlt._1.map(removeLeadingMetadata.andThen(_.dropRight(1)))
-    val alternative =
-      recAndAlt._2.map(removeLeadingMetadata.andThen(_.dropRight(1).takeWhile(_ != '{')))
-    (recommended, alternative)
+    (processLines(recAndAlt._1), processLines(recAndAlt._2))
   }
 }

@@ -6,7 +6,8 @@ import io.opentargets.etl.preprocess.uniprot.{
   DbIdentifiers,
   DescriptionIdentifiers,
   UniprotConverter,
-  UniprotEntry
+  UniprotEntry,
+  UniprotEntryParsed
 }
 import org.scalatest.PrivateMethodTester
 import org.scalatest.flatspec.AnyFlatSpec
@@ -33,7 +34,8 @@ class UniprotConverterTest
   "The UniprotConverter" should "convert from a flat file to case classes" in {
     // given one entry
     // when
-    val entries = UniprotConverter.convertUniprotFlatFileToUniprotEntry(oneEntry)
+    val entries: List[UniprotEntryParsed] =
+      UniprotConverter.convertUniprotFlatFileToUniprotEntry(oneEntry)
     // then
     entries should have size 1
     // and all database entries should be of interest
@@ -56,15 +58,18 @@ class UniprotConverterTest
     //given
     val input = Seq(
       "RecName: Full=Pentatricopeptide repeat domain-containing protein 3, mitochondrial;",
-      "AltName: Full=28S ribosomal protein S39, mitochondrial;"
+      "AltName: Full=28S ribosomal protein S39, mitochondrial;",
+      "AltName: Full=Beta-N-acetylglucosaminidase {ECO:0000303|PubMed:11148210};"
     )
     // when
     val result = processNames(input)
     // then
     result._1 should have size 1
-    result._2 should have size 1
-    result._1 should contain("Pentatricopeptide repeat domain-containing protein 3, mitochondrial")
-    result._2 should contain("28S ribosomal protein S39, mitochondrial")
+    result._2 should have size 2
+    result._1 should contain theSameElementsAs Seq(
+      "Pentatricopeptide repeat domain-containing protein 3, mitochondrial")
+    result._2 should contain theSameElementsAs Seq("28S ribosomal protein S39, mitochondrial",
+                                                   "Beta-N-acetylglucosaminidase")
   }
 
   "Comments" should "be correctly partitioned into functions and subcellular locations" in {
@@ -108,7 +113,7 @@ class UniprotConverterTest
     results.functions should have size 1
   }
 
-  "Database cross references" should "only inclde databases of interest" in {
+  "Database cross references" should "only include databases of interest" in {
     // given
     val inputs = Seq(
       "PIR; T00360; T00360.",
