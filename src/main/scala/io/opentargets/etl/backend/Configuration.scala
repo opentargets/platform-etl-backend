@@ -130,13 +130,6 @@ object Configuration extends LazyLogging {
       mousephenotypes: InputInfo
   )
 
-  case class CancerBiomarkersSection(inputs: CancerBiomarkersInput, output: IOResourceConfig)
-
-  case class CancerBiomarkersInput(biomarkers: IOResourceConfig,
-                                   diseaseMapping: IOResourceConfig,
-                                   sourceMapping: IOResourceConfig,
-                                   targetMapping: IOResourceConfig)
-
   case class Common(defaultSteps: Seq[String],
                     input: String,
                     inputs: Inputs,
@@ -218,7 +211,6 @@ object Configuration extends LazyLogging {
       sparkUri: Option[String],
       sparkSettings: SparkSettings,
       common: Common,
-      cancerbiomarkers: CancerBiomarkersSection,
       reactome: ReactomeSection,
       associations: AssociationsSection,
       evidences: EvidencesSection,
