@@ -12,12 +12,9 @@ OpenTargets ETL pipeline to process Pipeline output in order to obtain a new API
 1. OpenJDK 8/11
 2. scala 2.12.x (through SDKMAN is simple)
 3. ammonite REPL
-4. Drug index dump from OpenTargets ES
+4. Input resources from PIS (src/main/resources/conference.conf)
 5. Target index dump from OpenTargets ES
-6. Disease index dump from OpenTargets ES
-7. Evidence index dump from OpenTargets ES
-8. Expression index dump from OpenTargets ES
-9. Generate MousePhenotypes dump from OperTargets ES
+6. Generate MousePhenotypes dump from OperTargets ES
 
 #### Notes on Java version
 
@@ -232,6 +229,30 @@ not 'drugs'. We define a drug to be any molecule that meets one or more of the f
  
 To run the `Drug` step use the example command under `Create a fat JAR` with `drug` as the step name. 
  
+
+### Baseline Expression
+The primary input sources of the baseline expression dataset are 
+ - The human protein atlas (https://www.proteinatlas.org/)
+ - Opentarget baseline expressions resources
+
+We define a baseline expression information as 
+- gene
+  - tissues[] 
+    - label
+    - efo_code
+    - organs[]
+    - anatomical_system[]
+    - rna
+    - protein
+      - level
+      - reliability
+      - cell_type[]
+
+
+To run the `baseline expression` step use the example command under `Create a fat JAR` with `expression` as the step name.
+
+
+
 #### Adding additional resources to enrich data
 
 Addition resources can be specified to enrich the data included in the outputs. The following `extension-type`s are
