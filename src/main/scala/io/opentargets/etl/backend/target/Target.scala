@@ -153,8 +153,16 @@ object Target extends LazyLogging {
     dataFrame.selectExpr(cols: _*)
   }
 
-  private def addOrthologue(orthologue: Dataset[Ortholog])(dataFrame: DataFrame): DataFrame = {
+  private def addOrthologue(orthologue: Dataset[Ortholog])(dataFrame: DataFrame)(
+      implicit ss: SparkSession): DataFrame = {
     logger.info("Adding Homologues to dataframe")
+
+    /**
+      * The orthologs should appear in the order of closest to further from homosapiens. See opentargets/platform#1699
+      */
+    ss.udf.register("speciesDistanceSort", (o: Ortholog, o1: Ortholog) => {
+      o.priority compare o1.priority
+    })
 
     // add in gene symbol for paralogs (human genes)
     val homoDF = orthologue
@@ -165,6 +173,7 @@ object Target extends LazyLogging {
     val groupedById = nest(homoDF, homoDF.columns.filter(_ != "id").toList, "homologues")
       .groupBy("id")
       .agg(collect_list("homologues") as "homologues")
+      .selectExpr("id", "array_sort(homologues, (x, y) -> speciesDistanceSort(x, y)) as homologues")
 
     dataFrame
       .join(groupedById, Seq("id"), "left_outer")
