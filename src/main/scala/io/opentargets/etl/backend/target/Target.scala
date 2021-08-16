@@ -72,7 +72,7 @@ object Target extends LazyLogging {
       inputDataFrames("chembl").data)
     val geneticConstraints: Dataset[GeneticConstraintsWithId] = GeneticConstraints(
       inputDataFrames("geneticConstraints").data)
-    val homology: Dataset[LinkedOrtholog] = Ortholog(
+    val homology: Dataset[Ortholog] = Ortholog(
       inputDataFrames("homologyDictionary").data,
       inputDataFrames("homologyCodingProteins").data,
       inputDataFrames("homologyGeneDictionary").data,
@@ -114,9 +114,9 @@ object Target extends LazyLogging {
       .withColumn("synonyms", safeArrayUnion(col("synonyms"), col("hgncSynonyms")))
       .drop("pid", "hgncId", "hgncSynonyms", "uniprotIds", "signalP", "xRef")
       .join(geneticConstraints, Seq("id"), "left_outer")
-      .transform(addChemicalProbes(chemicalProbes))
       .transform(filterAndSortProteinIds)
       .transform(removeRedundantXrefs)
+      .persist(StorageLevel.MEMORY_AND_DISK_SER)
 
     val ensemblIdLookupDf = generateEnsgToSymbolLookup(targetInterim)
 
@@ -250,9 +250,9 @@ object Target extends LazyLogging {
 
     val cpGroupedById = cpWithEnsgId
       .select(
-        col("targetId") as "id",
+        col("ensgId") as "id",
         struct(
-          cpDF.columns.filterNot(_ == "targetId").map(col): _*
+          cpDF.columns.filterNot(_ == "ensgId").map(col): _*
         ) as "probe"
       )
       .groupBy(col("id"))
