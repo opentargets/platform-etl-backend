@@ -237,6 +237,7 @@ object Target extends LazyLogging {
     * Group chemical probes by ensembl ID and add to interim target dataframe.
     *
     * @param cpDF              raw chemical probes dataset provided by PIS
+    * @param ensemblIdLookupDF map from ensg -> other names.
     * @param targetDF          interim target dataset
     * @return target dataset with chemical probes added
     */
