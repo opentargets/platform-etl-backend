@@ -354,6 +354,12 @@ is quite slow and results in a moderately large dataset which we don't otherwise
 These notes refer to the Target step as rewritten in March 2021. If attempting to debug datasets completed before
 release 20.XX consult commits preceeding XXXXXX.
 
+#### Configuration
+
+- `hgnc-orthology-species` lists the species to include in Target orthologues. The order of this configuration list is
+  __significant__ as it is used to determine the order in which entries appear in the front-end. Items earlier in the
+  list are more closely related to homo sapiens than items further down the list.
+
 #### Inputs
 
 Inputs to the ETL are prepared by Platform Input Support (PIS). PIS does some minimal preprocessing, but it is possible

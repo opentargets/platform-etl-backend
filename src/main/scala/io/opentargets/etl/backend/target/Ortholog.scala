@@ -1,8 +1,7 @@
 package io.opentargets.etl.backend.target
 
 import com.typesafe.scalalogging.LazyLogging
-import io.opentargets.etl.backend.spark.Helpers.{nest, safeArrayUnion}
-import org.apache.spark.sql.functions.{array_contains, col, collect_list, struct, typedLit}
+import org.apache.spark.sql.functions.{array_contains, broadcast, col, typedLit}
 import org.apache.spark.sql.types.DoubleType
 import org.apache.spark.sql.{DataFrame, Dataset, SparkSession, functions}
 
@@ -24,6 +23,9 @@ object Ortholog extends LazyLogging {
             targetSpecies: List[String])(implicit sparkSession: SparkSession): Dataset[Ortholog] = {
     import sparkSession.implicits._
     logger.info("Processing homologs.")
+
+    val priority =
+      targetSpecies.map(_.takeWhile(_.isDigit)).zipWithIndex.toDF("speciesId", "priority")
 
     val homoDict = homologyDict
       .select(col("#name").as("name"),
@@ -51,8 +53,9 @@ object Ortholog extends LazyLogging {
         col("identity").cast(DoubleType).as("queryPercentageIdentity"),
         col("homology_identity")
           .cast(DoubleType)
-          .as("targetPercentageIdentity")
+          .as("targetPercentageIdentity"),
       )
+      .join(broadcast(priority), Seq("speciesId"), "left_outer")
       .as[Ortholog]
 
     homoDF
@@ -67,4 +70,5 @@ case class Ortholog(speciesId: String,
                     targetGeneSymbol: String,
                     isHighConfidence: String,
                     queryPercentageIdentity: Double,
-                    targetPercentageIdentity: Double)
+                    targetPercentageIdentity: Double,
+                    priority: Int)
