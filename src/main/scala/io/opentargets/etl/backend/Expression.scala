@@ -5,11 +5,7 @@ import org.apache.spark.sql._
 import org.apache.spark.sql.functions._
 import io.opentargets.etl.backend.spark.{IOResource, IOResourceConfig, IoHelpers}
 import io.opentargets.etl.backend.spark.IoHelpers.IOResources
-import io.opentargets.etl.backend.spark.Helpers.{
-  transposeDataframe,
-  unionDataframeDifferentSchema,
-  validateDF
-}
+import io.opentargets.etl.backend.spark.Helpers.{transposeDataframe, unionDataframeDifferentSchema}
 
 // This is option/step expression in the config file
 object Expression extends LazyLogging {
@@ -78,23 +74,6 @@ object Expression extends LazyLogging {
     baseExpressionGrouped
   }
 
-  private def validGenes(normalTissueDF: DataFrame, baselineExpressionIds: DataFrame): DataFrame = {
-
-    val cinzia = baselineExpressionIds.select("Gene").distinct
-
-    val genesDF =
-      normalTissueDF
-        .selectExpr("Gene")
-        .distinct
-        .unionByName(cinzia)
-        .distinct
-
-    genesDF
-      .join(normalTissueDF, Seq("Gene"), "left")
-      .select("Gene")
-      .distinct
-  }
-
   private def efoTissueMapping(mapEfos: DataFrame, expressions: DataFrame): DataFrame = {
     val expressionsRenamed = expressions
       .withColumnRenamed("_c0", "expressionId")
@@ -113,32 +92,99 @@ object Expression extends LazyLogging {
   private def generateExpressions(normalTissueDF: DataFrame,
                                   baselineExpressionDF: DataFrame,
                                   efoTissueMap: DataFrame): DataFrame = {
-    normalTissueDF.printSchema()
-    efoTissueMap.printSchema()
-    baselineExpressionDF.printSchema()
 
-    val normalTissues = unionDataframeDifferentSchema(normalTissueDF, baselineExpressionDF)
+    val normalTissuesUnion =
+      unionDataframeDifferentSchema(normalTissueDF, baselineExpressionDF)
+
+    val normalTissues = normalTissuesUnion
       .groupBy("Gene", "Tissue")
       .agg(
         max(col("rna_val")).as("rna"),
         max(col("binned_val")).as("binned"),
         max(col("zscore_val")).as("zscore"),
+        first("unit_val", ignoreNulls = true).as("unit"),
         first("ReliabilityMap", ignoreNulls = true).as("reliabilityValue"),
         first("LevelMap", ignoreNulls = true).as("levelMapValue"),
-        first("Cell_type", ignoreNulls = true).as("cellTypeValue")
-        //first("anatomical_systems", ignoreNulls = true).as("anatomicalSystemValue"),
-        //first("efoId", ignoreNulls = true).as("efoIdValue"),
-        //first("organs", ignoreNulls = true).as("organsValue")
+        collect_set("Cell_type").as("cellTypes")
       )
 
+    val standardRow = normalTissues.withColumn("singleCellType", explode_outer(col("cellTypes")))
+
     val normalTissueLabel =
-      normalTissues.join(efoTissueMap, col("labelNew") === col("Tissue"), "left")
+      standardRow.join(efoTissueMap, col("labelNew") === col("Tissue"), "left")
+
     val normalTissueExpression =
-      normalTissues.join(efoTissueMap, col("expressionId") === col("Tissue"), "left")
+      standardRow.join(efoTissueMap, col("expressionId") === col("Tissue"), "left")
 
-    val n = normalTissueLabel.unionByName(normalTissueExpression).filter(col("labelNew").isNotNull)
+    val hpaExpressionsTransf = normalTissueLabel
+      .unionByName(normalTissueExpression)
+      .filter(col("labelNew").isNotNull)
+      .withColumn("unitVal", when(col("unit").isNull, "").otherwise(col("unit")))
+      .withColumn("organsValue",
+                  when(col("organs").isNull, Array.empty[String]).otherwise(col("organs")))
+      .withColumn("anatomicalSystems",
+                  when(col("anatomical_systems").isNull, Array.empty[String])
+                    .otherwise(col("anatomical_systems")))
+      .drop("label", "name", "efo_code", "expressionId")
 
-    n
+    val hpaExpressionAgg = hpaExpressionsTransf
+      .groupBy("Gene", "efoId", "labelNew", "organsValue", "anatomicalSystems")
+      .agg(
+        struct(max(col("rna")).as("value"),
+               max(col("zscore")).as("zscore"),
+               max(col("binned")).as("level"),
+               max(col("unitVal")).as("unit")).as("rna"),
+        max(col("reliabilityValue")).as("reliabilitySelected"),
+        max(col("levelMapValue")).as("levelSelected"),
+        collect_set("singleCellType").as("cellTypes")
+      )
+      .withColumn("level", when(col("levelSelected").isNull, -1).otherwise(col("levelSelected")))
+      .withColumn(
+        "reliability",
+        when(col("reliabilitySelected").isNull, false).otherwise(col("reliabilitySelected")))
+      .drop("levelSelected", "reliabilitySelected")
+
+    val hpaExpressionsProtein =
+      hpaExpressionAgg
+        .withColumn("cell", explode_outer(col("cellTypes")))
+        .groupBy("Gene",
+                 "efoId",
+                 "labelNew",
+                 "organsValue",
+                 "anatomicalSystems",
+                 "rna",
+                 "level",
+                 "reliability")
+        .agg(
+          struct(
+            col("reliability").as("reliability"),
+            col("level").as("level"),
+            collect_list(
+              when(col("cell").isNotNull,
+                   struct(col("cell").as("name"),
+                          col("reliability").as("reliability"),
+                          col("level").as("level"))).otherwise(lit(null))
+            ).as("cell_type")
+          ).as("protein")
+        )
+        .drop("reliability", "level")
+
+    val hpa = hpaExpressionsProtein
+      .groupBy("Gene")
+      .agg(
+        collect_set(
+          struct(
+            col("efoId").as("efo_code"),
+            col("labelNew").as("label"),
+            col("organsValue").as("organs"),
+            col("anatomicalSystems").as("anatomical_systems"),
+            col("rna").as("rna"),
+            col("protein").as("protein")
+          )).as("tissues")
+      )
+      .withColumnRenamed("Gene", "gene")
+
+    hpa
   }
 
   // Public because it used by connection.scala
@@ -166,9 +212,9 @@ object Expression extends LazyLogging {
                                                       inputDataFrames("binned").data,
                                                       inputDataFrames("zscore").data)
 
-    //val genes = validGenes(normalTissueDF, baselineExpressionDF)
-    val n = generateExpressions(normalTissueDF, baselineExpressionDF, efoTissueMap)
-    n
+    val expressionDF = generateExpressions(normalTissueDF, baselineExpressionDF, efoTissueMap)
+    expressionDF
+
   }
 
   def apply()(implicit context: ETLSessionContext): IOResources = {
