@@ -5,7 +5,12 @@ import org.apache.spark.sql._
 import org.apache.spark.sql.functions._
 import io.opentargets.etl.backend.spark.{IOResource, IOResourceConfig, IoHelpers}
 import io.opentargets.etl.backend.spark.IoHelpers.IOResources
-import io.opentargets.etl.backend.spark.Helpers.{transposeDataframe, unionDataframeDifferentSchema}
+import io.opentargets.etl.backend.spark.Helpers.{
+  transposeDataframe,
+  unionDataframeDifferentSchema,
+  validateDF
+}
+import org.scalacheck.Prop.True
 
 // This is option/step expression in the config file
 object Expression extends LazyLogging {
@@ -38,9 +43,9 @@ object Expression extends LazyLogging {
       .select(normalTissueNormDF.col("*"),
               reliabilityMap(col("Reliability")).as("ReliabilityMap"),
               levelMap(col("Level")).as("LevelMap"))
-      .withColumn("binned_val", lit(-1))
-      .withColumn("zscore_val", lit(-1))
-      .withColumn("rna_val", lit(0))
+    //.withColumn("binned_val", lit(-1))
+    //.withColumn("zscore_val", lit(-1))
+    //.withColumn("rna_val", lit(0))
 
   }
 
@@ -89,102 +94,136 @@ object Expression extends LazyLogging {
     mappedInfo
   }
 
+  private def selectTissues(tissues: DataFrame, efoTissueMap: DataFrame) = {
+    val normalTissueLabel =
+      tissues.join(efoTissueMap, col("labelNew") === col("Tissue"), "left")
+    val normalTissueExpression =
+      tissues.join(efoTissueMap, col("expressionId") === col("Tissue"), "left")
+
+    val normalTissueWithLabel = normalTissueLabel.unionByName(normalTissueExpression)
+
+    val emptyLabels = normalTissueWithLabel
+      .filter(col("labelNew").isNull)
+      .withColumn("TissueDef", col("Tissue"))
+      .select("Gene", "TissueDef")
+
+    val hasLabels = normalTissueWithLabel
+      .filter(col("labelNew").isNotNull)
+
+    val hasLabelFiltered = hasLabels
+      .withColumn("TissueDef", col("Tissue"))
+      .select("Gene", "TissueDef")
+
+    val missingLabel = emptyLabels.except(hasLabelFiltered)
+
+    val selectMissingRecords = normalTissueWithLabel
+      .join(missingLabel, Seq("Gene"), "right")
+      .where(col("TissueDef") === col("Tissue"))
+      .withColumn("labelDef", col("TissueDef"))
+      .drop("TissueDef")
+
+    val validLabels = hasLabels
+      .withColumn("labelDef", col("LabelNew"))
+      .unionByName(selectMissingRecords)
+
+    validLabels
+  }
+
   private def generateExpressions(normalTissueDF: DataFrame,
                                   baselineExpressionDF: DataFrame,
                                   efoTissueMap: DataFrame): DataFrame = {
 
-    val normalTissuesUnion =
-      unionDataframeDifferentSchema(normalTissueDF, baselineExpressionDF)
+    val normalTissueKeyDF =
+      normalTissueDF
+        .withColumn("key", concat(col("Gene"), lit('-'), col("Tissue")))
+        .withColumnRenamed("Gene", "GeneNormal")
+        .withColumnRenamed("Tissue", "TissueNormal")
 
-    val normalTissues = normalTissuesUnion
-      .groupBy("Gene", "Tissue")
+    val baselineExpressionKeyDF =
+      baselineExpressionDF
+        .withColumn("key", concat(col("Gene"), lit('-'), col("Tissue")))
+        .withColumnRenamed("Gene", "GeneBase")
+        .withColumnRenamed("Tissue", "TissueBase")
+
+    val mix = normalTissueKeyDF.join(baselineExpressionKeyDF, Seq("key"), "full")
+
+    mix.filter(col("GeneBase") === "ENSG00000000003")
+
+    /* .filter(col("GeneBase") === "ENSG00000000003")
+      .filter(col("Gene") === "ENSG00000090520")
+      .filter(col("Tissue") === "cerebral cortex")
+     */
+
+    val normalTissuesUnion = mix
+      .withColumn("Gene",
+                  when(col("GeneNormal").isNull, col("GeneBase")).otherwise(col("GeneNormal")))
+      .withColumn(
+        "Tissue",
+        when(col("TissueNormal").isNull, col("TissueBase")).otherwise(col("TissueNormal")))
+      .withColumn("LevelMapDef", when(col("LevelMap").isNull, -1).otherwise(col("LevelMap")))
+      .withColumn("ReliabilityMapDef",
+                  when(col("ReliabilityMap").isNull, false).otherwise(col("ReliabilityMap")))
+      .withColumn("rna", when(col("rna_val").isNull, 0).otherwise(col("rna_val")))
+      .withColumn("binned", when(col("binned_val").isNull, -1).otherwise(col("binned_val")))
+      .withColumn("zscore", when(col("zscore_val").isNull, -1).otherwise(col("zscore_val")))
+      .withColumn("unit", when(col("unit_val").isNull, "").otherwise(col("unit_val")))
+      .withColumn("Cell_type_def", when(col("Cell_type").isNull, null).otherwise(col("Cell_type")))
+      .select("Gene",
+              "Tissue",
+              "Cell_type_def",
+              "LevelMapDef",
+              "ReliabilityMapDef",
+              "rna",
+              "binned",
+              "zscore",
+              "unit")
+
+    val validTissues = selectTissues(normalTissuesUnion, efoTissueMap)
+      .drop("efo_code", "labelNew", "label", "name", "expressionId", "tissue_internal_id", "Tissue")
+      .distinct
+
+    val protein = validTissues
+      .groupBy("Gene", "labelDef", "efoId", "anatomical_systems", "organs")
       .agg(
-        max(col("rna_val")).as("rna"),
-        max(col("binned_val")).as("binned"),
-        max(col("zscore_val")).as("zscore"),
-        first("unit_val", ignoreNulls = true).as("unit"),
-        first("ReliabilityMap", ignoreNulls = true).as("reliabilityValue"),
-        first("LevelMap", ignoreNulls = true).as("levelMapValue"),
-        collect_set("Cell_type").as("cellTypes")
+        first(col("ReliabilityMapDef"), ignoreNulls = true).as("reliability"),
+        max(col("LevelMapDef")).as("level"),
+        struct(max(col("rna")).as("value"),
+               max(col("zscore")).as("zscore"),
+               max(col("binned")).as("level"),
+               max(col("unit")).as("unit")).as("rna"),
+        collect_list(
+          when(col("Cell_type_def").isNotNull,
+               struct(col("Cell_type_def").as("name"),
+                      col("ReliabilityMapDef").as("reliability"),
+                      col("LevelMapDef").as("level")))
+        ).as("cell_type")
       )
-
-    val standardRow = normalTissues.withColumn("singleCellType", explode_outer(col("cellTypes")))
-
-    val normalTissueLabel =
-      standardRow.join(efoTissueMap, col("labelNew") === col("Tissue"), "left")
-
-    val normalTissueExpression =
-      standardRow.join(efoTissueMap, col("expressionId") === col("Tissue"), "left")
-
-    val hpaExpressionsUnion = normalTissueLabel
-      .unionByName(normalTissueExpression)
-      .filter(col("labelNew").isNotNull)
-      .withColumn("unitVal", when(col("unit").isNull, "").otherwise(col("unit")))
       .withColumn("organsValue",
                   when(col("organs").isNull, Array.empty[String]).otherwise(col("organs")))
       .withColumn("anatomicalSystems",
                   when(col("anatomical_systems").isNull, Array.empty[String])
                     .otherwise(col("anatomical_systems")))
-      .drop("label", "name", "efo_code", "expressionId")
+      .drop("organs", "anatomical_systems")
 
-    val hpaExpressionAgg = hpaExpressionsUnion
-      .groupBy("Gene", "efoId", "labelNew", "organsValue", "anatomicalSystems")
-      .agg(
-        struct(max(col("rna")).as("value"),
-               max(col("zscore")).as("zscore"),
-               max(col("binned")).as("level"),
-               max(col("unitVal")).as("unit")).as("rna"),
-        max(col("reliabilityValue")).as("reliabilitySelected"),
-        max(col("levelMapValue")).as("levelSelected"),
-        collect_set("singleCellType").as("cellTypes")
-      )
-      .withColumn("level", when(col("levelSelected").isNull, -1).otherwise(col("levelSelected")))
-      .withColumn(
-        "reliability",
-        when(col("reliabilitySelected").isNull, false).otherwise(col("reliabilitySelected")))
-      .drop("levelSelected", "reliabilitySelected")
-
-    val hpaExpressionsProtein =
-      hpaExpressionAgg
-        .withColumn("cell", explode_outer(col("cellTypes")))
-        .groupBy("Gene",
-                 "efoId",
-                 "labelNew",
-                 "organsValue",
-                 "anatomicalSystems",
-                 "rna",
-                 "level",
-                 "reliability")
-        .agg(
-          struct(
-            col("reliability").as("reliability"),
-            col("level").as("level"),
-            collect_list(
-              when(col("cell").isNotNull,
-                   struct(col("cell").as("name"),
-                          col("reliability").as("reliability"),
-                          col("level").as("level"))).otherwise(lit(null))
-            ).as("cell_type")
-          ).as("protein")
-        )
-        .drop("reliability", "level")
-
-    val hpa = hpaExpressionsProtein
+    val hpa = protein
       .groupBy("Gene")
       .agg(
         collect_set(
           struct(
             col("efoId").as("efo_code"),
-            col("labelNew").as("label"),
+            col("labelDef").as("label"),
             col("organsValue").as("organs"),
             col("anatomicalSystems").as("anatomical_systems"),
             col("rna").as("rna"),
-            col("protein").as("protein")
+            struct(col("reliability").as("reliability"),
+                   col("level").as("level"),
+                   col("cell_type").as("cell_type")).as("protein")
           )).as("tissues")
       )
       .withColumnRenamed("Gene", "gene")
 
     hpa
+
   }
 
   // Public because it used by connection.scala
