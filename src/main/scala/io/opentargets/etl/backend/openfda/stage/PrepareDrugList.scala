@@ -5,7 +5,7 @@ import org.apache.spark.sql.DataFrame
 import org.apache.spark.sql.functions.{array, array_distinct, col, explode, flatten, lower}
 
 object PrepareDrugList {
-  def apply(dfChembl: DataFrame)(implicit context: ETLSessionContext) = {
+  def apply(dfChembl: DataFrame) = {
     val drugList = dfChembl
       .selectExpr("id as chembl_id",
         "synonyms as synonyms",
