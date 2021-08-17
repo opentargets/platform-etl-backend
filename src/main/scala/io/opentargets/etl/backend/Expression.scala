@@ -116,7 +116,7 @@ object Expression extends LazyLogging {
     val normalTissueExpression =
       standardRow.join(efoTissueMap, col("expressionId") === col("Tissue"), "left")
 
-    val hpaExpressionsTransf = normalTissueLabel
+    val hpaExpressionsUnion = normalTissueLabel
       .unionByName(normalTissueExpression)
       .filter(col("labelNew").isNotNull)
       .withColumn("unitVal", when(col("unit").isNull, "").otherwise(col("unit")))
@@ -127,7 +127,7 @@ object Expression extends LazyLogging {
                     .otherwise(col("anatomical_systems")))
       .drop("label", "name", "efo_code", "expressionId")
 
-    val hpaExpressionAgg = hpaExpressionsTransf
+    val hpaExpressionAgg = hpaExpressionsUnion
       .groupBy("Gene", "efoId", "labelNew", "organsValue", "anatomicalSystems")
       .agg(
         struct(max(col("rna")).as("value"),
@@ -208,6 +208,7 @@ object Expression extends LazyLogging {
     val normalTissueDF = transformNormalTissue(inputDataFrames("tissues").data)
     val efoTissueMap = efoTissueMapping(inputDataFrames("mapwithefos").data,
                                         inputDataFrames("expressionhierarchy").data)
+
     val baselineExpressionDF = baselineExpressionMaps(inputDataFrames("rna").data,
                                                       inputDataFrames("binned").data,
                                                       inputDataFrames("zscore").data)
