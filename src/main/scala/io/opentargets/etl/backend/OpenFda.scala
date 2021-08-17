@@ -1,7 +1,7 @@
 package io.opentargets.etl.backend
 
 import com.typesafe.scalalogging.LazyLogging
-import io.opentargets.etl.backend.openfda.stage.{AttachMeddraData, EventsFiltering, LoadData, MonteCarloSampling, PrepareAdverseEventData, PrepareBlacklistData, PrepareDrugList, PrepareForMontecarlo, PrepareSummaryStatistics, StratifiedSampling}
+import io.opentargets.etl.backend.openfda.stage.{AttachMeddraData, EventsFiltering, LoadData, MonteCarloSampling, PrePrepRawFdaData, PrepareAdverseEventData, PrepareBlacklistData, PrepareDrugList, PrepareForMontecarlo, PrepareSummaryStatistics, StratifiedSampling}
 import io.opentargets.etl.backend.spark.IoHelpers.IOResources
 import io.opentargets.etl.backend.spark.{IOResource, IOResourceConfig, IoHelpers}
 import org.apache.spark.sql.functions.typedLit
@@ -33,8 +33,9 @@ object OpenFda extends LazyLogging {
 
     // Load the data
     val dfsData = LoadData()
+    val fdaRawData = PrePrepRawFdaData(dfsData(FdaData()).data)
     // Prepare Adverse Events Data
-    val fdaData = PrepareAdverseEventData(dfsData(FdaData()).data)
+    val fdaData = PrepareAdverseEventData(fdaRawData)
     // Prepare Drug list
     val drugList = PrepareDrugList(dfsData(DrugData()).data)
     // OpenFDA FAERS Event filtering
@@ -57,6 +58,7 @@ object OpenFda extends LazyLogging {
     }
     // Conditional generation of Stratified Sampling
     if (context.configuration.openfda.sampling.enabled) {
+      // This one really uses the raw OpenFDA Data
       StratifiedSampling(dfsData(FdaData()).data, fdaDataWithSummaryStats, fdaDataWithMeddra)
     }
     // Compute Montecarlo Sampling
