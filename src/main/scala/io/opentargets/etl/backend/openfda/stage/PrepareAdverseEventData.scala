@@ -1,13 +1,12 @@
 package io.opentargets.etl.backend.openfda.stage
 
 import io.opentargets.etl.backend.ETLSessionContext
-import org.apache.spark.sql.DataFrame
+import org.apache.spark.sql.{DataFrame, SparkSession}
 import org.apache.spark.sql.functions.{array, array_distinct, col, concat, explode, lower}
 
 object PrepareAdverseEventData {
-  def apply(fdaRawData: DataFrame)(implicit context: ETLSessionContext) = {
+  def apply(fdaRawData: DataFrame)(implicit sparkSession: SparkSession) = {
 
-    val sparkSession = context.sparkSession
     import sparkSession.implicits._
 
     val fdasF = fdaRawData

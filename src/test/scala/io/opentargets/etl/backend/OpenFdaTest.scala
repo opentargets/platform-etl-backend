@@ -1,5 +1,6 @@
 package io.opentargets.etl.backend
 
+import io.opentargets.etl.backend.openfda.stage.PrepareDrugList
 import io.opentargets.etl.backend.spark.{IOResourceConfig, IOResourceConfigOption}
 import io.opentargets.etl.backend.spark.IoHelpers
 import io.opentargets.etl.backend.spark.IoHelpers.IOResourceConfigurations
@@ -30,6 +31,10 @@ class OpenFdaTest extends AnyWordSpecLike with Matchers with SparkSessionSetup {
       )
     // Read the files
     val dfsData = IoHelpers.readFrom(sourceData)
+
+    "successfully load only drugs of interest" in {
+      val drugList = PrepareDrugList(dfsData(DrugData()).data)
+    }
   }
 
 }
