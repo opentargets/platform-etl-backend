@@ -1,10 +1,12 @@
 package io.opentargets.etl.backend.openfda.utils
 
 import breeze.linalg.{DenseMatrix => BDM, DenseVector => BDV}
+import io.opentargets.etl.backend.EtlSparkUnitTest
 import org.scalatest.flatspec.AnyFlatSpecLike
 import org.scalatest.matchers.should.Matchers
+import org.scalatest.matchers.should.Matchers.convertToAnyShouldWrapper
 
-class MathUtilsTest extends AnyFlatSpecLike with Matchers {
+class MathUtilsTest extends EtlSparkUnitTest {
   import breeze.linalg._
 
   "Each row of rmultinomial probabilities" should "sum to 'size' where 'size' is the number of options" in {

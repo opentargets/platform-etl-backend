@@ -5,7 +5,7 @@ import org.apache.spark.sql.DataFrame
 import org.apache.spark.sql.functions.broadcast
 
 object EventsFiltering {
-  def apply(dfFdaEvents: DataFrame, dfBlackList: DataFrame)(implicit context: ETLSessionContext) = {
+  def apply(dfFdaEvents: DataFrame, dfBlackList: DataFrame) = {
     dfFdaEvents
       .join(dfBlackList, dfFdaEvents("reaction_reactionmeddrapt") === dfBlackList("reactions"), "left_anti")
   }
