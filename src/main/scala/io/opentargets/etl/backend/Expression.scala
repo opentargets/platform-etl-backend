@@ -71,8 +71,7 @@ object Expression extends LazyLogging {
     val binned = standardiseBaseline(binnedTransposed).withColumnRenamed("val", "binned")
     val zscore = standardiseBaseline(zscoreTransposed).withColumnRenamed("val", "zscore")
 
-    val baseExpressions =
-      unionDataframeDifferentSchema(unionDataframeDifferentSchema(rna, binned), zscore)
+    val baseExpressions = unionDataframeDifferentSchema(Seq(rna, binned, zscore))
 
     val baseExpressionGrouped = baseExpressions
       .groupBy("Gene", "Tissue")
@@ -160,28 +159,17 @@ object Expression extends LazyLogging {
     val unionByKey = normalTissueKeyDF.join(baselineExpressionKeyDF, Seq("key"), "full")
 
     val tissueBaselineInfoDF = unionByKey
-      .withColumn("Gene",
-                  when(col("GeneNormal").isNull, col("GeneBase")).otherwise(col("GeneNormal")))
-      .withColumn(
-        "Tissue",
-        when(col("TissueNormal").isNull, col("TissueBase")).otherwise(col("TissueNormal")))
-      .withColumn("LevelMapDef", when(col("LevelMap").isNull, -1).otherwise(col("LevelMap")))
-      .withColumn("ReliabilityMapDef",
-                  when(col("ReliabilityMap").isNull, false).otherwise(col("ReliabilityMap")))
-      .withColumn("rna", when(col("rna_val").isNull, 0).otherwise(col("rna_val")))
-      .withColumn("binned", when(col("binned_val").isNull, -1).otherwise(col("binned_val")))
-      .withColumn("zscore", when(col("zscore_val").isNull, -1).otherwise(col("zscore_val")))
-      .withColumn("unit", when(col("unit_val").isNull, "").otherwise(col("unit_val")))
-      .withColumn("Cell_type_def", when(col("Cell_type").isNull, null).otherwise(col("Cell_type")))
-      .select("Gene",
-              "Tissue",
-              "Cell_type_def",
-              "LevelMapDef",
-              "ReliabilityMapDef",
-              "rna",
-              "binned",
-              "zscore",
-              "unit")
+      .select(
+        coalesce(col("GeneNormal"), col("GeneBase")) as "Gene",
+        coalesce(col("TissueNormal"), col("TissueBase")) as "Tissue",
+        coalesce(col("LevelMap"), lit(-1)) as "LevelMapDef",
+        col("Cell_type") as "Cell_type_def",
+        coalesce(col("ReliabilityMap"), lit(false)) as "ReliabilityMapDef",
+        coalesce(col("rna_val"), lit(0)) as "rna",
+        coalesce(col("binned_val"), lit(-1)) as "binned",
+        coalesce(col("zscore_val"), lit(-1)) as "zscore",
+        coalesce(col("unit_val"), lit("")) as "unit"
+      )
 
     tissueBaselineInfoDF
 
