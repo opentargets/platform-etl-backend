@@ -64,6 +64,9 @@ object ETL extends LazyLogging {
       case "fda" =>
         logger.info("Running OpenFDA FAERS step")
         OpenFda()
+      case "ebisearch" =>
+        logger.info("Running EBI Search step")
+        EBISearch()
       case _ => logger.warn(s"step $step is unknown so nothing to execute")
     }
     logger.info(s"finished to run step ($step)")
