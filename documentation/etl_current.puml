@@ -10,7 +10,6 @@ skinparam artifact {
 ' steps
 artifact associations <<dependencies>>
 artifact associationOTF <<dependencies>>
-artifact cancerBiomarkers <<dependencies>>
 artifact disease <<noDependency>>
 artifact drug <<dependencies>>
 artifact eco <<noDependency>>
@@ -36,8 +35,6 @@ reactome --> associationOTF
 evidence --> associationOTF
 disease --> associationOTF
 target --> associationOTF
-
-target --> cancerBiomarkers
 
 target --> mousePhenotypes
 

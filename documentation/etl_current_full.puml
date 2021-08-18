@@ -10,7 +10,6 @@ skinparam artifact {
 ' steps
 artifact associations <<dependencies>>
 artifact associationOTF <<dependencies>>
-artifact cancerBiomarkers <<dependencies>>
 artifact disease <<noDependency>>
 artifact drug <<dependencies>>
 artifact eco <<noDependency>>
@@ -28,8 +27,6 @@ artifact safety <<dependencies>>
 'inputs
 ' association
 
-' cancer biomarkers
-interface biomarkers <<input>>
   ' disease and source mapping static files
 interface diseaseMapping <<input>>
 interface sourceMapping <<input>>
@@ -103,8 +100,6 @@ interface associationByOverallIndirect <<output>>
   ' aotf
 interface AotfClickhouseOutput <<output>>
 interface AotfElasticsearchOutput <<output>>
-  ' cancer biomarkers
-interface cancerBiomarkersOutput <<output>>
   ' disease
 interface diseaseOutput <<output>>
 interface diseaseHpoOutput <<output>>
@@ -159,13 +154,6 @@ diseaseOutput --> associationOTF
 targetOutput --> associationOTF
 associationOTF --> AotfClickhouseOutput
 associationOTF --> AotfElasticsearchOutput
-
-  ' cancer biomarkers
-biomarkers --> cancerBiomarkers
-diseaseMapping --> cancerBiomarkers
-sourceMapping --> cancerBiomarkers
-targetOutput --> cancerBiomarkers
-cancerBiomarkers --> cancerBiomarkersOutput
 
   ' disease
 efoOntology --> disease

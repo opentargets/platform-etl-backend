@@ -4,7 +4,6 @@
 ' steps
 artifact association
 artifact associationOTF
-artifact cancerBiomarkers
 artifact disease
 artifact drug
 artifact eco
@@ -29,9 +28,6 @@ target --> association
 evidence --> associationOTF
 disease --> associationOTF
 target --> associationOTF
-
-'cancerBiomarkers
-target --> cancerBiomarkers
 
 'connections
   ' not used
