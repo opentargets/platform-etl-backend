@@ -16,13 +16,15 @@ import org.apache.spark.sql.functions.{
   collect_set,
   explode,
   flatten,
+  size,
   split,
   struct,
   trim,
   typedLit,
-  udf
+  udf,
+  when
 }
-import org.apache.spark.sql.{DataFrame, Dataset, SparkSession}
+import org.apache.spark.sql.{DataFrame, Dataset, SparkSession, functions}
 
 import scala.jdk.CollectionConverters.asScalaIteratorConverter
 
@@ -67,7 +69,7 @@ object Target extends LazyLogging {
       inputDataFrames("chembl").data)
     val geneticConstraints: Dataset[GeneticConstraintsWithId] = GeneticConstraints(
       inputDataFrames("geneticConstraints").data)
-    val homology: Dataset[LinkedOrtholog] = Ortholog(
+    val homology: Dataset[Ortholog] = Ortholog(
       inputDataFrames("homologyDictionary").data,
       inputDataFrames("homologyCodingProteins").data,
       inputDataFrames("homologyGeneDictionary").data,
@@ -137,6 +139,8 @@ object Target extends LazyLogging {
         collect_set(col("uniprotProteinId")).as("uniprotProteinId"),
         flatten(collect_set(col("targetClass"))).as("targetClass")
       )
+      .withColumn("targetClass",
+                  when(size(col("targetClass")) < 1, null).otherwise(col("targetClass")))
       .withColumnRenamed("ensemblId", "id")
       .withColumn("proteinIds", safeArrayUnion(col("proteinIds"), col("uniprotProteinId")))
       .drop("uniprotId", "uniprotProteinId")
@@ -149,11 +153,30 @@ object Target extends LazyLogging {
     dataFrame.selectExpr(cols: _*)
   }
 
-  private def addOrthologue(orthologue: Dataset[LinkedOrtholog])(
-      dataFrame: DataFrame): DataFrame = {
+  private def addOrthologue(orthologue: Dataset[Ortholog])(dataFrame: DataFrame)(
+      implicit ss: SparkSession): DataFrame = {
     logger.info("Adding Homologues to dataframe")
+
+    /**
+      * The orthologs should appear in the order of closest to further from homosapiens. See opentargets/platform#1699
+      */
+    ss.udf.register("speciesDistanceSort", (o: Ortholog, o1: Ortholog) => {
+      o.priority compare o1.priority
+    })
+
+    // add in gene symbol for paralogs (human genes)
+    val homoDF = orthologue
+      .join(dataFrame.select(col("id"), col("approvedSymbol")), Seq("id"))
+      .withColumn("targetGeneSymbol", coalesce(col("targetGeneSymbol"), col("approvedSymbol")))
+      .drop("approvedSymbol")
+
+    val groupedById = nest(homoDF, homoDF.columns.filter(_ != "id").toList, "homologues")
+      .groupBy("id")
+      .agg(collect_list("homologues") as "homologues")
+      .selectExpr("id", "array_sort(homologues, (x, y) -> speciesDistanceSort(x, y)) as homologues")
+
     dataFrame
-      .join(orthologue, col("humanGeneId") === col("id"), "left_outer")
+      .join(groupedById, Seq("id"), "left_outer")
       .drop("humanGeneId")
   }
 

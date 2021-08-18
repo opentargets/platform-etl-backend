@@ -1,8 +1,7 @@
 package io.opentargets.etl.backend.target
 
 import com.typesafe.scalalogging.LazyLogging
-import io.opentargets.etl.backend.spark.Helpers.{nest, safeArrayUnion}
-import org.apache.spark.sql.functions.{array_contains, col, collect_list, struct, typedLit}
+import org.apache.spark.sql.functions.{array_contains, broadcast, col, typedLit}
 import org.apache.spark.sql.types.DoubleType
 import org.apache.spark.sql.{DataFrame, Dataset, SparkSession, functions}
 
@@ -18,13 +17,15 @@ object Ortholog extends LazyLogging {
     * @param targetSpecies    List of whitelisted species taken from the configuration file.
     * @return
     */
-  def apply(
-      homologyDict: DataFrame,
-      codingProteins: DataFrame,
-      homologyGeneDict: DataFrame,
-      targetSpecies: List[String])(implicit sparkSession: SparkSession): Dataset[LinkedOrtholog] = {
+  def apply(homologyDict: DataFrame,
+            codingProteins: DataFrame,
+            homologyGeneDict: DataFrame,
+            targetSpecies: List[String])(implicit sparkSession: SparkSession): Dataset[Ortholog] = {
     import sparkSession.implicits._
     logger.info("Processing homologs.")
+
+    val priority =
+      targetSpecies.map(_.takeWhile(_.isDigit)).zipWithIndex.toDF("speciesId", "priority")
 
     val homoDict = homologyDict
       .select(col("#name").as("name"),
@@ -39,38 +40,35 @@ object Ortholog extends LazyLogging {
         .select(col("a")(0) as "homology_gene_stable_id", col("a")(1) as "targetGeneSymbol")
 
     val homoDF = codingProteins
-      .filter("is_high_confidence = 1")
       .join(homoDict, col("homology_species") === homoDict("speciesName"))
-      .join(homoGeneDictDf, Seq("homology_gene_stable_id"))
+      .join(homoGeneDictDf, Seq("homology_gene_stable_id"), "left_outer")
       .select(
         col("gene_stable_id").as("id"),
         col("taxonomy_id").as("speciesId"),
         col("name").as("speciesName"),
         col("homology_type").as("homologyType"),
         col("homology_gene_stable_id").as("targetGeneId"),
+        col("is_high_confidence").as("isHighConfidence"),
         col("targetGeneSymbol"),
         col("identity").cast(DoubleType).as("queryPercentageIdentity"),
         col("homology_identity")
           .cast(DoubleType)
-          .as("targetPercentageIdentity")
+          .as("targetPercentageIdentity"),
       )
+      .join(broadcast(priority), Seq("speciesId"), "left_outer")
+      .as[Ortholog]
 
-    val groupedById = nest(homoDF, homoDF.columns.filter(_ != "id").toList, "homologues")
-      .withColumnRenamed("id", "humanGeneId")
-      .groupBy("humanGeneId")
-      .agg(collect_list("homologues") as "homologues")
-
-    groupedById.as[LinkedOrtholog]
+    homoDF
   }
 
 }
-
-case class LinkedOrtholog(humanGeneId: String, homologues: Array[Ortholog])
 
 case class Ortholog(speciesId: String,
                     speciesName: String,
                     homologyType: String,
                     targetGeneId: String,
                     targetGeneSymbol: String,
+                    isHighConfidence: String,
                     queryPercentageIdentity: Double,
-                    targetPercentageIdentity: Double)
+                    targetPercentageIdentity: Double,
+                    priority: Int)

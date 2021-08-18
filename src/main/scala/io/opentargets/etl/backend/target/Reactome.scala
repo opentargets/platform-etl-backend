@@ -4,7 +4,7 @@ import com.typesafe.scalalogging.LazyLogging
 import org.apache.spark.sql.functions.{col, collect_set, element_at, struct}
 import org.apache.spark.sql.{DataFrame, Dataset, SparkSession}
 
-case class Reactome(pathwayId: String, pathway: String, url: String, topLevelTerm: String)
+case class Reactome(pathwayId: String, pathway: String, topLevelTerm: String)
 
 case class Reactomes(id: String, pathways: Seq[Reactome])
 
@@ -35,7 +35,7 @@ object Reactome extends LazyLogging {
       .toDF(rpColumns: _*)
       .filter(col("species") === "Homo sapiens")
       .filter(col("ensemblId").startsWith("ENSG"))
-      .select("ensemblId", "reactomeId", "eventName", "url")
+      .select("ensemblId", "reactomeId", "eventName")
 
     // dataframe with top level term
     val topLevelTerms = reactomeEtlDf
@@ -52,7 +52,6 @@ object Reactome extends LazyLogging {
         collect_set(
           struct(col("reactomeId") as "pathwayId",
                  col("eventName") as "pathway",
-                 col("url"),
                  col("topLevelTerm"))) as "pathways")
       .withColumnRenamed("ensemblId", "id")
       .as[Reactomes]

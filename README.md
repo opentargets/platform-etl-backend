@@ -375,6 +375,12 @@ is quite slow and results in a moderately large dataset which we don't otherwise
 These notes refer to the Target step as rewritten in March 2021. If attempting to debug datasets completed before
 release 20.XX consult commits preceeding XXXXXX.
 
+#### Configuration
+
+- `hgnc-orthology-species` lists the species to include in Target orthologues. The order of this configuration list is
+  __significant__ as it is used to determine the order in which entries appear in the front-end. Items earlier in the
+  list are more closely related to homo sapiens than items further down the list.
+
 #### Inputs
 
 Inputs to the ETL are prepared by Platform Input Support (PIS). PIS does some minimal preprocessing, but it is possible
@@ -442,6 +448,148 @@ the data. Options for parsing the inputs should not need to be updated.
 
 This is used to select which species will be included in Target > Homologues. If you want to add a species to this list
 you must also update Platform Input Support to retrieve that species' gene data.
+
+### OpenFDA FAERS DB
+The openFDA drug adverse event API returns data that has been collected from the FDA Adverse Event Reporting System (FAERS),
+a database that contains information on adverse event and medication error reports submitted to FDA.
+
+#### Data Processing Summary
+
+1. OpenFDA "FAERS" data is collected from [here](https://open.fda.gov/apis/drug/event/download/) (~ 1000 files - May 2020)
+2. __Stage 1:__ Pre-processing of this data (OpenFdaEtl.scala):
+    - Filtering:
+        - Only reports submitted by health professionals (*primarysource.qualification* in (1,2,3)).
+        - Exclude reports that resulted in death (no entries with *seriousnessdeath*=1).
+        - Only drugs that were considered by the reporter to be the cause of the event (*drugcharacterization*=1).
+        - Remove events (but not the whole report which might have multiple events) that are [blacklisted ](https://raw.githubusercontent.com/opentargets/platform-etl-backend/master/src/main/resources/blacklisted_events.txt) (see [Blacklist](#blacklist)).
+    - Match FDA drug names to Open Targets drug names & then map all these back to their ChEMBL id:
+        - Open Targets drug index fields:  *‘chembl_id’, ‘synonyms’, ‘pref_name’, ‘trade_names’*.
+        - openFDA adverse event data fields: *‘drug.medicinalproduct’, ‘drug.openfda.generic_name’, ‘drug.openfda.brand_name’, ‘drug.openfda.substance_name’*.
+    - Generate table where each row is a unique drug-event pair and count the number of report IDs for each pair, the total number of reports, the total number of reports per drug and the total number of reports per event. Using these calculate the fields required for estimating the significance of each event occuring for each drug, e.g. log-likelihood ratio, (llr) (based on [FDA LRT method](https://openfda.shinyapps.io/LRTest/_w_c5c2d04d/lrtmethod.pdf)).
+3. __Stage 2:__ Calculate significance of each event for all drugs based on the FDA LRT method (Monte Carlo simulation) (MonteCarloSampling.scala).
+
+#### Sample output
+
+```json lines
+{"chembl_id":"CHEMBL1231","event":"cardiac output decreased","meddraCode": ..., "count":1,"llr":8.392140045623442,"critval":4.4247991585588675}
+{"chembl_id":"CHEMBL1231","event":"cardiovascular insufficiency","meddraCode": ..., "count":1,"llr":7.699049533524681,"critval":4.4247991585588675}
+```
+Notice that the JSON output is actually JSONL. Each line is a single result object.
+
+#### Configuration
+The base configuration is found under `src/main/resources/reference.conf`, `openfda` section.
+
+```scala
+openfda {
+    // NOTE - Each step seems to have a commong baseline path that should be refactored
+    step-root-input-path = ${common.input}"/fda"
+    step-root-output-path = ${common.output}"/fda"
+    // Source data
+    chembl-drugs {
+        format = "json"
+        path = ${drug.outputs.drug.path}"/*.json"
+    }
+    fda-data {
+        format = "json"
+        path = ${openfda.step-root-input-path}"/*.jsonl"
+    }
+    blacklisted-events {
+        format = "csv"
+        path = ${openfda.step-root-input-path}"/blacklisted_events.txt"
+        options = [
+            {k: "sep", v: "\\t"},
+            {k: "ignoreLeadingWhiteSpace", v: "true"},
+            {k: "ignoreTrailingWhiteSpace", v: "true"}
+        ]
+    }
+    meddra {
+        meddra-preferred-terms {
+            format = "csv"
+            // Change this to whatever location the data is sitting on
+            path = ${openfda.step-root-input-path}"/meddra/MedAscii/pt.asc"
+        }
+        meddra-low-level-terms {
+            format = "csv"
+            // Change this to whatever location the data is sitting on
+            path = ${openfda.step-root-input-path}"/meddra/MedAscii/llt.asc"
+        }
+    }
+    meddra-preferred-terms-cols = ["pt_code", "pt_name"]
+    meddra-low-level-terms-cols = ["llt_code", "llt_name"]
+    montecarlo {
+        permutations: 100
+        percentile: 0.95
+    }
+    sampling {
+        size = 0.1
+        enabled = false
+    }
+    outputs = {
+        fda-unfiltered {
+            format = "parquet"
+            path = ${openfda.step-root-output-path}"/unfiltered"
+        }
+        fda-results {
+            format = "parquet"
+            path = ${openfda.step-root-output-path}"/results"
+        }
+        sampling {
+            format = "parquet"
+            path = ${openfda.step-root-output-path}"/sample"
+        }
+    }
+```
+
+#### CHEMBL Drugs
+Refers to the `drug` output this pipeline's drug step.
+
+#### OpenFDA FAERS Data
+This section refers to the path where the OpenFDA FAERS DB dump can be found, for processing.
+
+#### Blacklisted Events
+Path to the file where to find the list of events that need to be removed from the events in OpenFDA FAERS data, as described above.
+This list is manually curated.
+
+#### Meddra (optional)
+This pipeline uses an _optional_ subset of data from the [Medical Dictionary for Regulatory Activities](https://www.meddra.org)
+to link the adverse event terms used by the FDA back to their standardised names.
+
+This data is included in the pipeline output provided by Open Targets, but if you are running the pipeline locally you
+need to download the most recent Meddra release which is subject to licensing restrictions.
+
+In this section, the path to Meddra data release, if available, is specified. Remove key from configuration file if data is not available. As this is proprietary
+data it must be provided on an optional basis for users who do not have this dataset.
+
+#### Montecarlo
+Specify the number of permutations and the relevance percentile threshhold.
+
+#### Sampling
+This subsection configures the sampling output from this ETL step.
+
+#### Outputs
+ETL Step outputs.
+
+##### Unfiltered OpenFDA
+This is the OpenFDA FAERS data just before running Montecarlo on it, with or without (depending on whether it was provided) Meddra information.
+
+##### OpenFDA Processing Results
+This is the result data from this ETL step.
+
+##### Sampling
+As the FAERS database is very large (~130GB) it might be useful to extract a stratified sample for analysis and testing
+purposes.
+
+> Caution: Execution of the job will be very slow with sampling enabled because of the large amount of
+> data which needs to be written to disk!
+
+The sampling method will return a subset of the original data, with equal proportions of drugs which likely would have
+had significant results during MC sampling and those that did not. For instance, if there are 6000 unique ChEMBL entries
+in the entire dataset, and 500 would have had significant adverse effects, and sampling is set to 0.10, we would expect
+that the sampled data would have around 600 ChEMBL entries, of which 50 may be significant. As the sampling is random,
+and the significance of an adverse event depends both on the number of adverse events and drugs in a sample, results are
+not reproducible. Sampling is provided for basic validation and testing.
+
+The sampled dataset is saved to disk, and can be used as an input for subsequent jobs.
 
 ## Development environment notes
 
