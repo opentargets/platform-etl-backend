@@ -121,7 +121,7 @@ object Expression extends LazyLogging {
       .filter(col("labelNew").isNotNull)
 
     val hasLabelFiltered = hasLabels
-      .withColumn("TissueDef", col("Tissue"))
+      .withColumnRenamed("Tissue", "TissueDef")
       .select("Gene", "TissueDef")
 
     val missingLabel = emptyLabels.except(hasLabelFiltered)
@@ -129,8 +129,7 @@ object Expression extends LazyLogging {
     val selectMissingRecords = normalTissueWithLabel
       .join(missingLabel, Seq("Gene"), "right")
       .where(col("TissueDef") === col("Tissue"))
-      .withColumn("labelDef", col("TissueDef"))
-      .drop("TissueDef")
+      .withColumnRenamed("TissueDef", "labelDef")
 
     val validLabels = hasLabels
       .withColumn("labelDef", col("LabelNew"))
