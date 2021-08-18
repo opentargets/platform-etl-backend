@@ -122,10 +122,23 @@ object Configuration extends LazyLogging {
       outputs: InteractionsOutput
   )
 
+  case class ExpressionOutput(
+      diseases: IOResourceConfig
+  )
+
+  case class ExpressionSection(
+      rna: IOResourceConfig,
+      binned: IOResourceConfig,
+      zscore: IOResourceConfig,
+      tissues: IOResourceConfig,
+      efomap: IOResourceConfig,
+      exprhierarchy: IOResourceConfig,
+      output: IOResourceConfig
+  )
+
   case class Inputs(
       target: InputInfo,
       eco: InputInfo,
-      expression: InputInfo,
       tep: InputInfo,
       mousephenotypes: InputInfo
   )
@@ -253,6 +266,7 @@ object Configuration extends LazyLogging {
       aotf: AOTFSection,
       target: Target,
       mousePhenotypes: MousePhenotypes,
+      expression: ExpressionSection,
       openfda: OpenfdaSection
   )
 }
