@@ -64,6 +64,9 @@ object ETL extends LazyLogging {
       case "associationOTF" =>
         logger.info("run step associationOTF")
         AssociationOTF()
+      case "fda" =>
+        logger.info("Running OpenFDA FAERS step")
+        OpenFda()
       case _ => logger.warn(s"step $step is unknown so nothing to execute")
     }
     logger.info(s"finished to run step ($step)")

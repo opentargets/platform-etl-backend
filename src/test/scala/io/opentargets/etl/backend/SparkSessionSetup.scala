@@ -6,7 +6,7 @@ trait SparkSessionSetup {
 
   lazy implicit val sparkSession = SparkSession
     .builder()
-    .master("local[2]")
+    .master("local[*]")
     .appName("etlSparkTest")
     .config("spark.driver.maxResultSize", "0")
     .getOrCreate()
