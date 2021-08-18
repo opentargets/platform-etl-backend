@@ -43,10 +43,6 @@ object Expression extends LazyLogging {
       .select(normalTissueNormDF.col("*"),
               reliabilityMap(col("Reliability")).as("ReliabilityMap"),
               levelMap(col("Level")).as("LevelMap"))
-    //.withColumn("binned_val", lit(-1))
-    //.withColumn("zscore_val", lit(-1))
-    //.withColumn("rna_val", lit(0))
-
   }
 
   private def standardiseBaseline(df: DataFrame): DataFrame = {
@@ -129,10 +125,8 @@ object Expression extends LazyLogging {
     validLabels
   }
 
-  private def generateExpressions(normalTissueDF: DataFrame,
-                                  baselineExpressionDF: DataFrame,
-                                  efoTissueMap: DataFrame): DataFrame = {
-
+  private def generateBaselineInfo(normalTissueDF: DataFrame,
+                                   baselineExpressionDF: DataFrame): DataFrame = {
     val normalTissueKeyDF =
       normalTissueDF
         .withColumn("key", concat(col("Gene"), lit('-'), col("Tissue")))
@@ -145,16 +139,9 @@ object Expression extends LazyLogging {
         .withColumnRenamed("Gene", "GeneBase")
         .withColumnRenamed("Tissue", "TissueBase")
 
-    val mix = normalTissueKeyDF.join(baselineExpressionKeyDF, Seq("key"), "full")
+    val unionByKey = normalTissueKeyDF.join(baselineExpressionKeyDF, Seq("key"), "full")
 
-    mix.filter(col("GeneBase") === "ENSG00000000003")
-
-    /* .filter(col("GeneBase") === "ENSG00000000003")
-      .filter(col("Gene") === "ENSG00000090520")
-      .filter(col("Tissue") === "cerebral cortex")
-     */
-
-    val normalTissuesUnion = mix
+    val tissueBaselineInfoDF = unionByKey
       .withColumn("Gene",
                   when(col("GeneNormal").isNull, col("GeneBase")).otherwise(col("GeneNormal")))
       .withColumn(
@@ -178,14 +165,24 @@ object Expression extends LazyLogging {
               "zscore",
               "unit")
 
-    val validTissues = selectTissues(normalTissuesUnion, efoTissueMap)
+    tissueBaselineInfoDF
+
+  }
+
+  private def generateExpressions(normalTissueDF: DataFrame,
+                                  baselineExpressionDF: DataFrame,
+                                  efoTissueMap: DataFrame): DataFrame = {
+
+    val tissueBaselineInfoDF = generateBaselineInfo(normalTissueDF, baselineExpressionDF)
+
+    val validTissues = selectTissues(tissueBaselineInfoDF, efoTissueMap)
       .drop("efo_code", "labelNew", "label", "name", "expressionId", "tissue_internal_id", "Tissue")
       .distinct
 
     val protein = validTissues
       .groupBy("Gene", "labelDef", "efoId", "anatomical_systems", "organs")
       .agg(
-        first(col("ReliabilityMapDef"), ignoreNulls = true).as("reliability"),
+        max(col("ReliabilityMapDef")).as("reliability"),
         max(col("LevelMapDef")).as("level"),
         struct(max(col("rna")).as("value"),
                max(col("zscore")).as("zscore"),
@@ -245,6 +242,7 @@ object Expression extends LazyLogging {
     val inputDataFrames = IoHelpers.readFrom(mappedInputs)
 
     val normalTissueDF = transformNormalTissue(inputDataFrames("tissues").data)
+
     val efoTissueMap = efoTissueMapping(inputDataFrames("mapwithefos").data,
                                         inputDataFrames("expressionhierarchy").data)
 
@@ -254,7 +252,6 @@ object Expression extends LazyLogging {
 
     val expressionDF = generateExpressions(normalTissueDF, baselineExpressionDF, efoTissueMap)
     expressionDF
-
   }
 
   def apply()(implicit context: ETLSessionContext): IOResources = {
