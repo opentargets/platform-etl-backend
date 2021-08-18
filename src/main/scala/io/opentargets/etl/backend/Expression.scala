@@ -5,16 +5,19 @@ import org.apache.spark.sql._
 import org.apache.spark.sql.functions._
 import io.opentargets.etl.backend.spark.{IOResource, IOResourceConfig, IoHelpers}
 import io.opentargets.etl.backend.spark.IoHelpers.IOResources
-import io.opentargets.etl.backend.spark.Helpers.{
-  transposeDataframe,
-  unionDataframeDifferentSchema,
-  validateDF
-}
-import org.scalacheck.Prop.True
+import io.opentargets.etl.backend.spark.Helpers.{transposeDataframe, unionDataframeDifferentSchema}
 
+/**
+  * This step is replacing the process which was previously done in the `data-pipeline` project
+  * The next step is to replace this business logic with a new approach.
+  */
 // This is option/step expression in the config file
 object Expression extends LazyLogging {
 
+  /*
+     Replace fields name with _
+     Map reliability and level to specific set of mapping.
+   */
   private def transformNormalTissue(normalTissueDF: DataFrame): DataFrame = {
     val reliabilityMap: Column = (typedLit(
       Map(
@@ -45,11 +48,17 @@ object Expression extends LazyLogging {
               levelMap(col("Level")).as("LevelMap"))
   }
 
+  /* Rename the dataframe fields with standard fields.
+   */
   private def standardiseBaseline(df: DataFrame): DataFrame = {
     df.withColumnRenamed("key", "Tissue")
       .withColumnRenamed("ID", "Gene")
   }
 
+  /*
+    Given three baseline dataframes with the same schema it generates a uniq dataframe per rows
+    | Gene, Tissue, rna_val, binned, zscore, unit |
+   */
   private def baselineExpressionMaps(rnaDF: DataFrame,
                                      binnedDF: DataFrame,
                                      zscoreDF: DataFrame): DataFrame = {
@@ -75,6 +84,9 @@ object Expression extends LazyLogging {
     baseExpressionGrouped
   }
 
+  /*
+    Given tissue and efo info it generate the correlated info.
+   */
   private def efoTissueMapping(mapEfos: DataFrame, expressions: DataFrame): DataFrame = {
     val expressionsRenamed = expressions
       .withColumnRenamed("_c0", "expressionId")
@@ -90,6 +102,9 @@ object Expression extends LazyLogging {
     mappedInfo
   }
 
+  /*
+     It generates the list of valid gene and relative labels.
+   */
   private def selectTissues(tissues: DataFrame, efoTissueMap: DataFrame) = {
     val normalTissueLabel =
       tissues.join(efoTissueMap, col("labelNew") === col("Tissue"), "left")
@@ -125,6 +140,9 @@ object Expression extends LazyLogging {
     validLabels
   }
 
+  /*
+    Given the list of gene, tissues it fills the info with rna,level,rscore and unit info.
+   */
   private def generateBaselineInfo(normalTissueDF: DataFrame,
                                    baselineExpressionDF: DataFrame): DataFrame = {
     val normalTissueKeyDF =
@@ -168,7 +186,9 @@ object Expression extends LazyLogging {
     tissueBaselineInfoDF
 
   }
-
+  /*
+     Generate baseline expressions dataframe.
+   */
   private def generateExpressions(normalTissueDF: DataFrame,
                                   baselineExpressionDF: DataFrame,
                                   efoTissueMap: DataFrame): DataFrame = {
@@ -217,7 +237,7 @@ object Expression extends LazyLogging {
                    col("cell_type").as("cell_type")).as("protein")
           )).as("tissues")
       )
-      .withColumnRenamed("Gene", "gene")
+      .withColumnRenamed("Gene", "id")
 
     hpa
 
