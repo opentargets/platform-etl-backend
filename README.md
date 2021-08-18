@@ -424,6 +424,15 @@ the data. Options for parsing the inputs should not need to be updated.
     - Raw reactome file from [Reactome downloads](https://reactome.org/download-data) page, using
       the [Ensembl to pathways file](https://reactome.org/download/current/Ensembl2Reactome.txt)
     - Output of ETL step `reactome`
+2. Target safety
+    - _ToxCast_ data from data team, using latest from [otar-core](gs://otar001-core/TargetSafety/data_files/ToxCast*.
+      tsv)
+    - _adverseEvents_ and _safetyRisk_ data available from [otar-core](gs://otar001-core/TargetSafety/data_files/).
+        - Note: Prior to the 21.09 release this information was stored in a spreadsheet which had not been updated since
+          2019. This spreadsheet has been converted into json/parquet files using
+          a [utility script](scripts/deprecate_target_safety_spreadsheet.sc). This script should not have to be re-run
+          as __the spreadsheet should no longer be used__. If the underlying data changes it should be modified in the
+          json/parquet files.
 
 #### Homology species whitelist
 
