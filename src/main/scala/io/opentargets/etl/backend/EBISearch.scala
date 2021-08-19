@@ -10,17 +10,6 @@ import org.apache.spark.sql.SparkSession
 
 object EBISearch extends LazyLogging {
 
-  private def exportToCSV(dataToSave: DataFrame, path: String) = {
-
-    dataToSave
-      .repartition(1)
-      .write
-      .option("header", "true")
-      .option("sep", ",")
-      .mode("overwrite")
-      .csv(path)
-  }
-
   def generateDatasets(resources: IoHelpers.IOResources): Map[String, DataFrame] = {
 
     val diseases = resources("diseases").data.withColumnRenamed("id", "diseaseId")
@@ -64,9 +53,13 @@ object EBISearch extends LazyLogging {
     val dataToSave = generateDatasets(inputDataFrames)
 
     logger.info(s"write to ${context.configuration.common.output}/ebisearch")
-    exportToCSV(dataToSave("ebisearchEvidence"), EBIConfiguration.outputs.ebisearchEvidence.path)
-    exportToCSV(dataToSave("ebisearchAssociations"),
-                EBIConfiguration.outputs.ebisearchAssociations.path)
-
+    IoHelpers.writeTo(
+      Map(
+        "ebisearchEvidence" -> IOResource(dataToSave("ebisearchEvidence"),
+                                          EBIConfiguration.outputs.ebisearchEvidence),
+        "ebisearchAssociations" -> IOResource(dataToSave("ebisearchAssociations"),
+                                              EBIConfiguration.outputs.ebisearchAssociations)
+      )
+    )
   }
 }
