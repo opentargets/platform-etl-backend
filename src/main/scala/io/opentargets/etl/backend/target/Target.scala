@@ -1,7 +1,7 @@
 package io.opentargets.etl.backend.target
 
 import com.typesafe.scalalogging.LazyLogging
-import io.opentargets.etl.backend.spark.Helpers.{mkFlattenArray, nest, safeArrayUnion}
+import io.opentargets.etl.backend.spark.Helpers.{mkFlattenArray, nest, safeArrayUnion, validateDF}
 import io.opentargets.etl.backend.{Configuration, ETLSessionContext}
 import io.opentargets.etl.backend.spark.IoHelpers.IOResources
 import io.opentargets.etl.backend.spark.{CsvHelpers, IOResource, IOResourceConfig, IoHelpers}
@@ -10,6 +10,7 @@ import org.apache.spark.sql.functions.{
   array,
   array_join,
   array_union,
+  broadcast,
   coalesce,
   col,
   collect_list,
@@ -25,6 +26,7 @@ import org.apache.spark.sql.functions.{
   when
 }
 import org.apache.spark.sql.{DataFrame, Dataset, SparkSession, functions}
+import org.apache.spark.storage.StorageLevel
 
 import scala.jdk.CollectionConverters.asScalaIteratorConverter
 
@@ -48,6 +50,7 @@ object Target extends LazyLogging {
     val inputDataFrames = getMappedInputs(context.configuration.target)
 
     // 2. prepare intermediate dataframes per source
+    val chemicalProbes: DataFrame = inputDataFrames("chemicalProbes").data
     val hgnc: Dataset[Hgnc] = Hgnc(inputDataFrames("hgnc").data)
     val hallmarks: Dataset[HallmarksWithId] = Hallmarks(inputDataFrames("hallmarks").data)
     val ncbi: Dataset[Ncbi] = Ncbi(inputDataFrames("ncbi").data)
@@ -103,7 +106,7 @@ object Target extends LazyLogging {
                     mkFlattenArray(col("subcellularLocations"), col("locations")))
         .drop("locations")
 
-    hgncEnsemblTepGoDF
+    val targetInterim = hgncEnsemblTepGoDF
       .join(uniprotGroupedByEnsemblIdDF, Seq("id"), "left_outer")
       .withColumn("proteinIds", safeArrayUnion(col("proteinIds"), col("pid")))
       .withColumn("dbXrefs",
@@ -111,7 +114,14 @@ object Target extends LazyLogging {
       .withColumn("synonyms", safeArrayUnion(col("synonyms"), col("hgncSynonyms")))
       .drop("pid", "hgncId", "hgncSynonyms", "uniprotIds", "signalP", "xRef")
       .join(geneticConstraints, Seq("id"), "left_outer")
+      .transform(filterAndSortProteinIds)
       .transform(removeRedundantXrefs)
+      .persist(StorageLevel.MEMORY_AND_DISK_SER)
+
+    val ensemblIdLookupDf = generateEnsgToSymbolLookup(targetInterim)
+
+    targetInterim
+      .transform(addChemicalProbes(chemicalProbes, ensemblIdLookupDf))
       .transform(filterAndSortProteinIds)
       .transform(addOrthologue(homology))
       .transform(addTractability(tractability))
@@ -119,6 +129,22 @@ object Target extends LazyLogging {
       .transform(addTargetSafety(safety))
       .transform(addReactome(reactome))
 
+  }
+
+  /*
+  Returns dataframe [ensgId, name] mapping ensembl Ids to other common names.
+
+  Some of the input data sets do not use Ensembl Ids. Commonly we see uniprot accessions or protein Ids. This dataframe
+  can be used as a 'helper' to link these datasets together.
+   */
+  private def generateEnsgToSymbolLookup(df: DataFrame): DataFrame = {
+    df.select(col("id"),
+              coalesce(col("proteinIds.id"), array()) as "pid",
+              array(col("approvedSymbol")) as "as")
+      .select(col("id"), flatten(array(col("pid"), col("as"))) as "s")
+      .select(col("id") as "ensgId", explode(col("s")) as "name")
+      .distinct
+      .persist(StorageLevel.MEMORY_AND_DISK_SER)
   }
 
   def addEnsemblIdsToUniprot(hgnc: Dataset[Hgnc], uniprot: DataFrame): DataFrame = {
@@ -207,6 +233,35 @@ object Target extends LazyLogging {
     interimTargetDf.join(reactomeDataDf, Seq("id"), "left_outer")
   }
 
+  /**
+    * Group chemical probes by ensembl ID and add to interim target dataframe.
+    *
+    * @param cpDF              raw chemical probes dataset provided by PIS
+    * @param ensemblIdLookupDF map from ensg -> other names.
+    * @param targetDF          interim target dataset
+    * @return target dataset with chemical probes added
+    */
+  private def addChemicalProbes(cpDF: DataFrame, ensemblIdLookupDF: DataFrame)(
+      targetDF: DataFrame): DataFrame = {
+    logger.info("Add chemical probes to target.")
+    val cpWithEnsgId = cpDF
+      .join(ensemblIdLookupDF, col("targetFromSourceId") === col("name"))
+      .drop("name")
+
+    val cpGroupedById = cpWithEnsgId
+      .select(
+        col("ensgId") as "id",
+        struct(
+          cpDF.columns.filterNot(_ == "ensgId").map(col): _*
+        ) as "probe"
+      )
+      .groupBy(col("id"))
+      .agg(
+        collect_list(col("probe")) as "chemicalProbes"
+      )
+    targetDF.join(broadcast(cpGroupedById), Seq("id"), "left_outer")
+  }
+
   /** Return map on input IOResources */
   private def getMappedInputs(targetConfig: Configuration.Target)(
       implicit sparkSession: SparkSession): Map[String, IOResource] = {
@@ -219,109 +274,38 @@ object Target extends LazyLogging {
 
     val targetInputs = targetConfig.input
     val mappedInputs = Map(
-      "chembl" -> IOResourceConfig(
-        targetInputs.chembl.format,
-        targetInputs.chembl.path
-      ),
-      "ensembl" -> IOResourceConfig(
-        targetInputs.ensembl.format,
-        targetInputs.ensembl.path
-      ),
-      "geneticConstraints" -> IOResourceConfig(
-        targetInputs.geneticConstraints.format,
-        targetInputs.geneticConstraints.path,
-        options = targetInputs.geneticConstraints.options
-      ),
-      "geneOntologyHuman" -> IOResourceConfig(
-        targetInputs.geneOntology.format,
-        targetInputs.geneOntology.path,
-        options = targetInputs.geneOntology.options
-      ),
-      "geneOntologyRna" -> IOResourceConfig(
-        targetInputs.geneOntologyRna.format,
-        targetInputs.geneOntologyRna.path,
-        options = targetInputs.geneOntologyRna.options
-      ),
-      "geneOntologyRnaLookup" -> IOResourceConfig(
-        targetInputs.geneOntologyRnaLookup.format,
-        targetInputs.geneOntologyRnaLookup.path,
-        options = targetInputs.geneOntologyRnaLookup.options
-      ),
+      "chembl" -> targetInputs.chembl,
+      "chemicalProbes" -> targetInputs.chemicalProbes,
+      "ensembl" -> targetInputs.ensembl,
+      "geneticConstraints" -> targetInputs.geneticConstraints,
+      "geneOntologyHuman" -> targetInputs.geneOntology,
+      "geneOntologyRna" -> targetInputs.geneOntologyRna,
+      "geneOntologyRnaLookup" -> targetInputs.geneOntologyRnaLookup,
       "geneOntologyEcoLookup" -> targetInputs.geneOntologyEco,
-      "hallmarks" -> IOResourceConfig(
-        targetInputs.hallmarks.format,
-        targetInputs.hallmarks.path,
-        options = targetInputs.hallmarks.options
-      ),
-      "hgnc" -> IOResourceConfig(
-        targetInputs.hgnc.format,
-        targetInputs.hgnc.path
-      ),
-      "homologyCodingProteins" -> IOResourceConfig(
-        targetInputs.homologyCodingProteins.format,
-        targetInputs.homologyCodingProteins.path,
-        options = targetInputs.homologyCodingProteins.options
-      ),
-      "homologyDictionary" -> IOResourceConfig(
-        targetInputs.homologyDictionary.format,
-        targetInputs.homologyDictionary.path,
-        options = targetInputs.homologyDictionary.options
-      ),
+      "hallmarks" -> targetInputs.hallmarks,
+      "hgnc" -> targetInputs.hgnc,
+      "homologyCodingProteins" -> targetInputs.homologyCodingProteins,
+      "homologyDictionary" -> targetInputs.homologyDictionary,
       "homologyGeneDictionary" -> targetInputs.homologyGeneDictionary,
-      "hpa" -> IOResourceConfig(
-        targetInputs.hpa.format,
-        targetInputs.hpa.path,
-        options = targetInputs.hpa.options
-      ),
-      "ncbi" -> IOResourceConfig(
-        targetInputs.ncbi.format,
-        targetInputs.ncbi.path,
-        options =
-          if (targetInputs.ncbi.options.isDefined) targetInputs.ncbi.options
-          else CsvHelpers.tsvWithHeader
-      ),
-      "orthologs" -> IOResourceConfig(
-        targetInputs.ortholog.format,
-        targetInputs.ortholog.path,
-        options = CsvHelpers.tsvWithHeader
-      ),
-      "projectScoresIds" -> IOResourceConfig(
-        targetInputs.psGeneIdentifier.format,
-        targetInputs.psGeneIdentifier.path,
-        options = targetInputs.psGeneIdentifier.options
-      ),
-      "projectScoresEssentialityMatrix" -> IOResourceConfig(
-        targetInputs.psEssentialityMatrix.format,
-        targetInputs.psEssentialityMatrix.path,
-        options = targetInputs.psEssentialityMatrix.options
-      ),
+      "hpa" -> targetInputs.hpa,
+      "ncbi" -> targetInputs.ncbi.copy(options = targetInputs.ncbi.options match {
+        case Some(value) => Option(value)
+        case None        => CsvHelpers.tsvWithHeader
+      }),
+      "orthologs" -> targetInputs.ortholog.copy(options = CsvHelpers.tsvWithHeader),
+      "projectScoresIds" -> targetInputs.psGeneIdentifier,
+      "projectScoresEssentialityMatrix" -> targetInputs.psEssentialityMatrix,
       "reactomeEtl" -> targetInputs.reactomeEtl,
       "reactomePathways" -> targetInputs.reactomePathways,
-      "safetyAE" -> IOResourceConfig(
-        targetInputs.safetyAdverseEvent.format,
-        targetInputs.safetyAdverseEvent.path
-      ),
-      "safetySR" -> IOResourceConfig(
-        targetInputs.safetySafetyRisk.format,
-        targetInputs.safetySafetyRisk.path
-      ),
-      "safetyTox" -> IOResourceConfig(
-        targetInputs.safetyToxicity.format,
-        targetInputs.safetyToxicity.path,
+      "safetyAE" -> targetInputs.safetyAdverseEvent,
+      "safetySR" -> targetInputs.safetySafetyRisk,
+      "safetyTox" -> targetInputs.safetyToxicity.copy(
         options = targetInputs.safetyToxicity.options match {
           case Some(value) => Option(value)
           case None        => CsvHelpers.tsvWithHeader
-        }
-      ),
-      "tep" -> IOResourceConfig(
-        targetInputs.tep.format,
-        targetInputs.tep.path
-      ),
-      "tractability" -> IOResourceConfig(
-        targetInputs.tractability.format,
-        targetInputs.tractability.path,
-        options = targetInputs.tractability.options
-      )
+        }),
+      "tep" -> targetInputs.tep,
+      "tractability" -> targetInputs.tractability
     )
 
     IoHelpers

@@ -6,7 +6,7 @@ import org.scalatest.matchers.should.Matchers.convertToAnyShouldWrapper
 
 class TractabilityTest extends EtlSparkUnitTest {
 
-  "The raw gnoman loss of function data set" should "be properly converted into genetic constraints" in {
+  "The raw tractability dataset" should "be properly converted into TractabilityWithId instances" in {
     import sparkSession.implicits._
     // given
     val input = sparkSession.read
