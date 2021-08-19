@@ -1,7 +1,7 @@
 package io.opentargets.etl.backend.target
 
 import com.typesafe.scalalogging.LazyLogging
-import io.opentargets.etl.backend.spark.Helpers.{mkFlattenArray, nest, safeArrayUnion, validateDF}
+import io.opentargets.etl.backend.spark.Helpers.{mkFlattenArray, nest, safeArrayUnion}
 import io.opentargets.etl.backend.{Configuration, ETLSessionContext}
 import io.opentargets.etl.backend.spark.IoHelpers.IOResources
 import io.opentargets.etl.backend.spark.{CsvHelpers, IOResource, IOResourceConfig, IoHelpers}
@@ -366,7 +366,7 @@ object Target extends LazyLogging {
     *
     * @return dataframe with same schema as input.
     */
-  private def filterAndSortProteinIds(dataFrame: DataFrame): DataFrame = {
+  def filterAndSortProteinIds(dataFrame: DataFrame): DataFrame = {
     val splitToken = "-"
     val ensemblId = "eid"
     val proteinId = "proteinIds"
