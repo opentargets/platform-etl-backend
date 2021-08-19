@@ -217,12 +217,15 @@ object Configuration extends LazyLogging {
   }
 
   // --- EBISearch configuration
+  case class EBISearchOutputSection(ebisearchAssociations: IOResourceConfig,
+                                    ebisearchEvidence: IOResourceConfig)
+
   case class EBISearchSection(
       diseaseEtl: IOResourceConfig,
       targetEtl: IOResourceConfig,
       associationETL: IOResourceConfig,
       evidenceETL: IOResourceConfig,
-      output: IOResourceConfig
+      outputs: EBISearchOutputSection
   )
 
   // --- OpenFDA FAERS configuration --- //
