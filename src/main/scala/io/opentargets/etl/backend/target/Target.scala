@@ -1,7 +1,7 @@
 package io.opentargets.etl.backend.target
 
 import com.typesafe.scalalogging.LazyLogging
-import io.opentargets.etl.backend.spark.Helpers.{mkFlattenArray, nest, safeArrayUnion, validateDF}
+import io.opentargets.etl.backend.spark.Helpers.{mkFlattenArray, nest, safeArrayUnion}
 import io.opentargets.etl.backend.{Configuration, ETLSessionContext}
 import io.opentargets.etl.backend.spark.IoHelpers.IOResources
 import io.opentargets.etl.backend.spark.{CsvHelpers, IOResource, IOResourceConfig, IoHelpers}
@@ -82,11 +82,6 @@ object Target extends LazyLogging {
       Reactome(inputDataFrames("reactomePathways").data, inputDataFrames("reactomeEtl").data)
     val tractability: Dataset[TractabilityWithId] = Tractability(
       inputDataFrames("tractability").data)
-    val safety: Dataset[TargetSafety] = Safety(
-      inputDataFrames("safetyAE").data,
-      inputDataFrames("safetySR").data,
-      inputDataFrames("safetyTox").data
-    )
 
     // 3. merge intermediate data frames into final
     val hgncEnsemblTepGoDF = mergeHgncAndEnsembl(hgnc, ensemblDf)
@@ -113,20 +108,20 @@ object Target extends LazyLogging {
                   safeArrayUnion(col("hgncId"), col("dbXrefs"), col("signalP"), col("xRef")))
       .withColumn("synonyms", safeArrayUnion(col("synonyms"), col("hgncSynonyms")))
       .drop("pid", "hgncId", "hgncSynonyms", "uniprotIds", "signalP", "xRef")
-      .join(geneticConstraints, Seq("id"), "left_outer")
-      .transform(filterAndSortProteinIds)
-      .transform(removeRedundantXrefs)
       .persist(StorageLevel.MEMORY_AND_DISK_SER)
 
     val ensemblIdLookupDf = generateEnsgToSymbolLookup(targetInterim)
 
     targetInterim
+      .join(geneticConstraints, Seq("id"), "left_outer")
+      .transform(filterAndSortProteinIds)
+      .transform(removeRedundantXrefs)
       .transform(addChemicalProbes(chemicalProbes, ensemblIdLookupDf))
       .transform(filterAndSortProteinIds)
       .transform(addOrthologue(homology))
       .transform(addTractability(tractability))
       .transform(addNcbiEntrezSynonyms(ncbi))
-      .transform(addTargetSafety(safety))
+      .transform(addTargetSafety(inputDataFrames, ensemblIdLookupDf))
       .transform(addReactome(reactome))
 
   }
@@ -222,7 +217,12 @@ object Target extends LazyLogging {
       .drop("s")
   }
 
-  private def addTargetSafety(tsDS: Dataset[TargetSafety])(dataFrame: DataFrame): DataFrame = {
+  private def addTargetSafety(inputDataFrames: IOResources, geneToEnsemblLookup: DataFrame)(
+      dataFrame: DataFrame)(implicit sparkSession: SparkSession): DataFrame = {
+    val tsDS: Dataset[TargetSafety] = Safety(inputDataFrames("safetyAE").data,
+                                             inputDataFrames("safetySR").data,
+                                             inputDataFrames("safetyTox").data,
+                                             geneToEnsemblLookup)
     logger.info("Adding target safety to dataframe")
     dataFrame.join(tsDS, Seq("id"), "left_outer")
   }
@@ -363,6 +363,7 @@ object Target extends LazyLogging {
   }
 
   /** Updates column `proteinIds` to remove duplicates and sort by source.
+    *
     * @return dataframe with same schema as input.
     */
   def filterAndSortProteinIds(dataFrame: DataFrame): DataFrame = {

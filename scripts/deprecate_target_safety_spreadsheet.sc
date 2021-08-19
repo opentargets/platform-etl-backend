@@ -31,7 +31,7 @@ import org.apache.spark.sql.functions.{
   * The script is separated into UTILS, INPUTS, LOGIC, OUTPUTS
   *
   * UTILS is present because the logic makes use of helper functions which were written for the ETL. So this can be run
-  * withtout dependencies they are pasted here so they are in scope.
+  * without dependencies they are pasted here so they are in scope.
   *
   * INPUTS points to input files
   *
