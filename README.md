@@ -251,6 +251,14 @@ We define a baseline expression information as
 
 To run the `baseline expression` step use the example command under `Create a fat JAR` with `expression` as the step name.
 
+### EBI Search datasets
+The primary input sources for generating the EBI Search datasets are
+ *) Diseases 
+ *) Targets 
+ *) Evidence
+ *) Association Direct Overalls
+
+The step `ebisearch` will generate two datasets with targetId, diseaseId, approvedSymbol, name and score.
 
 
 #### Adding additional resources to enrich data

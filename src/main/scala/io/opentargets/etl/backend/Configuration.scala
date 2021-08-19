@@ -122,10 +122,6 @@ object Configuration extends LazyLogging {
       outputs: InteractionsOutput
   )
 
-  case class ExpressionOutput(
-      diseases: IOResourceConfig
-  )
-
   case class ExpressionSection(
       rna: IOResourceConfig,
       binned: IOResourceConfig,
@@ -221,6 +217,18 @@ object Configuration extends LazyLogging {
             s"$writeMode is not valid. Must be one of ${validWriteModes.toString()}")
   }
 
+  // --- EBISearch configuration
+  case class EBISearchOutputSection(ebisearchAssociations: IOResourceConfig,
+                                    ebisearchEvidence: IOResourceConfig)
+
+  case class EBISearchSection(
+      diseaseEtl: IOResourceConfig,
+      targetEtl: IOResourceConfig,
+      associationETL: IOResourceConfig,
+      evidenceETL: IOResourceConfig,
+      outputs: EBISearchOutputSection
+  )
+
   // --- OpenFDA FAERS configuration --- //
   case class OpenfdaMontecarloSection(permutations: Int, percentile: Double)
 
@@ -230,25 +238,25 @@ object Configuration extends LazyLogging {
       fdaUnfiltered: IOResourceConfig,
       fdaResults: IOResourceConfig,
       sampling: IOResourceConfig
-                           )
+  )
   case class OpenfdaMeddraSection(
-                                   meddraPreferredTerms: IOResourceConfig,
-                                   meddraLowLevelTerms: IOResourceConfig,
-                                 )
+      meddraPreferredTerms: IOResourceConfig,
+      meddraLowLevelTerms: IOResourceConfig,
+  )
 
   case class OpenfdaSection(
-                             stepRootInputPath: String,
-                             stepRootOutputPath: String,
-                             chemblDrugs: IOResourceConfig,
-                             fdaData: IOResourceConfig,
-                             blacklistedEvents: IOResourceConfig,
-                             meddra: Option[OpenfdaMeddraSection],
-                             meddraPreferredTermsCols: List[String],
-                             meddraLowLevelTermsCols: List[String],
-                             montecarlo: OpenfdaMontecarloSection,
-                             sampling: OpenfdaSamplingSection,
-                             outputs: OpenfdaOutputsSection
-                           )
+      stepRootInputPath: String,
+      stepRootOutputPath: String,
+      chemblDrugs: IOResourceConfig,
+      fdaData: IOResourceConfig,
+      blacklistedEvents: IOResourceConfig,
+      meddra: Option[OpenfdaMeddraSection],
+      meddraPreferredTermsCols: List[String],
+      meddraLowLevelTermsCols: List[String],
+      montecarlo: OpenfdaMontecarloSection,
+      sampling: OpenfdaSamplingSection,
+      outputs: OpenfdaOutputsSection
+  )
   // --- END --- //
 
   case class OTConfig(
@@ -268,6 +276,7 @@ object Configuration extends LazyLogging {
       target: Target,
       mousePhenotypes: MousePhenotypes,
       expression: ExpressionSection,
-      openfda: OpenfdaSection
+      openfda: OpenfdaSection,
+      ebisearch: EBISearchSection
   )
 }
