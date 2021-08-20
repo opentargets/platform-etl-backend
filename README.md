@@ -44,10 +44,13 @@ cat 20.04_gene-data.json | jq -r '{"id":.id,"phenotypes": [.mouse_phenotypes[]?]
 
 Copy the file in google storage or specific path
 
-### Load with custom configuration
+### Configuration
 
-Add to your run either commandline or sbt task Intellij IDEA `-Dconfig.file=application.conf` and it will load the
-configuration from your `./` path or project root. Missing fields will be resolved with `reference.conf`.
+There is a directory called `configuration` which versions all the release configuration files. To repeat a release use
+the appropriate configuration file.
+
+Add to your run either commandline or sbt task Intellij IDEA `-Dconfig.file=./configuration/<year>/<release>. conf`
+and it will run with appropriate configuration. Missing fields will be resolved with `reference.conf`.
 
 The most common configuration changes you will need to make are pointing towards the correct input files. To load files
 we use a structure:
