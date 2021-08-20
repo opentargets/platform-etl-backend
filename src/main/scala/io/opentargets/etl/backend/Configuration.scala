@@ -271,7 +271,6 @@ object Configuration extends LazyLogging {
       search: SearchSection,
       aotf: AOTFSection,
       target: Target,
-      mousePhenotypes: MousePhenotypes,
       expression: ExpressionSection,
       openfda: OpenfdaSection,
       ebisearch: EBISearchSection
