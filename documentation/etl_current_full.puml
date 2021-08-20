@@ -12,17 +12,14 @@ artifact associations <<dependencies>>
 artifact associationOTF <<dependencies>>
 artifact disease <<noDependency>>
 artifact drug <<dependencies>>
-artifact eco <<noDependency>>
 artifact evidence <<dependencies>>
 artifact expression <<noDependency>>
 artifact go <<noDependency>>
 artifact interactions <<dependencies>>
 artifact knownDrugs <<dependencies>>
-artifact mousePhenotypes <<dependencies>>
 artifact reactome <<noDependency>>
 artifact search <<dependencies>>
 artifact target <<dependencies>>
-artifact safety <<dependencies>>
 
 'inputs
 ' association
@@ -42,8 +39,7 @@ interface chemblMechanism <<input>>
 interface chemblTarget <<input>>
 interface chemblWarning <<input>>
 interface drugbankToChembl <<input>>
-' eco
-interface ecoInput <<input>>
+
 ' evidences
 interface rawEvidences <<input>>
 ' expression
@@ -55,11 +51,7 @@ interface humanMapping <<input>>
 interface intact <<input>>
 interface strings <<input>>
 ' known drugs
-' mouse phenotypes
-interface mpClasses <<input>>
-interface mpReport <<input>>
-interface mpOrthology <<input>>
-interface mpCategories <<input>>
+
 ' reactome
 interface pathways <<input>>
 interface relations <<input>>
@@ -109,8 +101,7 @@ interface moleculeOutput <<output>>
 interface mechanismOfActionOutput <<output>>
 interface IndicationOutput <<output>>
 interface WarningsOutput <<output>>
-  ' eco
-interface ecoOutput <<output>>
+
   ' evidences
 interface evidenceOutput <<output>>
   ' expression
@@ -121,14 +112,12 @@ interface interactionsEvidenceOutput <<output>>
 interface interactionsUnmatchedOutput <<output>>
   ' known drugs
 interface knownDrugsOutput <<output>>
-  ' mouse phenotypes
-interface mousePhenotypesOutput <<output>>
+
   ' reactome
 interface reactomeOutput <<output>>
   ' target
 interface targetOutput <<output>>
-  ' safety
-interface safetyOutput <<output>>
+
   ' search
 interface searchTargetOutput <<output>>
 interface searchDiseaseOutput <<output>>
@@ -179,10 +168,6 @@ drug -->  mechanismOfActionOutput
 drug --> IndicationOutput
 drug --> WarningsOutput
 
-  ' eco
-ecoInput --> eco
-eco --> ecoOutput
-
   ' evidences
 targetOutput --> evidence
 diseaseOutput --> evidence
@@ -212,25 +197,10 @@ moleculeOutput --> knownDrugs
 mechanismOfActionOutput --> knownDrugs
 knownDrugs --> knownDrugsOutput
 
-  ' mouse phenotypes
-mpClasses --> mousePhenotypes
-mpCategories --> mousePhenotypes
-mpReport --> mousePhenotypes
-mpOrthology --> mousePhenotypes
-targetOutput --> mousePhenotypes
-mousePhenotypes --> mousePhenotypesOutput
-
   ' reactome
 pathways --> reactome
 relations --> reactome
 reactome --> reactomeOutput
-
-  'safety
-safetyToxicity --> safety
-safetyAdverseEvent --> safety
-safetySafetyRisk --> safety
-targetOutput --> safety
-safety --> safetyOutput
 
   ' search
 evidenceOutput --> search
@@ -266,6 +236,9 @@ psGeneIdentifier --> target
 psEssentialityMatrix --> target
 reactomeOutput --> target
 reactomePathways --> target
+safetyToxicity --> target
+safetyAdverseEvent --> target
+safetySafetyRisk --> target
 tep --> target
 tractability --> target
 uniprot --> target
