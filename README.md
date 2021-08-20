@@ -22,32 +22,13 @@ Either Java 8 or 11 can be used to build and run the project, but if you intend 
 _Dataproc_ you must use Java 8. To avoid this problem altogether, do not use native Java methods unless strictly
 necessary.
 
-### Generate the indices dump from ES7
+### Configuration
 
-You will need to either connect to a machine containing the ES or forward the ssh port from it
+There is a directory called `configuration` which versions all the release configuration files. To repeat a release use
+the appropriate configuration file.
 
-```sh
-elasticdump --input=http://localhost:9200/<indexyouneed> \
-    --output=<indexyouneed>.json \
-    --type=data  \
-    --limit 10000 \
-    --sourceOnly
-```
-
-### Mouse Phenotype input for ETL (deprecated as of 21.06 release!)
-
-Generate MousePhenotypes input file
-
-```sh
-cat 20.04_gene-data.json | jq -r '{"id":.id,"phenotypes": [.mouse_phenotypes[]?] }|@json' > mousephenotype.json
-```
-
-Copy the file in google storage or specific path
-
-### Load with custom configuration
-
-Add to your run either commandline or sbt task Intellij IDEA `-Dconfig.file=application.conf` and it will load the
-configuration from your `./` path or project root. Missing fields will be resolved with `reference.conf`.
+Add to your run either commandline or sbt task Intellij IDEA `-Dconfig.file=./configuration/<year>/<release>. conf`
+and it will run with appropriate configuration. Missing fields will be resolved with `reference.conf`.
 
 The most common configuration changes you will need to make are pointing towards the correct input files. To load files
 we use a structure:
@@ -175,47 +156,11 @@ common {
 }
 ```
 
-### Adding ETL outputs to ElasticSearch
-
-The `elasticsearch` directory in the project root folder includes utility scripts to load the outputs of the ETL into
-a preconfigured ElasticSearch instance. 
-
-#### Requirements
-
-1. Python utility `elasticsearch_loader` must be installed and on your `PATH`
-2. An open port of the ES instance must be forwarded to your local machine and execute the relevant script.
-
-    ```
-    gcloud beta compute ssh --zone "europe-west1-d" "es7-20-09" --project "open-targets-eu-dev" -- -L 9200:localhost:9200
-    ```  
-
-3. Update the `env.sh` script:
-    - `PREFIX` refers to the path to the data to be loaded into Elasticsearch
-    - `ES` is the url of Elasticsearch
-    - `INDEX_SETTINGS` is the index configuration file. Typically this will be the `index_settings.json` file provided
-      in the _elasticsearch_ directory.
-
-4. Export the necessary environment variables by running `source [path to file]env.sh`
-4. Run scripts relevant to the index you wish to create, or `load_all.sh` to load all of them.
-
 ## Step dependencies
-
-As of June 2021 some steps of the ETL maintain dependencies on the old Data Pipeline which is being progressively
-deprecated.
 
 Considering only the inputs/outputs of the ETL there are component diagrams available in the 'documentation'
 directory. _etl\_current_ shows the relationships between steps in the ETL. _etl\_current\_full_ shows those
 relationships at a more granular level, where inputs and outputs are specifically specified.
-
-_etl\_dp\_dependencies_ shows similar relationships, but often includes dependencies which result from the data
-pipeline. This document will be removed once the deprecation of the data pipeline is complete.
-
-The majority of the ETL was written to process data which has been prepared by the data pipeline for subsequent
-processing. It is intended that this pipeline will be deprecated; because of this some steps do not require inputs from
-the data pipeline to function correctly. These include:
-
-- Drug
-- Target
 
 ## Step notes
 
@@ -228,7 +173,6 @@ not 'drugs'. We define a drug to be any molecule that meets one or more of the f
  - The ChEMBL ID can be mapped to a DrugBank ID.  
  
 To run the `Drug` step use the example command under `Create a fat JAR` with `drug` as the step name. 
- 
 
 ### Baseline Expression
 The primary input sources of the baseline expression dataset are 
@@ -366,28 +310,18 @@ The input is a flat file which does not lend itself to columnar processing so it
 more complicated logic becomes required this should be ported. There is also to option of querying the EBI API but this
 is quite slow and results in a moderately large dataset which we don't otherwise need.
 
-### Mouse Phenotypes
-
-#### Inputs
-
-| Input | Source | Notes |
-| --- | --- | --- |
-| mp-classes | PIS | This is preprocessed by PIS using a project `opentargets-ontologyutils` to extract needed data from an OWL file in jsonl format. |
-| mp-report | PIS | |
-| mp-orthology | PIS | |
-| mp-categories | Static | This file was a hard-coded map in the deprecated data-pipeline. |
-| target | ETL | Output of target step of ETL | 
-
 ### Target
 
-These notes refer to the Target step as rewritten in March 2021. If attempting to debug datasets completed before
-release 20.XX consult commits preceeding XXXXXX.
+Generates an index of genes, each uniquely identified by an EnsemblID number. There are approximately 61000 genes
+available.
 
 #### Configuration
 
 - `hgnc-orthology-species` lists the species to include in Target orthologues. The order of this configuration list is
   __significant__ as it is used to determine the order in which entries appear in the front-end. Items earlier in the
-  list are more closely related to homo sapiens than items further down the list.
+  list are more closely related to homo sapiens than items further down the list. This is used to select which species
+  will be included in Target > Homologues. If you want to add a species to this list you must also update Platform Input
+  Support to retrieve that species' gene data.
 
 #### Inputs
 
@@ -463,12 +397,8 @@ the data. Options for parsing the inputs should not need to be updated.
           as __the spreadsheet should no longer be used__. If the underlying data changes it should be modified in the
           json/parquet files.
 
-#### Homology species whitelist
-
-This is used to select which species will be included in Target > Homologues. If you want to add a species to this list
-you must also update Platform Input Support to retrieve that species' gene data.
-
 ### OpenFDA FAERS DB
+
 The openFDA drug adverse event API returns data that has been collected from the FDA Adverse Event Reporting System (FAERS),
 a database that contains information on adverse event and medication error reports submitted to FDA.
 
@@ -493,83 +423,24 @@ a database that contains information on adverse event and medication error repor
 {"chembl_id":"CHEMBL1231","event":"cardiac output decreased","meddraCode": ..., "count":1,"llr":8.392140045623442,"critval":4.4247991585588675}
 {"chembl_id":"CHEMBL1231","event":"cardiovascular insufficiency","meddraCode": ..., "count":1,"llr":7.699049533524681,"critval":4.4247991585588675}
 ```
+
 Notice that the JSON output is actually JSONL. Each line is a single result object.
 
 #### Configuration
-The base configuration is found under `src/main/resources/reference.conf`, `openfda` section.
 
-```scala
-openfda {
-    // NOTE - Each step seems to have a commong baseline path that should be refactored
-    step-root-input-path = ${common.input}"/fda"
-    step-root-output-path = ${common.output}"/fda"
-    // Source data
-    chembl-drugs {
-        format = "json"
-        path = ${drug.outputs.drug.path}"/*.json"
-    }
-    fda-data {
-        format = "json"
-        path = ${openfda.step-root-input-path}"/*.jsonl"
-    }
-    blacklisted-events {
-        format = "csv"
-        path = ${openfda.step-root-input-path}"/blacklisted_events.txt"
-        options = [
-            {k: "sep", v: "\\t"},
-            {k: "ignoreLeadingWhiteSpace", v: "true"},
-            {k: "ignoreTrailingWhiteSpace", v: "true"}
-        ]
-    }
-    meddra {
-        meddra-preferred-terms {
-            format = "csv"
-            // Change this to whatever location the data is sitting on
-            path = ${openfda.step-root-input-path}"/meddra/MedAscii/pt.asc"
-        }
-        meddra-low-level-terms {
-            format = "csv"
-            // Change this to whatever location the data is sitting on
-            path = ${openfda.step-root-input-path}"/meddra/MedAscii/llt.asc"
-        }
-    }
-    meddra-preferred-terms-cols = ["pt_code", "pt_name"]
-    meddra-low-level-terms-cols = ["llt_code", "llt_name"]
-    montecarlo {
-        permutations: 100
-        percentile: 0.95
-    }
-    sampling {
-        size = 0.1
-        enabled = false
-    }
-    outputs = {
-        fda-unfiltered {
-            format = "parquet"
-            path = ${openfda.step-root-output-path}"/unfiltered"
-        }
-        fda-results {
-            format = "parquet"
-            path = ${openfda.step-root-output-path}"/results"
-        }
-        sampling {
-            format = "parquet"
-            path = ${openfda.step-root-output-path}"/sample"
-        }
-    }
-```
+The base configuration is under `src/main/resources/reference.conf`, `openfda` section.
 
-#### CHEMBL Drugs
+##### CHEMBL Drugs
 Refers to the `drug` output this pipeline's drug step.
 
-#### OpenFDA FAERS Data
+##### OpenFDA FAERS Data
 This section refers to the path where the OpenFDA FAERS DB dump can be found, for processing.
 
-#### Blacklisted Events
+##### Blacklisted Events
 Path to the file where to find the list of events that need to be removed from the events in OpenFDA FAERS data, as described above.
 This list is manually curated.
 
-#### Meddra (optional)
+##### Meddra (optional)
 This pipeline uses an _optional_ subset of data from the [Medical Dictionary for Regulatory Activities](https://www.meddra.org)
 to link the adverse event terms used by the FDA back to their standardised names.
 
@@ -582,16 +453,16 @@ data it must be provided on an optional basis for users who do not have this dat
 #### Montecarlo
 Specify the number of permutations and the relevance percentile threshhold.
 
-#### Sampling
+##### Sampling
 This subsection configures the sampling output from this ETL step.
 
-#### Outputs
+##### Outputs
 ETL Step outputs.
 
-##### Unfiltered OpenFDA
+###### Unfiltered OpenFDA
 This is the OpenFDA FAERS data just before running Montecarlo on it, with or without (depending on whether it was provided) Meddra information.
 
-##### OpenFDA Processing Results
+###### OpenFDA Processing Results
 This is the result data from this ETL step.
 
 ##### Sampling
