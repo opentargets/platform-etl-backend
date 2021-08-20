@@ -216,14 +216,14 @@ object Target extends LazyLogging {
         reactomeC.output.format,
         reactomeC.output.path
       ),
-      "target" -> IOResourceConfig(
-        common.inputs.target.format,
-        common.inputs.target.path
-      ),
-      "tep" -> IOResourceConfig(
-        common.inputs.tep.format,
-        common.inputs.tep.path
-      )
+      //      "target" -> IOResourceConfig(
+      //        common.inputs.target.format,
+      //        common.inputs.target.path
+      //      ),
+      //      "tep" -> IOResourceConfig(
+      //        common.inputs.tep.format,
+      //        common.inputs.tep.path
+      //      )
     )
 
     val inputDataFrame = IoHelpers.readFrom(mappedInputs)

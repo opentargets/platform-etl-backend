@@ -133,10 +133,7 @@ object Configuration extends LazyLogging {
   )
 
   case class Inputs(
-      target: InputInfo,
       eco: InputInfo,
-      tep: InputInfo,
-      mousephenotypes: InputInfo
   )
 
   case class Common(defaultSteps: Seq[String],
