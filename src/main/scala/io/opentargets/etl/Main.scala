@@ -37,9 +37,6 @@ object ETL extends LazyLogging {
       case "target" =>
         logger.info("run step target")
         target.Target()
-      case "mousePhenotypes" =>
-        logger.info("run step mousephenotypes")
-        MousePhenotypes()
       case "reactome" =>
         logger.info("run step reactome (rea)")
         Reactome()
