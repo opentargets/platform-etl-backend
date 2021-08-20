@@ -186,10 +186,24 @@ object Target extends LazyLogging {
     })
 
     // add in gene symbol for paralogs (human genes)
+    val geneSymbols = dataFrame
+      .select(col("id"), col("approvedSymbol"))
+      .cache()
+
     val homoDF = orthologue
-      .join(dataFrame.select(col("id"), col("approvedSymbol")), Seq("id"))
-      .withColumn("targetGeneSymbol", coalesce(col("targetGeneSymbol"), col("approvedSymbol")))
-      .drop("approvedSymbol")
+      .join(broadcast(geneSymbols), Seq("id"))
+      .join(
+        broadcast(
+          geneSymbols
+            .withColumnRenamed("approvedSymbol", "paralogGeneSymbol")
+            .withColumnRenamed("id", "paralogId")),
+        col("paralogId") === col("targetGeneId"),
+        "left_outer"
+      )
+      .withColumn(
+        "targetGeneSymbol",
+        coalesce(col("paralogGeneSymbol"), col("targetGeneSymbol"), col("approvedSymbol")))
+      .drop("approvedSymbol", "paralogGeneSymbol", "paralogId")
 
     val groupedById = nest(homoDF, homoDF.columns.filter(_ != "id").toList, "homologues")
       .groupBy("id")
