@@ -13,8 +13,6 @@ OpenTargets ETL pipeline to process Pipeline output in order to obtain a new API
 2. scala 2.12.x (through SDKMAN is simple)
 3. ammonite REPL
 4. Input resources from PIS (src/main/resources/conference.conf)
-5. Target index dump from OpenTargets ES
-6. Generate MousePhenotypes dump from OperTargets ES
 
 #### Notes on Java version
 

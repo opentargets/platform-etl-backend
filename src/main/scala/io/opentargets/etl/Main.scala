@@ -40,9 +40,6 @@ object ETL extends LazyLogging {
       case "reactome" =>
         logger.info("run step reactome (rea)")
         Reactome()
-      case "eco" =>
-        logger.info("run step eco")
-        Eco()
       case "go" =>
         logger.info("run step go")
         Go()
