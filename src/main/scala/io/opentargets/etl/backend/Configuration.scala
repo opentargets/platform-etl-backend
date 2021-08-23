@@ -70,8 +70,6 @@ object Configuration extends LazyLogging {
       inputs: AOTFInputsSection
   )
 
-  case class InputInfo(format: String, path: String)
-
   case class InputExtension(extensionType: String, input: IOResourceConfig)
 
   case class DrugOutputs(drug: IOResourceConfig,
@@ -132,13 +130,8 @@ object Configuration extends LazyLogging {
       output: IOResourceConfig
   )
 
-  case class Inputs(
-      eco: InputInfo,
-  )
-
   case class Common(defaultSteps: Seq[String],
                     input: String,
-                    inputs: Inputs,
                     output: String,
                     outputFormat: String,
                     metadata: IOResourceConfig)
