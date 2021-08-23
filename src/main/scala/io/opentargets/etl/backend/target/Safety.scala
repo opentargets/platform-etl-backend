@@ -124,7 +124,7 @@ object Safety extends LazyLogging {
           lit(null) as "tissueId",
           col("cell_short_name") as "cellLabel",
           col("cell_format") as "cellFormat",
-          lit(null) as "cellId"
+          lit("") as "cellId"
         ) as "biosample",
         trim(col("official_symbol")) as "name",
         lit("Toxcast") as "datasource",
