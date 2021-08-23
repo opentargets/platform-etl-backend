@@ -91,7 +91,16 @@ object Transformers {
           mean(col("score")).as("target_relevance")
         )
 
-      df.join(assocsWithLabels, Seq("targetId"), "left_outer")
+      val targetHGNC = df
+        .select(col("targetId"), filter(col("dbXRefs"), col => {
+          col.getField("source") === "HGNC"
+        }) as "h")
+        .select(col("targetId"), explode_outer(col("h.id")) as "hgncId")
+        .withColumn("hgncId", when(col("hgncId").isNotNull, concat(lit("HGNC:"), col("hgncId"))))
+        .orderBy("targetId")
+
+      df.join(targetHGNC, Seq("targetId"))
+        .join(assocsWithLabels, Seq("targetId"), "left_outer")
         .withColumn(
           "disease_labels",
           when(col("disease_labels").isNull, Array.empty[String])
@@ -126,10 +135,8 @@ object Transformers {
         .withColumn(
           "keywords",
           C.flattenCat(
-            "symbolSynonyms",
-            "nameSynonyms",
-            "array(proteinAnnotations.id)",
-            "proteinAnnotations.accessions",
+            "synonyms.label",
+            "proteinIds.id",
             "array(approvedName)",
             "array(approvedSymbol)",
             "array(hgncId)",
@@ -139,8 +146,8 @@ object Transformers {
         .withColumn(
           "prefixes",
           C.flattenCat(
-            "nameSynonyms",
-            "symbolSynonyms",
+            "synonyms.label",
+            "proteinIds.id",
             "array(approvedName)",
             "array(approvedSymbol)"
           )
@@ -148,10 +155,8 @@ object Transformers {
         .withColumn(
           "ngrams",
           C.flattenCat(
-            "array(proteinAnnotations.id)",
-            "proteinAnnotations.accessions",
-            "nameSynonyms",
-            "symbolSynonyms",
+            "proteinIds.id",
+            "synonyms.label",
             "array(approvedName)",
             "array(approvedSymbol)"
           )
@@ -567,8 +572,7 @@ object Search extends LazyLogging {
       .withColumn(
         "target_labels",
         C.flattenCat(
-          "symbolSynonyms",
-          "nameSynonyms",
+          "synonyms.label",
           "array(approvedName)",
           "array(approvedSymbol)"
         )
