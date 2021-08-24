@@ -2,7 +2,8 @@ package io.opentargets.etl.backend
 
 import com.typesafe.scalalogging.LazyLogging
 import io.opentargets.etl.backend.spark.IoHelpers.IOResources
-import io.opentargets.etl.backend.spark.{IOResource, IOResourceConfig, IoHelpers}
+import io.opentargets.etl.backend.spark.{IOResource, IoHelpers}
+import org.apache.spark.broadcast.Broadcast
 import org.apache.spark.sql._
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.types._
@@ -11,48 +12,55 @@ object AssociationOTF extends LazyLogging {
   case class FacetLevel(l1: Option[String], l2: Option[String])
   case class ReactomeEntry(id: String, label: String)
 
-  implicit class Helpers(df: DataFrame)(implicit context: ETLSessionContext) {
-    implicit val ss: SparkSession = context.sparkSession
+  /* adds columns facet_tractability_antibody and facet_tractability_smallmolecule to dataframe.
+  I don't know if this can be done with the new tractability data, and I don't know if it is even
+  used.
+   */
+  def computeFacetTractability(df: DataFrame, keyCol: String): DataFrame = {
+    val getPositiveCategories = udf((r: Row) => {
+      if (r != null) {
+        Some(
+          r.schema.names
+            .map(name => if (r.getAs[Double](name) > 0) Some(name) else None)
+            .withFilter(_.isDefined)
+            .map(_.get))
+      } else None
+    })
 
-    def computeFacetTractability(keyCol: String): DataFrame = {
-      val getPositiveCategories = udf((r: Row) => {
-        if (r != null) {
-          Some(
-            r.schema.names
-              .map(name => if (r.getAs[Double](name) > 0) Some(name) else None)
-              .withFilter(_.isDefined)
-              .map(_.get))
-        } else None
-      })
-
-      df.withColumn(
-          "facet_tractability_antibody",
-          when(col(keyCol).isNotNull and col(s"$keyCol.antibody").isNotNull,
-               getPositiveCategories(col(s"$keyCol.antibody.categories")))
-        )
-        .withColumn(
-          "facet_tractability_smallmolecule",
-          when(col(keyCol).isNotNull and col(s"$keyCol.smallmolecule").isNotNull,
-               getPositiveCategories(col(s"$keyCol.smallmolecule.categories")))
-        )
-    }
-
-    def computeFacetClasses(keyCol: String): DataFrame = {
-      df.withColumn(
-        s"$keyCol",
-        array_distinct(
-          transform(col(keyCol),
-                    el =>
-                      struct(el.getField("l1")
-                               .getField("label")
-                               .cast(StringType)
-                               .as("l1"),
-                             el.getField("l2")
-                               .getField("label")
-                               .cast(StringType)
-                               .as("l2"))))
+    df.withColumn(
+        "facet_tractability_antibody",
+        when(col(keyCol).isNotNull and col(s"$keyCol.antibody").isNotNull,
+             getPositiveCategories(col(s"$keyCol.antibody.categories")))
       )
-    }
+      .withColumn(
+        "facet_tractability_smallmolecule",
+        when(col(keyCol).isNotNull and col(s"$keyCol.smallmolecule").isNotNull,
+             getPositiveCategories(col(s"$keyCol.smallmolecule.categories")))
+      )
+  }
+
+  /*
+  Adds keyCol to dataframe, where keycol is array(struct(l1: String, l2: String)) where l1 comes from l1.label and l2
+  comes from l2.label.
+
+  In the new data this is targetClass which is a struct of id, label, level. We'd need to explode and then group by
+  targetId, targetClassId and then take the label of levels 1 and 2.
+   */
+  def computeFacetClasses(df: DataFrame, keyCol: String): DataFrame = {
+    df.withColumn(
+      keyCol,
+      array_distinct(
+        transform(col(keyCol),
+                  el =>
+                    struct(el.getField("l1")
+                             .getField("label")
+                             .cast(StringType)
+                             .as("l1"),
+                           el.getField("l2")
+                             .getField("label")
+                             .cast(StringType)
+                             .as("l2"))))
+    )
   }
 
   def computeFacetTAs(df: DataFrame, keyCol: String, labelCol: String, vecCol: String)(
@@ -87,7 +95,8 @@ object AssociationOTF extends LazyLogging {
     implicit val ss: SparkSession = context.sparkSession
     import ss.implicits._
 
-    val lutReact = ss.sparkContext.broadcast(
+    // map reactome id -> label
+    val lutReact: Broadcast[Map[String, String]] = ss.sparkContext.broadcast(
       reactomeDF
         .selectExpr("id", "label")
         .as[ReactomeEntry]
@@ -140,8 +149,8 @@ object AssociationOTF extends LazyLogging {
     val targetColumns = Seq(
       "id as target_id",
       "concat(id, ' ', approvedName, ' ', approvedSymbol) as target_data",
-      "proteinAnnotations.classes as facet_classes",
-      "reactome",
+      "proteinAnnotations.classes as facet_classes", //fixme: this is now targetClass
+      "pathways.pathwayId as reactome",
       "tractability"
     )
 
@@ -164,8 +173,8 @@ object AssociationOTF extends LazyLogging {
         .withColumnRenamed("reactome", "facet_reactome")
 
     val finalTargets = targets
-      .computeFacetTractability("tractability")
-      .computeFacetClasses("facet_classes")
+      .transform(computeFacetTractability(_, "tractability"))
+      .transform(computeFacetClasses(_, "facet_classes"))
       .join(targetsFacetReactome, Seq("target_id"), "left_outer")
       .drop("tractability", "reactome")
 
