@@ -3,20 +3,17 @@ package io.opentargets.etl.backend
 import com.typesafe.scalalogging.LazyLogging
 import io.opentargets.etl.backend.spark.IoHelpers.IOResources
 import io.opentargets.etl.backend.spark.{IOResource, IoHelpers}
-import org.apache.spark.broadcast.Broadcast
 import org.apache.spark.sql._
 import org.apache.spark.sql.functions._
-import org.apache.spark.sql.types._
 
 object AssociationOTF extends LazyLogging {
   case class FacetLevel(l1: Option[String], l2: Option[String])
-  case class ReactomeEntry(id: String, label: String)
 
   /* adds columns facet_tractability_antibody and facet_tractability_smallmolecule to dataframe.
   I don't know if this can be done with the new tractability data, and I don't know if it is even
   used.
    */
-  def computeFacetTractability(df: DataFrame, keyCol: String): DataFrame = {
+  def computeFacetTractability(df: DataFrame, keyCol: String = "tractability"): DataFrame = {
     val getPositiveCategories = udf((r: Row) => {
       if (r != null) {
         Some(
@@ -46,21 +43,26 @@ object AssociationOTF extends LazyLogging {
   In the new data this is targetClass which is a struct of id, label, level. We'd need to explode and then group by
   targetId, targetClassId and then take the label of levels 1 and 2.
    */
-  def computeFacetClasses(df: DataFrame, keyCol: String): DataFrame = {
-    df.withColumn(
-      keyCol,
-      array_distinct(
-        transform(col(keyCol),
-                  el =>
-                    struct(el.getField("l1")
-                             .getField("label")
-                             .cast(StringType)
-                             .as("l1"),
-                           el.getField("l2")
-                             .getField("label")
-                             .cast(StringType)
-                             .as("l2"))))
-    )
+  def computeFacetClasses(df: DataFrame): DataFrame = {
+    val fcDF = df
+      .select(
+        col("target_id"),
+        explode(filter(col("facet_classes"), c => {
+          val level = c.getField("level")
+          level === "l1" || level === "l2"
+        })) as "fc"
+      )
+      .select("target_id", "fc.*")
+      .orderBy("target_id", "id", "level")
+      .groupBy("target_id", "id")
+      .agg(collect_list("label") as "levels")
+      .withColumn("facet_classes",
+                  struct(col("levels").getItem(0) as "l1", col("levels").getItem(1) as "l2"))
+      .groupBy("target_id")
+      .agg(collect_list("facet_classes") as "facet_classes")
+      .orderBy("target_id")
+
+    df.drop("facet_classes").join(fcDF, Seq("target_id"), "left_outer")
   }
 
   def computeFacetTAs(df: DataFrame, keyCol: String, labelCol: String, vecCol: String)(
@@ -130,14 +132,15 @@ object AssociationOTF extends LazyLogging {
         .withColumnRenamed("therapeuticAreas", "facet_therapeuticAreas")
 
     val targetsFacetReactome =
-      targets.withColumn(
-        "facet_reactome",
-        transform(col("reactome"),
-                  r => struct(r.getField("topLevelTerm") as "l1", r.getField("pathway") as "l2")))
+      targets.select(col("target_id"),
+                     transform(col("reactome"),
+                               r =>
+                                 struct(r.getField("topLevelTerm") as "l1",
+                                        r.getField("pathway") as "l2")) as "facet_reactome")
 
     val finalTargets = targets
-      .transform(computeFacetTractability(_, "tractability"))
-      .transform(computeFacetClasses(_, "facet_classes"))
+      .transform(computeFacetClasses)
+      .transform(computeFacetTractability(_))
       .join(targetsFacetReactome, Seq("target_id"), "left_outer")
       .drop("tractability", "reactome")
 
