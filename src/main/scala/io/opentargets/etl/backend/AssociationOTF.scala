@@ -63,7 +63,6 @@ object AssociationOTF extends LazyLogging {
       "evidences" -> conf.aotf.inputs.evidences,
       "targets" -> conf.aotf.inputs.targets,
       "diseases" -> conf.aotf.inputs.diseases,
-      "reactome" -> conf.aotf.inputs.reactome
     )
 
     val dfs = IoHelpers.readFrom(mappedInputs)

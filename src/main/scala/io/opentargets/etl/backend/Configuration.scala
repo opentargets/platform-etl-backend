@@ -60,8 +60,7 @@ object Configuration extends LazyLogging {
 
   case class AOTFInputsSection(evidences: IOResourceConfig,
                                diseases: IOResourceConfig,
-                               targets: IOResourceConfig,
-                               reactome: IOResourceConfig)
+                               targets: IOResourceConfig)
 
   case class AOTFOutputsSection(clickhouse: IOResourceConfig, elasticsearch: IOResourceConfig)
 
