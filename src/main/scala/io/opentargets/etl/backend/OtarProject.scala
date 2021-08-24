@@ -43,7 +43,7 @@ object OtarProject extends LazyLogging {
 
     logger.debug("Writing Otar Projects outputs")
     val dataframesToSave: IOResources = Map(
-      "go" -> IOResource(otarDF, context.configuration.otarproject.output)
+      "otar_projects" -> IOResource(otarDF, context.configuration.otarproject.output)
     )
     IoHelpers.writeTo(dataframesToSave)
 
