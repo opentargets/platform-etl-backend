@@ -87,45 +87,6 @@ object AssociationOTF extends LazyLogging {
 
   }
 
-  def computeFacetReactome(
-      targets: DataFrame,
-      keyCol: String,
-      vecCol: String,
-      reactomeDF: DataFrame)(implicit context: ETLSessionContext): DataFrame = {
-    implicit val ss: SparkSession = context.sparkSession
-    import ss.implicits._
-
-    // map reactome id -> label
-    val lutReact: Broadcast[Map[String, String]] = ss.sparkContext.broadcast(
-      reactomeDF
-        .selectExpr("id", "label")
-        .as[ReactomeEntry]
-        .collect()
-        .map(e => e.id -> e.label)
-        .toMap)
-
-    val mapLevels = udf((l: Seq[String]) =>
-      l match {
-        case Seq(a, _, b, _*) => FacetLevel(lutReact.value.get(a), lutReact.value.get(b))
-        case Seq(a, _*)       => FacetLevel(lutReact.value.get(a), None)
-        case _                => FacetLevel(None, None)
-    })
-
-    val reacts = reactomeDF
-      .withColumn("levels",
-                  when(size(col("path")) > 0, transform(col("path"), (c: Column) => mapLevels(c))))
-      .selectExpr("id", "levels")
-
-    val tempDF = targets
-      .selectExpr(keyCol, vecCol)
-      .withColumn(vecCol + "_tmp", explode_outer(col(vecCol)))
-      .join(reacts, reacts("id") === col(vecCol + "_tmp"), "left_outer")
-      .groupBy(col(keyCol))
-      .agg(array_distinct(flatten(collect_list("levels"))).as(vecCol))
-
-    tempDF
-  }
-
   def compute()(implicit context: ETLSessionContext): IOResources = {
     implicit val ss: SparkSession = context.sparkSession
 
@@ -149,8 +110,8 @@ object AssociationOTF extends LazyLogging {
     val targetColumns = Seq(
       "id as target_id",
       "concat(id, ' ', approvedName, ' ', approvedSymbol) as target_data",
-      "proteinAnnotations.classes as facet_classes", //fixme: this is now targetClass
-      "pathways.pathwayId as reactome",
+      "targetClass as facet_classes", //fixme: this is now targetClass
+      "pathways as reactome",
       "tractability"
     )
 
@@ -169,8 +130,10 @@ object AssociationOTF extends LazyLogging {
         .withColumnRenamed("therapeuticAreas", "facet_therapeuticAreas")
 
     val targetsFacetReactome =
-      computeFacetReactome(targets, "target_id", "reactome", dfs("reactome").data)
-        .withColumnRenamed("reactome", "facet_reactome")
+      targets.withColumn(
+        "facet_reactome",
+        transform(col("reactome"),
+                  r => struct(r.getField("topLevelTerm") as "l1", r.getField("pathway") as "l2")))
 
     val finalTargets = targets
       .transform(computeFacetTractability(_, "tractability"))
