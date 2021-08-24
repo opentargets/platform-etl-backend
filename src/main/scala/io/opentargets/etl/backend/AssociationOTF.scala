@@ -9,40 +9,6 @@ import org.apache.spark.sql.functions._
 object AssociationOTF extends LazyLogging {
   case class FacetLevel(l1: Option[String], l2: Option[String])
 
-  /* adds columns facet_tractability_antibody and facet_tractability_smallmolecule to dataframe.
-  I don't know if this can be done with the new tractability data, and I don't know if it is even
-  used.
-   */
-  def computeFacetTractability(df: DataFrame, keyCol: String = "tractability"): DataFrame = {
-    val getPositiveCategories = udf((r: Row) => {
-      if (r != null) {
-        Some(
-          r.schema.names
-            .map(name => if (r.getAs[Double](name) > 0) Some(name) else None)
-            .withFilter(_.isDefined)
-            .map(_.get))
-      } else None
-    })
-
-    df.withColumn(
-        "facet_tractability_antibody",
-        when(col(keyCol).isNotNull and col(s"$keyCol.antibody").isNotNull,
-             getPositiveCategories(col(s"$keyCol.antibody.categories")))
-      )
-      .withColumn(
-        "facet_tractability_smallmolecule",
-        when(col(keyCol).isNotNull and col(s"$keyCol.smallmolecule").isNotNull,
-             getPositiveCategories(col(s"$keyCol.smallmolecule.categories")))
-      )
-  }
-
-  /*
-  Adds keyCol to dataframe, where keycol is array(struct(l1: String, l2: String)) where l1 comes from l1.label and l2
-  comes from l2.label.
-
-  In the new data this is targetClass which is a struct of id, label, level. We'd need to explode and then group by
-  targetId, targetClassId and then take the label of levels 1 and 2.
-   */
   def computeFacetClasses(df: DataFrame): DataFrame = {
     val fcDF = df
       .select(
@@ -114,7 +80,6 @@ object AssociationOTF extends LazyLogging {
       "concat(id, ' ', approvedName, ' ', approvedSymbol) as target_data",
       "targetClass as facet_classes", //fixme: this is now targetClass
       "pathways as reactome",
-      "tractability"
     )
 
     val diseases = dfs("diseases").data
@@ -140,9 +105,8 @@ object AssociationOTF extends LazyLogging {
 
     val finalTargets = targets
       .transform(computeFacetClasses)
-      .transform(computeFacetTractability(_))
       .join(targetsFacetReactome, Seq("target_id"), "left_outer")
-      .drop("tractability", "reactome")
+      .drop("reactome")
 
     val finalDiseases = diseases
       .join(diseasesFacetTAs, Seq("disease_id"), "left_outer")
