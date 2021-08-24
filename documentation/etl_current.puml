@@ -44,7 +44,7 @@ drug --> knownDrugs
 
 evidence --> search
 disease --> search
-disease --> search
+target --> search
 drug --> search
 associations --> search
 
