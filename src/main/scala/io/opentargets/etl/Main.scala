@@ -61,6 +61,9 @@ object ETL extends LazyLogging {
       case "ebisearch" =>
         logger.info("Running EBI Search step")
         EBISearch()
+      case "otar" =>
+        logger.info("Running Otar projects step")
+        OtarProject()
       case _ => logger.warn(s"step $step is unknown so nothing to execute")
     }
     logger.info(s"finished to run step ($step)")

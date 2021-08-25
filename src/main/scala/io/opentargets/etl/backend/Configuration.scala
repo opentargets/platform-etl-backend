@@ -207,6 +207,13 @@ object Configuration extends LazyLogging {
             s"$writeMode is not valid. Must be one of ${validWriteModes.toString()}")
   }
 
+  // --- OtarProject configuration
+  case class OtarProjectSection(
+      diseaseEtl: IOResourceConfig,
+      otar: IOResourceConfig,
+      output: IOResourceConfig
+  )
+
   // --- EBISearch configuration
   case class EBISearchOutputSection(ebisearchAssociations: IOResourceConfig,
                                     ebisearchEvidence: IOResourceConfig)
@@ -266,6 +273,7 @@ object Configuration extends LazyLogging {
       target: Target,
       expression: ExpressionSection,
       openfda: OpenfdaSection,
-      ebisearch: EBISearchSection
+      ebisearch: EBISearchSection,
+      otarproject: OtarProjectSection
   )
 }
