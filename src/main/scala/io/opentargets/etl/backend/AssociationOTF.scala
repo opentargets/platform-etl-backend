@@ -7,7 +7,6 @@ import org.apache.spark.sql._
 import org.apache.spark.sql.functions._
 
 object AssociationOTF extends LazyLogging {
-  case class FacetLevel(l1: Option[String], l2: Option[String])
 
   def computeFacetClasses(df: DataFrame): DataFrame = {
     val fcDF = df
@@ -55,6 +54,27 @@ object AssociationOTF extends LazyLogging {
 
   }
 
+  def computeFacetTractability(df: DataFrame): DataFrame = {
+    val facetFilter: (Column, String) => Column = (c: Column, name: String) => {
+      c.getField("value") === true && c.getField("modality") === name
+    }
+    val tractabilityFacetsDF = df
+      .select(
+        col("target_id"),
+        filter(col("tractability"), facetFilter(_, "SM")) as "sm",
+        filter(col("tractability"), facetFilter(_, "AB")) as "ab",
+        filter(col("tractability"), facetFilter(_, "PR")) as "pr",
+      )
+      .select(
+        col("target_id"),
+        col("sm.id") as "facet_tractability_smallmolecule",
+        col("ab.id") as "facet_tractability_antibody",
+        col("pr.id") as "facet_tractability_protac",
+      )
+      .orderBy("target_id")
+    df.join(tractabilityFacetsDF, Seq("target_id"), "left_outer")
+  }
+
   def compute()(implicit context: ETLSessionContext): IOResources = {
     implicit val ss: SparkSession = context.sparkSession
 
@@ -79,6 +99,7 @@ object AssociationOTF extends LazyLogging {
       "concat(id, ' ', approvedName, ' ', approvedSymbol) as target_data",
       "targetClass as facet_classes", //fixme: this is now targetClass
       "pathways as reactome",
+      "tractability"
     )
 
     val diseases = dfs("diseases").data
@@ -104,8 +125,9 @@ object AssociationOTF extends LazyLogging {
 
     val finalTargets = targets
       .transform(computeFacetClasses)
+      .transform(computeFacetTractability)
       .join(targetsFacetReactome, Seq("target_id"), "left_outer")
-      .drop("reactome")
+      .drop("reactome", "tractability")
 
     val finalDiseases = diseases
       .join(diseasesFacetTAs, Seq("disease_id"), "left_outer")
