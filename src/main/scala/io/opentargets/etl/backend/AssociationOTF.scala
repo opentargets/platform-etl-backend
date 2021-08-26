@@ -97,7 +97,7 @@ object AssociationOTF extends LazyLogging {
     val targetColumns = Seq(
       "id as target_id",
       "concat(id, ' ', approvedName, ' ', approvedSymbol) as target_data",
-      "targetClass as facet_classes", //fixme: this is now targetClass
+      "targetClass as facet_classes",
       "pathways as reactome",
       "tractability"
     )
