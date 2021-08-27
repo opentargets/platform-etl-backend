@@ -144,6 +144,7 @@ object Evidence extends LazyLogging {
     val fromIdC = col(fromId)
 
     val resolved = df
+      .filter(fromIdC =!= "")
       .join(lut, fromIdC === col("rId"), "left_outer")
       .withColumn(columnName, col("tId").isNotNull)
       .withColumn(toId, coalesce(col("tId"), fromIdC))
@@ -180,6 +181,7 @@ object Evidence extends LazyLogging {
     val fromIdC = col(fromId)
 
     val resolved = df
+      .filter(fromIdC =!= "")
       .join(lut, fromIdC === col("dId"), "left_outer")
       .withColumn(columnName, col("dId").isNotNull)
       .withColumn(toId, coalesce(col("efoId"), fromIdC))
