@@ -369,7 +369,7 @@ object Target extends LazyLogging {
       .join(hgnc, eDf("id") === hgnc("ensemblId"), "left_outer")
       // if approvedName and approvedSymbol provided by HGNC use those, otherwise Ensembl.
       .withColumn("approvedName", coalesce(col("approvedName"), col("an"), lit(null)))
-      .withColumn("approvedSymbol", coalesce(col("approvedSymbol"), col("as"), eDf("id")))
+      .withColumn("approvedSymbol", coalesce(col("approvedSymbol"), col("as"), col("id")))
       .drop("an", "as")
     logger.debug(
       s"Merged HGNC and Ensembl dataframe has columns: ${merged.columns.mkString("Array(", ", ", ")")}")
