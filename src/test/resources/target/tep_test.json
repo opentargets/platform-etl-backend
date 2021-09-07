@@ -1,0 +1,328 @@
+{
+  "TEP_url": "https:\/\/www.thesgc.org\/tep\/slc12a4slc12a6",
+  "disease": "Sickle cell disease (SCD), Neurological",
+  "description": "Potassium\/Chloride Co-transporter 1 and 3 (KCC1\/KCC3; SLC12A4\/SLC12A6)",
+  "uniprot_id": "Q9UP95",
+  "gene_id": "ENSG00000124067",
+  "symbol": "SLC12A4"
+}
+{
+  "TEP_url": "https:\/\/www.thesgc.org\/tep\/epb41l3",
+  "disease": "Neurodegeneration",
+  "description": "EPB41L3",
+  "uniprot_id": "Q9Y2J2",
+  "gene_id": "ENSG00000082397",
+  "symbol": "EPB41L3"
+}
+{
+  "TEP_url": "https:\/\/www.thesgc.org\/tep\/inpp5d",
+  "disease": "Neurological Disorders",
+  "description": "INPP5D (SHIP1)",
+  "uniprot_id": "Q92835",
+  "gene_id": "ENSG00000168918",
+  "symbol": "INPP5D"
+}
+{
+  "TEP_url": "https:\/\/www.thesgc.org\/tep\/moesin",
+  "disease": "Alzheimer\u2019s disease",
+  "description": "MSN (Moesin)",
+  "uniprot_id": "P26038",
+  "gene_id": "ENSG00000147065",
+  "symbol": "MSN"
+}
+{
+  "TEP_url": "https:\/\/www.thesgc.org\/tep\/tnc",
+  "disease": "Inflammatory diseases",
+  "description": "Fibrinogen-like globe domain of human Tenascin-C (hFBG-C)",
+  "uniprot_id": "P24821",
+  "gene_id": "ENSG00000041982",
+  "symbol": "TNC"
+}
+{
+  "TEP_url": "https:\/\/www.thesgc.org\/tep\/elovl7",
+  "disease": "Metabolic diseases",
+  "description": "Elongation of very long chain fatty acids protein 7 (ELOVL7)",
+  "uniprot_id": "A1L3X0",
+  "gene_id": "ENSG00000164181",
+  "symbol": "ELOVL7"
+}
+{
+  "TEP_url": "https:\/\/www.thesgc.org\/tep\/dhtkd1",
+  "disease": "Metabolic diseases",
+  "description": "Dehydrogenase E1 and transketolase domain-containing protein 1 (DHTKD1)",
+  "uniprot_id": "Q96HY7",
+  "gene_id": "ENSG00000181192",
+  "symbol": "DHTKD1"
+}
+{
+  "TEP_url": "https:\/\/www.thesgc.org\/tep\/dclre1c",
+  "disease": "Oncology",
+  "description": "\nArtemis (DCLRE1C, SNM1C)\n",
+  "uniprot_id": "Q96SD1",
+  "gene_id": "ENSG00000152457",
+  "symbol": "DCLRE1C"
+}
+{
+  "TEP_url": "https:\/\/www.thesgc.org\/tep\/tbxt",
+  "disease": "Cancer",
+  "description": "\nHuman T-box transcription factor T (Brachyury)\n",
+  "uniprot_id": "J3KP65",
+  "gene_id": "ENSG00000164458",
+  "symbol": "TBXT"
+}
+{
+  "TEP_url": "https:\/\/www.thesgc.org\/tep\/stag1",
+  "disease": "Cancer",
+  "description": "\nHuman Stromal Antigen 1 (STAG1) Cohesin Subunit SA-1\n",
+  "uniprot_id": "Q8WVM7",
+  "gene_id": "ENSG00000118007",
+  "symbol": "STAG1"
+}
+{
+  "TEP_url": "https:\/\/www.thesgc.org\/tep\/mthfr",
+  "disease": "Metabolic disorders, Cancer",
+  "description": "\nMethylene-Tetrahydrofolate Reductase (MTHFR)\n",
+  "uniprot_id": "P42898",
+  "gene_id": "ENSG00000177000",
+  "symbol": "MTHFR"
+}
+{
+  "TEP_url": "https:\/\/www.thesgc.org\/tep\/alas2",
+  "disease": "Metabolic diseases",
+  "description": "\nHuman\u00a05'-Aminolevulinate synthase, erythoid-specific (ALAS2)\n",
+  "uniprot_id": "P22557",
+  "gene_id": "ENSG00000158578",
+  "symbol": "ALAS2"
+}
+{
+  "TEP_url": "https:\/\/www.thesgc.org\/tep\/galt",
+  "disease": "Metabolic diseases",
+  "description": "\nHuman Galactose- 1-phosphate uridylyltransferase (GALT)\n",
+  "uniprot_id": "P07902",
+  "gene_id": "ENSG00000213930",
+  "symbol": "GALT"
+}
+{
+  "TEP_url": "https:\/\/www.thesgc.org\/tep\/galt",
+  "disease": "Metabolic diseases",
+  "description": "\nHuman Galactose- 1-phosphate uridylyltransferase (GALT)\n",
+  "uniprot_id": "P51570",
+  "gene_id": "ENSG00000108479",
+  "symbol": "GALK1"
+}
+{
+  "TEP_url": "https:\/\/www.thesgc.org\/tep\/kalrnrac1",
+  "disease": "Neurological Disorders",
+  "description": "Human Kalrin\/RAC1 GEF\/GTPase Complex (KARLN\/RAC1)",
+  "uniprot_id": "O60229",
+  "gene_id": "ENSG00000160145",
+  "symbol": "KALRN"
+}
+{
+  "TEP_url": "https:\/\/www.thesgc.org\/tep\/kalrnrac1",
+  "disease": "Neurological Disorders",
+  "description": "Human Kalrin\/RAC1 GEF\/GTPase Complex (KARLN\/RAC1)",
+  "uniprot_id": "P63000",
+  "gene_id": "ENSG00000136238",
+  "symbol": "RAC1"
+}
+{
+  "TEP_url": "https:\/\/www.thesgc.org\/tep\/keap1",
+  "disease": "Neuropsychiatry",
+  "description": "\nHuman\u00a0Kelch-like ECH Associated Protein 1 (KEAP1)\n",
+  "uniprot_id": "Q14145",
+  "gene_id": "ENSG00000079999",
+  "symbol": "KEAP1"
+}
+{
+  "TEP_url": "https:\/\/www.thesgc.org\/tep\/klhl20",
+  "disease": "Cancer, Neuropsychiatry",
+  "description": "\nHuman Kelch-like protein 20 (KLHL20)\n",
+  "uniprot_id": "Q9Y2M5",
+  "gene_id": "ENSG00000076321",
+  "symbol": "KLHL20"
+}
+{
+  "TEP_url": "https:\/\/www.thesgc.org\/tep\/mllt1",
+  "disease": "Cancer",
+  "description": "Human Mixed-Lineage Leukemia, Translocated to 1 (MLLT1)",
+  "uniprot_id": "Q03111",
+  "gene_id": "ENSG00000130382",
+  "symbol": "MLLT1"
+}
+{
+  "TEP_url": "https:\/\/www.thesgc.org\/tep\/task1",
+  "disease": "Neurological Disorders",
+  "description": "\nHuman\u00a0TWIK-Related Acid-Sensitive K+ Channel 1 (TASK1)\n",
+  "uniprot_id": "O14649",
+  "gene_id": "ENSG00000171303",
+  "symbol": "KCNK3"
+}
+{
+  "TEP_url": "https:\/\/www.thesgc.org\/tep\/tmem16k",
+  "disease": "Neurological Disorders",
+  "description": "\nHuman TMEM16K (ANO10)\n",
+  "uniprot_id": "Q9NW15",
+  "gene_id": "ENSG00000160746",
+  "symbol": "ANO10"
+}
+{
+  "TEP_url": "https:\/\/www.thesgc.org\/tep\/tmem16k",
+  "disease": "Neurological Disorders",
+  "description": "\nHuman TMEM16K (ANO10)\n",
+  "uniprot_id": "Q9NW15",
+  "gene_id": "ENSG00000160746",
+  "symbol": "ANO10"
+}
+{
+  "TEP_url": "https:\/\/www.thesgc.org\/tep\/HCN4",
+  "disease": "Cardiovascular, Inflammation, and Neuro",
+  "description": "Human Hyperpolarization Activated Cyclic Nucleotide Gated Ion Channel 4 (HCN4)",
+  "uniprot_id": "Q9Y3Q4",
+  "gene_id": "ENSG00000138622",
+  "symbol": "HCN4"
+}
+{
+  "TEP_url": "https:\/\/www.thesgc.org\/tep\/NUDT7",
+  "disease": "Metabolic diseases",
+  "description": "Human Peroxisomal Coenzyme A Diphosphatase NUDT7 (NUDT7)",
+  "uniprot_id": "P0C024",
+  "gene_id": "ENSG00000140876",
+  "symbol": "NUDT7"
+}
+{
+  "TEP_url": "https:\/\/www.thesgc.org\/tep\/PARP14",
+  "disease": "Cancer, Inflammation",
+  "description": "Human Poly (ADP-ribose) Polymerase Family Member 14 (PARP14)",
+  "uniprot_id": "Q460N5",
+  "gene_id": "ENSG00000173193",
+  "symbol": "PARP14"
+}
+{
+  "TEP_url": "https:\/\/www.thesgc.org\/tep\/RIPK2",
+  "disease": "Inflammatory diseases",
+  "description": "Human Receptor-Interacting Serine\/Threonine-Protein Kinase 2 (RIPK2)",
+  "uniprot_id": "O43353",
+  "gene_id": "ENSG00000104312",
+  "symbol": "RIPK2"
+}
+{
+  "TEP_url": "https:\/\/www.thesgc.org\/tep\/HAO1",
+  "disease": "Metabolic disorders",
+  "description": "Human Hydroxyacid Oxidase (HAO1)",
+  "uniprot_id": "Q9UJM8",
+  "gene_id": "ENSG00000101323",
+  "symbol": "HAO1"
+}
+{
+  "TEP_url": "https:\/\/www.thesgc.org\/tep\/FAM83B",
+  "disease": "Cancer",
+  "description": "Human Family With Sequence Similarity 83 Member B (FAM83B)",
+  "uniprot_id": "Q5T0W9",
+  "gene_id": "ENSG00000168143",
+  "symbol": "FAM83B"
+}
+{
+  "TEP_url": "https:\/\/www.thesgc.org\/tep\/LIMK1",
+  "disease": "Neuropsychiatry",
+  "description": "Human LIM Domain Kinase 1 (LIMK1), Kinase Domain",
+  "uniprot_id": "P53667",
+  "gene_id": "ENSG00000106683",
+  "symbol": "LIMK1"
+}
+{
+  "TEP_url": "https:\/\/www.thesgc.org\/tep\/DCLRE1A",
+  "disease": "Cancer",
+  "description": "Human DNA Cross-Link Repair 1A (DCLRE1A, SNM1A)",
+  "uniprot_id": "Q6PJP8",
+  "gene_id": "ENSG00000198924",
+  "symbol": "DCLRE1A"
+}
+{
+  "TEP_url": "https:\/\/www.thesgc.org\/tep\/DPAGT1",
+  "disease": "Neuropsychiatry and neuro genetic disorders",
+  "description": "Human Dolichyl-Phosphate Alpha-N-Acetyl glucosaminyl transferase (DPAGT1)",
+  "uniprot_id": "Q9H3H5",
+  "gene_id": "ENSG00000172269",
+  "symbol": "DPAGT1"
+}
+{
+  "TEP_url": "https:\/\/www.thesgc.org\/tep\/AASS",
+  "disease": "Metabolic & Neurological disorders",
+  "description": "Human Alpha-Aminoadipic Semialdehyde Synthase (AASS)",
+  "uniprot_id": "Q9UDR5",
+  "gene_id": "ENSG00000008311",
+  "symbol": "AASS"
+}
+{
+  "TEP_url": "https:\/\/www.thesgc.org\/tep\/WNK3",
+  "disease": "Metabolic diseases",
+  "description": "Human With No Lysine Kinase 3 (WNK3)",
+  "uniprot_id": "Q9BYP7",
+  "gene_id": "ENSG00000196632",
+  "symbol": "WNK3"
+}
+{
+  "TEP_url": "https:\/\/www.thesgc.org\/tep\/HDAC6",
+  "disease": "Oncology",
+  "description": "Human Histone Deacetylase 6 (HDAC6)",
+  "uniprot_id": "Q9UBN7",
+  "gene_id": "ENSG00000094631",
+  "symbol": "HDAC6"
+}
+{
+  "TEP_url": "https:\/\/www.thesgc.org\/tep\/KDM3B",
+  "disease": "Cancer",
+  "description": "Lysine Demethylase JMJD1B (KDM3B)",
+  "uniprot_id": null,
+  "gene_id": "ENSG00000168356",
+  "symbol": "SCN11A"
+}
+{
+  "TEP_url": "https:\/\/www.thesgc.org\/tep\/KDM4D",
+  "disease": "Cancer",
+  "description": "Lysine Demethylase JMJD2D (KDM4D)",
+  "uniprot_id": null,
+  "gene_id": "ENSG00000168356",
+  "symbol": "SCN11A"
+}
+{
+  "TEP_url": "https:\/\/www.thesgc.org\/tep\/PfBDP4",
+  "disease": "Malaria",
+  "description": "Plasmodium bormodomain PfBDP4",
+  "uniprot_id": null,
+  "gene_id": "ENSG00000168356",
+  "symbol": "SCN11A"
+}
+{
+  "TEP_url": "https:\/\/www.thesgc.org\/tep\/PHIP",
+  "disease": "Cancer",
+  "description": "Human Pleckstrin Homology Domain Interacting Protein (PHIP)",
+  "uniprot_id": "Q8WWQ0",
+  "gene_id": "ENSG00000146247",
+  "symbol": "PHIP"
+}
+{
+  "TEP_url": "https:\/\/www.thesgc.org\/tep\/RECQL5",
+  "disease": "Cancer",
+  "description": "Human RECQL5 helicase",
+  "uniprot_id": "O94762",
+  "gene_id": "ENSG00000108469",
+  "symbol": "RECQL5"
+}
+{
+  "TEP_url": "https:\/\/www.thesgc.org\/tep\/SETDB1",
+  "disease": "Oncology",
+  "description": "Human SET domain bifurcated 1 (SETDB1), Tudor domain",
+  "uniprot_id": "Q15047",
+  "gene_id": "ENSG00000143379",
+  "symbol": "SETDB1"
+}
+{
+  "TEP_url": "https:\/\/www.thesgc.org\/tep\/CDK12",
+  "disease": "Oncology",
+  "description": "Human Cyclin-Dependent Kinase 12 (CDK12), Kinase Domain",
+  "uniprot_id": "Q9NYV4",
+  "gene_id": "ENSG00000167258",
+  "symbol": "CDK12"
+}
