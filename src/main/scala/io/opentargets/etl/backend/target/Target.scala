@@ -118,7 +118,6 @@ object Target extends LazyLogging {
       .transform(filterAndSortProteinIds)
       .transform(removeRedundantXrefs)
       .transform(addChemicalProbes(chemicalProbes, ensemblIdLookupDf))
-      .transform(filterAndSortProteinIds)
       .transform(addOrthologue(homology))
       .transform(addTractability(tractability))
       .transform(addNcbiEntrezSynonyms(ncbi))
