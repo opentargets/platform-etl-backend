@@ -1,21 +1,27 @@
 package io.opentargets.etl.backend.target
 
 import com.typesafe.scalalogging.LazyLogging
-import io.opentargets.etl.backend.spark.Helpers.nest
+import org.apache.spark.sql.functions.{col, struct}
 import org.apache.spark.sql.{DataFrame, Dataset, SparkSession}
 
 case class TepWithId(ensemblId: String, tep: Tep)
-case class Tep(name: String, uri: String)
+
+case class Tep(description: String, therapeutic_area: String, url: String)
 
 object Tep extends LazyLogging {
 
   def apply(df: DataFrame)(implicit ss: SparkSession): Dataset[TepWithId] = {
     import ss.implicits._
     logger.info("Transforming Tep inputs")
-    df.withColumnRenamed("Ensembl_id", "ensemblId")
-      .withColumnRenamed("OT_Target_name", "name")
-      .withColumnRenamed("URI", "uri")
-      .transform(nest(_, List("name", "uri"), "tep"))
+    df.select(
+        col("gene_id") as "ensemblId",
+        struct(
+          col("description"),
+          col("disease") as "therapeutic_area",
+          col("TEP_url") as "url"
+        ) as "tep"
+      )
+      .distinct // there are duplicate records in the input file.
       .as[TepWithId]
   }
 

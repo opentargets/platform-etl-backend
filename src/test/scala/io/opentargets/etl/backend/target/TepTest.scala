@@ -7,12 +7,12 @@ class TepTest extends EtlSparkUnitTest {
 
   "Raw Tep file" should "be converted to dataset without loss" in {
     // given
-    val df = sparkSession.read.json(this.getClass.getResource("/target/tep_test30.jsonl").getPath)
+    val df = sparkSession.read.json(this.getClass.getResource("/target/tep_test.json").getPath)
     // when
     val results = Tep(df)
 
     // then
-    results.count() should be(30)
+    results.count() should be(df.select("gene_id").distinct.count())
   }
 
 }
