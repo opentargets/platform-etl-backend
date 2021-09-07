@@ -45,7 +45,11 @@ object Hgnc extends LazyLogging {
       .transform(nest(_, List("id", "source"), "hgncId"))
       .withColumn("hgncId", array(col("hgncId")))
 
-    hgncWithDbRef.drop("hgncSynonyms").join(synonyms, Seq("ensemblId"), "left_outer").as[Hgnc]
+    hgncWithDbRef
+      .drop("hgncSynonyms")
+      .join(synonyms, Seq("ensemblId"), "left_outer")
+      .dropDuplicates("ensemblId")
+      .as[Hgnc]
   }
 
 }
