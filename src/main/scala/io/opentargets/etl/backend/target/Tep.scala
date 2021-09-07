@@ -10,6 +10,11 @@ case class Tep(description: String, therapeutic_area: String, url: String)
 
 object Tep extends LazyLogging {
 
+  /**
+    * @fixme see [discussion](https://app.zenhub.com/workspaces/open-targets-issue-tracker-58a421fd8c85e652659a1486/issues/opentargets/platform/1742)
+    *        of dropping duplicates. This is a temporary work-around and in 21.12 we'll update this to collect an array of TEP
+    *        objects.
+    */
   def apply(df: DataFrame)(implicit ss: SparkSession): Dataset[TepWithId] = {
     import ss.implicits._
     logger.info("Transforming Tep inputs")
@@ -21,7 +26,7 @@ object Tep extends LazyLogging {
           col("TEP_url") as "url"
         ) as "tep"
       )
-      .distinct // there are duplicate records in the input file.
+      .dropDuplicates("ensemblId")
       .as[TepWithId]
   }
 
