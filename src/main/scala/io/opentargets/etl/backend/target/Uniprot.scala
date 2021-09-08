@@ -1,7 +1,7 @@
 package io.opentargets.etl.backend.target
 
 import com.typesafe.scalalogging.LazyLogging
-import io.opentargets.etl.backend.spark.Helpers.nest
+import io.opentargets.etl.backend.spark.Helpers.{nest, safeArrayUnion}
 import io.opentargets.etl.preprocess.uniprot.UniprotEntryParsed
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.{DataFrame, Dataset, SparkSession}
@@ -18,6 +18,8 @@ import org.apache.spark.sql.{DataFrame, Dataset, SparkSession}
 case class Uniprot(
     uniprotId: String,
     synonyms: Seq[LabelAndSource],
+    symbolSynonyms: Seq[LabelAndSource],
+    nameSynonyms: Seq[LabelAndSource],
     functionDescriptions: Seq[String],
     proteinIds: Seq[IdAndSource],
     subcellularLocations: Seq[LocationAndSource],
@@ -35,13 +37,19 @@ object Uniprot extends LazyLogging {
       .as[UniprotEntryParsed]
       .filter(size(col("accessions")) > 0) // null return -1 so remove those too
       .withColumn(id, expr("accessions[0]"))
-      .withColumn("synonyms", array_union(col("names"), col("synonyms")))
+      .withColumn("synonyms", safeArrayUnion(col("names"), col("synonyms"), col("symbolSynonyms")))
+      .withColumn("nameSynonyms", safeArrayUnion(col("names"), col("synonyms")))
+      .withColumn("symbolSynonyms", safeArrayUnion(col("symbolSynonyms")))
       .withColumnRenamed("functions", "functionDescriptions")
       .drop("id", "names")
 
     val dbRefs = handleDbRefs(uniprotDfWithId)
-    val synonyms =
-      TargetUtils.transformColumnToLabelAndSourceStruct(uniprotDfWithId, id, "synonyms", "uniprot")
+
+    val synonyms = List("synonyms", "symbolSynonyms", "nameSynonyms").foldLeft(uniprotDfWithId) {
+      (B, name) =>
+        B.transform(TargetUtils.transformColumnToLabelAndSourceStruct(_, id, name, "uniprot"))
+    }
+
     val proteinIds =
       TargetUtils.transformColumnToIdAndSourceStruct(id,
                                                      "accessions",

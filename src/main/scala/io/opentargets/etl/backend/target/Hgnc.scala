@@ -11,6 +11,10 @@ case class Hgnc(ensemblId: String,
                 approvedSymbol: String,
                 approvedName: String,
                 hgncSynonyms: Array[LabelAndSource],
+                hgncSymbolSynonyms: Array[LabelAndSource],
+                hgncNameSynonyms: Array[LabelAndSource],
+                hgncObsoleteSymbols: Array[LabelAndSource],
+                hgncObsoleteNames: Array[LabelAndSource],
                 uniprotIds: Array[String],
 )
 object Hgnc extends LazyLogging {
@@ -32,12 +36,23 @@ object Hgnc extends LazyLogging {
         col("symbol") as "approvedSymbol",
         col("name") as "approvedName",
         col("uniprot_ids"),
-        safeArrayUnion(col("prev_symbol"), col("alias_symbol"), col("alias_name")) as "hgncSynonyms"
+        safeArrayUnion(col("prev_name"), col("prev_symbol"), col("alias_symbol"), col("alias_name")) as "hgncSynonyms",
+        safeArrayUnion(col("alias_symbol")) as "hgncSymbolSynonyms",
+        safeArrayUnion(col("alias_name")) as "hgncNameSynonyms",
+        safeArrayUnion(col("prev_symbol")) as "hgncObsoleteSymbols",
+        safeArrayUnion(col("prev_name")) as "hgncObsoleteNames"
       )
       .transform(Helpers.snakeToLowerCamelSchema)
 
-    val synonyms =
-      TargetUtils.transformColumnToLabelAndSourceStruct(hgncDf, "ensemblId", "hgncSynonyms", "HGNC")
+    val synonyms = List("hgncSynonyms",
+                        "hgncSymbolSynonyms",
+                        "hgncNameSynonyms",
+                        "hgncObsoleteSymbols",
+                        "hgncObsoleteNames")
+      .foldLeft(hgncDf) { (B, name) =>
+        B.transform(TargetUtils.transformColumnToLabelAndSourceStruct(_, "ensemblId", name, "HGNC"))
+      }
+
     val hgncWithDbRef = hgncDf
       .withColumn("id", element_at(col("hgncId"), 2))
       .withColumn("source", element_at(col("hgncId"), 1))

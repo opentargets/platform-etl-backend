@@ -9,8 +9,8 @@ import org.apache.spark.sql.functions.{
   array_union,
   coalesce,
   col,
-  expr,
   explode,
+  expr,
   filter,
   flatten,
   lit,
@@ -166,7 +166,7 @@ object Helpers extends LazyLogging {
         cols.map(c => struct(lit(c).alias("key"), col(c).alias("val"))): _*
       ))
 
-    val byExprs = by.map(col(_))
+    val byExprs = by.map(col)
 
     df.select(byExprs :+ kvs.alias("_kvs"): _*)
       .select(byExprs ++ Seq(col("_kvs.key"), col("_kvs.val")): _*)
