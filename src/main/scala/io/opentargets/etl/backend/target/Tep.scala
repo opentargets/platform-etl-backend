@@ -1,33 +1,27 @@
 package io.opentargets.etl.backend.target
 
 import com.typesafe.scalalogging.LazyLogging
-import org.apache.spark.sql.functions.{col, struct}
+import org.apache.spark.sql.functions.{col, struct, trim}
 import org.apache.spark.sql.{DataFrame, Dataset, SparkSession}
 
-case class TepWithId(ensemblId: String, tep: Tep)
-
-case class Tep(description: String, therapeutic_area: String, url: String)
+case class Tep(targetFromSource: String, description: String, disease: String, url: String)
 
 object Tep extends LazyLogging {
 
   /**
-    * @fixme see [discussion](https://app.zenhub.com/workspaces/open-targets-issue-tracker-58a421fd8c85e652659a1486/issues/opentargets/platform/1742)
-    *        of dropping duplicates. This is a temporary work-around and in 21.12 we'll update this to collect an array of TEP
-    *        objects.
+    * @param df tep input file provided by Open Targets data team
     */
-  def apply(df: DataFrame)(implicit ss: SparkSession): Dataset[TepWithId] = {
+  def apply(df: DataFrame)(implicit ss: SparkSession): Dataset[Tep] = {
     import ss.implicits._
     logger.info("Transforming Tep inputs")
+
     df.select(
-        col("gene_id") as "ensemblId",
-        struct(
-          col("description"),
-          col("disease") as "therapeutic_area",
-          col("TEP_url") as "url"
-        ) as "tep"
+        trim(col("TEP_url")) as "url",
+        trim(col("description")) as "description",
+        trim(col("disease")) as "disease",
+        col("targetFromSource")
       )
-      .dropDuplicates("ensemblId")
-      .as[TepWithId]
+      .as[Tep]
   }
 
 }
