@@ -3,6 +3,7 @@ package io.opentargets.etl.backend.target
 import com.typesafe.scalalogging.LazyLogging
 import io.opentargets.etl.backend.spark.Helpers.unionDataframeDifferentSchema
 import org.apache.spark.sql.functions.{
+  array_contains,
   broadcast,
   col,
   collect_set,
@@ -126,14 +127,14 @@ object Safety extends LazyLogging {
           col("cell_format") as "cellFormat",
           lit("") as "cellId"
         ) as "biosample",
-        trim(col("official_symbol")) as "name",
+        trim(col("official_symbol")) as "official_symbol",
         lit("Toxcast") as "datasource",
         struct(col("assay_component_endpoint_name") as "name",
                col("assay_component_desc") as "description",
                col("assay_format_type") as "type") as "study"
       ))
-      .join(geneIdLookup, Seq("name"), "left_outer")
-      .drop("name")
+      .join(geneIdLookup, array_contains(col("name"), col("official_symbol")), "left_outer")
+      .drop(geneIdLookup.columns.filter(_ != "ensgId"): _*)
       .withColumnRenamed("ensgId", "id")
 
     tDf
