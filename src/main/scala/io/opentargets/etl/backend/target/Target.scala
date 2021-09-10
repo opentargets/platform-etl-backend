@@ -112,8 +112,8 @@ object Target extends LazyLogging {
       .withColumn("symbolSynonyms",
                   safeArrayUnion(col("symbolSynonyms"), col("hgncSymbolSynonyms")))
       .withColumn("nameSynonyms", safeArrayUnion(col("nameSynonyms"), col("hgncNameSynonyms")))
-      .withColumnRenamed("hgncObsoleteSymbols", "obsoleteSymbols")
-      .withColumnRenamed("hgncObsoleteNames", "obsoleteNames")
+      .withColumn("obsoleteSymbols", safeArrayUnion(col("hgncObsoleteSymbols")))
+      .withColumn("obsoleteNames", safeArrayUnion(col("hgncObsoleteNames")))
       .drop("pid",
             "hgncId",
             "hgncSynonyms",
