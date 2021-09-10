@@ -2,6 +2,7 @@ package io.opentargets.etl.backend.target
 
 import io.opentargets.etl.backend.EtlSparkUnitTest
 import io.opentargets.etl.backend.target.GeneOntologyTest.{ensemblDS, goRawDf}
+import io.opentargets.etl.backend.spark.Helpers._
 import org.apache.spark.sql.{DataFrame, Dataset, Row, SparkSession}
 import org.scalatest.matchers.should.Matchers.convertToAnyShouldWrapper
 
@@ -15,19 +16,19 @@ object GeneOntologyTest {
       "ENSG00000135392",
       "protein_coding",
       "DnaJ heat shock protein family (Hsp40) member C14",
-      Array(),
+      None,
       GenomicLocation("12", 55820960, 55830824, -1),
       "DNAJC14",
-      Array(
+      Some(Array(
         IdAndSource("AAI7147", "uniprot"),
         IdAndSource("EAW96834", "uniprot"),
         IdAndSource("AAK56241", "uniprot"),
         IdAndSource("AAH80655", "uniprot"),
         IdAndSource("ABQ59051", "uniprot"),
         IdAndSource("ENSP00000504134", "ensembl_PRO")
-      ),
-      Array(),
-      Array()
+      )),
+      Some(Array()),
+      None
     ))
 }
 

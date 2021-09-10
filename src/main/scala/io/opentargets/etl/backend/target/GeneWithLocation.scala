@@ -1,9 +1,9 @@
 package io.opentargets.etl.backend.target
 
 import com.typesafe.scalalogging.LazyLogging
-import io.opentargets.etl.backend.spark.Helpers.safeArrayUnion
-import io.opentargets.etl.backend.target.TargetUtils.transformColumnToLabelAndSourceStruct
-import org.apache.spark.sql.functions.{col, split}
+import io.opentargets.etl.backend.spark.Helpers._
+import io.opentargets.etl.backend.target.TargetUtils.transformArrayToStruct
+import org.apache.spark.sql.functions.{col, split, typedLit}
 import org.apache.spark.sql.{DataFrame, Dataset, SparkSession}
 
 /**
@@ -24,25 +24,24 @@ object GeneWithLocation extends LazyLogging {
         split(col("Additional location"), ";").as("HPA_additional"),
         split(col("Extracellular location"), ";").as("HPA_extracellular_location"),
       )
-    val mainDF = hpaDf.transform(locationToSourceAndLocation("HPA_main"))
-    val additionalDF = hpaDf.transform(locationToSourceAndLocation("HPA_additional"))
-    val extracellularDF = hpaDf.transform(locationToSourceAndLocation("HPA_extracellular_location"))
+      .withColumn("HPA_main",
+                  transformArrayToStruct(col("HPA_main"),
+                                         typedLit("HPA_main") :: Nil,
+                                         locationAndSourceSchema))
+      .withColumn("HPA_additional",
+                  transformArrayToStruct(col("HPA_additional"),
+                                         typedLit("HPA_additional") :: Nil,
+                                         locationAndSourceSchema))
+      .withColumn(
+        "HPA_extracellular_location",
+        transformArrayToStruct(col("HPA_extracellular_location"),
+                               typedLit("HPA_extracellular_location") :: Nil,
+                               locationAndSourceSchema)
+      )
+      .withColumn(
+        "locations",
+        safeArrayUnion(col("HPA_main"), col("HPA_additional"), col("HPA_extracellular_location")))
 
-    val geneWithLocationDF = List(hpaDf.select("id"), mainDF, additionalDF, extracellularDF)
-      .reduce((a, b) => a.join(b, Seq("id"), "left_outer"))
-      .select(col("id"),
-              safeArrayUnion(col("HPA_main"),
-                             col("HPA_additional"),
-                             col("HPA_extracellular_location")).as("locations"))
-
-    geneWithLocationDF.as[GeneWithLocation]
-
-  }
-
-  private def locationToSourceAndLocation(location: String)(dataFrame: DataFrame): DataFrame = {
-    dataFrame
-      .select(col("id"), col(location))
-      .transform(
-        transformColumnToLabelAndSourceStruct(_, "id", location, location, Some("location")))
+    hpaDf.as[GeneWithLocation]
   }
 }

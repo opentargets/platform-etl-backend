@@ -1,9 +1,9 @@
 package io.opentargets.etl.backend.target
 
 import com.typesafe.scalalogging.LazyLogging
-import io.opentargets.etl.backend.spark.Helpers.safeArrayUnion
-import io.opentargets.etl.backend.target.TargetUtils.transformColumnToLabelAndSourceStruct
-import org.apache.spark.sql.functions.{col, collect_set, explode, flatten, split}
+import io.opentargets.etl.backend.spark.Helpers._
+import io.opentargets.etl.backend.target.TargetUtils.transformArrayToStruct
+import org.apache.spark.sql.functions.{col, collect_set, explode, flatten, split, typedLit}
 import org.apache.spark.sql.{DataFrame, Dataset, SparkSession}
 
 case class Ncbi(id: String,
@@ -45,7 +45,9 @@ object Ncbi extends LazyLogging {
 
     val transformedNCBI = List("synonyms", "symbolSynonyms", "nameSynonyms")
       .foldLeft(ncbiDF) { (B, name) =>
-        B.transform(transformColumnToLabelAndSourceStruct(_, "id", name, "NCBI_entrez"))
+        B.withColumn(
+          name,
+          transformArrayToStruct(col(name), typedLit("NCBI_entrez") :: Nil, labelAndSourceSchema))
       }
 
     transformedNCBI.as[Ncbi]

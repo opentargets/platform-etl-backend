@@ -47,6 +47,14 @@ object Helpers extends LazyLogging {
       partitionBy: Option[Seq[String]] = None
   )
 
+  case class IdAndSource(id: String, source: String)
+  case class LabelAndSource(label: String, source: String)
+  case class LocationAndSource(location: String, source: String)
+
+  val idAndSourceSchema: StructType = Encoders.product[IdAndSource].schema
+  val labelAndSourceSchema: StructType = Encoders.product[LabelAndSource].schema
+  val locationAndSourceSchema: StructType = Encoders.product[LocationAndSource].schema
+
   /** Returns input string wrapped in backticks if it contains period character.
     *
     * Spark interprets the . symbol to be a select. Input files may include this in their column names causing
