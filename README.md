@@ -46,6 +46,30 @@ The `options` field configures how Spark will read the input files. Both Json an
 configurable options, details of which can be
 found [in the documentation](https://spark.apache.org/docs/latest/api/scala/org/apache/spark/sql/DataFrameReader.html)
 
+#### Schema
+
+You can optionally provide a schema for input files, for example:
+
+```hocon
+inputs {
+  raw-evidences {
+    format = "json"
+    path = ${common.input}"/evidence-files//*"
+    schema = """
+            `datasourceId` STRING,`targetId` STRING,`alleleOrigins` ARRAY<STRING>, ...
+             """
+  }
+}
+```
+
+If you want to extract the schema from an existing dataframe, follow the following steps:
+
+```scala
+val df: DataFrame = ???
+val schema: String = df.schema.toDDL
+println(schema)
+```
+
 #### Configuring Spark
 
 If you want to use a local installation of Spark customise the `application.conf` with the following spark-uri field and
