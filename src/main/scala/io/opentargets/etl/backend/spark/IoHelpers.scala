@@ -5,8 +5,7 @@ import io.opentargets.etl.backend.Configuration.OTConfig
 import io.opentargets.etl.backend.ETLSessionContext
 import monocle.macros.syntax.lens.toGenApplyLensOps
 import org.apache.spark.sql.functions.current_timestamp
-import org.apache.spark.sql.types.{DataType, StructType}
-import org.apache.spark.sql.{DataFrame, DataFrameReader, DataFrameWriter, Row, SparkSession}
+import org.apache.spark.sql.{DataFrame, DataFrameWriter, Row, SparkSession}
 
 import scala.util.Random
 
@@ -23,14 +22,12 @@ case class IOResource(data: DataFrame, configuration: IOResourceConfig)
   * @param path        to resource
   * @param options     configuration options
   * @param partitionBy partition results by
-  * @param schema      in json format to specify dataframe format.
   */
 case class IOResourceConfig(
     format: String,
     path: String,
     options: Option[Seq[IOResourceConfigOption]] = None,
-    partitionBy: Option[Seq[String]] = None,
-    schema: Option[String] = None
+    partitionBy: Option[Seq[String]] = None
 )
 
 case class Metadata(id: String,
@@ -78,17 +75,13 @@ object IoHelpers extends LazyLogging {
   def loadFileToDF(pathInfo: IOResourceConfig)(implicit session: SparkSession): DataFrame = {
     logger.info(s"load dataset ${pathInfo.path} with ${pathInfo.toString}")
 
-    val dfrWithOption: DataFrameReader = pathInfo.options
+    pathInfo.options
       .foldLeft(session.read.format(pathInfo.format)) {
         case ops =>
           val options = ops._2.map(c => c.k -> c.v).toMap
           ops._1.options(options)
       }
-
-    pathInfo.schema match {
-      case Some(value) => dfrWithOption.schema(value).load(pathInfo.path)
-      case None        => dfrWithOption.load(pathInfo.path)
-    }
+      .load(pathInfo.path)
   }
 
   /**
