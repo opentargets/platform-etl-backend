@@ -8,7 +8,6 @@ class TepTest extends EtlSparkUnitTest {
   "Raw Tep file" should "be converted to dataset without loss" in {
     // given
     val df = sparkSession.read
-      .option("multiLine", true)
       .json(this.getClass.getResource("/target/tep_test.json").getPath)
     // when
     val results = Tep(df)

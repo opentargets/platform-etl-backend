@@ -1,12 +1,15 @@
 package io.opentargets.etl.backend.target
 
 import com.typesafe.scalalogging.LazyLogging
-import io.opentargets.etl.backend.spark.Helpers.safeArrayUnion
-import io.opentargets.etl.backend.target.TargetUtils.transformColumnToLabelAndSourceStruct
-import org.apache.spark.sql.functions.{col, collect_set, explode, flatten, split}
+import io.opentargets.etl.backend.spark.Helpers._
+import io.opentargets.etl.backend.target.TargetUtils.transformArrayToStruct
+import org.apache.spark.sql.functions.{col, collect_set, explode, flatten, split, typedLit}
 import org.apache.spark.sql.{DataFrame, Dataset, SparkSession}
 
-case class Ncbi(id: String, synonyms: Array[LabelAndSource])
+case class Ncbi(id: String,
+                synonyms: Array[LabelAndSource],
+                symbolSynonyms: Array[LabelAndSource],
+                nameSynonyms: Array[LabelAndSource])
 
 /**
   * Ncbi data available from ftp://ftp.ncbi.nlm.nih.gov/gene/DATA/GENE_INFO/Mammalia/Homo_sapiens.gene_info.gz
@@ -27,11 +30,26 @@ object Ncbi extends LazyLogging {
       .withColumn("id", split(col("id"), ":"))
       .withColumn("id", explode(col("id")))
       .filter(col("id").startsWith("ENSG"))
-      .select(col("id"), safeArrayUnion(col("s"), col("od")).as("synonyms"))
+      .select(
+        col("id"),
+        safeArrayUnion(col("s"), col("od")).as("synonyms"),
+        safeArrayUnion(col("s")).as("symbolSynonyms"),
+        safeArrayUnion(col("od")).as("nameSynonyms")
+      )
       .groupBy("id")
-      .agg(flatten(collect_set("synonyms")).as("synonyms"))
-      .transform(transformColumnToLabelAndSourceStruct(_, "id", "synonyms", "NCBI_entrez"))
+      .agg(
+        flatten(collect_set("synonyms")).as("synonyms"),
+        flatten(collect_set("symbolSynonyms")).as("symbolSynonyms"),
+        flatten(collect_set("nameSynonyms")).as("nameSynonyms")
+      )
 
-    ncbiDF.as[Ncbi]
+    val transformedNCBI = List("synonyms", "symbolSynonyms", "nameSynonyms")
+      .foldLeft(ncbiDF) { (B, name) =>
+        B.withColumn(
+          name,
+          transformArrayToStruct(col(name), typedLit("NCBI_entrez") :: Nil, labelAndSourceSchema))
+      }
+
+    transformedNCBI.as[Ncbi]
   }
 }

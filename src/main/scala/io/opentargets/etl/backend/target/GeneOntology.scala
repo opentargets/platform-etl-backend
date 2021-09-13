@@ -1,7 +1,7 @@
 package io.opentargets.etl.backend.target
 
 import com.typesafe.scalalogging.LazyLogging
-import io.opentargets.etl.backend.spark.Helpers.nest
+import io.opentargets.etl.backend.spark.Helpers._
 import org.apache.spark.sql.functions.{
   array_union,
   broadcast,
@@ -138,6 +138,7 @@ object GeneOntology extends LazyLogging {
       .map(row => {
         val ensembId = row.id
         val accessions = row.proteinIds
+          .getOrElse(Array.empty)
           .withFilter(_.source.contains("uniprot"))
           .map(pids => pids.id) :+ row.approvedSymbol
         (ensembId, accessions.distinct)

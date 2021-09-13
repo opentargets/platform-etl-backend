@@ -12,6 +12,7 @@ case class UniprotEntryParsed(
     accessions: Seq[String],
     names: Seq[String],
     synonyms: Seq[String],
+    symbolSynonyms: Seq[String],
     dbXrefs: Seq[String],
     functions: Seq[String],
     locations: Seq[String]
@@ -27,12 +28,14 @@ case class UniprotEntry(
     description: Seq[String] = Seq.empty,
     dbXrefs: Seq[String] = Seq.empty,
     comments: Seq[String] = Seq.empty,
+    geneSymbols: Seq[String] = Seq.empty,
     functions: Seq[String] = Seq.empty,
     locations: Seq[String] = Seq.empty
 ) {
   def convertToParsed(): UniprotEntryParsed = {
     val (name, syns) = UniprotConverter.processNames(description)
-    UniprotEntryParsed(id, accession, name, syns, dbXrefs, functions, locations)
+    val symbolSynonyms = UniprotConverter.processSymbolSynonyms(geneSymbols)
+    UniprotEntryParsed(id, accession, name, syns, symbolSynonyms, dbXrefs, functions, locations)
   }
 }
 
@@ -97,6 +100,9 @@ object UniprotConverter
           case desc if desc.startsWith(DESCRIPTION) =>
             go(inputs,
                uniprotEntry.copy(description = uniprotEntry.description :+ removeLineIndex(desc)))
+          case gn if gn.startsWith(GENE_SYMBOLS) =>
+            val gns = removeLineIndex(gn).split(";")
+            go(inputs, uniprotEntry.copy(geneSymbols = uniprotEntry.geneSymbols ++ gns))
           case dbRef if dbRef.startsWith(DATABASE_XREF) =>
             val dbs = removeLineIndex(dbRef)
             if (isDbOfInterest(dbs))
@@ -158,7 +164,7 @@ object Main extends App with LazyLogging {
   implicit val jsonFormat: DefaultFormats.type = DefaultFormats
 
   logger.info("Preparing to convert Uniprot raw text file to json.")
-  logger.info(s"""Input: ${inputPath}
+  logger.info(s"""Input: $inputPath
                  |Ouput: ${args.tail.head}""".stripMargin)
 
   val inputLines: Iterator[String] = File(inputPath).lineIterator

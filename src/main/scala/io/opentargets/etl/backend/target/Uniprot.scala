@@ -1,9 +1,11 @@
 package io.opentargets.etl.backend.target
 
 import com.typesafe.scalalogging.LazyLogging
-import io.opentargets.etl.backend.spark.Helpers.nest
+import io.opentargets.etl.backend.spark.Helpers._
+import io.opentargets.etl.backend.target.TargetUtils.transformArrayToStruct
 import io.opentargets.etl.preprocess.uniprot.UniprotEntryParsed
 import org.apache.spark.sql.functions._
+import org.apache.spark.sql.types.ArrayType
 import org.apache.spark.sql.{DataFrame, Dataset, SparkSession}
 
 /**
@@ -18,6 +20,8 @@ import org.apache.spark.sql.{DataFrame, Dataset, SparkSession}
 case class Uniprot(
     uniprotId: String,
     synonyms: Seq[LabelAndSource],
+    symbolSynonyms: Seq[LabelAndSource],
+    nameSynonyms: Seq[LabelAndSource],
     functionDescriptions: Seq[String],
     proteinIds: Seq[IdAndSource],
     subcellularLocations: Seq[LocationAndSource],
@@ -35,43 +39,43 @@ object Uniprot extends LazyLogging {
       .as[UniprotEntryParsed]
       .filter(size(col("accessions")) > 0) // null return -1 so remove those too
       .withColumn(id, expr("accessions[0]"))
-      .withColumn("synonyms", array_union(col("names"), col("synonyms")))
+      .withColumn("synonyms", safeArrayUnion(col("names"), col("synonyms"), col("symbolSynonyms")))
+      .withColumn("nameSynonyms", safeArrayUnion(col("names"), col("synonyms")))
+      .withColumn("symbolSynonyms", safeArrayUnion(col("symbolSynonyms")))
       .withColumnRenamed("functions", "functionDescriptions")
       .drop("id", "names")
+      .transform(handleDbRefs)
+      .withColumn("proteinIds",
+                  transformArrayToStruct(col("accessions"),
+                                         typedLit("uniprot_obsolete") :: Nil,
+                                         idAndSourceSchema))
+      .withColumn("subcellularLocations",
+                  transformArrayToStruct(col("locations"),
+                                         typedLit("uniprot") :: Nil,
+                                         locationAndSourceSchema))
 
-    val dbRefs = handleDbRefs(uniprotDfWithId)
-    val synonyms =
-      TargetUtils.transformColumnToLabelAndSourceStruct(uniprotDfWithId, id, "synonyms", "uniprot")
-    val proteinIds =
-      TargetUtils.transformColumnToIdAndSourceStruct(id,
-                                                     "accessions",
-                                                     "uniprot_obsolete",
-                                                     Some("proteinIds"))(uniprotDfWithId)
-    val subcellularLocations =
-      TargetUtils.transformColumnToLabelAndSourceStruct(uniprotDfWithId,
-                                                        id,
-                                                        "locations",
-                                                        "uniprot",
-                                                        Some("location"),
-                                                        Some("subcellularLocations"))
+    val synonyms = List("synonyms", "symbolSynonyms", "nameSynonyms").foldLeft(uniprotDfWithId) {
+      (B, name) =>
+        B.withColumn(
+          name,
+          transformArrayToStruct(col(name), typedLit("uniprot") :: Nil, labelAndSourceSchema))
+    }
 
-    Seq(uniprotDfWithId.drop("synonyms", "functions", "dbXrefs", "accessions", "locations"),
-        dbRefs,
-        synonyms,
-        proteinIds,
-        subcellularLocations).reduce((acc, df) => acc.join(df, Seq(id), "left_outer")).as[Uniprot]
+    synonyms.as[Uniprot]
   }
 
   private def handleDbRefs(dataFrame: DataFrame): DataFrame = {
+    //     when(functions.size(sourceCol) > 0,
+    //         transform(sourceCol, c => struct(c :: additionalColumns: _*)))
+    //      .cast(ArrayType(schema))
     val ref = "dbXrefs"
     dataFrame
-      .select(col(id), explode(col(ref)).as(ref))
-      .withColumn(ref, split(col(ref), " "))
-      .withColumn("id", element_at(col(ref), 2))
-      .withColumn("source", element_at(col(ref), 1))
-      .drop(ref)
-      .transform(nest(_, List("id", "source"), ref))
-      .groupBy(id)
-      .agg(collect_set(ref).as(ref))
+      .withColumn(
+        ref,
+        transform(col(ref), c => {
+          val sc = split(c, pattern = " ")
+          struct(element_at(sc, 2) :: element_at(sc, 1) :: Nil: _*)
+        }).cast(ArrayType(idAndSourceSchema))
+      )
   }
 }

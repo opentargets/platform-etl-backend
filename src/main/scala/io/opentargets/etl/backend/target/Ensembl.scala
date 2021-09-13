@@ -1,8 +1,8 @@
 package io.opentargets.etl.backend.target
 
 import com.typesafe.scalalogging.LazyLogging
-import io.opentargets.etl.backend.spark.Helpers.{nest, safeArrayUnion}
-import io.opentargets.etl.backend.target.TargetUtils.transformColumnToIdAndSourceStruct
+import io.opentargets.etl.backend.spark.Helpers._
+import io.opentargets.etl.backend.target.TargetUtils._
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.types.{IntegerType, LongType}
 import org.apache.spark.sql.{Column, DataFrame, Dataset, SparkSession}
@@ -10,14 +10,12 @@ import org.apache.spark.sql.{Column, DataFrame, Dataset, SparkSession}
 case class Ensembl(id: String,
                    biotype: String,
                    approvedName: String,
-                   alternativeGenes: Array[String],
+                   alternativeGenes: Option[Array[String]],
                    genomicLocation: GenomicLocation,
                    approvedSymbol: String,
-                   proteinIds: Array[IdAndSource],
-                   transcriptIds: Array[String],
-                   signalP: Array[IdAndSource])
-
-case class IdAndSource(id: String, source: String)
+                   proteinIds: Option[Array[IdAndSource]],
+                   transcriptIds: Option[Array[String]],
+                   signalP: Option[Array[IdAndSource]])
 
 case class GenomicLocation(chromosome: String, start: Long, end: Long, strand: Integer)
 
@@ -48,6 +46,7 @@ object Ensembl extends LazyLogging {
         flatten(col("transcripts.translations")).as("translations")
       )
       .orderBy(col("id").asc)
+      .dropDuplicates("id")
       .persist()
       .transform(nest(_, List("chromosome", "start", "end", "strand"), "genomicLocation"))
       .transform(descriptionToApprovedName)
@@ -150,42 +149,31 @@ object Ensembl extends LazyLogging {
       .drop("altGenes")
   }
 
-  /** Returns dataframe with column 'proteinIds' added and columns, 'translations', 'uniprot_trembl'
-    * and 'uniprot_swissprot' removed.
+  /** Returns dataframe with column 'proteinIds' added and columns, 'translations', 'uniprot_trembl',
+    * 'ensembl_PRO' and 'uniprot_swissprot' removed.
     *
     * 'proteinIds' includes sources:
     *   - uniprot_swissprot
     *   - uniprot_trembl
     *   - ensembl_PRO
     * */
-  def refactorProteinId: DataFrame => DataFrame = { df =>
-    {
-      val ensemblProDF =
-        df.transform(
-          transformColumnToIdAndSourceStruct("id",
-                                             "translations.id",
-                                             "ensembl_PRO",
-                                             Some("ensembl_PRO")))
-      val uniprotSwissDF: DataFrame =
-        df.transform(
-          transformColumnToIdAndSourceStruct("id", "uniprot_swissprot", "uniprot_swissprot"))
-      val uniprotTremblDF: DataFrame =
-        df.transform(transformColumnToIdAndSourceStruct("id", "uniprot_trembl", "uniprot_trembl"))
-      val proteinIds = ensemblProDF
-        .join(uniprotSwissDF, Seq("id"), "outer")
-        .join(uniprotTremblDF, Seq("id"), "outer")
-        .select(col("id"),
-                safeArrayUnion(col("uniprot_swissprot"), col("uniprot_trembl"), col("ensembl_PRO"))
-                  .as("proteinIds"))
-
-      df.drop("uniprot_swissprot", "translations", "uniprot_trembl")
-        .join(
-          proteinIds,
-          Seq("id"),
-          "left_outer"
-        )
-    }
-  }
+  def refactorProteinId(df: DataFrame): DataFrame =
+    df.withColumn("ensembl_PRO",
+                  transformArrayToStruct(col("translations.id"),
+                                         typedLit("ensembl_PRO") :: Nil,
+                                         idAndSourceSchema))
+      .withColumn("uniprot_swissprot",
+                  transformArrayToStruct(col("uniprot_swissprot"),
+                                         typedLit("uniprot_swissprot") :: Nil,
+                                         idAndSourceSchema))
+      .withColumn("uniprot_trembl",
+                  transformArrayToStruct(col("uniprot_trembl"),
+                                         typedLit("uniprot_trembl") :: Nil,
+                                         idAndSourceSchema))
+      .withColumn(
+        "proteinIds",
+        safeArrayUnion(col("uniprot_swissprot"), col("uniprot_trembl"), col("ensembl_PRO")))
+      .drop("uniprot_swissprot", "translations", "uniprot_trembl", "ensembl_PRO")
 
   /** Return approved name from description */
   private def descriptionToApprovedName(dataFrame: DataFrame): DataFrame = {
@@ -197,10 +185,10 @@ object Ensembl extends LazyLogging {
       .drop(d)
   }
 
-  private def refactorSignalP(dataframe: DataFrame): DataFrame = {
-    val signalP =
-      dataframe.transform(transformColumnToIdAndSourceStruct("id", "signalP", "signalP"))
-    dataframe.drop("signalP").join(signalP, Seq("id"), "left_outer")
-  }
+  private def refactorSignalP(dataframe: DataFrame): DataFrame =
+    dataframe
+      .withColumn(
+        "signalP",
+        transformArrayToStruct(col("signalP"), typedLit("signalP") :: Nil, idAndSourceSchema))
 
 }

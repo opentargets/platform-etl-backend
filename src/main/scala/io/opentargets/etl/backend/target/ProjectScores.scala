@@ -1,8 +1,7 @@
 package io.opentargets.etl.backend.target
 
 import com.typesafe.scalalogging.LazyLogging
-import io.opentargets.etl.backend.spark.Helpers
-import io.opentargets.etl.backend.spark.Helpers.nest
+import io.opentargets.etl.backend.spark.Helpers._
 import org.apache.spark.sql.{DataFrame, Dataset, SparkSession}
 import org.apache.spark.sql.functions.{array, col, typedLit}
 
@@ -30,7 +29,7 @@ object ProjectScores extends LazyLogging {
     val geneWithDependencyScoreDF = {
       dependencyMatrix.columns
         .withFilter(_ != "Gene")
-        .map(Helpers.wrapColumnNamesWithPeriodCharacters)
+        .map(wrapColumnNamesWithPeriodCharacters)
         .foldLeft(dependencyMatrix.withColumn("total", typedLit(0)))((df, c) => {
           df.withColumn("total", col("total") + col(c))
         })

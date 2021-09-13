@@ -47,4 +47,5 @@ trait LineIdentifiers {
   val DESCRIPTION = "DE" // once or more
   val DATABASE_XREF = "DR" // optional
   val COMMENT = "CC" // optional
+  val GENE_SYMBOLS = "GN" // symbol synonyms
 }
