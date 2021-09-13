@@ -229,21 +229,12 @@ object Evidence extends LazyLogging {
 
     logger.info("validate each evidence generating a hash to check for duplicates")
     val config = context.configuration.evidences
-    val allRequiredColumns: Set[String] = config.dataSources
-      .flatMap(_.uniqueFields)
-      .toSet ++ config.uniqueFields.toSet
-    val missingColumns = allRequiredColumns diff df.columns.toSet
-    logger.warn(s"Missing columns in evidence $missingColumns. Creating synthetic columns.")
-    val validatedDF =
-      if (missingColumns.nonEmpty)
-        missingColumns.foldLeft(df)((acc, missingColumn) => acc.withColumn(missingColumn, lit("")))
-      else df
+
     val commonReqFields = config.uniqueFields.toSet
-    val dts: List[(Column, List[Column])] = config.dataSources.map(
-      dt =>
-        (col("sourceId") === dt.id) ->
-          (commonReqFields ++ dt.uniqueFields.toSet).toList.sorted
-            .map(x => when(expr(x).isNotNull, expr(x).cast(StringType)).otherwise("")))
+    val dts = config.dataSources.map { dt =>
+      (col("sourceId") === dt.id) -> (commonReqFields ++ dt.uniqueFields.toSet).toList.sorted
+        .map(x => when(expr(x).isNotNull, expr(x).cast(StringType)).otherwise(""))
+    }
 
     val defaultDts = commonReqFields.toList.sorted.map { x =>
       when(col(x).isNotNull, col(x).cast(StringType)).otherwise("")
@@ -255,7 +246,7 @@ object Evidence extends LazyLogging {
       }
       .otherwise(sha1(concat(defaultDts: _*)))
 
-    validatedDF.withColumn(columnName, hashes)
+    df.withColumn(columnName, hashes)
   }
 
   def score(df: DataFrame, columnName: String)(implicit context: ETLSessionContext): DataFrame = {
