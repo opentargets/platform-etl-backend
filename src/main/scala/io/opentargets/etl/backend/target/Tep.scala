@@ -1,10 +1,16 @@
 package io.opentargets.etl.backend.target
 
 import com.typesafe.scalalogging.LazyLogging
-import org.apache.spark.sql.functions.{col, struct, trim}
+import org.apache.spark.sql.Encoders
+import org.apache.spark.sql.functions.{col, trim}
+import org.apache.spark.sql.types._
 import org.apache.spark.sql.{DataFrame, Dataset, SparkSession}
 
-case class Tep(targetFromSource: String, description: String, disease: String, url: String)
+// TEP_url --> url
+//disease --> therapeuticArea
+//targetFromSource --> targetFromSourceId
+
+case class Tep(targetFromSource: String, description: String, therapeuticArea: String, url: String)
 
 object Tep extends LazyLogging {
 
@@ -15,13 +21,14 @@ object Tep extends LazyLogging {
     import ss.implicits._
     logger.info("Transforming Tep inputs")
 
-    df.select(
-        trim(col("TEP_url")) as "url",
-        trim(col("description")) as "description",
-        trim(col("disease")) as "disease",
-        col("targetFromSource")
-      )
-      .as[Tep]
+    val tepSchema = Encoders.product[Tep].schema.map { f =>
+      f.dataType match {
+        case StringType => trim(col(f.name)).as(f.name)
+        case _          => col(f.name)
+      }
+    }
+
+    df.select(tepSchema: _*).as[Tep]
   }
 
 }
