@@ -10,6 +10,7 @@ import org.apache.spark.sql.expressions.UserDefinedFunction
 import org.apache.spark.sql.functions.{
   array,
   array_contains,
+  array_distinct,
   array_join,
   array_union,
   broadcast,
@@ -108,10 +109,11 @@ object Target extends LazyLogging {
       .withColumn("proteinIds", safeArrayUnion(col("proteinIds"), col("pid")))
       .withColumn("dbXrefs",
                   safeArrayUnion(col("hgncId"), col("dbXrefs"), col("signalP"), col("xRef")))
-      .withColumn("synonyms", safeArrayUnion(col("synonyms"), col("hgncSynonyms")))
       .withColumn("symbolSynonyms",
                   safeArrayUnion(col("symbolSynonyms"), col("hgncSymbolSynonyms")))
       .withColumn("nameSynonyms", safeArrayUnion(col("nameSynonyms"), col("hgncNameSynonyms")))
+      .withColumn("synonyms",
+                  safeArrayUnion(col("synonyms"), col("symbolSynonyms"), col("nameSynonyms")))
       .withColumn("obsoleteSymbols", safeArrayUnion(col("hgncObsoleteSymbols")))
       .withColumn("obsoleteNames", safeArrayUnion(col("hgncObsoleteNames")))
       .drop("pid",
@@ -137,8 +139,14 @@ object Target extends LazyLogging {
       .transform(addNcbiEntrezSynonyms(ncbi))
       .transform(addTargetSafety(inputDataFrames, ensemblIdLookupDf))
       .transform(addReactome(reactome))
-
+      .transform(removeDuplicatedSynonyms)
   }
+
+  private def removeDuplicatedSynonyms(df: DataFrame): DataFrame =
+    ("synonyms" :: "symbolSynonyms" :: "nameSynonyms" :: "obsoleteNames" :: "obsoleteSymbols" :: Nil)
+      .foldLeft(df) { (B, name) =>
+        B.withColumn(name, array_distinct(col(name)))
+      }
 
   /**
     * Some of the input data sets do not use Ensembl Ids to identify records. Commonly we see uniprot
@@ -201,6 +209,8 @@ object Target extends LazyLogging {
 
   private def addTep(tep: DataFrame, idLookup: DataFrame)(dataFrame: DataFrame): DataFrame = {
     logger.info("Adding TEP to target dataframe.")
+
+    val tepFields = Tep.getClass.getFields
     val discard = idLookup.columns.filter(_ != "ensgId")
     val sources = Seq(("name", "e1"), ("uniprot", "e2"), ("HGNC", "e3"))
     val tepWithEnsgId = sources
@@ -212,12 +222,7 @@ object Target extends LazyLogging {
       })
       .select(
         coalesce(sources.map(it => col(it._2)): _*) as "id",
-        struct(
-          col("targetFromSourceId"),
-          col("url"),
-          col("disease"),
-          col("description"),
-        ) as "tep"
+        struct(tepFields.map(f => col(f.getName)): _*) as "tep"
       )
 
     dataFrame.join(broadcast(tepWithEnsgId), Seq("id"), "left_outer")
@@ -282,9 +287,9 @@ object Target extends LazyLogging {
 
     dataFrame
       .join(ncbiF, Seq("id"), "left_outer")
-      .withColumn("synonyms", safeArrayUnion(col("synonyms"), col("s")))
       .withColumn("symbolSynonyms", safeArrayUnion(col("symbolSynonyms"), col("ss")))
-      .withColumn("synonyms", safeArrayUnion(col("nameSynonyms"), col("ns")))
+      .withColumn("nameSynonyms", safeArrayUnion(col("nameSynonyms"), col("ns")))
+      .withColumn("synonyms", safeArrayUnion(col("synonyms"), col("s"), col("ns"), col("ss")))
       .drop("s", "ss", "ns")
   }
 
