@@ -6,10 +6,6 @@ import org.apache.spark.sql.functions.{col, trim}
 import org.apache.spark.sql.types._
 import org.apache.spark.sql.{DataFrame, Dataset, SparkSession}
 
-// TEP_url --> url
-//disease --> therapeuticArea
-//targetFromSource --> targetFromSourceId
-
 case class Tep(targetFromSourceId: String,
                description: String,
                therapeuticArea: String,
