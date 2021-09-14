@@ -10,7 +10,10 @@ import org.apache.spark.sql.{DataFrame, Dataset, SparkSession}
 //disease --> therapeuticArea
 //targetFromSource --> targetFromSourceId
 
-case class Tep(targetFromSource: String, description: String, therapeuticArea: String, url: String)
+case class Tep(targetFromSourceId: String,
+               description: String,
+               therapeuticArea: String,
+               url: String)
 
 object Tep extends LazyLogging {
 

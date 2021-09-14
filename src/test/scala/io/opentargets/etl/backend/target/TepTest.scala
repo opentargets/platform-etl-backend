@@ -13,7 +13,7 @@ class TepTest extends EtlSparkUnitTest {
     val results = Tep(df)
 
     // then
-    results.count() should be(df.select("targetFromSource").distinct.count())
+    results.count() should be(df.select("targetFromSourceId").distinct.count())
   }
 
 }
