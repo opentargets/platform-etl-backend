@@ -206,14 +206,14 @@ object Target extends LazyLogging {
     val tepWithEnsgId = sources
       .foldLeft(broadcast(tep))((df, cl) => {
         df.join(idLookup.withColumnRenamed("ensgId", cl._2),
-                array_contains(col(cl._1), col("targetFromSource")),
+                array_contains(col(cl._1), col("targetFromSourceId")),
                 "left_outer")
           .drop(discard: _*)
       })
       .select(
         coalesce(sources.map(it => col(it._2)): _*) as "id",
         struct(
-          col("targetFromSource"),
+          col("targetFromSourceId"),
           col("url"),
           col("disease"),
           col("description"),
