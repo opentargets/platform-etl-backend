@@ -122,6 +122,8 @@ object Target extends LazyLogging {
             "hgncSynonyms",
             "hgncNameSynonyms",
             "hgncSymbolSynonyms",
+            "hgncObsoleteNames",
+            "hgncObsoleteSymbols",
             "uniprotIds",
             "signalP",
             "xRef")
