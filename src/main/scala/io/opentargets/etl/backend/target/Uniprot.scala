@@ -40,7 +40,7 @@ object Uniprot extends LazyLogging {
       .filter(size(col("accessions")) > 0) // null return -1 so remove those too
       .withColumn(id, expr("accessions[0]"))
       .withColumn("synonyms", safeArrayUnion(col("names"), col("synonyms"), col("symbolSynonyms")))
-      .withColumn("nameSynonyms", safeArrayUnion(col("names"), col("synonyms")))
+      .withColumn("nameSynonyms", safeArrayUnion(col("names")))
       .withColumn("symbolSynonyms", safeArrayUnion(col("symbolSynonyms")))
       .withColumnRenamed("functions", "functionDescriptions")
       .drop("id", "names")
