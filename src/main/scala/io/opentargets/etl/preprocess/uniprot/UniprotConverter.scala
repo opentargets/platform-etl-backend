@@ -33,9 +33,16 @@ case class UniprotEntry(
     locations: Seq[String] = Seq.empty
 ) {
   def convertToParsed(): UniprotEntryParsed = {
-    val (name, syns) = UniprotConverter.processNames(description)
+    val names = UniprotConverter.processNames(description)
     val symbolSynonyms = UniprotConverter.processSymbolSynonyms(geneSymbols)
-    UniprotEntryParsed(id, accession, name, syns, symbolSynonyms, dbXrefs, functions, locations)
+    UniprotEntryParsed(id,
+                       accession,
+                       names.recNames,
+                       names.altNames,
+                       symbolSynonyms ++ names.symbols,
+                       dbXrefs,
+                       functions,
+                       locations)
   }
 }
 

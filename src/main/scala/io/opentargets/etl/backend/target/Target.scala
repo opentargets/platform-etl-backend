@@ -10,6 +10,7 @@ import org.apache.spark.sql.expressions.UserDefinedFunction
 import org.apache.spark.sql.functions.{
   array,
   array_contains,
+  array_distinct,
   array_join,
   array_union,
   broadcast,
@@ -18,6 +19,7 @@ import org.apache.spark.sql.functions.{
   collect_list,
   collect_set,
   explode,
+  expr,
   filter,
   flatten,
   lit,
@@ -29,7 +31,7 @@ import org.apache.spark.sql.functions.{
   udf,
   when
 }
-import org.apache.spark.sql.{DataFrame, Dataset, SparkSession}
+import org.apache.spark.sql.{Column, DataFrame, Dataset, SparkSession}
 import org.apache.spark.storage.StorageLevel
 
 import scala.jdk.CollectionConverters.asScalaIteratorConverter
@@ -108,10 +110,11 @@ object Target extends LazyLogging {
       .withColumn("proteinIds", safeArrayUnion(col("proteinIds"), col("pid")))
       .withColumn("dbXrefs",
                   safeArrayUnion(col("hgncId"), col("dbXrefs"), col("signalP"), col("xRef")))
-      .withColumn("synonyms", safeArrayUnion(col("synonyms"), col("hgncSynonyms")))
       .withColumn("symbolSynonyms",
                   safeArrayUnion(col("symbolSynonyms"), col("hgncSymbolSynonyms")))
       .withColumn("nameSynonyms", safeArrayUnion(col("nameSynonyms"), col("hgncNameSynonyms")))
+      .withColumn("synonyms",
+                  safeArrayUnion(col("synonyms"), col("symbolSynonyms"), col("nameSynonyms")))
       .withColumn("obsoleteSymbols", safeArrayUnion(col("hgncObsoleteSymbols")))
       .withColumn("obsoleteNames", safeArrayUnion(col("hgncObsoleteNames")))
       .drop("pid",
@@ -119,6 +122,8 @@ object Target extends LazyLogging {
             "hgncSynonyms",
             "hgncNameSynonyms",
             "hgncSymbolSynonyms",
+            "hgncObsoleteNames",
+            "hgncObsoleteSymbols",
             "uniprotIds",
             "signalP",
             "xRef")
@@ -137,8 +142,15 @@ object Target extends LazyLogging {
       .transform(addNcbiEntrezSynonyms(ncbi))
       .transform(addTargetSafety(inputDataFrames, ensemblIdLookupDf))
       .transform(addReactome(reactome))
-
+      .transform(removeDuplicatedSynonyms)
   }
+
+  /** for all alternative names or symbols a target can take is worth cleaning them up from duplicated entries */
+  private def removeDuplicatedSynonyms(df: DataFrame): DataFrame =
+    ("synonyms" :: "symbolSynonyms" :: "nameSynonyms" :: "obsoleteNames" :: "obsoleteSymbols" :: Nil)
+      .foldLeft(df) { (B, name) =>
+        B.withColumn(name, array_distinct(col(name)))
+      }
 
   /**
     * Some of the input data sets do not use Ensembl Ids to identify records. Commonly we see uniprot
@@ -151,17 +163,29 @@ object Target extends LazyLogging {
   private def generateEnsgToSymbolLookup(df: DataFrame): DataFrame = {
     df.select(
         col("id"),
-        coalesce(col("proteinIds.id"), array()) as "pid",
+        col("proteinIds.id") as "pid",
         array(col("approvedSymbol")) as "as",
         filter(col("synonyms"), _.getField("source") === "uniprot") as "uniprot",
-        filter(col("synonyms"), _.getField("source") === "HGNC") as "HGNC"
+        filter(col("synonyms"), _.getField("source") === "HGNC") as "HGNC",
+        array_distinct(
+          safeArrayUnion(
+            col("proteinIds.id"),
+            col("symbolSynonyms.label"),
+            col("obsoleteSymbols.label"),
+            array(col("approvedSymbol"))
+          )
+        ) as "symbols"
       )
       .select(col("id"),
               flatten(array(col("pid"), col("as"))) as "s",
               col("uniprot.label") as "uniprot",
-              col("HGNC.label") as "HGNC")
-      .select(col("id") as "ensgId", col("s") as "name", col("uniprot"), col("HGNC"))
-      .distinct
+              col("HGNC.label") as "HGNC",
+              col("symbols"))
+      .select(col("id") as "ensgId",
+              col("s") as "name",
+              col("uniprot"),
+              col("HGNC"),
+              col("symbols"))
       .persist(StorageLevel.MEMORY_AND_DISK_SER)
   }
 
@@ -201,26 +225,23 @@ object Target extends LazyLogging {
 
   private def addTep(tep: DataFrame, idLookup: DataFrame)(dataFrame: DataFrame): DataFrame = {
     logger.info("Adding TEP to target dataframe.")
-    val discard = idLookup.columns.filter(_ != "ensgId")
-    val sources = Seq(("name", "e1"), ("uniprot", "e2"), ("HGNC", "e3"))
-    val tepWithEnsgId = sources
-      .foldLeft(broadcast(tep))((df, cl) => {
-        df.join(idLookup.withColumnRenamed("ensgId", cl._2),
-                array_contains(col(cl._1), col("targetFromSource")),
-                "left_outer")
-          .drop(discard: _*)
-      })
-      .select(
-        coalesce(sources.map(it => col(it._2)): _*) as "id",
-        struct(
-          col("targetFromSource"),
-          col("url"),
-          col("disease"),
-          col("description"),
-        ) as "tep"
-      )
 
-    dataFrame.join(broadcast(tepWithEnsgId), Seq("id"), "left_outer")
+    val lut =
+      idLookup
+        .select(col("ensgId").as("id"), col("symbols"))
+        .withColumn("symbol", explode(col("symbols")))
+        .drop("symbols")
+        .orderBy(col("symbol").asc)
+
+    val tepFields: List[Column] = classOf[Tep].getDeclaredFields.map(f => col(f.getName)).toList
+    val tepWithEnsgId = tep
+      .join(lut, lut("id") === tep("targetFromSourceId"), "inner")
+      .withColumn("tep", struct(tepFields: _*))
+      .select("id", "tep")
+      .orderBy(col("id").asc)
+      .cache()
+
+    dataFrame.join(tepWithEnsgId, Seq("id"), "left_outer")
   }
 
   private def addOrthologue(orthologue: Dataset[Ortholog])(dataFrame: DataFrame)(
@@ -282,9 +303,9 @@ object Target extends LazyLogging {
 
     dataFrame
       .join(ncbiF, Seq("id"), "left_outer")
-      .withColumn("synonyms", safeArrayUnion(col("synonyms"), col("s")))
       .withColumn("symbolSynonyms", safeArrayUnion(col("symbolSynonyms"), col("ss")))
-      .withColumn("synonyms", safeArrayUnion(col("nameSynonyms"), col("ns")))
+      .withColumn("nameSynonyms", safeArrayUnion(col("nameSynonyms"), col("ns")))
+      .withColumn("synonyms", safeArrayUnion(col("synonyms"), col("s"), col("ns"), col("ss")))
       .drop("s", "ss", "ns")
   }
 
@@ -423,8 +444,8 @@ object Target extends LazyLogging {
     val merged = eDf
     // this removes non-reference ensembl genes introduced by HGNC.
       .join(hgnc, eDf("id") === hgnc("ensemblId"), "left_outer")
-      // if approvedName and approvedSymbol provided by HGNC use those, otherwise Ensembl.
-      .withColumn("approvedName", coalesce(col("approvedName"), col("an"), lit(null)))
+      // if approvedName and approvedSymbol provided by HGNC use those, otherwise Ensembl for symbol or empty string for name
+      .withColumn("approvedName", coalesce(col("approvedName"), col("an"), lit("")))
       .withColumn("approvedSymbol", coalesce(col("approvedSymbol"), col("as"), col("id")))
       .drop("an", "as")
     logger.debug(

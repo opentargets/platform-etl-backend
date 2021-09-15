@@ -39,9 +39,9 @@ object Uniprot extends LazyLogging {
       .as[UniprotEntryParsed]
       .filter(size(col("accessions")) > 0) // null return -1 so remove those too
       .withColumn(id, expr("accessions[0]"))
-      .withColumn("synonyms", safeArrayUnion(col("names"), col("synonyms"), col("symbolSynonyms")))
       .withColumn("nameSynonyms", safeArrayUnion(col("names"), col("synonyms")))
       .withColumn("symbolSynonyms", safeArrayUnion(col("symbolSynonyms")))
+      .withColumn("synonyms", safeArrayUnion(col("nameSynonyms"), col("symbolSynonyms")))
       .withColumnRenamed("functions", "functionDescriptions")
       .drop("id", "names")
       .transform(handleDbRefs)
@@ -65,9 +65,6 @@ object Uniprot extends LazyLogging {
   }
 
   private def handleDbRefs(dataFrame: DataFrame): DataFrame = {
-    //     when(functions.size(sourceCol) > 0,
-    //         transform(sourceCol, c => struct(c :: additionalColumns: _*)))
-    //      .cast(ArrayType(schema))
     val ref = "dbXrefs"
     dataFrame
       .withColumn(

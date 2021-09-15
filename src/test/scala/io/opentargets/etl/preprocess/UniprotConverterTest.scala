@@ -57,24 +57,32 @@ class UniprotConverterTest
   "Descriptions" should "be converted to lists of recommended and alternative names" in {
     //given
     val input = Seq(
-      "RecName: Full=Pentatricopeptide repeat domain-containing protein 3, mitochondrial;",
-      "AltName: Full=28S ribosomal protein S39, mitochondrial;",
-      "AltName: Full=Beta-N-acetylglucosaminidase {ECO:0000303|PubMed:11148210};"
+      "RecName: Full=CD5 antigen-like;",
+      "AltName: Full=Apoptosis inhibitor expressed by macrophages {ECO:0000303|PubMed:23236605}; ",
+      "          Short=hAIM {ECO:0000303|PubMed:23236605};",
+      "AltName: Full=CT-2 {ECO:0000303|Ref.2};",
+      "AltName: Full=IgM-associated peptide {ECO:0000303|PubMed:8034987};",
+      "AltName: Full=SP-alpha {ECO:0000303|PubMed:9045627};",
+      "Flags: Precursor;"
     )
+
     // when
     val result = processNames(input)
     // then
-    result._1 should have size 1
-    result._2 should have size 2
-    result._1 should contain theSameElementsAs Seq(
-      "Pentatricopeptide repeat domain-containing protein 3, mitochondrial")
-    result._2 should contain theSameElementsAs Seq("28S ribosomal protein S39, mitochondrial",
-                                                   "Beta-N-acetylglucosaminidase")
+    result.recNames should have size 1
+    result.altNames should have size 4
+    result.symbols should have size 1
+    result.recNames should contain theSameElementsAs Seq("CD5 antigen-like")
+    result.altNames should contain theSameElementsAs Seq(
+      "Apoptosis inhibitor expressed by macrophages",
+      "CT-2",
+      "IgM-associated peptide",
+      "SP-alpha")
+    result.symbols should contain theSameElementsAs Seq("hAIM")
   }
 
   "Comments" should "be correctly partitioned into functions and subcellular locations" in {
     // given
-    val partitionComments = PrivateMethod[UniprotEntry](Symbol("partitionComments"))
     val commentsRaw = Seq(
       "-!- FUNCTION: [Isoform 3]: Cleaves GlcNAc but not GalNAc from O-",
       "glycosylated proteins. Can use p-nitrophenyl-beta-GlcNAc as substrate",
