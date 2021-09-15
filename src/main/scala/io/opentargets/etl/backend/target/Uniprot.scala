@@ -65,9 +65,6 @@ object Uniprot extends LazyLogging {
   }
 
   private def handleDbRefs(dataFrame: DataFrame): DataFrame = {
-    //     when(functions.size(sourceCol) > 0,
-    //         transform(sourceCol, c => struct(c :: additionalColumns: _*)))
-    //      .cast(ArrayType(schema))
     val ref = "dbXrefs"
     dataFrame
       .withColumn(
