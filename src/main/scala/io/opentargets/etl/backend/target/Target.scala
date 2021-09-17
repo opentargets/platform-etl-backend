@@ -235,7 +235,7 @@ object Target extends LazyLogging {
 
     val tepFields: List[Column] = classOf[Tep].getDeclaredFields.map(f => col(f.getName)).toList
     val tepWithEnsgId = tep
-      .join(lut, lut("id") === tep("targetFromSourceId"), "inner")
+      .join(lut, lut("symbol") === tep("targetFromSourceId"), "inner")
       .withColumn("tep", struct(tepFields: _*))
       .select("id", "tep")
       .orderBy(col("id").asc)
