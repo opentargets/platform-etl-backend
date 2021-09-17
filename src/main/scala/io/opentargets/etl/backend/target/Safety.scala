@@ -128,7 +128,7 @@ object Safety extends LazyLogging {
           lit("") as "cellId"
         ) as "biosample",
         trim(col("official_symbol")) as "official_symbol",
-        lit("Toxcast") as "datasource",
+        lit("ToxCast") as "datasource",
         struct(col("assay_component_endpoint_name") as "name",
                col("assay_component_desc") as "description",
                col("assay_format_type") as "type") as "study"
