@@ -110,7 +110,12 @@ object Safety extends LazyLogging {
         lit(null) as "cellId"
       ) as "biosample",
       col("ref") as "datasource",
-      col("pmid") as "literature"
+      col("pmid") as "literature",
+      struct(
+        lit(null) as "name",
+        col("liability") as "description",
+        lit(null) as "type"
+      ) as "study"
     )
   }
 
