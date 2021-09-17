@@ -102,6 +102,10 @@ object Safety extends LazyLogging {
     logger.debug("Transforming target safety safety risk data.")
     df.select(
       col("ensemblId") as "id",
+      when(col("ref").contains("Force"), "heart disease")
+        .when(col("ref").contains("Lamore"), "cardiac arrhythmia") as "event",
+      when(col("ref").contains("Force"), "EFO_0003777")
+        .when(col("ref").contains("Lamore"), "EFO_0004269") as "eventId",
       struct(
         col("biologicalSystem") as "tissueLabel",
         col("uberonId") as "tissueId",
