@@ -3,7 +3,7 @@ package io.opentargets.etl.backend.target
 import com.typesafe.scalalogging.LazyLogging
 import io.opentargets.etl.backend.spark.Helpers._
 import io.opentargets.etl.backend.target.TargetUtils.transformArrayToStruct
-import io.opentargets.etl.preprocess.uniprot.UniprotEntryParsed
+import io.opentargets.etl.preprocess.uniprot.UniprotEntry
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.types.ArrayType
 import org.apache.spark.sql.{DataFrame, Dataset, SparkSession}
@@ -36,7 +36,7 @@ object Uniprot extends LazyLogging {
     logger.info("Processing Uniprot inputs")
     import ss.implicits._
     val uniprotDfWithId = dfRaw
-      .as[UniprotEntryParsed]
+      .as[UniprotEntry]
       .filter(size(col("accessions")) > 0) // null return -1 so remove those too
       .withColumn(id, expr("accessions[0]"))
       .withColumn("nameSynonyms", safeArrayUnion(col("names"), col("synonyms")))

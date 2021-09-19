@@ -50,18 +50,18 @@ trait CommentIdentifiers {
   val FUNCTION = "FUNCTION"
   val COMMENTS_OF_INTEREST = Seq(SUBCELL_LOCATION, FUNCTION)
 
+  case class UniprotFunctionsAndLocations(functions: Seq[String], locations: Seq[String])
+
   /**
     * Group raw comments into proper comment entities.
     *
-    * @param uniprotEntry with array of 'raw' comments
-    * @return uniprotEntry with only the comments of interest and each of those concatenated into a string.
+    * @param uniprotComments with array of 'raw' comments
+    * @return UniprotFunctionsAndLocations contains parsed functions and locations.
     */
-  def updateComments(uniprotEntry: UniprotEntry): UniprotEntry = {
-    val comments = uniprotEntry.comments.iterator
-    val newComments = concatenateComments(comments).filter(com =>
+  def updateComments(uniprotComments: Iterator[String]): UniprotFunctionsAndLocations = {
+    val newComments = concatenateComments(uniprotComments).filter(com =>
       COMMENTS_OF_INTEREST.exists(coi => coi.startsWith(com.takeWhile(_.isUpper))) && com.nonEmpty)
-    partitionComments(uniprotEntry.copy(comments = newComments))
-
+    partitionComments(newComments)
   }
 
   private def parseLocations(location: String): Seq[String] = {
@@ -82,11 +82,11 @@ trait CommentIdentifiers {
     a
   }
 
-  private def partitionComments(uniprotEntry: UniprotEntry): UniprotEntry = {
-    val (function, subcellularLocation) = uniprotEntry.comments.partition(_.startsWith("FUNCTION"))
-    uniprotEntry.copy(
-      functions = cleanComments(function, FUNCTION),
-      locations = cleanComments(subcellularLocation, SUBCELL_LOCATION).flatMap(parseLocations))
+  private def partitionComments(uniprotComments: Seq[String]): UniprotFunctionsAndLocations = {
+    val (function, subcellularLocation) = uniprotComments.partition(_.startsWith("FUNCTION"))
+    UniprotFunctionsAndLocations(
+      cleanComments(function, FUNCTION),
+      cleanComments(subcellularLocation, SUBCELL_LOCATION).flatMap(parseLocations))
   }
 
   private def cleanComments(comments: Seq[String], commentType: String): Seq[String] = {

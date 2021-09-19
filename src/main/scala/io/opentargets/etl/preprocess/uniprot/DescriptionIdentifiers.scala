@@ -15,15 +15,15 @@ trait DescriptionIdentifiers {
   case class UniprotProcessedNames(recNames: Seq[String],
                                    altNames: Seq[String],
                                    symbols: Seq[String])
-  val prefixes
+  val descriptionPrefixes
     : List[String] = RECOMMENDED :: ALTERNATIVE :: ALTERNATIVE_ANTIGEN :: ALTERNATIVE_SHORT :: Nil
 
   def processNames(descriptions: Seq[String]): UniprotProcessedNames = {
     lazy val uniMap = descriptions
       .map(_.split("=").map(_.trim))
       .groupBy(_.head)
-      .filterKeys(k => prefixes.contains(k))
-      .mapValues(_.flatMap(_.drop(1).map(n => n.split("\\{").head.trim.stripSuffix(";"))))
+      .filterKeys(k => descriptionPrefixes.contains(k))
+      .mapValues(_.flatMap(_.drop(1).map(_.trim.stripSuffix(";").trim)))
       .withDefaultValue(List.empty[String])
 
     UniprotProcessedNames(
@@ -31,15 +31,5 @@ trait DescriptionIdentifiers {
       uniMap(ALTERNATIVE),
       uniMap(ALTERNATIVE_ANTIGEN) ++ uniMap(ALTERNATIVE_SHORT)
     )
-  }
-
-  val SYMBOL_NAME = "Name"
-  val SYMBOL_SYNONYMS = "Synonyms"
-
-  def processSymbolSynonyms(lines: Seq[String]): Seq[String] = {
-    lines
-      .map(l => l.split("="))
-      .withFilter(w => (SYMBOL_SYNONYMS :: SYMBOL_NAME :: Nil).contains(w.head))
-      .flatMap(g => g.drop(1).flatMap(_.split(",")).map(sym => sym.trim.split("\\{").head.trim))
   }
 }
