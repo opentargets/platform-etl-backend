@@ -3,6 +3,12 @@ package io.opentargets.etl.common
 import scala.annotation.tailrec
 
 class ConsumeWhileIterator[A, B](iter: Iterator[A]) {
+    /**
+    * Method to partition an iterator based on function `fn` and then convert those partitions into a `Seq[B]`
+    * @param fn is a method to collect a subset of the iterator, eg. `_.takeWhile(_.startsWith("hello"))`
+    * @param convert takes the output of `fn` and reduces it to B.
+    * @return all `B` created by `convert`
+    */
   def consumeWhile(fn: Iterator[A] => Iterator[A])(convert: Seq[A] => B): Seq[B] = {
 
     @tailrec
