@@ -100,27 +100,28 @@ object Safety extends LazyLogging {
 
   private def transformTargetSafety(df: DataFrame): DataFrame = {
     logger.debug("Transforming target safety safety risk data.")
-    df.select(
-      col("ensemblId") as "id",
-      when(col("ref").contains("Force"), "heart disease")
-        .when(col("ref").contains("Lamore"), "cardiac arrhythmia") as "event",
-      when(col("ref").contains("Force"), "EFO_0003777")
-        .when(col("ref").contains("Lamore"), "EFO_0004269") as "eventId",
-      struct(
-        col("biologicalSystem") as "tissueLabel",
-        col("uberonId") as "tissueId",
-        lit(null) as "cellLabel",
-        lit(null) as "cellFormat",
-        lit(null) as "cellId"
-      ) as "biosample",
-      col("ref") as "datasource",
-      col("pmid") as "literature",
-      struct(
-        lit(null) as "name",
-        col("liability") as "description",
-        lit(null) as "type"
-      ) as "study"
-    )
+    df.filter(col("ref") =!= "HeCaToS")
+      .select(
+        col("ensemblId") as "id",
+        when(col("ref").contains("Force"), "heart disease")
+          .when(col("ref").contains("Lamore"), "cardiac arrhythmia") as "event",
+        when(col("ref").contains("Force"), "EFO_0003777")
+          .when(col("ref").contains("Lamore"), "EFO_0004269") as "eventId",
+        struct(
+          col("biologicalSystem") as "tissueLabel",
+          col("uberonId") as "tissueId",
+          lit(null) as "cellLabel",
+          lit(null) as "cellFormat",
+          lit(null) as "cellId"
+        ) as "biosample",
+        col("ref") as "datasource",
+        col("pmid") as "literature",
+        struct(
+          lit(null) as "name",
+          col("liability") as "description",
+          lit(null) as "type"
+        ) as "study"
+      )
   }
 
   def transformToxCast(toxDF: DataFrame, geneIdLookup: DataFrame): DataFrame = {
