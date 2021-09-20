@@ -3,7 +3,7 @@ package io.opentargets.etl.backend.target
 import com.typesafe.scalalogging.LazyLogging
 import io.opentargets.etl.backend.spark.Helpers._
 import io.opentargets.etl.backend.target.TargetUtils.transformArrayToStruct
-import org.apache.spark.sql.functions.{col, collect_set, explode, flatten, split, typedLit}
+import org.apache.spark.sql.functions.{col, collect_set, explode, flatten, split, typedLit, filter}
 import org.apache.spark.sql.{DataFrame, Dataset, SparkSession}
 
 case class Ncbi(id: String,
@@ -22,7 +22,8 @@ object Ncbi extends LazyLogging {
 
     val sep = "\\|"
     val ncbiDF = df
-      .select(split(col("dbXrefs"), sep).as("id"),
+      .select(split(col("Symbol"), sep).as("sy"),
+              split(col("dbXrefs"), sep).as("id"),
               split(col("Synonyms"), sep).as("s"),
               split(col("Other_designations"), sep).as("od"))
       .withColumn("id", explode(col("id")))
@@ -32,8 +33,8 @@ object Ncbi extends LazyLogging {
       .filter(col("id").startsWith("ENSG"))
       .select(
         col("id"),
-        safeArrayUnion(col("s"), col("od")).as("synonyms"),
-        safeArrayUnion(col("s")).as("symbolSynonyms"),
+        safeArrayUnion(col("s"), col("od"), col("sy")).as("synonyms"),
+        safeArrayUnion(col("s"), col("sy")).as("symbolSynonyms"),
         safeArrayUnion(col("od")).as("nameSynonyms")
       )
       .groupBy("id")
@@ -45,9 +46,10 @@ object Ncbi extends LazyLogging {
 
     val transformedNCBI = List("synonyms", "symbolSynonyms", "nameSynonyms")
       .foldLeft(ncbiDF) { (B, name) =>
-        B.withColumn(
-          name,
-          transformArrayToStruct(col(name), typedLit("NCBI_entrez") :: Nil, labelAndSourceSchema))
+        B.withColumn(name,
+                     transformArrayToStruct(filter(col(name), c => c !== "-"),
+                                            typedLit("NCBI_entrez") :: Nil,
+                                            labelAndSourceSchema))
       }
 
     transformedNCBI.as[Ncbi]

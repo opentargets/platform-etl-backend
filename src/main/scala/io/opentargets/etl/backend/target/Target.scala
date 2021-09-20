@@ -360,7 +360,7 @@ object Target extends LazyLogging {
     def getUniprotDataFrame(io: IOResourceConfig)(implicit ss: SparkSession): IOResource = {
       import ss.implicits._
       val path: java.util.Iterator[String] = sparkSession.read.textFile(io.path).toLocalIterator()
-      val data = UniprotConverter.convertUniprotFlatFileToUniprotEntry(path.asScala)
+      val data = UniprotConverter.fromFlatFile(path.asScala)
       IOResource(data.toDF(), io)
     }
 

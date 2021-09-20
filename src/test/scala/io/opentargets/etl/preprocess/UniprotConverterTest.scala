@@ -6,8 +6,7 @@ import io.opentargets.etl.preprocess.uniprot.{
   DbIdentifiers,
   DescriptionIdentifiers,
   UniprotConverter,
-  UniprotEntry,
-  UniprotEntryParsed
+  UniprotEntry
 }
 import org.scalatest.PrivateMethodTester
 import org.scalatest.flatspec.AnyFlatSpec
@@ -15,10 +14,8 @@ import org.scalatest.matchers.should.Matchers
 import org.scalatest.prop.TableDrivenPropertyChecks
 
 trait UniprotConverterTestInputs {
-  lazy val oneEntry: Iterator[String] = File(
-    this.getClass.getResource("/uniprot/sample_1.txt").getPath).lineIterator
-  lazy val tenEntries: Iterator[String] = File(
-    this.getClass.getResource("/uniprot/sample_10.txt").getPath).lineIterator
+  lazy val oneEntry: File = File(this.getClass.getResource("/uniprot/sample_1.txt"))
+  lazy val tenEntries: File = File(this.getClass.getResource("/uniprot/sample_10.txt"))
 }
 
 class UniprotConverterTest
@@ -34,8 +31,8 @@ class UniprotConverterTest
   "The UniprotConverter" should "convert from a flat file to case classes" in {
     // given one entry
     // when
-    val entries: List[UniprotEntryParsed] =
-      UniprotConverter.convertUniprotFlatFileToUniprotEntry(oneEntry)
+    val entries: Seq[UniprotEntry] =
+      UniprotConverter.fromFlatFile(oneEntry.lineIterator)
     // then
     entries should have size 1
     // and all database entries should be of interest
@@ -46,24 +43,33 @@ class UniprotConverterTest
 
   "The ID" should "be extracted from the raw line starting with ID" in {
     // given
-    val idLine = "ID  PRS6A_HUMAN             Reviewed;         439 AA."
-    val extractId = PrivateMethod[String](Symbol("processId"))
-    // when
-    val result = UniprotConverter invokePrivate extractId(idLine)
+    val idOneEntryFile = "OGA_HUMAN"
+
+    val entries: Seq[UniprotEntry] =
+      UniprotConverter.fromFlatFile(tenEntries.lineIterator)
+
+    println(entries.size)
+    entries.foreach { l =>
+      println("names: " + l.names.toString())
+      println("synonyms: " + l.synonyms.toString())
+      println("symbolsSyns: " + l.symbolSynonyms.toString())
+      println("func and loc: " + l.functions.toString() + " && " + l.locations.toString())
+    }
+    val result = entries.head.id
     // then
-    result should equal("PRS6A_HUMAN")
+    result should equal(idOneEntryFile)
   }
 
   "Descriptions" should "be converted to lists of recommended and alternative names" in {
     //given
     val input = Seq(
-      "RecName: Full=CD5 antigen-like;",
-      "AltName: Full=Apoptosis inhibitor expressed by macrophages {ECO:0000303|PubMed:23236605}; ",
-      "          Short=hAIM {ECO:0000303|PubMed:23236605};",
-      "AltName: Full=CT-2 {ECO:0000303|Ref.2};",
-      "AltName: Full=IgM-associated peptide {ECO:0000303|PubMed:8034987};",
-      "AltName: Full=SP-alpha {ECO:0000303|PubMed:9045627};",
-      "Flags: Precursor;"
+      "RecName: Full=CD5 antigen-like",
+      "AltName: Full=Apoptosis inhibitor expressed by macrophages",
+      "Short=hAIM",
+      "AltName: Full=CT-2",
+      "AltName: Full=IgM-associated peptide",
+      "AltName: Full=SP-alpha",
+      "Flags: Precursor"
     )
 
     // when
@@ -113,9 +119,8 @@ class UniprotConverterTest
       "experimental artifact (PubMed:24992209). {ECO:0000269|PubMed:24992209,",
       "ECO:0000269|PubMed:27613864}."
     )
-    val input = UniprotEntry(comments = commentsRaw)
     // when
-    val results = updateComments(input)
+    val results = updateComments(commentsRaw.toIterator)
     // then
     results.locations should have size 6
     results.functions should have size 1
