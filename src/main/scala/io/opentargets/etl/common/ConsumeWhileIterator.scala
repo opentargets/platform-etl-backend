@@ -14,11 +14,10 @@ import scala.annotation.tailrec
 class ConsumeWhileIterator[A, B](iter: Iterator[A]) {
 
   /**
-    * consumeWhile the iterator is not empty per times fn and then each time converting the result
-    * of each fn seq into a object B
-    * @param fn a function to use to execute while the iter is not empty
-    * @param convert a function to convert the seq of A into a B
-    * @return a seq of B
+    * Method to partition an iterator based on function `fn` and then convert those partitions into a `Seq[B]`
+    * @param fn is a method to collect a subset of the iterator, eg. `_.takeWhile(_.startsWith("hello"))`
+    * @param convert takes the output of `fn` and reduces it to B.
+    * @return all `B` created by `convert`
     */
   def consumeWhile(fn: Iterator[A] => Iterator[A])(convert: Seq[A] => B): Seq[B] = {
 
