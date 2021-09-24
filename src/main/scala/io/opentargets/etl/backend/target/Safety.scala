@@ -66,9 +66,11 @@ object Safety extends LazyLogging {
     combinedDF.as[TargetSafety]
   }
 
+  val hecatosFilter = col("ref") =!= "HeCaToS"
   private def transformAdverseEvents(df: DataFrame): DataFrame = {
     logger.debug("Transforming target safety adverse events data.")
     val aeDF = df
+      .filter(hecatosFilter)
       .select(
         col("ensemblId") as "id",
         col("symptom") as "event",
@@ -100,7 +102,7 @@ object Safety extends LazyLogging {
 
   private def transformTargetSafety(df: DataFrame): DataFrame = {
     logger.debug("Transforming target safety safety risk data.")
-    df.filter(col("ref") =!= "HeCaToS")
+    df.filter(hecatosFilter)
       .select(
         col("ensemblId") as "id",
         when(col("ref").contains("Force"), "heart disease")
