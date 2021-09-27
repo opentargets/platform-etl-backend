@@ -186,9 +186,8 @@ object Expression extends LazyLogging {
       .drop("efo_code", "labelNew", "label", "name", "expressionId", "tissue_internal_id", "Tissue")
       .distinct
 
-    // Missing tissues.
-    val missingTissues = validTissues.filter(col("efoId").isNull).select("labelDef").distinct()
-    missingTissues.show(20)
+    // Missing tissues. Fixme.
+    // val missingTissues = validTissues.filter(col("efoId").isNull).select("labelDef").distinct()
 
     val protein = validTissues
       .filter(col("efoId").isNotNull)
