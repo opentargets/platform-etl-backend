@@ -1,7 +1,7 @@
 package io.opentargets.etl.backend.target
 
 import com.typesafe.scalalogging.LazyLogging
-import org.apache.spark.sql.functions.{array_contains, broadcast, col, typedLit}
+import org.apache.spark.sql.functions.{array_contains, broadcast, col, typedLit, when}
 import org.apache.spark.sql.types.DoubleType
 import org.apache.spark.sql.{DataFrame, Dataset, SparkSession, functions}
 
@@ -37,7 +37,11 @@ object Ortholog extends LazyLogging {
     val homoGeneDictDf =
       homologyGeneDict
         .select(functions.split(col("_c0"), "\\\\t") as "a")
-        .select(col("a")(0) as "homology_gene_stable_id", col("a")(1) as "targetGeneSymbol")
+        .select(
+          col("a")(0) as "homology_gene_stable_id",
+          // when no gene symbol use gene id
+          when(col("a")(1) =!= "", col("a")(1)).otherwise(col("a")(0)) as "targetGeneSymbol"
+        )
 
     val homoDF = codingProteins
       .join(homoDict, col("homology_species") === homoDict("speciesName"))
