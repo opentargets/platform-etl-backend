@@ -89,8 +89,7 @@ object Safety extends LazyLogging {
       .withColumn(
         "effects",
         struct(element_at(col("effects"), 1) as "direction",
-               when(element_at(col("effects"), 2) =!= "general", element_at(col("effects"), 2))
-                 .otherwise(null) as "dosing")
+               element_at(col("effects"), 2) as "dosing")
       )
 
     val effectsDF = aeDF
