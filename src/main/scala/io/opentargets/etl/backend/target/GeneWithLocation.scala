@@ -42,6 +42,6 @@ object GeneWithLocation extends LazyLogging {
         "locations",
         safeArrayUnion(col("HPA_main"), col("HPA_additional"), col("HPA_extracellular_location")))
 
-    hpaDf.as[GeneWithLocation]
+    hpaDf.as[GeneWithLocation].map(identity)
   }
 }
