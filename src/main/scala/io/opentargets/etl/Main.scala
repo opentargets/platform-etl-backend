@@ -16,6 +16,9 @@ object ETL extends LazyLogging {
     step match {
       case "test" =>
         ETLPipeline
+      case "targetValidation" =>
+        logger.info("run step targetValidation")
+        TargetValidation()
       case "evidence" =>
         logger.info("run step evidence")
         Evidence()
@@ -79,8 +82,7 @@ object ETL extends LazyLogging {
           if (steps.isEmpty) otContext.configuration.common.defaultSteps
           else steps
 
-        val unknownSteps = etlSteps filterNot otContext.configuration.common.defaultSteps.contains
-        val knownSteps = etlSteps filter otContext.configuration.common.defaultSteps.contains
+        val (knownSteps, unknownSteps) = etlSteps partition otContext.configuration.common.defaultSteps.contains
 
         logger.info(s"valid steps to execute: $knownSteps")
         if (unknownSteps.nonEmpty) logger.warn(s"invalid steps to skip: $unknownSteps")
