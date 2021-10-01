@@ -31,8 +31,8 @@ object TargetValidation extends Serializable with LazyLogging {
             s"${it.name}-failed" -> IOResource(
               missing_targets_df,
               context.configuration.targetValidation.output.failed
-                .copy(
-                  path = s"${context.configuration.targetValidation.output.failed.path}/${it.name}")
+                .copy(path =
+                  s"${context.configuration.targetValidation.output.failed.path}/${it.name}Failed")
             )
           )
         }
@@ -54,8 +54,7 @@ object TargetValidation extends Serializable with LazyLogging {
     val tid = Random.alphanumeric.take(6).mkString
     val t = targetDf.select(col("id") as tid)
     val cleanedDf = df
-      .join(t, t(tid) === df(idColumn))
-      .drop(tid)
+      .join(t, t(tid) === df(idColumn), "left_semi")
 
     val missing = df.join(cleanedDf.select(idColumn), Seq(idColumn), "left_anti")
 
