@@ -20,6 +20,7 @@ artifact knownDrugs <<dependencies>>
 artifact reactome <<noDependency>>
 artifact search <<dependencies>>
 artifact target <<dependencies>>
+artifact targetValidation <<dependencies>>
 
 'inputs
 ' association
@@ -123,9 +124,18 @@ interface searchTargetOutput <<output>>
 interface searchDiseaseOutput <<output>>
 interface searchDrugOutput <<output>>
 
+  ' targetValidation
+ interface mousePhenotypes <<input>>
+ interface mousePhenotypesOutput <<output>>
+
 
 
 ' relations
+
+  ' targetValidation
+targetOutput --> targetValidation
+mousePhenotypes --> targetValidation
+targetValidation --> mousePhenotypesOutput
   ' assocations
 targetOutput --> associations
 diseaseOutput --> associations

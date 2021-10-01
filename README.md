@@ -162,15 +162,24 @@ relationships at a more granular level, where inputs and outputs are specificall
 
 ## Step notes
 
+### Target Validation
+
+Inputs can be provided here where the only logic is to match an ENSG ID against an input column. Any input rows which
+can't be matched to a target in the platform will be discarded.
+
+Using mouse phenotypes as an example: we match on the column specified in the configuration `targetFromSourceId`. Any
+entry which cannot be matched to an ID in the platform's target dataset will be discarded.
+
 ### Drug
 
-The primary input source of the Drug dataset is ChEMBL. ChEMBL contains almost 2 million molecules, most which are are 
-not 'drugs'. We define a drug to be any molecule that meets one or more of the following criteria: 
- - There is at least 1 known indication;
- - There is at least 1 known mechanism of action; or
- - The ChEMBL ID can be mapped to a DrugBank ID.  
- 
-To run the `Drug` step use the example command under `Create a fat JAR` with `drug` as the step name. 
+The primary input source of the Drug dataset is ChEMBL. ChEMBL contains almost 2 million molecules, most which are are
+not 'drugs'. We define a drug to be any molecule that meets one or more of the following criteria:
+
+- There is at least 1 known indication;
+- There is at least 1 known mechanism of action; or
+- The ChEMBL ID can be mapped to a DrugBank ID.
+
+To run the `Drug` step use the example command under `Create a fat JAR` with `drug` as the step name.
 
 ### Baseline Expression
 The primary input sources of the baseline expression dataset are 

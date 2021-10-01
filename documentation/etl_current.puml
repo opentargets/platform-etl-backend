@@ -17,6 +17,7 @@ artifact expression <<noDependency>>
 artifact go <<noDependency>>
 artifact interactions <<dependencies>>
 artifact knownDrugs <<dependencies>>
+artifact targetValidation<<dependencies>>
 artifact reactome <<noDependency>>
 artifact search <<dependencies>>
 artifact target <<dependencies>>
@@ -49,5 +50,7 @@ drug --> search
 associations --> search
 
 target --> interactions
+
+target --> targetValidation
 
 @enduml
