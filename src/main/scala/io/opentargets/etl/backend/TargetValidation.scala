@@ -51,10 +51,9 @@ object TargetValidation extends Serializable with LazyLogging {
     */
   def validate(df: DataFrame, idColumn: String)(
       implicit targetDf: DataFrame): (DataFrame, DataFrame) = {
-    val tid = Random.alphanumeric.take(6).mkString
-    val t = targetDf.select(col("id") as tid)
+
     val cleanedDf = df
-      .join(t, t(tid) === df(idColumn), "left_semi")
+      .join(targetDf, targetDf("id") === df(idColumn), "left_semi")
 
     val missing = df.join(cleanedDf.select(idColumn), Seq(idColumn), "left_anti")
 
