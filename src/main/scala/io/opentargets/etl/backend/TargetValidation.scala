@@ -1,6 +1,7 @@
 package io.opentargets.etl.backend
 
 import com.typesafe.scalalogging.LazyLogging
+import io.opentargets.etl.backend.TargetValidation.validate
 import io.opentargets.etl.backend.spark.{IOResource, IoHelpers}
 import io.opentargets.etl.backend.spark.IoHelpers.IOResources
 import org.apache.spark.sql.{DataFrame, SparkSession}
@@ -15,30 +16,29 @@ object TargetValidation extends Serializable with LazyLogging {
 
     implicit val target_df: DataFrame =
       IoHelpers.loadFileToDF(context.configuration.targetValidation.target)
-    val rs: Seq[(String, IOResource)] = {
-      for (it <- context.configuration.targetValidation.inputs)
-        yield {
-          logger.info(s"Target Validation -- checking ${it.name}")
-          val df = IoHelpers.loadFileToDF(it.data)
-          val (valid_targets_df, missing_targets_df) = validate(df, it.idColumn)
-          Seq(
-            s"${it.name}-succeeded" -> IOResource(
-              valid_targets_df,
-              context.configuration.targetValidation.output.succeeded
-                .copy(path =
-                  s"${context.configuration.targetValidation.output.succeeded.path}/${it.name}")
-            ),
-            s"${it.name}-failed" -> IOResource(
-              missing_targets_df,
-              context.configuration.targetValidation.output.failed
-                .copy(path =
-                  s"${context.configuration.targetValidation.output.failed.path}/${it.name}Failed")
-            )
+    val rs: Map[String, IOResource] = {
+      context.configuration.targetValidation.inputs flatMap { it =>
+        logger.info(s"Target Validation -- checking ${it.name}")
+        val df = IoHelpers.loadFileToDF(it.data)
+        val (valid_targets_df, missing_targets_df) = validate(df, it.idColumn)
+        Seq(
+          s"${it.name}-failed" -> IOResource(
+            missing_targets_df,
+            context.configuration.targetValidation.output.failed
+              .copy(
+                path = s"${context.configuration.targetValidation.output.failed.path}/${it.name}")
+          ),
+          s"${it.name}-succeeded" -> IOResource(
+            valid_targets_df,
+            context.configuration.targetValidation.output.succeeded
+              .copy(path =
+                s"${context.configuration.targetValidation.output.succeeded.path}/${it.name}")
           )
-        }
-    } flatten
+        )
+      }
+    } toMap
 
-    IoHelpers.writeTo(rs.toMap)
+    IoHelpers.writeTo(rs)
   }
 
   /**

@@ -132,6 +132,7 @@ object Configuration extends LazyLogging {
   case class Common(defaultSteps: Seq[String],
                     input: String,
                     output: String,
+                    error: String,
                     outputFormat: String,
                     metadata: IOResourceConfig)
 
