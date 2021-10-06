@@ -18,16 +18,18 @@ case class IOResource(data: DataFrame, configuration: IOResourceConfig)
 /**
   * Specifies resource to be used in the ETL.
   *
-  * @param format      used to help Spark know the format of the incoming file
-  * @param path        to resource
-  * @param options     configuration options
-  * @param partitionBy partition results by
+  * @param format           used to help Spark know the format of the incoming file
+  * @param path             to resource
+  * @param options          configuration options
+  * @param partitionBy      partition results by
+  * @param generateMetadata whether the resource needs associated metadata.
   */
 case class IOResourceConfig(
     format: String,
     path: String,
     options: Option[Seq[IOResourceConfigOption]] = None,
-    partitionBy: Option[Seq[String]] = None
+    partitionBy: Option[Seq[String]] = None,
+    generateMetadata: Boolean = true
 )
 
 case class Metadata(id: String,
@@ -143,9 +145,11 @@ object IoHelpers extends LazyLogging {
       logger.info(s"save dataset ${out._1}")
       writeTo(out._2)
 
-      logger.info(s"save metadata for dataset ${out._1}")
-      val md = generateMetadata(out._2, context.configuration.common.metadata)
-      writeTo(md)
+      if (out._2.configuration.generateMetadata) {
+        logger.info(s"save metadata for dataset ${out._1}")
+        val md = generateMetadata(out._2, context.configuration.common.metadata)
+        writeTo(md)
+      }
     }
 
     outputs
