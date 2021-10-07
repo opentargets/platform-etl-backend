@@ -21,6 +21,8 @@ artifact targetValidation<<dependencies>>
 artifact reactome <<noDependency>>
 artifact search <<dependencies>>
 artifact target <<dependencies>>
+artifact openfda <<dependencies>>
+artifact ebiSearch <<dependencies>>
 
 reactome --> target
 
@@ -52,5 +54,12 @@ associations --> search
 target --> interactions
 
 target --> targetValidation
+
+drug --> openfda
+
+disease --> ebiSearch
+target --> ebiSearch
+evidence --> ebiSearch
+associations --> ebiSearch
 
 @enduml
