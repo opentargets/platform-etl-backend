@@ -43,6 +43,9 @@ object OpenFda extends LazyLogging {
     val fdaFilteredData = EventsFiltering(fdaData, blacklistingData)
     // Attach drug data
     val fdaDataFilteredWithDrug = fdaFilteredData.join(drugList, Seq("drug_name"), "inner")
+    // TODO - This is the place where I have CHEMBL IDs, which is a 'join' point with 'target' data through its dbXrefs.
+    // NOTE - CHEMBL IDs are kept 'as is', i.e. upper case, from the drug dataset through their joining with FAERS data,
+    //        and they're also like that in target dataset, so no further processing is needed before joining the data.
     // Prepare Summary Statistics
     val fdaDataWithSummaryStats = PrepareSummaryStatistics(fdaDataFilteredWithDrug)
     // Montecarlo data preparation
