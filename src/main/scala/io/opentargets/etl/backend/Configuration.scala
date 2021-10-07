@@ -129,8 +129,7 @@ object Configuration extends LazyLogging {
       output: IOResourceConfig
   )
 
-  case class Common(defaultSteps: Seq[String],
-                    input: String,
+  case class Common(input: String,
                     output: String,
                     error: String,
                     outputFormat: String,
@@ -255,9 +254,14 @@ object Configuration extends LazyLogging {
   )
   // --- END --- //
 
+  case class EtlStep[T](step: T, dependencies: List[T])
+
+  case class EtlDagConfig(steps: List[EtlStep[String]], resolve: Boolean)
+
   case class OTConfig(
       sparkUri: Option[String],
       sparkSettings: SparkSettings,
+      etlDag: EtlDagConfig,
       common: Common,
       reactome: ReactomeSection,
       associations: AssociationsSection,
