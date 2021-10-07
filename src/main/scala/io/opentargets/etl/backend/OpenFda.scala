@@ -48,8 +48,9 @@ object OpenFda extends LazyLogging {
     //        and they're also like that in target dataset, so no further processing is needed before joining the data.
     // Prepare Summary Statistics
     val fdaDataWithSummaryStats = PrepareSummaryStatistics(fdaDataFilteredWithDrug)
-    // Montecarlo data preparation
+    // Montecarlo data preparation, for drugs
     val fdaDataMontecarloReady = PrepareForMontecarlo(fdaDataWithSummaryStats)
+    // TODO - Montecarlo data preparation for targets
     // Add Meddra
     val fdaDataWithMeddra = context.configuration.openfda.meddra match {
       case Some(_) => AttachMeddraData(fdaDataMontecarloReady,
@@ -64,13 +65,15 @@ object OpenFda extends LazyLogging {
       // This one really uses the raw OpenFDA Data
       StratifiedSampling(dfsData(FdaData()).data, fdaDataWithSummaryStats, fdaDataWithMeddra)
     }
-    // Compute Montecarlo Sampling
+    // Compute Montecarlo Sampling - For Drugs
     val montecarloResults = MonteCarloSampling(
       fdaDataWithMeddra,
       context.configuration.openfda.montecarlo.percentile,
       context.configuration.openfda.montecarlo.permutations
     ).persist(StorageLevel.MEMORY_AND_DISK_SER)
+    // TODO - Compute Montecarlo Sampling - For Targets
     // Produce Output
+    // TODO - Extend with results for targets
     val outputMap: IOResources = Map(
       "unfiltered" -> IOResource(fdaDataWithMeddra, context.configuration.openfda.outputs.fdaUnfiltered),
       "openFdaResults" -> IOResource(montecarloResults, context.configuration.openfda.outputs.fdaResults)
