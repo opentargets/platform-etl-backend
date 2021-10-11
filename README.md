@@ -160,6 +160,12 @@ Considering only the inputs/outputs of the ETL there are component diagrams avai
 directory. _etl\_current_ shows the relationships between steps in the ETL. _etl\_current\_full_ shows those
 relationships at a more granular level, where inputs and outputs are specifically specified.
 
+By default if a step is run that has dependencies the dependent steps will be run first. For example, if you want to
+run `target`, `reactome` will be run automatically as `target` depends on `reactome`.
+
+If you only wish to run a single specified step set the field `etl-dag.resolve` to `false`. In this case it is _your
+responsibility_ to ensure that required inputs are available.
+
 ## Step notes
 
 ### Target Validation

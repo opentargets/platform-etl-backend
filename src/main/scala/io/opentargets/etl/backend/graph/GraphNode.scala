@@ -19,6 +19,8 @@ import org.jgrapht.alg.shortestpath._
   * */
 object GraphNode extends Serializable with LazyLogging {
 
+  type DAGT[N] = DirectedAcyclicGraph[N, DefaultEdge]
+
   case class GraphNodeDocument(id: String,
                                label: String,
                                ancestors: Seq[String],
@@ -27,28 +29,33 @@ object GraphNode extends Serializable with LazyLogging {
                                parents: Seq[String],
                                path: Seq[Seq[String]])
 
-  type DAGT = DirectedAcyclicGraph[String, DefaultEdge]
-
-  /* Given two dataframe vertices[id,label] and edges[src,dst] this method build a graph */
-  def makeGraph(vertices: DataFrame, edges: DataFrame): DAGT = {
-
+  def makeGraph[N](vertices: Seq[N], edges: Seq[(N, N)]): DAGT[N] = {
     val jgraph =
-      new org.jgrapht.graph.DirectedAcyclicGraph[String, DefaultEdge](classOf[DefaultEdge])
+      new org.jgrapht.graph.DirectedAcyclicGraph[N, DefaultEdge](classOf[DefaultEdge])
 
-    vertices.collect.foreach(r => jgraph.addVertex(r.getAs[String]("id")))
-    edges.collect.foreach(r => {
+    vertices.foreach(v => jgraph.addVertex(v))
+    edges.foreach(edge => {
+      val (src, dst) = edge
       try {
-        jgraph.addEdge(r.getAs[String]("src"), r.getAs[String]("dst"))
+        jgraph.addEdge(src, dst)
       } catch {
-        case _ =>
+        case e: IllegalArgumentException => logger.error(e.getMessage)
       }
     })
 
     jgraph
   }
 
+  /* Given two dataframe vertices[id,label] and edges[src,dst] this method build a graph */
+  def makeGraph(vertices: DataFrame, edges: DataFrame): DAGT[String] = {
+    val v = vertices.collect.map(r => r.getAs[String]("id"))
+    val e = edges.collect.map(r => (r.getAs[String]("src"), r.getAs[String]("dst")))
+    makeGraph(v, e)
+  }
+
   /** given the graph and the vertices(id,label) it generates a dataframe with id, parents, children, ... */
-  def processGraph(vertices: DataFrame, graph: DAGT)(implicit ss: SparkSession): DataFrame = {
+  def processGraph(vertices: DataFrame, graph: DAGT[String])(
+      implicit ss: SparkSession): DataFrame = {
     import ss.implicits._
 
     logger.debug("Compute the graph. Calculate the ancestry.")
