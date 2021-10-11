@@ -4,7 +4,7 @@ import akka.actor.TypedActor.context
 import io.opentargets.etl.backend.spark.Helpers.IOResourceConfig
 import io.opentargets.etl.backend.spark.IoHelpers
 import io.opentargets.etl.backend.spark.IoHelpers.IOResourceConfigurations
-import io.opentargets.etl.backend.{Blacklisting, DrugData, ETLSessionContext, FdaData, MeddraLowLevelTermsData, MeddraPreferredTermsData}
+import io.opentargets.etl.backend.{Blacklisting, DrugData, ETLSessionContext, FdaData, MeddraLowLevelTermsData, MeddraPreferredTermsData, TargetData}
 import org.apache.spark.sql.SparkSession
 
 import scala.collection.immutable.Stream.Empty
@@ -21,6 +21,7 @@ object LoadData {
           // DISCLAIMER - There's probably a better way to do this
         case Some(meddraConfig) => Map(
           DrugData() -> context.configuration.openfda.chemblDrugs,
+          TargetData() -> context.configuration.openfda.targetData,
           Blacklisting() -> context.configuration.openfda.blacklistedEvents,
           FdaData() -> context.configuration.openfda.fdaData,
           MeddraPreferredTermsData() -> meddraConfig.meddraPreferredTerms,
@@ -28,6 +29,7 @@ object LoadData {
         )
         case _ => Map(
           DrugData() -> context.configuration.openfda.chemblDrugs,
+          TargetData() -> context.configuration.openfda.targetData,
           Blacklisting() -> context.configuration.openfda.blacklistedEvents,
           FdaData() -> context.configuration.openfda.fdaData,
         )
