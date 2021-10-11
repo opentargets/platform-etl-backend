@@ -21,7 +21,6 @@ object LoadData {
           // DISCLAIMER - There's probably a better way to do this
         case Some(meddraConfig) => Map(
           DrugData() -> context.configuration.openfda.chemblDrugs,
-          TargetData() -> context.configuration.openfda.targetData,
           Blacklisting() -> context.configuration.openfda.blacklistedEvents,
           FdaData() -> context.configuration.openfda.fdaData,
           MeddraPreferredTermsData() -> meddraConfig.meddraPreferredTerms,
@@ -29,7 +28,6 @@ object LoadData {
         )
         case _ => Map(
           DrugData() -> context.configuration.openfda.chemblDrugs,
-          TargetData() -> context.configuration.openfda.targetData,
           Blacklisting() -> context.configuration.openfda.blacklistedEvents,
           FdaData() -> context.configuration.openfda.fdaData,
         )

@@ -243,7 +243,6 @@ object Configuration extends LazyLogging {
       stepRootInputPath: String,
       stepRootOutputPath: String,
       chemblDrugs: IOResourceConfig,
-      targetData: IOResourceConfig,
       fdaData: IOResourceConfig,
       blacklistedEvents: IOResourceConfig,
       meddra: Option[OpenfdaMeddraSection],

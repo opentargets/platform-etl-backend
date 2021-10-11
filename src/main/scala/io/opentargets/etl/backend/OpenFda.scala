@@ -41,6 +41,8 @@ object OpenFda extends LazyLogging {
     val fdaData = PrepareAdverseEventData(fdaRawData)
     // Prepare Drug list
     val drugList = PrepareDrugList(dfsData(DrugData()).data)
+    // TODO - Prepare target data
+
     // OpenFDA FAERS Event filtering
     val blacklistingData = PrepareBlacklistData(dfsData(Blacklisting()).data)
     val fdaFilteredData = EventsFiltering(fdaData, blacklistingData)
