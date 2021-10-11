@@ -6,8 +6,11 @@ import io.opentargets.etl.backend.{Configuration, ETLSessionContext}
 import io.opentargets.etl.backend.spark.IoHelpers.IOResources
 import io.opentargets.etl.backend.spark.{CsvHelpers, IOResource, IOResourceConfig, IoHelpers}
 import io.opentargets.etl.preprocess.uniprot.UniprotConverter
+import org.apache.spark.sql.expressions.UserDefinedFunction
 import org.apache.spark.sql.functions.{
   array,
+  array_contains,
+  array_distinct,
   array_join,
   array_union,
   broadcast,
@@ -16,6 +19,8 @@ import org.apache.spark.sql.functions.{
   collect_list,
   collect_set,
   explode,
+  expr,
+  filter,
   flatten,
   lit,
   size,
@@ -26,7 +31,7 @@ import org.apache.spark.sql.functions.{
   udf,
   when
 }
-import org.apache.spark.sql.{DataFrame, Dataset, SparkSession, functions}
+import org.apache.spark.sql.{Column, DataFrame, Dataset, SparkSession}
 import org.apache.spark.storage.StorageLevel
 
 import scala.jdk.CollectionConverters.asScalaIteratorConverter
@@ -64,7 +69,7 @@ object Target extends LazyLogging {
       inputDataFrames("geneOntologyEcoLookup").data,
       ensemblDf
     )
-    val tep: Dataset[TepWithId] = Tep(inputDataFrames("tep").data)
+    val tep: Dataset[Tep] = Tep(inputDataFrames("tep").data)
     val hpa: Dataset[GeneWithLocation] = GeneWithLocation(inputDataFrames("hpa").data)
     val projectScoresDS: Dataset[GeneWithDbXRef] = ProjectScores(
       inputDataFrames("projectScoresIds").data,
@@ -85,9 +90,7 @@ object Target extends LazyLogging {
       inputDataFrames("tractability").data)
 
     // 3. merge intermediate data frames into final
-    val hgncEnsemblTepGoDF = mergeHgncAndEnsembl(hgnc, ensemblDf)
-      .join(tep, ensemblDf("id") === tep("ensemblId"), "left_outer")
-      .drop("ensemblId")
+    val hgncEnsemblGoDF = mergeHgncAndEnsembl(hgnc, ensemblDf)
       .join(geneOntologyDf, ensemblDf("id") === geneOntologyDf("ensemblId"), "left_outer")
       .drop("ensemblId")
       .join(projectScoresDS, Seq("id"), "left_outer")
@@ -102,44 +105,87 @@ object Target extends LazyLogging {
                     mkFlattenArray(col("subcellularLocations"), col("locations")))
         .drop("locations")
 
-    val targetInterim = hgncEnsemblTepGoDF
+    val targetInterim = hgncEnsemblGoDF
       .join(uniprotGroupedByEnsemblIdDF, Seq("id"), "left_outer")
       .withColumn("proteinIds", safeArrayUnion(col("proteinIds"), col("pid")))
       .withColumn("dbXrefs",
                   safeArrayUnion(col("hgncId"), col("dbXrefs"), col("signalP"), col("xRef")))
-      .withColumn("synonyms", safeArrayUnion(col("synonyms"), col("hgncSynonyms")))
-      .drop("pid", "hgncId", "hgncSynonyms", "uniprotIds", "signalP", "xRef")
+      .withColumn("symbolSynonyms",
+                  safeArrayUnion(col("symbolSynonyms"), col("hgncSymbolSynonyms")))
+      .withColumn("nameSynonyms", safeArrayUnion(col("nameSynonyms"), col("hgncNameSynonyms")))
+      .withColumn("synonyms",
+                  safeArrayUnion(col("synonyms"), col("symbolSynonyms"), col("nameSynonyms")))
+      .withColumn("obsoleteSymbols", safeArrayUnion(col("hgncObsoleteSymbols")))
+      .withColumn("obsoleteNames", safeArrayUnion(col("hgncObsoleteNames")))
+      .drop("pid",
+            "hgncId",
+            "hgncSynonyms",
+            "hgncNameSynonyms",
+            "hgncSymbolSynonyms",
+            "hgncObsoleteNames",
+            "hgncObsoleteSymbols",
+            "uniprotIds",
+            "signalP",
+            "xRef")
       .persist(StorageLevel.MEMORY_AND_DISK_SER)
 
     val ensemblIdLookupDf = generateEnsgToSymbolLookup(targetInterim)
 
     targetInterim
       .join(geneticConstraints, Seq("id"), "left_outer")
+      .transform(addTep(tep.toDF, ensemblIdLookupDf))
       .transform(filterAndSortProteinIds)
       .transform(removeRedundantXrefs)
       .transform(addChemicalProbes(chemicalProbes, ensemblIdLookupDf))
-      .transform(filterAndSortProteinIds)
       .transform(addOrthologue(homology))
       .transform(addTractability(tractability))
       .transform(addNcbiEntrezSynonyms(ncbi))
       .transform(addTargetSafety(inputDataFrames, ensemblIdLookupDf))
       .transform(addReactome(reactome))
-
+      .transform(removeDuplicatedSynonyms)
   }
 
-  /*
-  Returns dataframe [ensgId, name] mapping ensembl Ids to other common names.
+  /** for all alternative names or symbols a target can take is worth cleaning them up from duplicated entries */
+  private def removeDuplicatedSynonyms(df: DataFrame): DataFrame =
+    ("synonyms" :: "symbolSynonyms" :: "nameSynonyms" :: "obsoleteNames" :: "obsoleteSymbols" :: Nil)
+      .foldLeft(df) { (B, name) =>
+        B.withColumn(name, array_distinct(col(name)))
+      }
 
-  Some of the input data sets do not use Ensembl Ids. Commonly we see uniprot accessions or protein Ids. This dataframe
-  can be used as a 'helper' to link these datasets together.
-   */
+  /**
+    * Some of the input data sets do not use Ensembl Ids to identify records. Commonly we see uniprot
+    * accessions or protein Ids. This dataframe can be used as a 'helper' to link these datasets with
+    * the ENSG ID used in Open Targets.
+    *
+    * @param df interim target DF.
+    * @return dataframe [ensgId, name, uniprot, HGNC] mapping ensembl Ids to other common sources.
+    */
   private def generateEnsgToSymbolLookup(df: DataFrame): DataFrame = {
-    df.select(col("id"),
-              coalesce(col("proteinIds.id"), array()) as "pid",
-              array(col("approvedSymbol")) as "as")
-      .select(col("id"), flatten(array(col("pid"), col("as"))) as "s")
-      .select(col("id") as "ensgId", explode(col("s")) as "name")
-      .distinct
+    df.select(
+        col("id"),
+        col("proteinIds.id") as "pid",
+        array(col("approvedSymbol")) as "as",
+        filter(col("synonyms"), _.getField("source") === "uniprot") as "uniprot",
+        filter(col("synonyms"), _.getField("source") === "HGNC") as "HGNC",
+        array_distinct(
+          safeArrayUnion(
+            col("proteinIds.id"),
+            col("symbolSynonyms.label"),
+            col("obsoleteSymbols.label"),
+            array(col("approvedSymbol"))
+          )
+        ) as "symbols"
+      )
+      .select(col("id"),
+              flatten(array(col("pid"), col("as"))) as "s",
+              col("uniprot.label") as "uniprot",
+              col("HGNC.label") as "HGNC",
+              col("symbols"))
+      .select(col("id") as "ensgId",
+              col("s") as "name",
+              col("uniprot"),
+              col("HGNC"),
+              col("symbols"))
       .persist(StorageLevel.MEMORY_AND_DISK_SER)
   }
 
@@ -154,6 +200,8 @@ object Target extends LazyLogging {
       .groupBy("ensemblId")
       .agg(
         flatten(collect_set(col("synonyms"))).as("synonyms"),
+        flatten(collect_set(col("symbolSynonyms"))).as("symbolSynonyms"),
+        flatten(collect_set(col("nameSynonyms"))).as("nameSynonyms"),
         flatten(collect_set(col("functionDescriptions"))).as("functionDescriptions"),
         flatten(collect_set(col("proteinIds"))).as("proteinIds"),
         flatten(collect_set(col("subcellularLocations"))).as("subcellularLocations"),
@@ -173,6 +221,27 @@ object Target extends LazyLogging {
     val cols = dataFrame.columns.filter(_ != "dbXrefs") :+
       "filter(dbXrefs, struct -> struct.source != 'GO' and struct.source != 'Ensembl') as dbXrefs"
     dataFrame.selectExpr(cols: _*)
+  }
+
+  private def addTep(tep: DataFrame, idLookup: DataFrame)(dataFrame: DataFrame): DataFrame = {
+    logger.info("Adding TEP to target dataframe.")
+
+    val lut =
+      idLookup
+        .select(col("ensgId").as("id"), col("symbols"))
+        .withColumn("symbol", explode(col("symbols")))
+        .drop("symbols")
+        .orderBy(col("symbol").asc)
+
+    val tepFields: List[Column] = classOf[Tep].getDeclaredFields.map(f => col(f.getName)).toList
+    val tepWithEnsgId = tep
+      .join(lut, lut("symbol") === tep("targetFromSourceId"), "inner")
+      .withColumn("tep", struct(tepFields: _*))
+      .select("id", "tep")
+      .orderBy(col("id").asc)
+      .cache()
+
+    dataFrame.join(tepWithEnsgId, Seq("id"), "left_outer")
   }
 
   private def addOrthologue(orthologue: Dataset[Ortholog])(dataFrame: DataFrame)(
@@ -226,10 +295,18 @@ object Target extends LazyLogging {
 
   private def addNcbiEntrezSynonyms(ncbi: Dataset[Ncbi])(dataFrame: DataFrame): DataFrame = {
     logger.info("Adding ncbi entrez synonyms to dataframe")
+
+    val ncbiF = ncbi
+      .withColumnRenamed("synonyms", "s")
+      .withColumnRenamed("nameSynonyms", "ns")
+      .withColumnRenamed("symbolSynonyms", "ss")
+
     dataFrame
-      .join(ncbi.withColumnRenamed("synonyms", "s"), Seq("id"), "left_outer")
-      .withColumn("synonyms", safeArrayUnion(col("synonyms"), col("s")))
-      .drop("s")
+      .join(ncbiF, Seq("id"), "left_outer")
+      .withColumn("symbolSynonyms", safeArrayUnion(col("symbolSynonyms"), col("ss")))
+      .withColumn("nameSynonyms", safeArrayUnion(col("nameSynonyms"), col("ns")))
+      .withColumn("synonyms", safeArrayUnion(col("synonyms"), col("s"), col("ns"), col("ss")))
+      .drop("s", "ss", "ns")
   }
 
   private def addTargetSafety(inputDataFrames: IOResources, geneToEnsemblLookup: DataFrame)(
@@ -260,8 +337,8 @@ object Target extends LazyLogging {
       targetDF: DataFrame): DataFrame = {
     logger.info("Add chemical probes to target.")
     val cpWithEnsgId = cpDF
-      .join(ensemblIdLookupDF, col("targetFromSourceId") === col("name"))
-      .drop("name")
+      .join(ensemblIdLookupDF, array_contains(col("name"), col("targetFromSourceId")))
+      .drop(ensemblIdLookupDF.columns.filter(_ != "ensgId"): _*)
 
     val cpGroupedById = cpWithEnsgId
       .select(
@@ -283,7 +360,7 @@ object Target extends LazyLogging {
     def getUniprotDataFrame(io: IOResourceConfig)(implicit ss: SparkSession): IOResource = {
       import ss.implicits._
       val path: java.util.Iterator[String] = sparkSession.read.textFile(io.path).toLocalIterator()
-      val data = UniprotConverter.convertUniprotFlatFileToUniprotEntry(path.asScala)
+      val data = UniprotConverter.fromFlatFile(path.asScala)
       IOResource(data.toDF(), io)
     }
 
@@ -367,8 +444,8 @@ object Target extends LazyLogging {
     val merged = eDf
     // this removes non-reference ensembl genes introduced by HGNC.
       .join(hgnc, eDf("id") === hgnc("ensemblId"), "left_outer")
-      // if approvedName and approvedSymbol provided by HGNC use those, otherwise Ensembl.
-      .withColumn("approvedName", coalesce(col("approvedName"), col("an"), lit(null)))
+      // if approvedName and approvedSymbol provided by HGNC use those, otherwise Ensembl for symbol or empty string for name
+      .withColumn("approvedName", coalesce(col("approvedName"), col("an"), lit("")))
       .withColumn("approvedSymbol", coalesce(col("approvedSymbol"), col("as"), col("id")))
       .drop("an", "as")
     logger.debug(
@@ -417,7 +494,7 @@ object Target extends LazyLogging {
     * 3. uniprot
     * 4. ensembl_PRO
     *
-    * @param ids with entries in the form ACCESSION-SOURCE. Accession and Source are split by a hyphen.
+    * ids with entries in the form ACCESSION-SOURCE. Accession and Source are split by a hyphen.
     * @return input array with duplicates removed and sorted by hierarchy preference.
     */
   val cleanProteinIds: Seq[String] => Seq[String] = (ids: Seq[String]) => {
@@ -448,6 +525,6 @@ object Target extends LazyLogging {
       if (l == r) left < right else l < r
     })
   }
-  val proteinIdUdf = udf(cleanProteinIds)
+  val proteinIdUdf: UserDefinedFunction = udf(cleanProteinIds)
 
 }

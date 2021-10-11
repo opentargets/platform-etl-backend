@@ -2,6 +2,7 @@ package io.opentargets.etl.backend.target
 
 import io.opentargets.etl.backend.EtlSparkUnitTest
 import io.opentargets.etl.backend.target.EnsemblTest.ensemblRawDf
+import org.apache.spark.sql.functions.col
 import org.apache.spark.sql.{DataFrame, SparkSession}
 import org.scalatest.matchers.should.Matchers.convertToAnyShouldWrapper
 
@@ -15,7 +16,6 @@ class EnsemblTest extends EtlSparkUnitTest {
   "Ensembl" should "convert raw dataframe into Ensembl objects without loss" in {
     // given
     val df = ensemblRawDf
-    // when
     val results = Ensembl(df)
     // then
     results.count should equal(ensemblRawDf.count +- 10)
@@ -53,7 +53,7 @@ class EnsemblTest extends EtlSparkUnitTest {
     results.count() should equal(df.count())
     results.columns should contain("approvedName")
     results
-      .filter("id = 'ENSG00000198763'")
+      .filter(col("id") === "ENSG00000198763")
       .select("approvedName")
       .head()
       .get(0)

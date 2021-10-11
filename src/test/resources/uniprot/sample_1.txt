@@ -14,8 +14,9 @@ DE   AltName: Full=N-acetyl-beta-D-glucosaminidase;
 DE   AltName: Full=N-acetyl-beta-glucosaminidase;
 DE   AltName: Full=Nuclear cytoplasmic O-GlcNAcase and acetyltransferase;
 DE            Short=NCOAT;
-GN   Name=OGA {ECO:0000312|HGNC:HGNC:7056};
-GN   Synonyms=HEXC, KIAA0679, MEA5, MGEA5;
+GN   Name=OGA {ECO:0000312|HGNC:HGNC:7056, ECO:0000303|Ref.3};
+GN   Synonyms=HEXC, KIAA0679, MEA5,
+GN   MGEA5;
 OS   Homo sapiens (Human).
 OC   Eukaryota; Metazoa; Chordata; Craniata; Vertebrata; Euteleostomi; Mammalia;
 OC   Eutheria; Euarchontoglires; Primates; Haplorrhini; Catarrhini; Hominidae;

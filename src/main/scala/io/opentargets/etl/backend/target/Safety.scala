@@ -3,6 +3,7 @@ package io.opentargets.etl.backend.target
 import com.typesafe.scalalogging.LazyLogging
 import io.opentargets.etl.backend.spark.Helpers.unionDataframeDifferentSchema
 import org.apache.spark.sql.functions.{
+  array_contains,
   broadcast,
   col,
   collect_set,
@@ -65,9 +66,11 @@ object Safety extends LazyLogging {
     combinedDF.as[TargetSafety]
   }
 
+  val hecatosFilter = col("ref") =!= "HeCaToS"
   private def transformAdverseEvents(df: DataFrame): DataFrame = {
     logger.debug("Transforming target safety adverse events data.")
     val aeDF = df
+      .filter(hecatosFilter)
       .select(
         col("ensemblId") as "id",
         col("symptom") as "event",
@@ -86,8 +89,7 @@ object Safety extends LazyLogging {
       .withColumn(
         "effects",
         struct(element_at(col("effects"), 1) as "direction",
-               when(element_at(col("effects"), 2) =!= "general", element_at(col("effects"), 2))
-                 .otherwise(null) as "dosing")
+               element_at(col("effects"), 2) as "dosing")
       )
 
     val effectsDF = aeDF
@@ -99,18 +101,28 @@ object Safety extends LazyLogging {
 
   private def transformTargetSafety(df: DataFrame): DataFrame = {
     logger.debug("Transforming target safety safety risk data.")
-    df.select(
-      col("ensemblId") as "id",
-      struct(
-        col("biologicalSystem") as "tissueLabel",
-        col("uberonId") as "tissueId",
-        lit(null) as "cellLabel",
-        lit(null) as "cellFormat",
-        lit(null) as "cellId"
-      ) as "biosample",
-      col("ref") as "datasource",
-      col("pmid") as "literature"
-    )
+    df.filter(hecatosFilter)
+      .select(
+        col("ensemblId") as "id",
+        when(col("ref").contains("Force"), "heart disease")
+          .when(col("ref").contains("Lamore"), "cardiac arrhythmia") as "event",
+        when(col("ref").contains("Force"), "EFO_0003777")
+          .when(col("ref").contains("Lamore"), "EFO_0004269") as "eventId",
+        struct(
+          col("biologicalSystem") as "tissueLabel",
+          col("uberonId") as "tissueId",
+          lit(null) as "cellLabel",
+          lit(null) as "cellFormat",
+          lit(null) as "cellId"
+        ) as "biosample",
+        col("ref") as "datasource",
+        col("pmid") as "literature",
+        struct(
+          lit(null) as "name",
+          col("liability") as "description",
+          lit(null) as "type"
+        ) as "study"
+      )
   }
 
   def transformToxCast(toxDF: DataFrame, geneIdLookup: DataFrame): DataFrame = {
@@ -126,14 +138,14 @@ object Safety extends LazyLogging {
           col("cell_format") as "cellFormat",
           lit("") as "cellId"
         ) as "biosample",
-        trim(col("official_symbol")) as "name",
-        lit("Toxcast") as "datasource",
+        trim(col("official_symbol")) as "official_symbol",
+        lit("ToxCast") as "datasource",
         struct(col("assay_component_endpoint_name") as "name",
                col("assay_component_desc") as "description",
                col("assay_format_type") as "type") as "study"
       ))
-      .join(geneIdLookup, Seq("name"), "left_outer")
-      .drop("name")
+      .join(geneIdLookup, array_contains(col("name"), col("official_symbol")), "left_outer")
+      .drop(geneIdLookup.columns.filter(_ != "ensgId"): _*)
       .withColumnRenamed("ensgId", "id")
 
     tDf

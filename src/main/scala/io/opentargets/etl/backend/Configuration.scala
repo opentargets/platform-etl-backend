@@ -32,7 +32,7 @@ object Configuration extends LazyLogging {
                                    diseases: IOResourceConfig,
                                    targets: IOResourceConfig)
 
-  case class EvidenceOutputsSection(succeeded: IOResourceConfig, failed: IOResourceConfig)
+  case class SucceedFailedOutputs(succeeded: IOResourceConfig, failed: IOResourceConfig)
 
   case class EvidencesSection(inputs: EvidenceInputsSection,
                               uniqueFields: List[String],
@@ -40,7 +40,7 @@ object Configuration extends LazyLogging {
                               datatypeId: String,
                               dataSourcesExclude: List[String],
                               dataSources: List[EvidenceEntry],
-                              outputs: EvidenceOutputsSection)
+                              outputs: SucceedFailedOutputs)
 
   case class AssociationInputsSection(evidences: IOResourceConfig, diseases: IOResourceConfig)
 
@@ -130,9 +130,9 @@ object Configuration extends LazyLogging {
       output: IOResourceConfig
   )
 
-  case class Common(defaultSteps: Seq[String],
-                    input: String,
+  case class Common(input: String,
                     output: String,
+                    error: String,
                     outputFormat: String,
                     metadata: IOResourceConfig)
 
@@ -145,12 +145,11 @@ object Configuration extends LazyLogging {
 
   case class GeneOntologySection(goInput: IOResourceConfig, output: IOResourceConfig)
 
-  case class MousePhenotypes(mpClasses: IOResourceConfig,
-                             mpReports: IOResourceConfig,
-                             mpOrthology: IOResourceConfig,
-                             mpCategories: IOResourceConfig,
-                             target: IOResourceConfig,
-                             output: IOResourceConfig)
+  case class TargetValidationInput(name: String, idColumn: String, data: IOResourceConfig)
+
+  case class TargetValidation(inputs: Seq[TargetValidationInput],
+                              target: IOResourceConfig,
+                              output: SucceedFailedOutputs)
 
   case class SearchInputsSection(evidences: IOResourceConfig,
                                  diseases: IOResourceConfig,
@@ -256,9 +255,14 @@ object Configuration extends LazyLogging {
   )
   // --- END --- //
 
+  case class EtlStep[T](step: T, dependencies: List[T])
+
+  case class EtlDagConfig(steps: List[EtlStep[String]], resolve: Boolean)
+
   case class OTConfig(
       sparkUri: Option[String],
       sparkSettings: SparkSettings,
+      etlDag: EtlDagConfig,
       common: Common,
       reactome: ReactomeSection,
       associations: AssociationsSection,
@@ -271,6 +275,7 @@ object Configuration extends LazyLogging {
       search: SearchSection,
       aotf: AOTFSection,
       target: Target,
+      targetValidation: TargetValidation,
       expression: ExpressionSection,
       openfda: OpenfdaSection,
       ebisearch: EBISearchSection,

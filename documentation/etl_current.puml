@@ -17,9 +17,12 @@ artifact expression <<noDependency>>
 artifact go <<noDependency>>
 artifact interactions <<dependencies>>
 artifact knownDrugs <<dependencies>>
+artifact targetValidation<<dependencies>>
 artifact reactome <<noDependency>>
 artifact search <<dependencies>>
 artifact target <<dependencies>>
+artifact openfda <<dependencies>>
+artifact ebiSearch <<dependencies>>
 
 reactome --> target
 
@@ -49,5 +52,14 @@ drug --> search
 associations --> search
 
 target --> interactions
+
+target --> targetValidation
+
+drug --> openfda
+
+disease --> ebiSearch
+target --> ebiSearch
+evidence --> ebiSearch
+associations --> ebiSearch
 
 @enduml

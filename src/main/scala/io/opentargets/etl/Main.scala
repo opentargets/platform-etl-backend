@@ -5,17 +5,15 @@ import com.typesafe.scalalogging.LazyLogging
 import scala.util._
 import io.opentargets.etl.backend._
 import io.opentargets.etl.backend.drug.Drug
+import io.opentargets.etl.backend.graph.EtlDag
 
 object ETL extends LazyLogging {
-  val implementedSteps = Map(
-    "evidence" -> Evidence,
-    "search" -> Search
-  )
 
   def applySingleStep(step: String)(implicit context: ETLSessionContext): Unit = {
     step match {
-      case "test" =>
-        ETLPipeline
+      case "targetValidation" =>
+        logger.info("run step targetValidation")
+        TargetValidation()
       case "evidence" =>
         logger.info("run step evidence")
         Evidence()
@@ -75,21 +73,20 @@ object ETL extends LazyLogging {
       case Right(otContext) =>
         implicit val ctxt: ETLSessionContext = otContext
 
+        // build ETL DAG graph
+        val etlDag = new EtlDag[String](otContext.configuration.etlDag.steps)
+
         val etlSteps =
-          if (steps.isEmpty) otContext.configuration.common.defaultSteps
+          if (steps.isEmpty) etlDag.getAll
+          else if (otContext.configuration.etlDag.resolve) etlDag.getDependenciesFor(steps: _*)
           else steps
 
-        val unknownSteps = etlSteps filterNot otContext.configuration.common.defaultSteps.contains
-        val knownSteps = etlSteps filter otContext.configuration.common.defaultSteps.contains
+        logger.info(s"Steps to execute: $etlSteps")
 
-        logger.info(s"valid steps to execute: $knownSteps")
-        if (unknownSteps.nonEmpty) logger.warn(s"invalid steps to skip: $unknownSteps")
-
-        knownSteps.foreach { step =>
+        etlSteps.foreach { step =>
           logger.debug(s"step to run: '$step'")
           ETL.applySingleStep(step)
         }
-
       case Left(ex) => logger.error(ex.prettyPrint())
     }
   }

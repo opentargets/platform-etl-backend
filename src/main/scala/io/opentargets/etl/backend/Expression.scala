@@ -186,7 +186,11 @@ object Expression extends LazyLogging {
       .drop("efo_code", "labelNew", "label", "name", "expressionId", "tissue_internal_id", "Tissue")
       .distinct
 
+    // Missing tissues. Fixme.
+    // val missingTissues = validTissues.filter(col("efoId").isNull).select("labelDef").distinct()
+
     val protein = validTissues
+      .filter(col("efoId").isNotNull)
       .groupBy("Gene", "labelDef", "efoId", "anatomical_systems", "organs")
       .agg(
         max(col("ReliabilityMapDef")).as("reliability"),

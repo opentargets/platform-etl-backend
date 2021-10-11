@@ -9,8 +9,8 @@ import org.apache.spark.sql.functions.{
   array_union,
   coalesce,
   col,
-  expr,
   explode,
+  expr,
   filter,
   flatten,
   lit,
@@ -46,6 +46,14 @@ object Helpers extends LazyLogging {
       options: Option[Seq[IOResourceConfigOption]] = None,
       partitionBy: Option[Seq[String]] = None
   )
+
+  case class IdAndSource(id: String, source: String)
+  case class LabelAndSource(label: String, source: String)
+  case class LocationAndSource(location: String, source: String)
+
+  val idAndSourceSchema: StructType = Encoders.product[IdAndSource].schema
+  val labelAndSourceSchema: StructType = Encoders.product[LabelAndSource].schema
+  val locationAndSourceSchema: StructType = Encoders.product[LocationAndSource].schema
 
   /** Returns input string wrapped in backticks if it contains period character.
     *
@@ -166,7 +174,7 @@ object Helpers extends LazyLogging {
         cols.map(c => struct(lit(c).alias("key"), col(c).alias("val"))): _*
       ))
 
-    val byExprs = by.map(col(_))
+    val byExprs = by.map(col)
 
     df.select(byExprs :+ kvs.alias("_kvs"): _*)
       .select(byExprs ++ Seq(col("_kvs.key"), col("_kvs.val")): _*)
