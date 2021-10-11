@@ -227,13 +227,15 @@ object Evidence extends LazyLogging {
       implicit context: ETLSessionContext): DataFrame = {
     implicit val ss: SparkSession = context.sparkSession
 
-    logger.info("validate each evidence generating a hash to check for duplicates")
     val config = context.configuration.evidences
+
+    logger.info("Validate each evidence: generating a hash to check for duplicates")
+    logger.info(s"Excluding datasources: ${config.dataSourcesExclude.mkString("", ",", "")}")
 
     val commonReqFields = config.uniqueFields.toSet
 
     val dataTypes: List[(Column, List[Column])] = config.dataSources
-      .withFilter(_.required)
+      .withFilter(ds => !config.dataSourcesExclude.contains(ds.id))
       .map(
         dataType =>
           (col("sourceId") === dataType.id) ->

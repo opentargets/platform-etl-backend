@@ -23,7 +23,6 @@ object Configuration extends LazyLogging {
   case class DataSource(id: String, weight: Double, dataType: String, propagate: Boolean)
 
   case class EvidenceEntry(id: String,
-                           required: Boolean = true,
                            uniqueFields: List[String],
                            datatypeId: Option[String],
                            scoreExpr: String,
@@ -39,6 +38,7 @@ object Configuration extends LazyLogging {
                               uniqueFields: List[String],
                               scoreExpr: String,
                               datatypeId: String,
+                              dataSourcesExclude: List[String],
                               dataSources: List[EvidenceEntry],
                               outputs: EvidenceOutputsSection)
 

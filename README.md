@@ -186,15 +186,35 @@ relationships at a more granular level, where inputs and outputs are specificall
 
 ## Step notes
 
+### Evidence
+
+The Evidence step provides scores for evidence strings by datasource. Detailed information can be found in the
+[documentation](https://platform-docs.opentargets.org/evidence). Each input file contains the columns "targetId",
+"targetFromSourceId", "diseaseId" and "datasourceId", as well as optional extra columns for that data-source.
+
+Scores are calculated using a different formula for each data source configured by the
+field `evidences.data-sources. score-expr` (score expression). The score expression is not statically checked for
+correctness!
+
+Specific data types can be excluded in one of two ways:
+
+1. Remove the entry from `data-sources`
+2. Add the value of `data-sources.id` to the field `data-sources-exclude`. Using this option allows users to exclude
+   specific source without having to update the `reference.conf`. For example, to exclude `ot_crispr` and `chembl`,
+   update your local configuration with `data-sources-exclude = ["ot_crispr", "chembl"]`.
+
+Output are partitioned by `data-sources.id`.
+
 ### Drug
 
-The primary input source of the Drug dataset is ChEMBL. ChEMBL contains almost 2 million molecules, most which are are 
-not 'drugs'. We define a drug to be any molecule that meets one or more of the following criteria: 
- - There is at least 1 known indication;
- - There is at least 1 known mechanism of action; or
- - The ChEMBL ID can be mapped to a DrugBank ID.  
- 
-To run the `Drug` step use the example command under `Create a fat JAR` with `drug` as the step name. 
+The primary input source of the Drug dataset is ChEMBL. ChEMBL contains almost 2 million molecules, most which are are
+not 'drugs'. We define a drug to be any molecule that meets one or more of the following criteria:
+
+- There is at least 1 known indication;
+- There is at least 1 known mechanism of action; or
+- The ChEMBL ID can be mapped to a DrugBank ID.
+
+To run the `Drug` step use the example command under `Create a fat JAR` with `drug` as the step name.
 
 ### Baseline Expression
 The primary input sources of the baseline expression dataset are 
