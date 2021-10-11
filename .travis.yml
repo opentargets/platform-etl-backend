@@ -2,7 +2,7 @@ dist: xenial
 language: scala
   - 2.12.12
 jdk:
-  - openjdk11
+  - openjdk8
 script:
   - sbt ++$TRAVIS_SCALA_VERSION clean compile
   - sbt ++$TRAVIS_SCALA_VERSION coverage test coverageReport

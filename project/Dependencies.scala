@@ -23,7 +23,7 @@ object Dependencies {
   )
 
   lazy val graphDeps = Seq(
-    "org.jgrapht" % "jgrapht-core" % "1.5.1"
+    "org.jgrapht" % "jgrapht-core" % "1.4.0"
   )
 
   lazy val sparkVersion = "3.1.1"
