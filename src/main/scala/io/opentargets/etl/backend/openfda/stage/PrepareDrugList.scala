@@ -10,7 +10,8 @@ object PrepareDrugList {
       .selectExpr("id as chembl_id",
         "synonyms as synonyms",
         "name as pref_name",
-        "tradeNames as trade_names")
+        "tradeNames as trade_names",
+        "linkedTargets as linkedTargets")
       .withColumn("drug_names",
         array_distinct(
           flatten(array(col("trade_names"), array(col("pref_name")), col("synonyms")))))
