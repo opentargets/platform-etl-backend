@@ -16,7 +16,7 @@ object PrepareDrugList {
           flatten(array(col("trade_names"), array(col("pref_name")), col("synonyms")))))
       .withColumn("_drug_name", explode(col("drug_names")))
       .withColumn("drug_name", lower(col("_drug_name")))
-      .select("chembl_id", "drug_name")
+      .select("chembl_id", "drug_name", "linkedTargets")
       .distinct()
       .orderBy(col("drug_name"))
 
