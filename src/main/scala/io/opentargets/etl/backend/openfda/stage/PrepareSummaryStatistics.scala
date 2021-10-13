@@ -11,13 +11,9 @@ object PrepareSummaryStatistics {
     // Define the partition windows
     val wAdverses = Window.partitionBy(col("reaction_reactionmeddrapt"))
     val wDrugs = Window.partitionBy(col("chembl_id"))
-    // TODO - Create a window for target IDs
     val wAdverseDrugComb =
       Window.partitionBy(col("chembl_id"), col("reaction_reactionmeddrapt"))
-    // TODO - Create a window for target-reaction combination
-
     // and we will need this processed data later on
-    // TODO - Extend this with 'uniq_report_ids_by_target' and 'uniq_report_ids_targets'
     val groupedDf = fdaData
       .withColumn("uniq_report_ids_by_reaction", // how many reports mention that reaction
         approx_count_distinct(col("safetyreportid")).over(wAdverses))

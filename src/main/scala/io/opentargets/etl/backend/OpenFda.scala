@@ -75,9 +75,7 @@ object OpenFda extends LazyLogging {
       context.configuration.openfda.montecarlo.percentile,
       context.configuration.openfda.montecarlo.permutations
     ).persist(StorageLevel.MEMORY_AND_DISK_SER)
-    // TODO - Compute Montecarlo Sampling - For Targets
     // Produce Output
-    // TODO - Extend with results for targets
     val outputMap: IOResources = Map(
       "unfiltered" -> IOResource(fdaDataWithMeddra, context.configuration.openfda.outputs.fdaUnfiltered),
       "openFdaResults" -> IOResource(montecarloResults, context.configuration.openfda.outputs.fdaResults)
