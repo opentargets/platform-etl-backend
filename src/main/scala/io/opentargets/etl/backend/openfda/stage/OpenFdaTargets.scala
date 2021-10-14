@@ -1,9 +1,10 @@
 package io.opentargets.etl.backend.openfda.stage
 
-import io.opentargets.etl.backend.ETLSessionContext
+import io.opentargets.etl.backend.{ETLSessionContext, MeddraLowLevelTermsData, MeddraPreferredTermsData}
 import io.opentargets.etl.backend.spark.IoHelpers.IOResources
 import org.apache.spark.sql.DataFrame
-import org.apache.spark.sql.functions.explode
+import org.apache.spark.sql.functions.{explode, typedLit}
+import org.apache.spark.storage.StorageLevel
 
 /**
   * This substep of OpenFDA, computes the LLR for targets data.
@@ -34,6 +35,7 @@ object OpenFdaTargets {
     // Compute the Montecarlo input parameters
     val fdaDataTargetsMontecarloReady = TargetPrepareForMontecarlo(fdaDataTargetsWithSummaryStats)
     // TODO - Attach meddra information
+    val fdaDataTargetsMontecarloReadyWithMeddra = fdaDataTargetsMontecarloReady
     // TODO - Do a Stratified Sampling
     // TODO - Run Montecarlo
     // TODO - Write montecarlo results and unfiltered results
