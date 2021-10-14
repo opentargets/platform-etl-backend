@@ -1,5 +1,6 @@
 package io.opentargets.etl.backend.openfda.stage
 
+import io.opentargets.etl.backend.spark.{IOResource, IoHelpers}
 import io.opentargets.etl.backend.{ETLSessionContext, MeddraLowLevelTermsData, MeddraPreferredTermsData}
 import io.opentargets.etl.backend.spark.IoHelpers.IOResources
 import org.apache.spark.sql.DataFrame
@@ -43,8 +44,12 @@ object OpenFdaTargets {
       context.configuration.openfda.montecarlo.percentile,
       context.configuration.openfda.montecarlo.permutations
     ).persist(StorageLevel.MEMORY_AND_DISK_SER)
-    // TODO - Write montecarlo results and unfiltered results
-
+    // Write montecarlo results and unfiltered results
+    val outputMap: IOResources = Map(
+      "openfdaTargetsUnfiltered" -> IOResource(fdaDataTargetsMontecarloReadyWithMeddra, context.configuration.openfda.outputs.fdaTargetsUnfiltered),
+      "openfdaTargetsResults" -> IOResource(montecarloResults, context.configuration.openfda.outputs.fdaTargetsResults)
+    )
+    IoHelpers.writeTo(outputMap)
   }
 
 }
