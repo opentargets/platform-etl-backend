@@ -38,7 +38,7 @@ object OpenFdaTargets {
     // TODO - Attach meddra information
     val fdaDataTargetsMontecarloReadyWithMeddra = fdaDataTargetsMontecarloReady
     // TODO - Do a Stratified Sampling
-    // TODO - Run Montecarlo
+    // Run Montecarlo
     val montecarloResults = MonteCarloSampling(
       fdaDataTargetsMontecarloReadyWithMeddra,
       context.configuration.openfda.montecarlo.percentile,
