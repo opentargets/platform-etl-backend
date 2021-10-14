@@ -31,7 +31,8 @@ object OpenFdaTargets {
       .drop($"linkedTargets")
     // Prepare the summary statistics used by Montecarlo
     val fdaDataTargetsWithSummaryStats = TargetPrepareSummaryStatistics(fdaDataTargets)
-    // TODO - Compute the Montecarlo input parameters
+    // Compute the Montecarlo input parameters
+    val fdaDataTargetsMontecarloReady = TargetPrepareForMontecarlo(fdaDataTargetsWithSummaryStats)
     // TODO - Attach meddra information
     // TODO - Do a Stratified Sampling
     // TODO - Run Montecarlo
