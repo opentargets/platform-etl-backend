@@ -22,7 +22,7 @@ object TargetPrepareSummaryStatistics {
     val wAdverseTargetComb =
       Window.partitionBy(col("targetId"), col("reaction_reactionmeddrapt"))
     // and we will need this processed data later on
-    val groupedDf = fdaData
+    val summaryStats = fdaData
       .withColumn("uniq_report_ids_by_reaction", // how many reports mention that reaction
         approx_count_distinct(col("safetyreportid")).over(wAdverses))
       .withColumn("uniq_report_ids_by_target", // how many reports mention that drug
@@ -38,6 +38,6 @@ object TargetPrepareSummaryStatistics {
         "uniq_report_ids_by_target",
         "uniq_report_ids"
       )
-    groupedDf
+    summaryStats
   }
 }
