@@ -234,7 +234,8 @@ object Configuration extends LazyLogging {
       fdaResults: IOResourceConfig,
       fdaTargetsUnfiltered: IOResourceConfig,
       fdaTargetsResults: IOResourceConfig,
-      sampling: IOResourceConfig
+      sampling: IOResourceConfig,
+      samplingTargets: IOResourceConfig
   )
   case class OpenfdaMeddraSection(
       meddraPreferredTerms: IOResourceConfig,
