@@ -38,6 +38,7 @@ object Configuration extends LazyLogging {
                               uniqueFields: List[String],
                               scoreExpr: String,
                               datatypeId: String,
+                              dataSourcesExclude: List[String],
                               dataSources: List[EvidenceEntry],
                               outputs: SucceedFailedOutputs)
 
