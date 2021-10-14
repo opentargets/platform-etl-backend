@@ -38,6 +38,11 @@ object OpenFdaTargets {
     val fdaDataTargetsMontecarloReadyWithMeddra = fdaDataTargetsMontecarloReady
     // TODO - Do a Stratified Sampling
     // TODO - Run Montecarlo
+    val montecarloResults = MonteCarloSampling(
+      fdaDataTargetsMontecarloReadyWithMeddra,
+      context.configuration.openfda.montecarlo.percentile,
+      context.configuration.openfda.montecarlo.permutations
+    ).persist(StorageLevel.MEMORY_AND_DISK_SER)
     // TODO - Write montecarlo results and unfiltered results
 
   }
