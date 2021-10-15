@@ -204,17 +204,31 @@ not 'drugs'. We define a drug to be any molecule that meets one or more of the f
 - There is at least 1 known mechanism of action; or
 - The ChEMBL ID can be mapped to a DrugBank ID.
 
-To run the `Drug` step use the example command under `Create a fat JAR` with `drug` as the step name.
+#### Inputs
+
+| Input | Source | Notes |
+| --- | --- | --- | 
+| chembl-molecule | [ChEMBL](https://www.ebi.ac.uk/chembl/) | Provided from PIS using ChEMBL private ES server. |
+| chembl-indication | [ChEMBL](https://www.ebi.ac.uk/chembl/) | Provided from PIS using ChEMBL private ES server. |
+| chembl-mechanism | [ChEMBL](https://www.ebi.ac.uk/chembl/)| Provided from PIS using ChEMBL private ES server. |
+| chembl-target | [ChEMBL](https://www.ebi.ac.uk/chembl/)| Provided from PIS using ChEMBL private ES server. |
+| chembl-warning | [ChEMBL](https://www.ebi.ac.uk/chembl/) | Provided from PIS using ChEMBL private ES server. |
+| disease-etl | ETL step 'disease' ||
+| target-etl | ETL step 'target' ||
+| drugbank-to-chembl | [Drugbank vocabulary](https://go.drugbank.com/releases/latest#open-data) | File `Drugbank Vocabulary` |
 
 ### Baseline Expression
-The primary input sources of the baseline expression dataset are 
- - The human protein atlas (https://www.proteinatlas.org/)
- - Opentarget baseline expressions resources
 
-We define a baseline expression information as 
+The primary input sources of the baseline expression dataset are
+
+- The human protein atlas (https://www.proteinatlas.org/)
+- Opentarget baseline expressions resources
+
+We define a baseline expression information as
+
 - gene
-  - tissues[] 
-    - label
+    - tissues[]
+        - label
     - efo_code
     - organs[]
     - anatomical_system[]
