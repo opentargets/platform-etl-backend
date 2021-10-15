@@ -384,7 +384,6 @@ object Target extends LazyLogging {
         case Some(value) => Option(value)
         case None        => CsvHelpers.tsvWithHeader
       }),
-      "orthologs" -> targetInputs.ortholog.copy(options = CsvHelpers.tsvWithHeader),
       "projectScoresIds" -> targetInputs.psGeneIdentifier,
       "projectScoresEssentialityMatrix" -> targetInputs.psEssentialityMatrix,
       "reactomeEtl" -> targetInputs.reactomeEtl,

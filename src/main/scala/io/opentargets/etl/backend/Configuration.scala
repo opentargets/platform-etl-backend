@@ -173,7 +173,6 @@ object Configuration extends LazyLogging {
 
   case class TargetInput(chemicalProbes: IOResourceConfig,
                          hgnc: IOResourceConfig,
-                         ortholog: IOResourceConfig,
                          ensembl: IOResourceConfig,
                          uniprot: IOResourceConfig,
                          geneOntology: IOResourceConfig,
