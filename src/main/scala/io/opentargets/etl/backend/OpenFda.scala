@@ -1,7 +1,7 @@
 package io.opentargets.etl.backend
 
 import com.typesafe.scalalogging.LazyLogging
-import io.opentargets.etl.backend.openfda.stage.{AttachMeddraData, EventsFiltering, LoadData, MonteCarloSampling, PrePrepRawFdaData, PrepareAdverseEventData, PrepareBlacklistData, PrepareDrugList, PrepareForMontecarlo, PrepareSummaryStatistics, StratifiedSampling}
+import io.opentargets.etl.backend.openfda.stage.{AttachMeddraData, EventsFiltering, LoadData, MonteCarloSampling, OpenFdaTargets, PrePrepRawFdaData, PrepareAdverseEventData, PrepareBlacklistData, PrepareDrugList, PrepareForMontecarlo, PrepareSummaryStatistics, StratifiedSampling}
 import io.opentargets.etl.backend.spark.IoHelpers.IOResources
 import io.opentargets.etl.backend.spark.{IOResource, IOResourceConfig, IoHelpers}
 import org.apache.spark.sql.functions.typedLit
@@ -50,7 +50,10 @@ object OpenFda extends LazyLogging {
     //        and they're also like that in target dataset, so no further processing is needed before joining the data.
 
     // TODO - From here on, there is a branch for drugs openfda analysis and the targets openfda analysis
+    // Run OpenFDA FAERS for targets
+    OpenFdaTargets(dfsData, fdaDataFilteredWithDrug)
 
+    // --- Run OpenFDA FAERS for drugs ---
     // Prepare Summary Statistics
     val fdaDataWithSummaryStats = PrepareSummaryStatistics(fdaDataFilteredWithDrug)
     // Montecarlo data preparation, for drugs
