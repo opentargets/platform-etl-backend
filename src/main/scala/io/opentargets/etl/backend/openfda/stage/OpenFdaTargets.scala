@@ -35,7 +35,7 @@ object OpenFdaTargets {
     val fdaDataTargetsWithSummaryStats = TargetPrepareSummaryStatistics(fdaDataTargets)
     // Compute the Montecarlo input parameters
     val fdaDataTargetsMontecarloReady = TargetPrepareForMontecarlo(fdaDataTargetsWithSummaryStats)
-    // TODO - Attach meddra information
+    // Attach meddra information
     val fdaDataTargetsMontecarloReadyWithMeddra = context.configuration.openfda.meddra match {
       case Some(_) => TargetAttachMeddra(fdaDataTargetsMontecarloReady,
         dfsData(MeddraPreferredTermsData()).data,
