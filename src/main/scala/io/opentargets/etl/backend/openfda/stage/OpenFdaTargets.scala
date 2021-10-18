@@ -36,7 +36,15 @@ object OpenFdaTargets {
     // Compute the Montecarlo input parameters
     val fdaDataTargetsMontecarloReady = TargetPrepareForMontecarlo(fdaDataTargetsWithSummaryStats)
     // TODO - Attach meddra information
-    val fdaDataTargetsMontecarloReadyWithMeddra = fdaDataTargetsMontecarloReady
+    val fdaDataTargetsMontecarloReadyWithMeddra = context.configuration.openfda.meddra match {
+      case Some(_) => TargetAttachMeddra(fdaDataTargetsMontecarloReady,
+        dfsData(MeddraPreferredTermsData()).data,
+        dfsData(MeddraLowLevelTermsData()).data).persist(StorageLevel.MEMORY_AND_DISK_SER)
+      case _ => fdaDataTargetsMontecarloReady
+        // TODO - WARNING - We are not dropping duplicates here!
+        .withColumn("meddraCode", typedLit[String](""))
+        .persist(StorageLevel.MEMORY_AND_DISK_SER)
+    }
     // TODO - Do a Stratified Sampling
     // Run Montecarlo
     val montecarloResults = MonteCarloSampling(
