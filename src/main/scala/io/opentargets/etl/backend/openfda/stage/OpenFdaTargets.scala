@@ -44,8 +44,11 @@ object OpenFdaTargets {
         .withColumn("meddraCode", typedLit[String](""))
         .persist(StorageLevel.MEMORY_AND_DISK_SER)
     }
-    // Do a Stratified Sampling
-    TargetStratifiedSampling(dfsData(FdaData()).data, fdaDataTargetsWithSummaryStats, fdaDataTargetsMontecarloReadyWithMeddra, "targetId")
+    // Conditional generation of Stratified Sampling
+    if (context.configuration.openfda.sampling.enabled) {
+      // Do a Stratified Sampling
+      TargetStratifiedSampling(dfsData(FdaData()).data, fdaDataTargetsWithSummaryStats, fdaDataTargetsMontecarloReadyWithMeddra, "targetId")
+    }
     // Run Montecarlo
     val montecarloResults = MonteCarloSampling(
       fdaDataTargetsMontecarloReadyWithMeddra,
