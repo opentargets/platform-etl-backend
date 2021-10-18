@@ -50,7 +50,7 @@ object OpenFdaTargets {
       TargetStratifiedSampling(dfsData(FdaData()).data, fdaDataTargetsWithSummaryStats, fdaDataTargetsMontecarloReadyWithMeddra, "targetId")
     }
     // Run Montecarlo
-    val montecarloResults = MonteCarloSampling(
+    val montecarloResults = TargetMonteCarloSampling(
       fdaDataTargetsMontecarloReadyWithMeddra,
       context.configuration.openfda.montecarlo.percentile,
       context.configuration.openfda.montecarlo.permutations

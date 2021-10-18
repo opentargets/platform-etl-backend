@@ -25,9 +25,9 @@ object TargetPrepareSummaryStatistics {
     val summaryStats = fdaData
       .withColumn("uniq_report_ids_by_reaction", // how many reports mention that reaction
         approx_count_distinct(col("safetyreportid")).over(wAdverses))
-      .withColumn("uniq_report_ids_by_target", // how many reports mention that drug
+      .withColumn("uniq_report_ids_by_target", // how many reports mention that target
         approx_count_distinct(col("safetyreportid")).over(wTargets))
-      .withColumn("uniq_report_ids", // how many mentions of drug-reaction pair
+      .withColumn("uniq_report_ids", // how many mentions of target-reaction pair
         approx_count_distinct(col("safetyreportid")).over(wAdverseTargetComb))
       .select(
         "safetyreportid",
