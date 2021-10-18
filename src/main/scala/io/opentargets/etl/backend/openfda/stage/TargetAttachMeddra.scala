@@ -41,8 +41,6 @@ object TargetAttachMeddra {
     fdaMeddraPreferredAndLowLevel
       .withColumn("meddraCode", coalesce(col("pt_code"), col("llt_code")))
       .drop("pt_name", "llt_name", "pt_code", "llt_code")
-      // TODO - I still need to clarify this line over here, as it is my understanding that attaching meddra information
-      //        through a left_outer join, should not affect the number of rows, just two new columns with possible values.
       .dropDuplicates(Seq("targetId", "reaction_reactionmeddrapt"))
   }
 
