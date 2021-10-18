@@ -41,7 +41,6 @@ object OpenFdaTargets {
         dfsData(MeddraPreferredTermsData()).data,
         dfsData(MeddraLowLevelTermsData()).data).persist(StorageLevel.MEMORY_AND_DISK_SER)
       case _ => fdaDataTargetsMontecarloReady
-        // TODO - WARNING - We are not dropping duplicates here!
         .withColumn("meddraCode", typedLit[String](""))
         .persist(StorageLevel.MEMORY_AND_DISK_SER)
     }
