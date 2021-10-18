@@ -9,29 +9,24 @@ import org.apache.spark.sql.DataFrame
 
 object TargetStratifiedSampling extends LazyLogging {
 
-  /**
-    * @param cleanFda       cleanFda is the data after it has been cleaned: filtered by blacklist, qualifications of reporter, patient death, etc.
-    * @param significantFda significantFda is the data that has been prepared for MC sampling, as at this point we have already removed all log-likelihood rations that are effectively zero.
-    * @param sampleSize proportion of dataset to take
-    */
-  def apply(rawFda: DataFrame, cleanFda: DataFrame, significantFda: DataFrame, idCol: String, sampleSize: Double = 0.1)(
+  def apply(rawFda: DataFrame, cleanFda: DataFrame, significantFda: DataFrame, targetDimension: String, sampleSize: Double = 0.1)(
     implicit context: ETLSessionContext): Unit = {
     import org.apache.spark.sql.functions._
 
     logger.debug("Generating data for sample")
 
-    val significantSample = significantFda.select(idCol).distinct.sample(sampleSize)
-    val allSample = cleanFda.select(idCol).distinct.sample(sampleSize)
+    val significantSample = significantFda.select(targetDimension).distinct.sample(sampleSize)
+    val allSample = cleanFda.select(targetDimension).distinct.sample(sampleSize)
 
     val sampleOfData: DataFrame =
-      significantSample.join(allSample, Seq(idCol), "full_outer").distinct
+      significantSample.join(allSample, Seq(targetDimension), "full_outer").distinct
 
     // this leaves us with the report ids from the original data
     logger.debug("Converting dimension to safetyreportid")
     val reportIds = cleanFda
-      .select(idCol, "safetyreportid")
-      .join(sampleOfData, Seq(idCol))
-      .drop(idCol)
+      .select(targetDimension, "safetyreportid")
+      .join(sampleOfData, Seq(targetDimension))
+      .drop(targetDimension)
       .distinct()
 
     logger.info("Writing statified...")
