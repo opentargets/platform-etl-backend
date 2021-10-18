@@ -1,7 +1,7 @@
 package io.opentargets.etl.backend.openfda.stage
 
 import io.opentargets.etl.backend.spark.{IOResource, IoHelpers}
-import io.opentargets.etl.backend.{ETLSessionContext, MeddraLowLevelTermsData, MeddraPreferredTermsData}
+import io.opentargets.etl.backend.{ETLSessionContext, FdaData, MeddraLowLevelTermsData, MeddraPreferredTermsData}
 import io.opentargets.etl.backend.spark.IoHelpers.IOResources
 import org.apache.spark.sql.DataFrame
 import org.apache.spark.sql.functions.{explode, typedLit}
@@ -44,7 +44,8 @@ object OpenFdaTargets {
         .withColumn("meddraCode", typedLit[String](""))
         .persist(StorageLevel.MEMORY_AND_DISK_SER)
     }
-    // TODO - Do a Stratified Sampling
+    // Do a Stratified Sampling
+    TargetStratifiedSampling(dfsData(FdaData()).data, fdaDataTargetsWithSummaryStats, fdaDataTargetsMontecarloReadyWithMeddra, "targetId")
     // Run Montecarlo
     val montecarloResults = MonteCarloSampling(
       fdaDataTargetsMontecarloReadyWithMeddra,
