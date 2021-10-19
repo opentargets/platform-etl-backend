@@ -405,14 +405,13 @@ the data. Options for parsing the inputs should not need to be updated.
 
 5. Tep
     - Uses files downloaded for `tep` key in PIS's `config.yaml`.
-
 4. NCBI
-    - Used for synonyms, data available
+    - `ncbi`: Used for synonyms, data available
       from: `ftp://ftp.ncbi.nlm.nih.gov/gene/DATA/GENE_INFO/Mammalia/Homo_sapiens. gene_info.gz`
 6. Human Protein Atlas
-
-    - Used for subcellular locations. Data available
+    - `hpa` Used for subcellular locations. Data available
       from [HPA's website](https://www.proteinatlas.org/download/subcellular_location.tsv.zip)
+    - `hpa-sl-ontology`: Additional file provided by data team to map HPA locations to subcellular location ontology.
 7. Project Scores
    - Available from [Cancer Dependency Map](https://score.depmap.sanger.ac.uk/downloads)
    - `ps-gene-identifier`: https://cog.sanger.ac.uk/cmp/download/binaryDepScores.tsv.zip

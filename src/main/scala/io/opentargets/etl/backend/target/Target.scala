@@ -70,7 +70,7 @@ object Target extends LazyLogging {
       ensemblDf
     )
     val tep: Dataset[Tep] = Tep(inputDataFrames("tep").data)
-    val hpa: Dataset[GeneWithLocation] = GeneWithLocation(inputDataFrames("hpa").data)
+    val hpa: Dataset[GeneWithLocation] = GeneWithLocation(inputDataFrames("hpa").data, inputDataFrames("hpaSL").data)
     val projectScoresDS: Dataset[GeneWithDbXRef] = ProjectScores(
       inputDataFrames("projectScoresIds").data,
       inputDataFrames("projectScoresEssentialityMatrix").data)
@@ -380,9 +380,10 @@ object Target extends LazyLogging {
       "homologyDictionary" -> targetInputs.homologyDictionary,
       "homologyGeneDictionary" -> targetInputs.homologyGeneDictionary,
       "hpa" -> targetInputs.hpa,
+      "hpaSL" -> targetInputs.hpaSlOntology,
       "ncbi" -> targetInputs.ncbi.copy(options = targetInputs.ncbi.options match {
         case Some(value) => Option(value)
-        case None        => CsvHelpers.tsvWithHeader
+        case None => CsvHelpers.tsvWithHeader
       }),
       "projectScoresIds" -> targetInputs.psGeneIdentifier,
       "projectScoresEssentialityMatrix" -> targetInputs.psEssentialityMatrix,
