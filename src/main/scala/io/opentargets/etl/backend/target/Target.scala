@@ -415,11 +415,7 @@ object Target extends LazyLogging {
       proteinClassification: Dataset[ProteinClassification]): DataFrame = {
     logger.debug("Add protein classifications to UniprotDS")
     val proteinClassificationWithUniprot = uniprot
-    // todo the first 3 lines can be refactored into a single select statement
-      .select(col("uniprotId"), col("proteinIds.id").as("pid"))
-      .withColumn("uid", array(col("uniprotId")))
-      .withColumn("pid", array_union(col("uid"), col("pid")))
-      .select(col("uniprotId"), explode(col("pid")).as("pid"))
+      .select(col("uniprotId"), explode(array_union(array(col("uniprotId")), col("proteinIds.id"))) as "pid")
       .withColumn("pid", trim(col("pid")))
       .join(proteinClassification, col("pid") === proteinClassification("accession"), "left_outer")
       .drop("accession")
