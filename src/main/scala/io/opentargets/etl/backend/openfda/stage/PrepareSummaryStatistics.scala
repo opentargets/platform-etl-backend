@@ -17,7 +17,7 @@ object PrepareSummaryStatistics {
       "chembl_id",
       "reaction_reactionmeddrapt",
       "uniq_report_ids_by_reaction",
-      "uniq_report_ids_by_drug",
+      targetDimensionStatsColdId,
       "uniq_report_ids",
       targetDimensionColId
     )
