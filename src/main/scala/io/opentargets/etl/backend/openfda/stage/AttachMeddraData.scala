@@ -6,6 +6,7 @@ import org.apache.spark.sql.functions.{coalesce, col, lower, regexp_replace, spl
 
 object AttachMeddraData {
   def apply(fdaData: DataFrame,
+            targetDimensionColId: String,
             meddraPreferredTermsData: DataFrame,
             meddraLowLevelTermsData: DataFrame)(implicit context: ETLSessionContext) = {
 
@@ -41,7 +42,7 @@ object AttachMeddraData {
     fdaMeddraPreferredAndLowLevel
       .withColumn("meddraCode", coalesce(col("pt_code"), col("llt_code")))
       .drop("pt_name", "llt_name", "pt_code", "llt_code")
-      .dropDuplicates(Seq("chembl_id", "reaction_reactionmeddrapt"))
+      .dropDuplicates(Seq(targetDimensionColId, "reaction_reactionmeddrapt"))
   }
 
 }

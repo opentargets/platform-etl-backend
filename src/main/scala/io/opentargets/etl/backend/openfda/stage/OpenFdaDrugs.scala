@@ -17,13 +17,18 @@ object OpenFdaDrugs {
     * @return It produces two result datasets: filtered and unfiltered openfda llr analysis
     */
   def apply(dfsData: IOResources, fdaDataFilteredWithDrug: DataFrame)(implicit context: ETLSessionContext) = {
+    // Target Dimension
+    val targetDimensionColId = "chembl_id"
+    val targetDimensionStatsColId = "uniq_report_ids_by_drug"
+
     // Prepare Summary Statistics
-    val fdaDataWithSummaryStats = PrepareSummaryStatistics(fdaDataFilteredWithDrug)
+    val fdaDataWithSummaryStats = PrepareSummaryStatistics(fdaDataFilteredWithDrug, targetDimensionColId, targetDimensionStatsColId)
     // Montecarlo data preparation, for drugs
-    val fdaDataMontecarloReady = PrepareForMontecarlo(fdaDataWithSummaryStats)
+    val fdaDataMontecarloReady = PrepareForMontecarlo(fdaDataWithSummaryStats, targetDimensionStatsColId)
     // Add Meddra
     val fdaDataWithMeddra = context.configuration.openfda.meddra match {
       case Some(_) => AttachMeddraData(fdaDataMontecarloReady,
+        targetDimensionColId,
         dfsData(MeddraPreferredTermsData()).data,
         dfsData(MeddraLowLevelTermsData()).data).persist(StorageLevel.MEMORY_AND_DISK_SER)
       case _ => fdaDataMontecarloReady
@@ -33,11 +38,13 @@ object OpenFdaDrugs {
     // Conditional generation of Stratified Sampling
     if (context.configuration.openfda.sampling.enabled) {
       // This one really uses the raw OpenFDA Data
-      StratifiedSampling(dfsData(FdaData()).data, fdaDataWithSummaryStats, fdaDataWithMeddra)
+      StratifiedSampling(dfsData(FdaData()).data, fdaDataWithSummaryStats, fdaDataWithMeddra, targetDimensionColId)
     }
     // Compute Montecarlo Sampling - For Drugs
     val montecarloResults = MonteCarloSampling(
       fdaDataWithMeddra,
+      targetDimensionColId,
+      targetDimensionStatsColId,
       context.configuration.openfda.montecarlo.percentile,
       context.configuration.openfda.montecarlo.permutations
     ).persist(StorageLevel.MEMORY_AND_DISK_SER)

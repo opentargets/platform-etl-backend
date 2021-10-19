@@ -5,7 +5,9 @@ import org.apache.spark.sql.DataFrame
 import org.apache.spark.sql.functions.{col, lit, log}
 
 object PrepareForMontecarlo {
-  def apply(fdaData: DataFrame)(implicit context: ETLSessionContext) = {
+  def apply(fdaData: DataFrame,
+            targetDimensionStatsColId: String)
+           (implicit context: ETLSessionContext) = {
     import context.sparkSession.implicits._
 
     // total unique report ids
@@ -13,10 +15,10 @@ object PrepareForMontecarlo {
     val doubleAgg = fdaData
       .drop("safetyreportid")
       .withColumnRenamed("uniq_report_ids", "A")
-      .withColumn("C", col("uniq_report_ids_by_drug") - col("A"))
+      .withColumn("C", col(targetDimensionStatsColId) - col("A"))
       .withColumn("B", col("uniq_report_ids_by_reaction") - col("A"))
       .withColumn("D",
-        lit(uniqReports) - col("uniq_report_ids_by_drug") - col(
+        lit(uniqReports) - col(targetDimensionStatsColId) - col(
           "uniq_report_ids_by_reaction") + col("A"))
       .withColumn("aterm", $"A" * (log($"A") - log($"A" + $"B")))
       .withColumn("cterm", $"C" * (log($"C") - log($"C" + $"D")))
