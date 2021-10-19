@@ -1,7 +1,7 @@
 package io.opentargets.etl.backend
 
 import com.typesafe.scalalogging.LazyLogging
-import io.opentargets.etl.backend.openfda.stage.{AttachMeddraData, EventsFiltering, LoadData, MonteCarloSampling, OpenFdaTargets, PrePrepRawFdaData, PrepareAdverseEventData, PrepareBlacklistData, PrepareDrugList, PrepareForMontecarlo, PrepareSummaryStatistics, StratifiedSampling}
+import io.opentargets.etl.backend.openfda.stage.{AttachMeddraData, EventsFiltering, LoadData, MonteCarloSampling, OpenFdaDrugs, OpenFdaTargets, PrePrepRawFdaData, PrepareAdverseEventData, PrepareBlacklistData, PrepareDrugList, PrepareForMontecarlo, PrepareSummaryStatistics, StratifiedSampling}
 import io.opentargets.etl.backend.spark.IoHelpers.IOResources
 import io.opentargets.etl.backend.spark.{IOResource, IOResourceConfig, IoHelpers}
 import org.apache.spark.sql.functions.typedLit
@@ -34,6 +34,7 @@ object OpenFda extends LazyLogging {
   def apply()(implicit context: ETLSessionContext): Unit = {
     implicit val sparkSession = context.sparkSession
 
+    // --- Massage OpenFDA FAERS and drug data ---
     // Load the data
     val dfsData = LoadData()
     val fdaRawData = PrePrepRawFdaData(dfsData(FdaData()).data)
@@ -48,42 +49,12 @@ object OpenFda extends LazyLogging {
     val fdaDataFilteredWithDrug = fdaFilteredData.join(drugList, Seq("drug_name"), "inner")
     // NOTE - CHEMBL IDs are kept 'as is', i.e. upper case, from the drug dataset through their joining with FAERS data,
     //        and they're also like that in target dataset, so no further processing is needed before joining the data.
+    // --- END of Massage OpenFDA FAERS and drug data ---
 
-    // TODO - From here on, there is a branch for drugs openfda analysis and the targets openfda analysis
     // Run OpenFDA FAERS for targets
     OpenFdaTargets(dfsData, fdaDataFilteredWithDrug)
-
     // --- Run OpenFDA FAERS for drugs ---
-    // Prepare Summary Statistics
-    val fdaDataWithSummaryStats = PrepareSummaryStatistics(fdaDataFilteredWithDrug)
-    // Montecarlo data preparation, for drugs
-    val fdaDataMontecarloReady = PrepareForMontecarlo(fdaDataWithSummaryStats)
-    // Add Meddra
-    val fdaDataWithMeddra = context.configuration.openfda.meddra match {
-      case Some(_) => AttachMeddraData(fdaDataMontecarloReady,
-        dfsData(MeddraPreferredTermsData()).data,
-        dfsData(MeddraLowLevelTermsData()).data).persist(StorageLevel.MEMORY_AND_DISK_SER)
-      case _ => fdaDataMontecarloReady
-        .withColumn("meddraCode", typedLit[String](""))
-        .persist(StorageLevel.MEMORY_AND_DISK_SER)
-    }
-    // Conditional generation of Stratified Sampling
-    if (context.configuration.openfda.sampling.enabled) {
-      // This one really uses the raw OpenFDA Data
-      StratifiedSampling(dfsData(FdaData()).data, fdaDataWithSummaryStats, fdaDataWithMeddra)
-    }
-    // Compute Montecarlo Sampling - For Drugs
-    val montecarloResults = MonteCarloSampling(
-      fdaDataWithMeddra,
-      context.configuration.openfda.montecarlo.percentile,
-      context.configuration.openfda.montecarlo.permutations
-    ).persist(StorageLevel.MEMORY_AND_DISK_SER)
-    // Produce Output
-    val outputMap: IOResources = Map(
-      "unfiltered" -> IOResource(fdaDataWithMeddra, context.configuration.openfda.outputs.fdaUnfiltered),
-      "openFdaResults" -> IOResource(montecarloResults, context.configuration.openfda.outputs.fdaResults)
-    )
-    IoHelpers.writeTo(outputMap)
+    OpenFdaDrugs(dfsData, fdaDataFilteredWithDrug)
     logger.info("OpenFDA FAERS step completed")
   }
 }
