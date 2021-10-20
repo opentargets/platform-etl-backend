@@ -1,16 +1,18 @@
 package io.opentargets.etl.backend.openfda.stage
 
+import com.typesafe.scalalogging.LazyLogging
 import io.opentargets.etl.backend.ETLSessionContext
 import org.apache.spark.sql.DataFrame
 import org.apache.spark.sql.expressions.Window
 import org.apache.spark.sql.functions.{approx_count_distinct, col}
 
-object PrepareSummaryStatistics {
+object PrepareSummaryStatistics extends LazyLogging{
   def apply(fdaData: DataFrame,
             targetDimensionColId: String,
             targetDimensionStatsColdId: String)
            (implicit context: ETLSessionContext) = {
 
+    logger.info(s"Prepare Summary Statistics for target dimension '${targetDimensionColId}'")
     // Define the output
     val outputCols = Set(
       "safetyreportid",
