@@ -61,7 +61,7 @@ object Target extends LazyLogging {
     val hallmarks: Dataset[HallmarksWithId] = Hallmarks(inputDataFrames("hallmarks").data)
     val ncbi: Dataset[Ncbi] = Ncbi(inputDataFrames("ncbi").data)
     val ensemblDf: Dataset[Ensembl] = Ensembl(inputDataFrames("ensembl").data)
-    val uniprotDS: Dataset[Uniprot] = Uniprot(inputDataFrames("uniprot").data)
+    val uniprotDS: Dataset[Uniprot] = Uniprot(inputDataFrames("uniprot").data, inputDataFrames("uniprotSsl").data)
     val geneOntologyDf: Dataset[GeneOntologyByEnsembl] = GeneOntology(
       inputDataFrames("geneOntologyHuman").data,
       inputDataFrames("geneOntologyRna").data,
@@ -70,7 +70,7 @@ object Target extends LazyLogging {
       ensemblDf
     )
     val tep: Dataset[Tep] = Tep(inputDataFrames("tep").data)
-    val hpa: Dataset[GeneWithLocation] = GeneWithLocation(inputDataFrames("hpa").data)
+    val hpa: Dataset[GeneWithLocation] = GeneWithLocation(inputDataFrames("hpa").data, inputDataFrames("hpaSL").data)
     val projectScoresDS: Dataset[GeneWithDbXRef] = ProjectScores(
       inputDataFrames("projectScoresIds").data,
       inputDataFrames("projectScoresEssentialityMatrix").data)
@@ -380,9 +380,10 @@ object Target extends LazyLogging {
       "homologyDictionary" -> targetInputs.homologyDictionary,
       "homologyGeneDictionary" -> targetInputs.homologyGeneDictionary,
       "hpa" -> targetInputs.hpa,
+      "hpaSL" -> targetInputs.hpaSlOntology,
       "ncbi" -> targetInputs.ncbi.copy(options = targetInputs.ncbi.options match {
         case Some(value) => Option(value)
-        case None        => CsvHelpers.tsvWithHeader
+        case None => CsvHelpers.tsvWithHeader
       }),
       "projectScoresIds" -> targetInputs.psGeneIdentifier,
       "projectScoresEssentialityMatrix" -> targetInputs.psEssentialityMatrix,
@@ -393,10 +394,11 @@ object Target extends LazyLogging {
       "safetyTox" -> targetInputs.safetyToxicity.copy(
         options = targetInputs.safetyToxicity.options match {
           case Some(value) => Option(value)
-          case None        => CsvHelpers.tsvWithHeader
+          case None => CsvHelpers.tsvWithHeader
         }),
       "tep" -> targetInputs.tep,
-      "tractability" -> targetInputs.tractability
+      "tractability" -> targetInputs.tractability,
+      "uniprotSsl" -> targetInputs.uniprotSsl
     )
 
     IoHelpers
@@ -414,11 +416,7 @@ object Target extends LazyLogging {
       proteinClassification: Dataset[ProteinClassification]): DataFrame = {
     logger.debug("Add protein classifications to UniprotDS")
     val proteinClassificationWithUniprot = uniprot
-    // todo the first 3 lines can be refactored into a single select statement
-      .select(col("uniprotId"), col("proteinIds.id").as("pid"))
-      .withColumn("uid", array(col("uniprotId")))
-      .withColumn("pid", array_union(col("uid"), col("pid")))
-      .select(col("uniprotId"), explode(col("pid")).as("pid"))
+      .select(col("uniprotId"), explode(array_union(array(col("uniprotId")), col("proteinIds.id"))) as "pid")
       .withColumn("pid", trim(col("pid")))
       .join(proteinClassification, col("pid") === proteinClassification("accession"), "left_outer")
       .drop("accession")

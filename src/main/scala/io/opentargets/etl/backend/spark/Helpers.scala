@@ -49,7 +49,8 @@ object Helpers extends LazyLogging {
 
   case class IdAndSource(id: String, source: String)
   case class LabelAndSource(label: String, source: String)
-  case class LocationAndSource(location: String, source: String)
+
+  case class LocationAndSource(location: String, source: String, termSl: String, labelSl: String)
 
   val idAndSourceSchema: StructType = Encoders.product[IdAndSource].schema
   val labelAndSourceSchema: StructType = Encoders.product[LabelAndSource].schema

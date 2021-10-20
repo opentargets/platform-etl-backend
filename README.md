@@ -392,10 +392,13 @@ the data. Options for parsing the inputs should not need to be updated.
       32GB RAM) for conversion.
 
 3. Uniprot
-    - the Uniprot format in flat txt format instead of xml.
-    - This is a flat text file and is provided by PIS. Can be downloaded manually
-      from `https://www.uniprot. org/uniprot/?query=reviewed%3Ayes%2BAND%2Borganism%3A9606&compress=yes&format=txt`
-    - The is a conversion tool to create Scala objects in `io.opentargets.etl.preprocess.uniprot`
+    - `uniprot`:
+        - the Uniprot format in flat txt format instead of xml. This is a flat text file and is provided by PIS. Can be
+          downloaded manually
+          from `https://www.uniprot. org/uniprot/?query=reviewed%3Ayes%2BAND%2Borganism%3A9606&compress=yes&format=txt`
+        - The is a conversion tool to create Scala objects in `io.opentargets.etl.preprocess.uniprot`
+    - `uniprot-ssl`: Uniprot subcellular annotation file. Available
+      from `https://www.uniprot.org/locations/?query=*&format=tab&force=true&columns=id&compress=yes`
 4. Gene Ontology
     - Requires files available from EBI:
         - [Annotation files for human proteins](ftp://ftp.ebi.ac.uk/pub/databases/GO/goa/HUMAN/goa_human.gaf.gz)
@@ -405,14 +408,13 @@ the data. Options for parsing the inputs should not need to be updated.
 
 5. Tep
     - Uses files downloaded for `tep` key in PIS's `config.yaml`.
-
 4. NCBI
-    - Used for synonyms, data available
+    - `ncbi`: Used for synonyms, data available
       from: `ftp://ftp.ncbi.nlm.nih.gov/gene/DATA/GENE_INFO/Mammalia/Homo_sapiens. gene_info.gz`
 6. Human Protein Atlas
-
-    - Used for subcellular locations. Data available
+    - `hpa` Used for subcellular locations. Data available
       from [HPA's website](https://www.proteinatlas.org/download/subcellular_location.tsv.zip)
+    - `hpa-sl-ontology`: Additional file provided by data team to map HPA locations to subcellular location ontology.
 7. Project Scores
    - Available from [Cancer Dependency Map](https://score.depmap.sanger.ac.uk/downloads)
    - `ps-gene-identifier`: https://cog.sanger.ac.uk/cmp/download/binaryDepScores.tsv.zip
