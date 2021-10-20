@@ -1,7 +1,7 @@
 package io.opentargets.etl.backend
 
 import com.typesafe.scalalogging.LazyLogging
-import io.opentargets.etl.backend.openfda.stage.{AttachMeddraData, EventsFiltering, LoadData, MonteCarloSampling, OpenFdaDataPreparation, OpenFdaDrugs, OpenFdaTargets, PrePrepRawFdaData, PrepareAdverseEventData, PrepareBlacklistData, PrepareDrugList, PrepareForMontecarlo, PrepareSummaryStatistics, StratifiedSampling}
+import io.opentargets.etl.backend.openfda.stage.{AttachMeddraData, EventsFiltering, LoadData, MonteCarloSampling, OpenFdaCompute, OpenFdaDataPreparation, OpenFdaDrugs, OpenFdaTargets, PrePrepRawFdaData, PrepareAdverseEventData, PrepareBlacklistData, PrepareDrugList, PrepareForMontecarlo, PrepareSummaryStatistics, StratifiedSampling}
 import io.opentargets.etl.backend.spark.IoHelpers.IOResources
 import io.opentargets.etl.backend.spark.{IOResource, IOResourceConfig, IoHelpers}
 import org.apache.spark.sql.functions.typedLit
@@ -28,6 +28,9 @@ case object MeddraLowLevelTermsData extends FdaDataSource {
   def apply(): String = "meddraLowLevelTermsData"
 }
 
+// Target Map Structure
+case class TargetDimension(colId: String, statsColId: String, outputUnfilteredResults: IOResourceConfig, outputResults: IOResourceConfig) {}
+
 // OpenFDA FAERS ETL Step
 object OpenFda extends LazyLogging {
 
@@ -43,9 +46,19 @@ object OpenFda extends LazyLogging {
     val fdaCookedData = OpenFdaDataPreparation(dfsData)
 
     // --- Run OpenFDA FAERS for drugs ---
-    OpenFdaDrugs(dfsData, fdaCookedData)
+    // OpenFdaDrugs(dfsData, fdaCookedData)
+    OpenFdaCompute(
+      dfsData,
+      fdaCookedData,
+      TargetDimension(
+        "chembl_id",
+        "uniq_report_ids_by_drug",
+        context.configuration.openfda.outputs.fdaUnfiltered,
+        context.configuration.openfda.outputs.fdaResults
+      )
+    )
     // Run OpenFDA FAERS for targets
-    OpenFdaTargets(dfsData, fdaCookedData)
+    // OpenFdaTargets(dfsData, fdaCookedData)
     logger.info("OpenFDA FAERS step completed")
   }
 }
