@@ -1,15 +1,18 @@
 package io.opentargets.etl.backend.openfda.stage
 
+import com.typesafe.scalalogging.LazyLogging
 import io.opentargets.etl.backend.ETLSessionContext
+import io.opentargets.etl.backend.openfda.stage.PrepareForMontecarlo.logger
 import org.apache.spark.sql.DataFrame
 import org.apache.spark.sql.functions.{coalesce, col, lower, regexp_replace, split}
 
-object AttachMeddraData {
+object AttachMeddraData extends LazyLogging {
   def apply(fdaData: DataFrame,
             targetDimensionColId: String,
             meddraPreferredTermsData: DataFrame,
             meddraLowLevelTermsData: DataFrame)(implicit context: ETLSessionContext) = {
 
+    logger.info(s"Attach Meddra information, target dimension '${targetDimensionColId}'")
     val meddraPreferred = meddraPreferredTermsData
       .withColumn("_c0", regexp_replace(col("_c0"), "\\$+", ","))
       .withColumn("_c0", regexp_replace(col("_c0"), "\\$$", ""))
