@@ -42,12 +42,16 @@ object Uniprot extends LazyLogging {
     val uniprotDfWithId = dfRaw
       .as[UniprotEntry]
       .filter(size(col("accessions")) > 0) // null return -1 so remove those too
-      .withColumn(id, expr("accessions[0]"))
-      .withColumn("nameSynonyms", safeArrayUnion(col("names"), col("synonyms")))
-      .withColumn("symbolSynonyms", safeArrayUnion(col("symbolSynonyms")))
-      .withColumn("synonyms", safeArrayUnion(col("nameSynonyms"), col("symbolSynonyms")))
-      .withColumnRenamed("functions", "functionDescriptions")
-      .drop("id", "names")
+      .select(
+        expr("accessions[0]") as id,
+        safeArrayUnion(col("names"), col("synonyms")) as "nameSynonyms",
+        safeArrayUnion(col("symbolSynonyms")) as "symbolSynonyms",
+        safeArrayUnion(safeArrayUnion(col("names")), safeArrayUnion(col("symbolSynonyms"))) as "synonyms",
+        col("functions") as "functionDescriptions",
+        col("dbXrefs"),
+        col("accessions"),
+        col("locations")
+      )
       .transform(handleDbRefs)
       .transform(mapLocationsToSsl(uniprotSsl))
       .withColumn("proteinIds",
