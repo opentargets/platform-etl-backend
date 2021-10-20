@@ -1,14 +1,16 @@
 package io.opentargets.etl.backend.openfda.stage
 
+import com.typesafe.scalalogging.LazyLogging
 import io.opentargets.etl.backend.ETLSessionContext
 import org.apache.spark.sql.{DataFrame, SparkSession}
 import org.apache.spark.sql.functions.{array, array_distinct, col, concat, explode, lower}
 
-object PrepareAdverseEventData {
+object PrepareAdverseEventData extends LazyLogging {
   def apply(fdaRawData: DataFrame)(implicit sparkSession: SparkSession) = {
 
     import sparkSession.implicits._
 
+    logger.info("Filter the events of interest and prepare the data for adding drug information")
     val fdasF = fdaRawData
       .withColumn("reaction", explode(col("patient.reaction")))
       // after explode this we will have reaction-drug pairs
@@ -49,6 +51,7 @@ object PrepareAdverseEventData {
       .where($"drug_name".isNotNull and $"reaction_reactionmeddrapt".isNotNull and
         $"safetyreportid".isNotNull and $"seriousness_death" === "0" and
         $"drug_name" =!= "")
+
     fdasF
   }
 }

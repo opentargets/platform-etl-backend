@@ -1,7 +1,7 @@
 package io.opentargets.etl.backend
 
 import com.typesafe.scalalogging.LazyLogging
-import io.opentargets.etl.backend.openfda.stage.{AttachMeddraData, EventsFiltering, LoadData, MonteCarloSampling, OpenFdaDrugs, OpenFdaTargets, PrePrepRawFdaData, PrepareAdverseEventData, PrepareBlacklistData, PrepareDrugList, PrepareForMontecarlo, PrepareSummaryStatistics, StratifiedSampling}
+import io.opentargets.etl.backend.openfda.stage.{AttachMeddraData, EventsFiltering, LoadData, MonteCarloSampling, OpenFdaDataPreparation, OpenFdaDrugs, OpenFdaTargets, PrePrepRawFdaData, PrepareAdverseEventData, PrepareBlacklistData, PrepareDrugList, PrepareForMontecarlo, PrepareSummaryStatistics, StratifiedSampling}
 import io.opentargets.etl.backend.spark.IoHelpers.IOResources
 import io.opentargets.etl.backend.spark.{IOResource, IOResourceConfig, IoHelpers}
 import org.apache.spark.sql.functions.typedLit
@@ -35,26 +35,17 @@ object OpenFda extends LazyLogging {
     implicit val sparkSession = context.sparkSession
 
     // --- Massage OpenFDA FAERS and drug data ---
-    // Load the data
+    // Data loading stage
+    logger.info("OpenFDA FAERS data loading")
     val dfsData = LoadData()
-    val fdaRawData = PrePrepRawFdaData(dfsData(FdaData()).data)
-    // Prepare Adverse Events Data
-    val fdaData = PrepareAdverseEventData(fdaRawData)
-    // Prepare Drug list
-    val drugList = PrepareDrugList(dfsData(DrugData()).data)
-    // OpenFDA FAERS Event filtering
-    val blacklistingData = PrepareBlacklistData(dfsData(Blacklisting()).data)
-    val fdaFilteredData = EventsFiltering(fdaData, blacklistingData)
-    // Attach drug data with linked targets information
-    val fdaDataFilteredWithDrug = fdaFilteredData.join(drugList, Seq("drug_name"), "inner")
-    // NOTE - CHEMBL IDs are kept 'as is', i.e. upper case, from the drug dataset through their joining with FAERS data,
-    //        and they're also like that in target dataset, so no further processing is needed before joining the data.
-    // --- END of Massage OpenFDA FAERS and drug data ---
 
-    // Run OpenFDA FAERS for targets
-    OpenFdaTargets(dfsData, fdaDataFilteredWithDrug)
+    // Data Preparation (cooking)
+    val fdaCookedData = OpenFdaDataPreparation(dfsData)
+
     // --- Run OpenFDA FAERS for drugs ---
-    OpenFdaDrugs(dfsData, fdaDataFilteredWithDrug)
+    OpenFdaDrugs(dfsData, fdaCookedData)
+    // Run OpenFDA FAERS for targets
+    OpenFdaTargets(dfsData, fdaCookedData)
     logger.info("OpenFDA FAERS step completed")
   }
 }

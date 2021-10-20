@@ -1,11 +1,13 @@
 package io.opentargets.etl.backend.openfda.stage
 
+import com.typesafe.scalalogging.LazyLogging
 import io.opentargets.etl.backend.ETLSessionContext
 import org.apache.spark.sql.DataFrame
 import org.apache.spark.sql.functions.{array, array_distinct, col, explode, flatten, lower}
 
-object PrepareDrugList {
+object PrepareDrugList extends LazyLogging {
   def apply(dfChembl: DataFrame) = {
+    logger.info("Prepare ChEMBL data for attaching it to FAERS dataset")
     val drugList = dfChembl
       .selectExpr("id as chembl_id",
         "synonyms as synonyms",
