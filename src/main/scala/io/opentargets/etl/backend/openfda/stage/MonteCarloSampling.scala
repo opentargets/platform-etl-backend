@@ -1,11 +1,12 @@
 package io.opentargets.etl.backend.openfda.stage
 
+import com.typesafe.scalalogging.LazyLogging
 import io.opentargets.etl.backend.ETLSessionContext
 import io.opentargets.etl.backend.openfda.utils.MathUtils
 import org.apache.spark.sql.DataFrame
 import org.apache.spark.sql.functions.{col, collect_list, first, lit, udf}
 
-object MonteCarloSampling {
+object MonteCarloSampling extends LazyLogging {
 
   // To enabling running as part of pipeline
   def apply(inputDf: DataFrame,
@@ -15,6 +16,7 @@ object MonteCarloSampling {
             permutations: Int = 100)(
       implicit context: ETLSessionContext): DataFrame = {
 
+    logger.info(s"Run Montecarlo sampling on target dimension '${targetDimensionColId}'")
     import context.sparkSession.implicits._
     // Register function with Spark
     val udfCriticalValues: (Int, Int, Seq[Long], Int, Double) => Double =
