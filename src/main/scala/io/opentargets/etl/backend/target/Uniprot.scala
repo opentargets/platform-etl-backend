@@ -32,7 +32,11 @@ object Uniprot extends LazyLogging {
 
   val id = "uniprotId"
 
-  def apply(dfRaw: DataFrame)(implicit ss: SparkSession): Dataset[Uniprot] = {
+  /**
+    * @param dfRaw      uniprot 'raw' data as prepared from flat file using UniprotConverter.scala
+    * @param uniprotSsl mapping to subcellular location ontology
+    */
+  def apply(dfRaw: DataFrame, uniprotSsl: DataFrame)(implicit ss: SparkSession): Dataset[Uniprot] = {
     logger.info("Processing Uniprot inputs")
     import ss.implicits._
     val uniprotDfWithId = dfRaw
@@ -45,14 +49,11 @@ object Uniprot extends LazyLogging {
       .withColumnRenamed("functions", "functionDescriptions")
       .drop("id", "names")
       .transform(handleDbRefs)
+      .transform(mapLocationsToSsl(uniprotSsl))
       .withColumn("proteinIds",
                   transformArrayToStruct(col("accessions"),
                                          typedLit("uniprot_obsolete") :: Nil,
                                          idAndSourceSchema))
-      .withColumn("subcellularLocations",
-                  transformArrayToStruct(col("locations"),
-                                         typedLit("uniprot") :: Nil,
-                                         locationAndSourceSchema))
 
     val synonyms = List("synonyms", "symbolSynonyms", "nameSynonyms").foldLeft(uniprotDfWithId) {
       (B, name) =>
@@ -74,5 +75,53 @@ object Uniprot extends LazyLogging {
           struct(element_at(sc, 2) :: element_at(sc, 1) :: Nil: _*)
         }).cast(ArrayType(idAndSourceSchema))
       )
+  }
+
+  private def mapLocationsToSsl(sslDf: DataFrame)(df: DataFrame): DataFrame = {
+    /**
+      * Regexes to meet specification for subcellular locations as in opentargets/platform#1710
+      */
+    // from the start of the sentence take words and spaces until punctuation or end of line
+    val firstWordsRegex = "^([\\w\\s]+)"
+    // matches various isoform terms "[isoform xyz]: words..." where we want the first words after closing square brackets.
+    val isoformsRegex = "(\\[.+\\]:\\s([\\w\\s]+))"
+    // take last term in sequence after a comma.
+    val lastWordsAfterCommaRegex = ".*,\\s([\\w\\s]+)"
+
+    val subcellOntologyDf = sslDf.select(
+      col("Subcellular location ID") as "termSL",
+      col("Alias") as "ssl_match",
+      col("Category") as "labelSL"
+    )
+
+    val uniprotLocationsDf = df.select(
+      col(id),
+      explode(col("locations")) as "location",
+    )
+
+    // prepare for matching using subcellOntologyDf
+    val locationsProcessedDf = uniprotLocationsDf.select(
+      col(id),
+      trim(regexp_extract(col("location"), firstWordsRegex, 0)) as "loc1",
+      trim(regexp_extract(col("location"), isoformsRegex, 1)) as "iso",
+      trim(regexp_extract(col("location"), isoformsRegex, 2)) as "loc2",
+      trim(regexp_extract(col("location"), lastWordsAfterCommaRegex, 1)) as "loc3",
+    ).withColumn("ssl_match",
+      when(col("loc1") =!= "", col("loc1")).
+        when(col("loc2") =!= "", col("loc2")).
+        when(col("loc3") =!= "", col("loc3")).otherwise(lit(null)))
+      .withColumn("location", when(col("iso") =!= "", col("iso")).otherwise(col("ssl_match")))
+      .drop("iso", "loc1", "loc2", "loc3")
+
+    val locationsWithSslTerms = locationsProcessedDf.join(broadcast(subcellOntologyDf), Seq("ssl_match"), "left_outer")
+      .drop("ssl_match")
+      .withColumn("source", lit("uniprot"))
+      .transform(nest(_: DataFrame, List("location", "source", "termSL", "labelSL"), "locations"))
+      .groupBy("uniprotId").agg(collect_list("locations") as "locations")
+      .orderBy(id)
+
+    df.drop("locations").orderBy(id).join(locationsWithSslTerms, Seq(id), "left_outer")
+      .withColumnRenamed("locations", "subcellularLocations")
+
   }
 }

@@ -61,7 +61,7 @@ object Target extends LazyLogging {
     val hallmarks: Dataset[HallmarksWithId] = Hallmarks(inputDataFrames("hallmarks").data)
     val ncbi: Dataset[Ncbi] = Ncbi(inputDataFrames("ncbi").data)
     val ensemblDf: Dataset[Ensembl] = Ensembl(inputDataFrames("ensembl").data)
-    val uniprotDS: Dataset[Uniprot] = Uniprot(inputDataFrames("uniprot").data)
+    val uniprotDS: Dataset[Uniprot] = Uniprot(inputDataFrames("uniprot").data, inputDataFrames("uniprotSsl").data)
     val geneOntologyDf: Dataset[GeneOntologyByEnsembl] = GeneOntology(
       inputDataFrames("geneOntologyHuman").data,
       inputDataFrames("geneOntologyRna").data,
@@ -394,10 +394,11 @@ object Target extends LazyLogging {
       "safetyTox" -> targetInputs.safetyToxicity.copy(
         options = targetInputs.safetyToxicity.options match {
           case Some(value) => Option(value)
-          case None        => CsvHelpers.tsvWithHeader
+          case None => CsvHelpers.tsvWithHeader
         }),
       "tep" -> targetInputs.tep,
-      "tractability" -> targetInputs.tractability
+      "tractability" -> targetInputs.tractability,
+      "uniprotSsl" -> targetInputs.uniprotSsl
     )
 
     IoHelpers
