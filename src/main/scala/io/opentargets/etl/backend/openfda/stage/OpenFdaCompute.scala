@@ -15,7 +15,7 @@ object OpenFdaCompute extends LazyLogging {
     // Prepare Summary Statistics
     val fdaDataWithSummaryStats = PrepareSummaryStatistics(fdaCookedData, targetDimension.colId, targetDimension.statsColId)
     // Montecarlo data preparation
-    val fdaDataMontecarloReady = PrepareForMontecarlo(fdaDataWithSummaryStats, targetDimension.colId)
+    val fdaDataMontecarloReady = PrepareForMontecarlo(fdaDataWithSummaryStats, targetDimension.statsColId)
     // Add Meddra
     val fdaDataWithMeddra = context.configuration.openfda.meddra match {
       case Some(_) => AttachMeddraData(fdaDataMontecarloReady,
