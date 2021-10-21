@@ -1,7 +1,7 @@
 package io.opentargets.etl.backend
 
 import com.typesafe.scalalogging.LazyLogging
-import io.opentargets.etl.backend.openfda.stage.{AttachMeddraData, EventsFiltering, LoadData, MonteCarloSampling, OpenFdaCompute, OpenFdaDataPreparation, OpenFdaDrugs, OpenFdaTargets, PrePrepRawFdaData, PrepareAdverseEventData, PrepareBlacklistData, PrepareDrugList, PrepareForMontecarlo, PrepareSummaryStatistics, StratifiedSampling}
+import io.opentargets.etl.backend.openfda.stage.{AttachMeddraData, EventsFiltering, LoadData, MonteCarloSampling, OpenFdaCompute, OpenFdaDataPreparation, PrePrepRawFdaData, PrepareAdverseEventData, PrepareBlacklistData, PrepareDrugList, PrepareForMontecarlo, PrepareSummaryStatistics, StratifiedSampling}
 import io.opentargets.etl.backend.spark.IoHelpers.IOResources
 import io.opentargets.etl.backend.spark.{IOResource, IOResourceConfig, IoHelpers}
 import org.apache.spark.sql.functions.{explode, typedLit}
@@ -47,7 +47,6 @@ object OpenFda extends LazyLogging {
     val fdaCookedData = OpenFdaDataPreparation(dfsData)
 
     // --- Run OpenFDA FAERS for drugs ---
-    // OpenFdaDrugs(dfsData, fdaCookedData)
     OpenFdaCompute(
       dfsData,
       fdaCookedData,
@@ -58,8 +57,7 @@ object OpenFda extends LazyLogging {
         context.configuration.openfda.outputs.fdaResults
       )
     )
-    // Run OpenFDA FAERS for targets
-    // OpenFdaTargets(dfsData, fdaCookedData)
+    // --- Run OpenFDA FAERS for targets ---
     // We'll use only those reports with associated target information
     val fdaDataTargets = fdaCookedData
       .where($"linkedTargets".isNotNull)
