@@ -12,9 +12,6 @@ sealed trait FdaDataSource
 case object DrugData extends FdaDataSource {
   def apply(): String = "drugData"
 }
-case object TargetData extends FdaDataSource {
-  def apply(): String = "targetData"
-}
 case object Blacklisting extends FdaDataSource {
   def apply(): String = "blacklisting"
 }
