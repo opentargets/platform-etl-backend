@@ -227,21 +227,27 @@ object Evidence extends LazyLogging {
       implicit context: ETLSessionContext): DataFrame = {
     implicit val ss: SparkSession = context.sparkSession
 
-    logger.info("validate each evidence generating a hash to check for duplicates")
     val config = context.configuration.evidences
 
+    logger.info("Validate each evidence: generating a hash to check for duplicates")
+    logger.info(s"Excluding datasources: ${config.dataSourcesExclude.mkString("", ",", "")}")
+
     val commonReqFields = config.uniqueFields.toSet
-    val dts = config.dataSources.map { dt =>
-      (col("sourceId") === dt.id) -> (commonReqFields ++ dt.uniqueFields.toSet).toList.sorted
-        .map(x => when(expr(x).isNotNull, expr(x).cast(StringType)).otherwise(""))
-    }
+
+    val dataTypes: List[(Column, List[Column])] = config.dataSources
+      .withFilter(ds => !config.dataSourcesExclude.contains(ds.id))
+      .map(
+        dataType =>
+          (col("sourceId") === dataType.id) ->
+            (commonReqFields ++ dataType.uniqueFields.toSet).toList.sorted
+              .map(x => when(expr(x).isNotNull, expr(x).cast(StringType)).otherwise("")))
 
     val defaultDts = commonReqFields.toList.sorted.map { x =>
       when(col(x).isNotNull, col(x).cast(StringType)).otherwise("")
     }
 
-    val hashes = dts.tail
-      .foldLeft(when(dts.head._1, sha1(concat(dts.head._2: _*)))) {
+    val hashes = dataTypes.tail
+      .foldLeft(when(dataTypes.head._1, sha1(concat(dataTypes.head._2: _*)))) {
         case op => op._1.when(op._2._1, sha1(concat(op._2._2: _*)))
       }
       .otherwise(sha1(concat(defaultDts: _*)))

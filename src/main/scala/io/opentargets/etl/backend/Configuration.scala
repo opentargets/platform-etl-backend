@@ -38,6 +38,7 @@ object Configuration extends LazyLogging {
                               uniqueFields: List[String],
                               scoreExpr: String,
                               datatypeId: String,
+                              dataSourcesExclude: List[String],
                               dataSources: List[EvidenceEntry],
                               outputs: SucceedFailedOutputs)
 
@@ -129,9 +130,9 @@ object Configuration extends LazyLogging {
       output: IOResourceConfig
   )
 
-  case class Common(defaultSteps: Seq[String],
-                    input: String,
+  case class Common(input: String,
                     output: String,
+                    error: String,
                     outputFormat: String,
                     metadata: IOResourceConfig)
 
@@ -172,15 +173,16 @@ object Configuration extends LazyLogging {
 
   case class TargetInput(chemicalProbes: IOResourceConfig,
                          hgnc: IOResourceConfig,
-                         ortholog: IOResourceConfig,
                          ensembl: IOResourceConfig,
                          uniprot: IOResourceConfig,
+                         uniprotSsl: IOResourceConfig,
                          geneOntology: IOResourceConfig,
                          geneOntologyRna: IOResourceConfig,
                          geneOntologyRnaLookup: IOResourceConfig,
                          geneOntologyEco: IOResourceConfig,
                          tep: IOResourceConfig,
                          hpa: IOResourceConfig,
+                         hpaSlOntology: IOResourceConfig,
                          hallmarks: IOResourceConfig,
                          ncbi: IOResourceConfig,
                          psEssentialityMatrix: IOResourceConfig,
@@ -257,9 +259,14 @@ object Configuration extends LazyLogging {
   )
   // --- END --- //
 
+  case class EtlStep[T](step: T, dependencies: List[T])
+
+  case class EtlDagConfig(steps: List[EtlStep[String]], resolve: Boolean)
+
   case class OTConfig(
       sparkUri: Option[String],
       sparkSettings: SparkSettings,
+      etlDag: EtlDagConfig,
       common: Common,
       reactome: ReactomeSection,
       associations: AssociationsSection,

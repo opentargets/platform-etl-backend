@@ -10,7 +10,7 @@ OpenTargets ETL pipeline to process Pipeline output in order to obtain a new API
 ### Requirements
 
 1. OpenJDK 8/11
-2. scala 2.12.x (through SDKMAN is simple)
+2. scala 2.12.x (through SDKMAN is simple) [Scala Doc](https://www.scala-lang.org/api/2.12.12/index.html)
 3. ammonite REPL
 4. Input resources from PIS (src/main/resources/conference.conf)
 
@@ -160,6 +160,12 @@ Considering only the inputs/outputs of the ETL there are component diagrams avai
 directory. _etl\_current_ shows the relationships between steps in the ETL. _etl\_current\_full_ shows those
 relationships at a more granular level, where inputs and outputs are specifically specified.
 
+By default if a step is run that has dependencies the dependent steps will be run first. For example, if you want to
+run `target`, `reactome` will be run automatically as `target` depends on `reactome`.
+
+If you only wish to run a single specified step set the field `etl-dag.resolve` to `false`. In this case it is _your
+responsibility_ to ensure that required inputs are available.
+
 ## Step notes
 
 ### Target Validation
@@ -170,6 +176,25 @@ can't be matched to a target in the platform will be discarded.
 Using mouse phenotypes as an example: we match on the column specified in the configuration `targetFromSourceId`. Any
 entry which cannot be matched to an ID in the platform's target dataset will be discarded.
 
+### Evidence
+
+The Evidence step provides scores for evidence strings by datasource. Detailed information can be found in the
+[documentation](https://platform-docs.opentargets.org/evidence). Each input file contains the columns "targetId",
+"targetFromSourceId", "diseaseId" and "datasourceId", as well as optional extra columns for that data-source.
+
+Scores are calculated using a different formula for each data source configured by the
+field `evidences.data-sources. score-expr` (score expression). The score expression is not statically checked for
+correctness!
+
+Specific data types can be excluded in one of two ways:
+
+1. Remove the entry from `data-sources`
+2. Add the value of `data-sources.id` to the field `data-sources-exclude`. Using this option allows users to exclude
+   specific source without having to update the `reference.conf`. For example, to exclude `ot_crispr` and `chembl`,
+   update your local configuration with `data-sources-exclude = ["ot_crispr", "chembl"]`.
+
+Output are partitioned by `data-sources.id`.
+
 ### Drug
 
 The primary input source of the Drug dataset is ChEMBL. ChEMBL contains almost 2 million molecules, most which are are
@@ -179,17 +204,31 @@ not 'drugs'. We define a drug to be any molecule that meets one or more of the f
 - There is at least 1 known mechanism of action; or
 - The ChEMBL ID can be mapped to a DrugBank ID.
 
-To run the `Drug` step use the example command under `Create a fat JAR` with `drug` as the step name.
+#### Inputs
+
+| Input | Source | Notes |
+| --- | --- | --- | 
+| chembl-molecule | [ChEMBL](https://www.ebi.ac.uk/chembl/) | Provided from PIS using ChEMBL private ES server. |
+| chembl-indication | [ChEMBL](https://www.ebi.ac.uk/chembl/) | Provided from PIS using ChEMBL private ES server. |
+| chembl-mechanism | [ChEMBL](https://www.ebi.ac.uk/chembl/)| Provided from PIS using ChEMBL private ES server. |
+| chembl-target | [ChEMBL](https://www.ebi.ac.uk/chembl/)| Provided from PIS using ChEMBL private ES server. |
+| chembl-warning | [ChEMBL](https://www.ebi.ac.uk/chembl/) | Provided from PIS using ChEMBL private ES server. |
+| disease-etl | ETL step 'disease' ||
+| target-etl | ETL step 'target' ||
+| drugbank-to-chembl | [Drugbank vocabulary](https://go.drugbank.com/releases/latest#open-data) | File `Drugbank Vocabulary` |
 
 ### Baseline Expression
-The primary input sources of the baseline expression dataset are 
- - The human protein atlas (https://www.proteinatlas.org/)
- - Opentarget baseline expressions resources
 
-We define a baseline expression information as 
+The primary input sources of the baseline expression dataset are
+
+- The human protein atlas (https://www.proteinatlas.org/)
+- Opentarget baseline expressions resources
+
+We define a baseline expression information as
+
 - gene
-  - tissues[] 
-    - label
+    - tissues[]
+        - label
     - efo_code
     - organs[]
     - anatomical_system[]
@@ -353,10 +392,13 @@ the data. Options for parsing the inputs should not need to be updated.
       32GB RAM) for conversion.
 
 3. Uniprot
-    - the Uniprot format in flat txt format instead of xml.
-    - This is a flat text file and is provided by PIS. Can be downloaded manually
-      from `https://www.uniprot. org/uniprot/?query=reviewed%3Ayes%2BAND%2Borganism%3A9606&compress=yes&format=txt`
-    - The is a conversion tool to create Scala objects in `io.opentargets.etl.preprocess.uniprot`
+    - `uniprot`:
+        - the Uniprot format in flat txt format instead of xml. This is a flat text file and is provided by PIS. Can be
+          downloaded manually
+          from `https://www.uniprot. org/uniprot/?query=reviewed%3Ayes%2BAND%2Borganism%3A9606&compress=yes&format=txt`
+        - The is a conversion tool to create Scala objects in `io.opentargets.etl.preprocess.uniprot`
+    - `uniprot-ssl`: Uniprot subcellular annotation file. Available
+      from `https://www.uniprot.org/locations/?query=*&format=tab&force=true&columns=id&compress=yes`
 4. Gene Ontology
     - Requires files available from EBI:
         - [Annotation files for human proteins](ftp://ftp.ebi.ac.uk/pub/databases/GO/goa/HUMAN/goa_human.gaf.gz)
@@ -366,15 +408,17 @@ the data. Options for parsing the inputs should not need to be updated.
 
 5. Tep
     - Uses files downloaded for `tep` key in PIS's `config.yaml`.
-
 4. NCBI
-    - Used for synonyms, data available
+    - `ncbi`: Used for synonyms, data available
       from: `ftp://ftp.ncbi.nlm.nih.gov/gene/DATA/GENE_INFO/Mammalia/Homo_sapiens. gene_info.gz`
 6. Human Protein Atlas
-
-    - Used for subcellular locations. Data available
+    - `hpa` Used for subcellular locations. Data available
       from [HPA's website](https://www.proteinatlas.org/download/subcellular_location.tsv.zip)
+    - `hpa-sl-ontology`: Additional file provided by data team to map HPA locations to subcellular location ontology.
 7. Project Scores
+   - Available from [Cancer Dependency Map](https://score.depmap.sanger.ac.uk/downloads)
+   - `ps-gene-identifier`: https://cog.sanger.ac.uk/cmp/download/binaryDepScores.tsv.zip
+   - `ps-essentiality-matrix`: https://cog.sanger.ac.uk/cmp/download/essentiality_matrices.zip
 8. ChEMBL
     - Target index
 9. Gnomad
@@ -388,6 +432,7 @@ the data. Options for parsing the inputs should not need to be updated.
         - ftp://ftp.ensembl.org/pub/release-100/species_EnsemblVertebrates.txt
     - Files generated by PIS: `104_homology_<species>.tsv` where '104' is the Ensembl Release. This is a file of name
       and gene ids to get the correct name for homology gene ids. There will be one for each species.
+    - Both the Compara files should be loaded at the same time in `target.input.homology-coding-proteins`
 10. Chemical Probes
     - Input file prepared by Data team and made available by PIS.
 1. Reactome
@@ -403,6 +448,9 @@ the data. Options for parsing the inputs should not need to be updated.
           a [utility script](scripts/deprecate_target_safety_spreadsheet.sc). This script should not have to be re-run
           as __the spreadsheet should no longer be used__. If the underlying data changes it should be modified in the
           json/parquet files.
+1. Tractability
+    - File provided by ChEMBL: https://storage.googleapis.com/otar001-core/Tractability/21.
+      08/tractability_buckets_<latest>.tsv
 
 ### OpenFDA FAERS DB
 

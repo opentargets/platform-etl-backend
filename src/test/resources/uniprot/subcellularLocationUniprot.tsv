@@ -1,0 +1,10 @@
+Subcellular location ID	Description	Category	Alias
+SL-0476	The appearance of the striated muscle is created by a pattern of alternating dark A bands and light I bands. A bands comprise thick filaments of myosin and proteins that bind myosin. They are bisected by the H zone, a paler region where the thick and the thin filaments do not overlap. The exact center of the A band is termed the M line.	Cellular component	A band
+SL-0002	The acidocalcisome is an electron-dense acidic organelle which contains a matrix of pyrophosphate and polyphosphates with bound calcium and other cations. Its limiting membrane possesses a number of pumps and exchangers for the uptake and release of these elements. The acidocalcisome does not belong to the endocytic pathway and may represent a branch of the secretory pathway in trypanosomatids and apicomplexan parasites. The acidocalcisome is possibly involved in polyphosphate and cation storage and in adaptation of these microoganisms to environmental stress.	Cellular component	Acidocalcisome
+SL-0316	The acidocalcisome compartment bounded by the acidocalcisomal membrane.	Cellular component	Acidocalcisome lumen
+SL-0003	The membrane of an acidocalcisome.	Cellular component	Acidocalcisome membrane
+SL-0007	The acrosome is a large lysosome-like vesicle overlying the sperm nucleus. This spermatid specific organelle, derived from the Golgi during spermatogenesis, contains both unique acrosomal enzymes and common enzymes associated with lysosomes in somatic cells. Only sperm that have undergone the acrosome reaction can fuse with egg plasma membrane. The acrosome reaction is characterized by multiple fusions of the outer acrosomal membrane with the sperm cell membrane.	Cellular component	acrosome
+SL-0004	The portion of the acrosomal membrane closely associated with the anterior region of the nuclear envelope.	Cellular component	acrosome inner membrane
+SL-0005	The lumen of the acrosome.	Cellular component	acrosome lumen
+SL-0006	The membrane of the acrosome.	Cellular component	acrosome membrane
+SL-0447	The portion of the acrosomal membrane just beneath the sperm cell membrane.	Cellular component	acrosome outer membrane
