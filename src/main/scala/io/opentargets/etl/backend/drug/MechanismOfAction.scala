@@ -111,7 +111,7 @@ object MechanismOfAction extends LazyLogging {
     val genes = gene.select(geneCols: _*)
 
     targetDf
-      .join(genes, Seq("uniprot_id"), "left_outer")
+      .join(genes, targetDf("uniprot_id") === genes("uniprot_id") || targetDf("uniprot_id") === genes("geneId"), "left_outer")
       .groupBy("target_chembl_id", "targetName", "targetType")
       .agg(array_distinct(collect_list("geneId")).as("targets"))
   }
