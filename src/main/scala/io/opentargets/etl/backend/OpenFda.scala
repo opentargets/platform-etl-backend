@@ -26,7 +26,7 @@ case object MeddraLowLevelTermsData extends FdaDataSource {
 }
 
 // Target Map Structure
-case class TargetDimension(colId: String, statsColId: String, outputUnfilteredResults: IOResourceConfig, outputResults: IOResourceConfig) {}
+case class TargetDimension(colId: String, statsColId: String, outputUnfilteredResults: IOResourceConfig, outputResults: IOResourceConfig)
 
 // OpenFDA FAERS ETL Step
 object OpenFda extends LazyLogging {
