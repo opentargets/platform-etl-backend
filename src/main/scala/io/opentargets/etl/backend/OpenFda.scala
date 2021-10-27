@@ -42,6 +42,7 @@ object OpenFda extends LazyLogging {
 
     // Data Preparation (cooking)
     val fdaCookedData = OpenFdaDataPreparation(dfsData)
+    fdaCookedData.persist()
 
     // --- Run OpenFDA FAERS for drugs ---
     OpenFdaCompute(
