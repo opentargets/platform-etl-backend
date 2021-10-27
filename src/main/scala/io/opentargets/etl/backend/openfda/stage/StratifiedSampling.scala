@@ -20,7 +20,7 @@ object StratifiedSampling extends LazyLogging {
             targetDimensionColId: String,
             sampleSize: Double = 0.1)
            (
-      implicit context: ETLSessionContext): Unit = {
+      implicit context: ETLSessionContext): IOResources = {
     import org.apache.spark.sql.functions._
 
     logger.debug(s"Generating Stratified Sampling for target dimension '${targetDimensionColId}'")
@@ -41,7 +41,9 @@ object StratifiedSampling extends LazyLogging {
 
     logger.info(s"Writing statified sampling for target dimension '${targetDimensionColId}'...")
     // Write Stratified Sampling information
-    val writeMap: IOResources = Map(
+    //val writeMap: IOResources =
+    //IoHelpers.writeTo(writeMap)
+    Map(
       s"stratifiedSampling_${targetDimensionColId}" -> IOResource(
         rawFda
           .withColumn("seriousnessdeath", lit(1))
@@ -49,7 +51,7 @@ object StratifiedSampling extends LazyLogging {
         context.configuration.openfda.outputs.sampling
       )
     )
-    IoHelpers.writeTo(writeMap)
+
   }
 
 }

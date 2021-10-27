@@ -26,10 +26,10 @@ object OpenFdaCompute extends LazyLogging {
         .withColumn("meddraCode", typedLit[String](""))
     }).persist()
     // Conditional generation of Stratified Sampling
-    if (context.configuration.openfda.sampling.enabled) {
+    val stratifiedSamplingData: IOResources = if (context.configuration.openfda.sampling.enabled) {
       // This one really uses the raw OpenFDA Data
       StratifiedSampling(dfsData(FdaData()).data, fdaDataWithSummaryStats, fdaDataWithMeddra, targetDimension.colId)
-    }
+    } else Map()
     // Compute Montecarlo Sampling
     val montecarloResults = MonteCarloSampling(
       fdaDataWithMeddra,
@@ -43,7 +43,7 @@ object OpenFdaCompute extends LazyLogging {
     val outputMap: IOResources = Map(
       s"unfiltered-${targetDimension.colId}" -> IOResource(fdaDataWithMeddra, targetDimension.outputUnfilteredResults),
       s"openFdaResults-${targetDimension.colId}" -> IOResource(montecarloResults, targetDimension.outputResults)
-    )
+    ) ++ stratifiedSamplingData
     IoHelpers.writeTo(outputMap)
   }
 }
