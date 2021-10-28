@@ -14,38 +14,44 @@ object StratifiedSampling extends LazyLogging {
     * @param significantFda significantFda is the data that has been prepared for MC sampling, as at this point we have already removed all log-likelihood rations that are effectively zero.
     * @param sampleSize proportion of dataset to take
     */
-  def apply(rawFda: DataFrame, cleanFda: DataFrame, significantFda: DataFrame, sampleSize: Double = 0.1)(
-      implicit context: ETLSessionContext): Unit = {
+  def apply(rawFda: DataFrame,
+            cleanFda: DataFrame,
+            significantFda: DataFrame,
+            targetDimensionColId: String,
+            sampleSize: Double = 0.1)
+           (
+      implicit context: ETLSessionContext): IOResources = {
     import org.apache.spark.sql.functions._
 
-    val idCol = "chembl_id"
-    logger.debug("Generating ChEMBL ids for sample")
+    logger.debug(s"Generating Stratified Sampling for target dimension '${targetDimensionColId}'")
 
-    val significantChembls = significantFda.select(idCol).distinct.sample(sampleSize)
-    val allChembls = cleanFda.select(idCol).distinct.sample(sampleSize)
+    val significantSubsetOnTargetDimension = significantFda.select(targetDimensionColId).distinct.sample(sampleSize)
+    val allOnTargetDimension = cleanFda.select(targetDimensionColId).distinct.sample(sampleSize)
 
-    val sampleOfChemblIds: DataFrame =
-      significantChembls.join(allChembls, Seq(idCol), "full_outer").distinct
+    val sampleOnTargetDimension: DataFrame =
+      significantSubsetOnTargetDimension.join(allOnTargetDimension, Seq(targetDimensionColId), "full_outer").distinct
 
     // this leaves us with the report ids from the original data
-    logger.debug("Converting ChEMBL ids to safetyreportid")
+    logger.debug(s"Converting target dimension '${targetDimensionColId}' to safetyreportid")
     val reportIds = cleanFda
-      .select(idCol, "safetyreportid")
-      .join(sampleOfChemblIds, Seq(idCol))
-      .drop(idCol)
+      .select(targetDimensionColId, "safetyreportid")
+      .join(sampleOnTargetDimension, Seq(targetDimensionColId))
+      .drop(targetDimensionColId)
       .distinct()
 
-    logger.info("Writing statified...")
+    logger.info(s"Writing statified sampling for target dimension '${targetDimensionColId}'...")
     // Write Stratified Sampling information
-    val writeMap: IOResources = Map(
-      "stratifiedSampling" -> IOResource(
+    //val writeMap: IOResources =
+    //IoHelpers.writeTo(writeMap)
+    Map(
+      s"stratifiedSampling_${targetDimensionColId}" -> IOResource(
         rawFda
           .withColumn("seriousnessdeath", lit(1))
           .join(reportIds, Seq("safetyreportid")),
         context.configuration.openfda.outputs.sampling
       )
     )
-    IoHelpers.writeTo(writeMap)
+
   }
 
 }
