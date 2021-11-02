@@ -64,15 +64,22 @@ object AssociationOTF extends LazyLogging {
         filter(col("tractability"), facetFilter(_, "SM")) as "sm",
         filter(col("tractability"), facetFilter(_, "AB")) as "ab",
         filter(col("tractability"), facetFilter(_, "PR")) as "pr",
+        filter(col("tractability"), facetFilter(_, "OC")) as "oc",
+        monotonically_increasing_id() as "miid"
       )
       .select(
         col("target_id"),
         col("sm.id") as "facet_tractability_smallmolecule",
         col("ab.id") as "facet_tractability_antibody",
         col("pr.id") as "facet_tractability_protac",
+        col("oc.id") as "facet_tractability_othermodalities",
+        col("miid")
       )
       .orderBy("target_id")
+
     df.join(tractabilityFacetsDF, Seq("target_id"), "left_outer")
+      .orderBy("miid")
+      .drop("miid")
   }
 
   def compute()(implicit context: ETLSessionContext): IOResources = {
