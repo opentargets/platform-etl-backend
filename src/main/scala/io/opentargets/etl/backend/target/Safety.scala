@@ -12,6 +12,7 @@ import org.apache.spark.sql.functions.{
   split,
   struct,
   trim,
+  typedLit,
   when
 }
 import org.apache.spark.sql.{DataFrame, Dataset, SparkSession}
@@ -82,7 +83,7 @@ object Safety extends LazyLogging {
           col("biologicalSystem") as "tissueLabel",
           col("uberonCode") as "tissueId",
           lit(null) as "cellLabel",
-          lit(null) as "cellFormat",
+          typedLit[String](null) as "cellFormat",
           lit(null) as "cellId"
         ) as "biosample",
         split(col("effect"), "_") as "effects"
@@ -111,16 +112,16 @@ object Safety extends LazyLogging {
       struct(
         col("biologicalSystem") as "tissueLabel",
         col("uberonId") as "tissueId",
-        lit(null) as "cellLabel",
-        lit(null) as "cellFormat",
-        lit(null) as "cellId"
+        typedLit[String](null) as "cellLabel",
+        typedLit[String](null) as "cellFormat",
+        typedLit[String](null) as "cellId"
       ) as "biosample",
       col("ref") as "datasource",
       col("pmid") as "literature",
       struct(
-        lit(null) as "name",
+        typedLit[String](null) as "name",
         col("liability") as "description",
-        lit(null) as "type"
+        typedLit[String](null) as "type"
       ) as "study"
     )
   }
@@ -133,7 +134,7 @@ object Safety extends LazyLogging {
         col("eventId"),
         struct(
           col("tissue") as "tissueLabel",
-          lit(null) as "tissueId",
+          typedLit[String](null) as "tissueId",
           col("cell_short_name") as "cellLabel",
           col("cell_format") as "cellFormat",
           lit("") as "cellId"
