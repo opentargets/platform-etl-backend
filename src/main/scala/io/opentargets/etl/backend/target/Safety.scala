@@ -26,6 +26,7 @@ case class TargetSafetyEvidence(event: String,
                                 biosample: Array[Biosample],
                                 datasource: String,
                                 literature: String,
+                                url: String,
                                 study: Array[TargetSafetyStudy])
 
 case class Biosample(tissueLabel: String,
@@ -163,6 +164,7 @@ object Safety extends LazyLogging {
           col("biosample"),
           col("datasource"),
           col("literature"),
+          col("url"),
           col("study")
         ) as "safety"
       )
