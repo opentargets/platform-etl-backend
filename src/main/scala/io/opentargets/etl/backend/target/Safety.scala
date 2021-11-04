@@ -82,9 +82,9 @@ object Safety extends LazyLogging {
         struct(
           col("biologicalSystem") as "tissueLabel",
           col("uberonCode") as "tissueId",
-          lit(null) as "cellLabel",
+          typedLit[String](null) as "cellLabel",
           typedLit[String](null) as "cellFormat",
-          lit(null) as "cellId"
+          typedLit[String](null) as "cellId"
         ) as "biosample",
         split(col("effect"), "_") as "effects"
       )
