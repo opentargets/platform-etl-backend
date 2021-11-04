@@ -65,13 +65,20 @@ trait CommentIdentifiers {
   }
 
   private def parseLocations(location: String): Seq[String] = {
+    val isoformR = """\[Isoform [A-Z](\.)[0-9]\]:.+""" r
     val noNotes = location
       .split("Note=")
 
     val a: Array[String] = noNotes.headOption
       .map(opt => {
-        opt
+        val cleanedOfReferences = opt
           .replaceAll("\\{.+?\\}", "")
+        // handle case where Uniprot record isn't standard, having form [Isoform A.1]:...
+        val isoformStandardised: String = cleanedOfReferences match {
+          case isoformR(_*) => cleanedOfReferences.replaceFirst("\\.", "-")
+          case _            => cleanedOfReferences
+        }
+        isoformStandardised
           .split("\\.")
           .map(_.trim)
           .filter(!_.startsWith("Note="))

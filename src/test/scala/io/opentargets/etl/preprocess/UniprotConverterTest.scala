@@ -109,6 +109,8 @@ class UniprotConverterTest
       "{ECO:0000269|PubMed:11148210, ECO:0000269|PubMed:11341771}",
       "-!- SUBCELLULAR LOCATION: Cell projection, cilium, photoreceptor outer",
       "segment {ECO:0000269|PubMed:27613864}. Membrane",
+      "-!- SUBCELLULAR LOCATION: [Isoform A.1]: Cell membrane; Single-pass type I membrane protein.",
+      "-!- SUBCELLULAR LOCATION: [Isoform A.2]: Cell membrane; Single-pass type I",
       "{ECO:0000269|PubMed:27613864}; Lipid-anchor",
       "{ECO:0000269|PubMed:27613864}; Cytoplasmic side",
       "{ECO:0000250|UniProtKB:Q00LT2}. Endoplasmic reticulum",
@@ -122,7 +124,7 @@ class UniprotConverterTest
     // when
     val results = updateComments(commentsRaw.toIterator)
     // then
-    results.locations should have size 6
+    results.locations should have size 8
     results.functions should have size 1
   }
 
