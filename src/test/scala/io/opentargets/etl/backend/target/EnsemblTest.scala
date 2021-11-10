@@ -8,7 +8,7 @@ import org.scalatest.matchers.should.Matchers.convertToAnyShouldWrapper
 
 object EnsemblTest {
   def ensemblRawDf(implicit sparkSession: SparkSession): DataFrame =
-    sparkSession.read.json(this.getClass.getResource("/target/ensembl_test.jsonl.gz").getPath)
+    sparkSession.read.json(this.getClass.getResource("/target/homo_test.jsonl.gz").getPath)
 }
 
 class EnsemblTest extends EtlSparkUnitTest {
