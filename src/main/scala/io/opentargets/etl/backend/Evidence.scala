@@ -230,12 +230,10 @@ object Evidence extends LazyLogging {
     val config = context.configuration.evidences
 
     logger.info("Validate each evidence: generating a hash to check for duplicates")
-    logger.info(s"Excluding datasources: ${config.dataSourcesExclude.mkString("", ",", "")}")
 
     val commonReqFields = config.uniqueFields.toSet
 
     val dataTypes: List[(Column, List[Column])] = config.dataSources
-      .withFilter(ds => !config.dataSourcesExclude.contains(ds.id))
       .map(
         dataType =>
           (col("sourceId") === dataType.id) ->
