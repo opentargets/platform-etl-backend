@@ -59,7 +59,7 @@ class EtlDagTest extends AnyFlatSpecLike with Matchers with AppendedClues {
     // 'evidence' must run after 'target'
     aBeforeB("target", "evidence")
     aBeforeB("target", "drug")
-    aBeforeB("target", "associations")
+    aBeforeB("target", "association")
   }
 
   it should "correctly resolve for simple step" in {
@@ -75,14 +75,14 @@ class EtlDagTest extends AnyFlatSpecLike with Matchers with AppendedClues {
   it should "correctly resolve for all steps" in {
     // when
     implicit val stepsInOrder: Seq[String] = dagETL.getAll
-    aBeforeB("evidence", "associations")
+    aBeforeB("evidence", "association")
     aBeforeB("drug", "knownDrugs")
     aBeforeB("reactome", "target")
     aBeforeB("target", "drug")
     aBeforeB("target", "fda")
-    aBeforeB("targetValidation", "knownDrugs")
+    aBeforeB("targetValidation", "knownDrug")
     aBeforeB("target", "evidence")
-    aBeforeB("associations", "search")
+    aBeforeB("association", "search")
     aBeforeB("disease", "evidence")
   }
 
