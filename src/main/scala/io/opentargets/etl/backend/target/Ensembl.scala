@@ -28,8 +28,7 @@ object Ensembl extends LazyLogging {
     import ss.implicits._
     val ensemblDF: DataFrame = df
       .filter(col("id").startsWith("ENSG"))
-      .filter(
-        col("seq_region_name").isin(includeChromosomes: _*) || col("Uniprot/SWISSPROT").isNotNull)
+      .filter(col("chromosome").isin(includeChromosomes: _*) || col("uniprot_swissprot").isNotNull)
       .select(
         trim(col("id")).as("id"),
         regexp_replace(col("biotype"), "(?i)tec", "").as("biotype"),
@@ -37,12 +36,12 @@ object Ensembl extends LazyLogging {
         col("end").cast(LongType),
         col("start").cast(LongType),
         col("strand").cast(IntegerType),
-        col("seq_region_name").as("chromosome"), // chromosome
-        col("name").as("approvedSymbol"),
+        col("chromosome"), // chromosome
+        col("approvedSymbol"),
         col("transcripts.id") as "transcriptIds",
         col("signalP"),
-        col("Uniprot/SPTREMBL").as("uniprot_trembl"),
-        col("Uniprot/SWISSPROT").as("uniprot_swissprot"),
+        col("uniprot_trembl"),
+        col("uniprot_swissprot"),
         flatten(col("transcripts.translations")).as("translations")
       )
       .orderBy(col("id").asc)
