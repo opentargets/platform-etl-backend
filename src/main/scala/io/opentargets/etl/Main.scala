@@ -11,57 +11,57 @@ object ETL extends LazyLogging {
 
   def applySingleStep(step: String)(implicit context: ETLSessionContext): Unit = {
     step match {
-      case "targetValidation" =>
-        logger.info("run step targetValidation")
-        TargetValidation()
-      case "evidence" =>
-        logger.info("run step evidence")
-        Evidence()
-      case "search" =>
-        logger.info("run step search")
-        Search()
-      case "drug" =>
-        logger.info("run step drug")
-        Drug()
-      case "knownDrugs" =>
-        logger.info("run step knownDrugs")
-        KnownDrugs()
-      case "expression" =>
-        logger.info("run step expression")
-        Expression()
-      case "disease" =>
-        logger.info("run step disease")
-        Disease()
-      case "target" =>
-        logger.info("run step target")
-        target.Target()
-      case "reactome" =>
-        logger.info("run step reactome (rea)")
-        Reactome()
-      case "go" =>
-        logger.info("run step go")
-        Go()
-      case "interactions" =>
-        logger.info("run step interactions")
-        Interactions()
       case "association" =>
         logger.info("run step association")
         Association()
-      case "connections" =>
-        logger.info("run step connections")
-        Connections()
       case "associationOTF" =>
         logger.info("run step associationOTF")
         AssociationOTF()
-      case "fda" =>
-        logger.info("Running OpenFDA FAERS step")
-        OpenFda()
+      case "connection" =>
+        logger.info("run step connections")
+        Connections()
+      case "disease" =>
+        logger.info("run step disease")
+        Disease()
+      case "drug" =>
+        logger.info("run step drug")
+        Drug()
+      case "evidence" =>
+        logger.info("run step evidence")
+        Evidence()
+      case "expression" =>
+        logger.info("run step expression")
+        Expression()
       case "ebisearch" =>
         logger.info("Running EBI Search step")
         EBISearch()
+      case "fda" =>
+        logger.info("Running OpenFDA FAERS step")
+        OpenFda()
+      case "go" =>
+        logger.info("run step go")
+        Go()
+      case "interaction" =>
+        logger.info("run step interactions")
+        Interactions()
+      case "knownDrug" =>
+        logger.info("run step knownDrugs")
+        KnownDrugs()
       case "otar" =>
         logger.info("Running Otar projects step")
         OtarProject()
+      case "reactome" =>
+        logger.info("run step reactome (rea)")
+        Reactome()
+      case "search" =>
+        logger.info("run step search")
+        Search()
+      case "target" =>
+        logger.info("run step target")
+        target.Target()
+      case "targetValidation" =>
+        logger.info("run step targetValidation")
+        TargetValidation()
       case _ => logger.warn(s"step $step is unknown so nothing to execute")
     }
     logger.info(s"finished to run step ($step)")
