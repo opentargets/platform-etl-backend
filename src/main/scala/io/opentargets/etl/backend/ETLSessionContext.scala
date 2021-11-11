@@ -14,6 +14,16 @@ object ETLSessionContext extends LazyLogging {
   def apply(): Either[ConfigReaderFailures, ETLSessionContext] = {
     for {
       config <- Configuration.config
-    } yield ETLSessionContext(config, getOrCreateSparkSession(progName, config.sparkUri))
+    } yield {
+      logger.info("Generating ETL Session Context")
+      val evidence = if (config.evidences.dataSourcesExclude.nonEmpty) {
+        logger.info(s"Excluding data sources for evidence: ${config.evidences.dataSourcesExclude}")
+        val ds = config.evidences.dataSources.filter(d =>
+          !config.evidences.dataSourcesExclude.contains(d.id))
+        config.evidences.copy(dataSources = ds)
+      } else config.evidences
+      ETLSessionContext(config.copy(evidences = evidence),
+                        getOrCreateSparkSession(progName, config.sparkUri))
+    }
   }
 }
