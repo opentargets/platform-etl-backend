@@ -6,39 +6,39 @@ import org.apache.spark.sql.DataFrame
 import org.apache.spark.sql.expressions.Window
 import org.apache.spark.sql.functions.{approx_count_distinct, col}
 
-object PrepareSummaryStatistics extends LazyLogging{
-  def apply(fdaData: DataFrame,
-            targetDimensionColId: String,
-            targetDimensionStatsColdId: String)
-           (implicit context: ETLSessionContext) = {
+object PrepareSummaryStatistics extends LazyLogging {
+  def apply(fdaData: DataFrame, targetDimensionColId: String, targetDimensionStatsColdId: String)(
+      implicit context: ETLSessionContext) = {
 
     logger.info(s"Prepare Summary Statistics for target dimension '${targetDimensionColId}'")
     // Define the output
-    val outputCols = Set(
+    val outputCols = List(
       "safetyreportid",
-      "chembl_id",
       "reaction_reactionmeddrapt",
       "uniq_report_ids_by_reaction",
       targetDimensionStatsColdId,
       "uniq_report_ids",
       targetDimensionColId
     )
+
+    // set the columns to not repeat code
+    val reportIdC = col("safetyreportid")
+    val aeC = col("reaction_reactionmeddrapt")
+
     // Define the partition windows
-    val wAdverses = Window.partitionBy(col("reaction_reactionmeddrapt"))
+    val wAdverses = Window.partitionBy(aeC)
     val wTargetDimension = Window.partitionBy(col(targetDimensionColId))
     val wAdverseTargetDimensionComb =
-      Window.partitionBy(col(targetDimensionColId), col("reaction_reactionmeddrapt"))
+      Window.partitionBy(col(targetDimensionColId), aeC)
     // and we will need this processed data later on
     val groupedDf = fdaData
       .withColumn("uniq_report_ids_by_reaction", // how many reports mention that reaction
-        approx_count_distinct(col("safetyreportid")).over(wAdverses))
+                  approx_count_distinct(reportIdC).over(wAdverses))
       .withColumn(targetDimensionStatsColdId, // how many reports mention that drug
-        approx_count_distinct(col("safetyreportid")).over(wTargetDimension))
+                  approx_count_distinct(reportIdC).over(wTargetDimension))
       .withColumn("uniq_report_ids", // how many mentions of drug-reaction pair
-        approx_count_distinct(col("safetyreportid")).over(wAdverseTargetDimensionComb))
-      .selectExpr(
-        outputCols.toList:_*
-      )
+                  approx_count_distinct(reportIdC).over(wAdverseTargetDimensionComb))
+      .selectExpr(outputCols: _*)
     groupedDf
   }
 }
