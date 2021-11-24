@@ -13,8 +13,7 @@ object MonteCarloSampling extends LazyLogging {
             targetDimensionColId: String,
             targetDimensionStatsColId: String,
             percentile: Double = 0.99,
-            permutations: Int = 100)(
-      implicit context: ETLSessionContext): DataFrame = {
+            permutations: Int = 100)(implicit context: ETLSessionContext): DataFrame = {
 
     logger.info(s"Run Montecarlo sampling on target dimension '${targetDimensionColId}'")
     import context.sparkSession.implicits._
@@ -24,7 +23,7 @@ object MonteCarloSampling extends LazyLogging {
     val udfProbVector = udf(udfCriticalValues)
 
     // calculate critical values using UDF
-    val critValDrug = inputDf
+    val critVal = inputDf
       .withColumn("uniq_reports_total", $"A" + $"B" + $"C" + $"D")
       .withColumn("uniq_report_ids", $"A")
       .groupBy(col(targetDimensionColId))
@@ -34,31 +33,30 @@ object MonteCarloSampling extends LazyLogging {
         collect_list($"uniq_report_ids_by_reaction").as("n_i"),
         first(col(targetDimensionStatsColId)).as(targetDimensionStatsColId),
       )
-      // critVal_drug is created using the MonteCarlo method to use a binomial distribution
+      // criticalValue is created using the MonteCarlo method to use a binomial distribution
       // for that particular drug.
-      .withColumn("critVal_drug",
+      .withColumn("criticalValue",
                   udfProbVector(lit(permutations),
                                 col(targetDimensionStatsColId),
                                 $"n_i",
                                 $"uniq_reports_total",
                                 lit(percentile)))
-      .select(targetDimensionColId, "critVal_drug")
+      .select(targetDimensionColId, "criticalValue")
 
-    val exprs = Set(
-      "chembl_id",
+    val exprs = List(
       targetDimensionColId,
       "reaction_reactionmeddrapt as event",
       "A as count",
       "llr",
-      "critVal_drug as critval",
+      "criticalValue as critval",
       "meddraCode"
     )
 
     val filteredDF = inputDf
-      .join(critValDrug, Seq(targetDimensionColId), "inner")
-      .where(($"llr" > $"critVal_drug") and
-        ($"critVal_drug" > 0))
-      .selectExpr(exprs.toSeq:_*)
+      .join(critVal, Seq(targetDimensionColId), "inner")
+      .where(($"llr" > $"criticalValue") and
+        ($"criticalValue" > 0))
+      .selectExpr(exprs: _*)
 
     filteredDF
 
