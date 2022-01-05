@@ -29,7 +29,7 @@ object Reactome extends LazyLogging {
     val pathways = reactomeIs("pathways").data.transform(cleanPathways)
     val edges = reactomeIs("relations").data.toDF("src", "dst")
 
-    val index = GraphNode(pathways, edges)
+    val index = GraphNode(pathways, edges).distinct
 
     logger.info("compute reactome dataset")
     val outputs = Map(
