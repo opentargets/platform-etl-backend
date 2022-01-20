@@ -301,6 +301,8 @@ object Evidence extends LazyLogging {
 
     val evidencesSec = context.configuration.evidences
 
+    logger.info(s"Executing evidence step with data-types: ${evidencesSec.dataSources.map(_.id)}")
+
     val mappedInputs = Map(
       "targets" -> evidencesSec.inputs.targets,
       "diseases" -> evidencesSec.inputs.diseases,
