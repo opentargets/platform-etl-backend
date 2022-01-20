@@ -2,6 +2,23 @@ import sbt._
 
 object Dependencies {
 
+  lazy val dependencies: Seq[ModuleID] = Seq(
+    aoyi,
+    Seq(betterFiles),
+    codeDeps,
+    configDeps,
+    loggingDeps,
+    graphDeps,
+    sparkDeps,
+    testingDeps,
+    gcp,
+    Seq(typeSafeConfig),
+    cats,
+    monocle,
+    smile,
+    johnS
+  ).flatten
+
   lazy val aoyi = Seq(
     "com.lihaoyi" %% "pprint" % "0.6.0"
   )
@@ -41,8 +58,10 @@ object Dependencies {
   lazy val testingDeps = Seq(
     "org.scalactic" %% "scalactic" % testVersion,
     "org.scalatest" %% "scalatest" % testVersion % "test"
+  ) :+ scalaCheck
+  lazy val gcp = Seq(
+    "com.google.cloud" % "google-cloud-storage" % "2.3.0"
   )
-
   lazy val typeSafeConfig = "com.typesafe" % "config" % "1.4.1"
 
   lazy val catsVersion = "2.4.2"
