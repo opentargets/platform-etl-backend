@@ -51,8 +51,8 @@ object Drug extends Serializable with LazyLogging {
     lazy val warningRawDf: DataFrame = inputDataFrames("warnings").data
 
     // processed dataframes
-    logger.info("Raw inputs for Drug beta loaded.")
-    logger.info("Processing Drug beta transformations.")
+    logger.info("Raw inputs for Drug loaded.")
+    logger.info("Processing Drug transformations.")
     val indicationProcessedDf = Indication(indicationDf, efoDf)
     val moleculeProcessedDf =
       Molecule(moleculeDf, drugbank2ChemblMap, drugConfiguration.drugExtensions)

@@ -10,11 +10,11 @@ import io.opentargets.etl.backend.graph.EtlDag
 object ETL extends LazyLogging {
 
   def applySingleStep(step: String)(implicit context: ETLSessionContext): Unit = {
-    step match {
+    step.toLowerCase match {
       case "association" =>
         logger.info("run step association")
         Association()
-      case "associationOTF" =>
+      case "associationotf" =>
         logger.info("run step associationOTF")
         AssociationOTF()
       case "connection" =>
@@ -44,7 +44,7 @@ object ETL extends LazyLogging {
       case "interaction" =>
         logger.info("run step interactions")
         Interactions()
-      case "knownDrug" =>
+      case "knowndrug" =>
         logger.info("run step knownDrugs")
         KnownDrugs()
       case "otar" =>
@@ -59,7 +59,7 @@ object ETL extends LazyLogging {
       case "target" =>
         logger.info("run step target")
         target.Target()
-      case "targetValidation" =>
+      case "targetvalidation" =>
         logger.info("run step targetValidation")
         TargetValidation()
       case _ => logger.warn(s"step $step is unknown so nothing to execute")
