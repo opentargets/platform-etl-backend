@@ -17,6 +17,6 @@ class GoogleStorageHelpersSpec extends AnyFlatSpecLike with Matchers with LazyLo
   "A bucket and blob" should "be extracted from a google storage path" in {
     val (bucket, blob) = GoogleStorageHelpers.pathToBucketBlob(gsPath)
     assertResult("bucket")(bucket)
-    assertResult("blob/blobbly/blobblier")(blob)
+    assertResult("blob/blobbly/blobblier/")(blob)
   }
 }
