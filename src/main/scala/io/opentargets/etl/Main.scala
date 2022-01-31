@@ -106,9 +106,10 @@ object ETL extends LazyLogging {
       .asScalaIteratorConverter(blobs.iterateAll().iterator())
       .asScala
       .filter(_.isDirectory)
-      .map(dir => s"gs://${dir.getName}")
+      .map(dir => s"gs://${bucket}/${dir.getName}".dropRight(1))
       .toSet
-    outputPaths.mapValues(existingOutputs.contains).keySet
+    logger.debug(existingOutputs.toString)
+    outputPaths.filter(kv => existingOutputs.contains(kv._2)).keySet
   }
 
   def apply(steps: Seq[String]): Unit = {
