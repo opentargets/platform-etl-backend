@@ -259,6 +259,26 @@ object Configuration extends LazyLogging {
   )
   // --- END --- //
 
+  // --- Genetics start --- //
+  case class Genetics(release: String, output: String, input: String)
+
+  case class VariantInputs(
+      variantAnnotation: IOResourceConfig,
+      targetIndex: IOResourceConfig
+  )
+
+  case class VariantOutputs(
+      variants: IOResourceConfig
+  )
+
+  case class Variants(
+      excludedBiotypes: List[String],
+      tssDistance: Long,
+      inputs: VariantInputs,
+      outputs: VariantOutputs
+  )
+  // --- Genetics end --- //
+
   case class EtlStep[T](step: T, dependencies: List[T])
 
   case class EtlDagConfig(steps: List[EtlStep[String]], resolve: Boolean)
@@ -283,6 +303,7 @@ object Configuration extends LazyLogging {
       expression: ExpressionSection,
       openfda: OpenfdaSection,
       ebisearch: EBISearchSection,
-      otarproject: OtarProjectSection
+      otarproject: OtarProjectSection,
+      variant: Variants
   )
 }
