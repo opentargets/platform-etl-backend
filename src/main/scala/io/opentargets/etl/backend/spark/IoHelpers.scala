@@ -3,7 +3,6 @@ package io.opentargets.etl.backend.spark
 import com.typesafe.scalalogging.LazyLogging
 import io.opentargets.etl.backend.Configuration.OTConfig
 import io.opentargets.etl.backend.ETLSessionContext
-import monocle.macros.syntax.lens.toGenApplyLensOps
 import org.apache.spark.sql.functions.current_timestamp
 import org.apache.spark.sql.{DataFrame, DataFrameWriter, Row, SparkSession}
 
@@ -172,18 +171,17 @@ object IoHelpers extends LazyLogging {
     import session.implicits._
 
     val serialisedSchema = ior.data.schema.json
-    val iores =
-      ior.configuration
-        .lens(_.path)
-        .modify(
-          _.stripPrefix(context.configuration.common.output)
-            .split("/")
-            .filter(_.nonEmpty)
-            .mkString("/", "/", ""))
+    val iores = ior.configuration.copy(
+      path = ior.configuration.path
+        .stripPrefix(context.configuration.common.output)
+        .split("/")
+        .filter(_.nonEmpty)
+        .mkString("/", "/", ""))
+
     val cols = ior.data.columns.toList
     val id = ior.configuration.path.split("/").filter(_.nonEmpty).last
     val newPath = withConfig.path + s"/$id"
-    val metadataConfig = withConfig.lens(_.path).set(newPath)
+    val metadataConfig = withConfig.copy(path = newPath)
 
     val metadata =
       List(Metadata(id, iores, serialisedSchema, cols)).toDF
