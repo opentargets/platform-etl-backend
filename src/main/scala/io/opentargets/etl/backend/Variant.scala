@@ -8,15 +8,21 @@ import org.apache.spark.sql.functions.{
   arrays_zip,
   col,
   collect_list,
+  collect_set,
+  explode,
   map_from_entries,
   min,
-  udaf,
+  struct,
   when
 }
 import org.apache.spark.sql.types.LongType
-import org.apache.spark.sql.{DataFrame, SparkSession}
+import org.apache.spark.sql.{Column, DataFrame, SparkSession}
 
 object Variant extends LazyLogging {
+
+  // these four components uniquely identify a variant
+  val variantIdStr: Seq[String] = Seq("chr_id", "position", "ref_allele", "alt_allele")
+  val variantIdCol: Seq[Column] = variantIdStr.map(col)
 
   def apply()(implicit context: ETLSessionContext): IOResources = {
 
@@ -38,10 +44,6 @@ object Variant extends LazyLogging {
 
     val approvedBioTypes = variantConfiguration.excludedBiotypes.toSet
     val excludedChromosomes: Set[String] = Set("MT")
-
-    // these four components uniquely identify a variant
-    val variantIdStr = Seq("chr_id", "position", "ref_allele", "alt_allele")
-    val variantIdCol = variantIdStr.map(col)
 
     logger.info("Generate target DF for variant index.")
     val targetDf = targetRawDf
@@ -73,13 +75,31 @@ object Variant extends LazyLogging {
         col("alt") as "alt_allele",
         col("rsid") as "rs_id",
         col("vep.most_severe_consequence") as "most_severe_consequence",
+        col("vep.transcript_consequences") as "vep",
         col("cadd") as "cadd",
         col("af") as "af"
       )
       .repartition(variantIdCol: _*)
 
+    val vep = variantDf
+      .select(
+        variantIdCol :+ explode(col("vep")).as("vep"): _*
+      )
+      .select(
+        variantIdCol ++ Seq(
+          col("vep.gene_id") as "vep_gene_id",
+          col("vep.consequence_terms").getItem(0) as "vep_consequence"
+        ): _*
+      )
+      .groupBy(variantIdCol :+ col("vep_gene_id"): _*)
+      .agg(collect_set("vep_consequence") as "fpred_labels")
+      .groupBy(variantIdCol: _*)
+      .agg(collect_list(struct("vep_gene_id", "fpred_labels")) as "vep")
+
+    val variantWithVep = variantDf.drop("vep").join(vep, variantIdStr, "left_outer").cache
+
     def variantGeneDistance(target: DataFrame): DataFrame =
-      variantDf
+      variantWithVep
         .join(
           target,
           (col("chr_id") === col("chromosome")) && (abs(
@@ -119,7 +139,7 @@ object Variant extends LazyLogging {
     val vgDistances = variantGeneScored.join(variantPcScored, variantIdStr, "full_outer")
 
     logger.info("Join distances to variants.")
-    val variantIndex = variantDf.join(vgDistances, variantIdStr, "left_outer")
+    val variantIndex = variantWithVep.join(vgDistances, variantIdStr, "left_outer")
 
     val outputs = Map(
       "variant" -> IOResource(variantIndex, variantConfiguration.outputs.variants)

@@ -7,6 +7,7 @@ import com.typesafe.scalalogging.LazyLogging
 
 import scala.util._
 import io.opentargets.etl.backend._
+import io.opentargets.etl.backend.genetics.VariantGene
 import io.opentargets.etl.backend.drug.Drug
 import io.opentargets.etl.backend.graph.EtlDag
 import io.opentargets.etl.common.GoogleStorageHelpers
@@ -68,9 +69,12 @@ object ETL extends LazyLogging {
       case "targetvalidation" =>
         logger.info("run step targetValidation")
         TargetValidation()
-      case "variantIndex" =>
+      case "variantindex" =>
         logger.info("run step variant-index (genetics)")
         Variant()
+      case "variantgene" =>
+        logger.info("run step variant-gene (genetics)")
+        VariantGene()
       case _ => logger.warn(s"step $step is unknown so nothing to execute")
     }
     logger.info(s"finished to run step ($step)")
@@ -96,6 +100,8 @@ object ETL extends LazyLogging {
       "knownDrug" -> ctx.configuration.knownDrugs.output.path,
       "ebisearch" -> ctx.configuration.ebisearch.outputs.ebisearchEvidence.path,
       "fda" -> ctx.configuration.openfda.outputs.fdaResults.path,
+      "variant" -> ctx.configuration.variant.outputs.variants.path,
+      "variantGene" -> ctx.configuration.variant.outputs.variants.path
     )
 
     val storage: Storage = StorageOptions.getDefaultInstance.getService
