@@ -24,6 +24,7 @@ artifact search <<dependencies>>
 artifact target <<dependencies>>
 artifact openfda <<dependencies>>
 artifact ebiSearch <<dependencies>>
+artifact variant <<dependencies>>
 
 artifact variant <<genetics>>
 
@@ -58,6 +59,7 @@ target --> interactions
 target --> variant
 
 target --> targetValidation
+target --> variant
 
 drug --> openfda
 
