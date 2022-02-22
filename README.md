@@ -154,6 +154,17 @@ common {
 }
 ```
 
+### Using Dataproc workflows
+
+Once [PIS](https://github.com/opentargets/platform-input-support) has provided all of the necessary inputs, update the
+configuration files to make use of the new inputs. Create two input files, one using `parquet` as the output format, and
+one using `json`. Consult `opentargets-pre-data-releases/22.02.3/` for reference.
+
+If there have been any changes to the ETL create new jars for the literature and ETL project and push them to google
+storage.
+
+Run the worksheet `./dataproc/workflow-etl.sc` which will create a cluster, run all steps and then destroy the cluster.
+
 ## Step dependencies
 
 Considering only the inputs/outputs of the ETL there are component diagrams available in the 'documentation'
