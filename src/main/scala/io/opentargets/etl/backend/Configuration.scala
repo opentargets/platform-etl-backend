@@ -201,7 +201,7 @@ object Configuration extends LazyLogging {
 
   case class TargetOutput(target: IOResourceConfig)
 
-  case class SparkSettings(writeMode: String) {
+  case class SparkSettings(writeMode: String, ignoreIfExists: Boolean) {
     val validWriteModes = Set("error", "errorifexists", "append", "overwrite", "ignore")
     require(validWriteModes.contains(writeMode),
             s"$writeMode is not valid. Must be one of ${validWriteModes.toString()}")

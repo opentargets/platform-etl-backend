@@ -2,16 +2,19 @@ import sbt._
 
 object Dependencies {
 
-  lazy val aoyi = Seq(
-    "com.lihaoyi" %% "pprint" % "0.6.0"
-  )
+  lazy val dependencies: Seq[ModuleID] = Seq(
+    Seq(betterFiles),
+    configDeps,
+    loggingDeps,
+    graphDeps,
+    sparkDeps,
+    testingDeps,
+    gcp,
+    Seq(typeSafeConfig),
+    monocle
+  ).flatten
 
   lazy val betterFiles = "com.github.pathikrit" %% "better-files-akka" % "3.9.1"
-
-  lazy val codeDeps = Seq(
-    "com.beachape" %% "enumeratum" % "1.6.1",
-    "com.github.scopt" %% "scopt" % "3.7.1"
-  )
 
   lazy val configDeps = Seq(
     "com.github.pureconfig" %% "pureconfig" % "0.14.1"
@@ -41,17 +44,9 @@ object Dependencies {
   lazy val testingDeps = Seq(
     "org.scalactic" %% "scalactic" % testVersion,
     "org.scalatest" %% "scalatest" % testVersion % "test"
-  )
+  ) :+ scalaCheck
 
   lazy val typeSafeConfig = "com.typesafe" % "config" % "1.4.1"
-
-  lazy val catsVersion = "2.4.2"
-  lazy val cats = Seq(
-    "org.typelevel" %% "cats-core" % catsVersion,
-    "org.typelevel" %% "cats-laws" % catsVersion,
-    "org.typelevel" %% "cats-kernel" % catsVersion,
-    "org.typelevel" %% "cats-kernel-laws" % catsVersion
-  )
 
   lazy val monocleVersion = "2.1.0"
   lazy val monocle = Seq(
@@ -59,13 +54,8 @@ object Dependencies {
     "com.github.julien-truffaut" %% "monocle-macro" % monocleVersion
   )
 
-  lazy val smileVersion = "2.6.0"
-  lazy val smile = Seq(
-    "com.github.haifengl" %% "smile-scala" % smileVersion
-  )
-
-  lazy val johnSVersion = "3.0.0"
-  lazy val johnS = Seq(
-    "com.johnsnowlabs.nlp" % "spark-nlp_2.12" % johnSVersion
+  lazy val gcp = Seq(
+    "com.google.cloud" % "google-cloud-dataproc" % "2.3.2" % "provided",
+    "com.google.cloud" % "google-cloud-storage" % "2.4.2"
   )
 }

@@ -27,9 +27,9 @@ class ConfigurationTest extends AnyFlatSpecLike with Matchers with LazyLogging {
     val invalidMode = "concatenate"
     val validModes = Seq("error", "errorifexists", "append", "overwrite", "ignore")
     // when
-    val settings = validModes.map(SparkSettings)
+    val settings = validModes.map(SparkSettings(_, ignoreIfExists = false))
     // then
-    assertThrows[IllegalArgumentException](SparkSettings(invalidMode))
+    assertThrows[IllegalArgumentException](SparkSettings(invalidMode, ignoreIfExists = false))
     assertResult(validModes.sorted)(settings.map(_.writeMode).sorted)
   }
 }
