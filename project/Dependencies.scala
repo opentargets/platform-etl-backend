@@ -10,8 +10,7 @@ object Dependencies {
     sparkDeps,
     testingDeps,
     gcp,
-    Seq(typeSafeConfig),
-    monocle
+    Seq(typeSafeConfig)
   ).flatten
 
   lazy val betterFiles = "com.github.pathikrit" %% "better-files-akka" % "3.9.1"
@@ -47,12 +46,6 @@ object Dependencies {
   ) :+ scalaCheck
 
   lazy val typeSafeConfig = "com.typesafe" % "config" % "1.4.1"
-
-  lazy val monocleVersion = "2.1.0"
-  lazy val monocle = Seq(
-    "com.github.julien-truffaut" %% "monocle-core" % monocleVersion,
-    "com.github.julien-truffaut" %% "monocle-macro" % monocleVersion
-  )
 
   lazy val gcp = Seq(
     "com.google.cloud" % "google-cloud-dataproc" % "2.3.2" % "provided",
