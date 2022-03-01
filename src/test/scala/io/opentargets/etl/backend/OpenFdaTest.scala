@@ -1,11 +1,12 @@
 package io.opentargets.etl.backend
 
-import io.opentargets.etl.backend.openfda.stage.{EventsFiltering, PrepareAdverseEventData, PrepareBlacklistData, PrepareDrugList}
+import io.opentargets.etl.backend.openfda.stage.{
+  EventsFiltering,
+  PrepareBlacklistData,
+  PrepareDrugList
+}
 import io.opentargets.etl.backend.spark.{IOResourceConfig, IOResourceConfigOption}
 import io.opentargets.etl.backend.spark.IoHelpers
-import javassist.ClassPath
-import org.scalatest.{BeforeAndAfterAll, PrivateMethodTester}
-import org.scalatest.flatspec.AnyFlatSpecLike
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpecLike
 
@@ -34,7 +35,6 @@ class OpenFdaTest extends AnyWordSpecLike with SparkSessionSetup with Matchers {
       )
 
     // Read the files
-    //val dfsData = IoHelpers.readFrom(sourceData)
     IoHelpers.readFrom(sourceData)
   }
 
