@@ -79,6 +79,7 @@ object Helpers extends LazyLogging {
       .setAppName(appName)
       .set("spark.driver.maxResultSize", "0")
       .set("spark.debug.maxToStringFields", "2000")
+      .set("spark.sql.mapKeyDedupPolicy", "LAST_WIN")
 
     // if some uri then setmaster must be set otherwise
     // it tries to get from env if any yarn running

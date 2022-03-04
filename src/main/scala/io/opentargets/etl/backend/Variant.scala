@@ -3,31 +3,18 @@ package io.opentargets.etl.backend
 import com.typesafe.scalalogging.LazyLogging
 import io.opentargets.etl.backend.spark.{IOResource, IoHelpers}
 import io.opentargets.etl.backend.spark.IoHelpers.IOResources
-import org.apache.spark.sql.expressions.Aggregator
-import org.apache.spark.sql.functions.{abs, col, min, udaf, when}
-import org.apache.spark.sql.types.LongType
-import org.apache.spark.sql.{DataFrame, Encoder, Encoders, SparkSession, functions}
-
-/** UDAF to find the ENSG ID closest to a variant by distance. First argument should be an ENSG ID, the second is the
-  * distance.
-  * */
-object ClosestGeneId extends Aggregator[(String, Long), (String, Long), String] {
-  type GeneAndDistance = (String, Long)
-
-  def zero: GeneAndDistance = ("", Long.MaxValue)
-
-  def reduce(buffer: GeneAndDistance, nxt: GeneAndDistance): GeneAndDistance = {
-    if (buffer._2 < nxt._2) buffer else nxt
-  }
-
-  def merge(b1: GeneAndDistance, b2: GeneAndDistance): GeneAndDistance = reduce(b1, b2)
-
-  def finish(reduction: GeneAndDistance): String = reduction._1
-
-  def outputEncoder: Encoder[String] = Encoders.STRING
-
-  def bufferEncoder: Encoder[(String, Long)] = Encoders.product
+import org.apache.spark.sql.functions.{
+  abs,
+  arrays_zip,
+  col,
+  collect_list,
+  map_from_entries,
+  min,
+  udaf,
+  when
 }
+import org.apache.spark.sql.types.LongType
+import org.apache.spark.sql.{DataFrame, SparkSession}
 
 object Variant extends LazyLogging {
 
@@ -35,9 +22,6 @@ object Variant extends LazyLogging {
 
     logger.info("Executing Variant step.")
     implicit val ss: SparkSession = context.sparkSession
-
-    val closestGeneId = udaf(ClosestGeneId)
-    ss.udf.register("closest_gene", closestGeneId)
 
     val variantConfiguration = context.configuration.variant
 
@@ -54,6 +38,11 @@ object Variant extends LazyLogging {
 
     val approvedBioTypes = variantConfiguration.excludedBiotypes.toSet
     val excludedChromosomes: Set[String] = Set("MT")
+
+    // these four components uniquely identify a variant
+    val variantIdStr = Seq("chr_id", "position", "ref_allele", "alt_allele")
+    val variantIdCol = variantIdStr.map(col)
+
     logger.info("Generate target DF for variant index.")
     val targetDf = targetRawDf
       .select(
@@ -61,7 +50,7 @@ object Variant extends LazyLogging {
         col("genomicLocation.*"),
         col("biotype"),
         when(col("genomicLocation.strand") > 0, col("genomicLocation.start"))
-          .otherwise("genomicLocation.end") as "tss"
+          .otherwise(col("genomicLocation.end")) as "tss"
       )
       .filter(
         (col("biotype") isInCollection approvedBioTypes) && !(col("chromosome") isInCollection excludedChromosomes))
@@ -84,8 +73,9 @@ object Variant extends LazyLogging {
         col("cadd") as "cadd",
         col("af") as "af",
       )
+      .repartition(variantIdCol: _*)
 
-    def variantGeneDistance(target: DataFrame) =
+    def variantGeneDistance(target: DataFrame): DataFrame =
       variantDf
         .join(
           target,
@@ -93,33 +83,33 @@ object Variant extends LazyLogging {
         .withColumn("d", abs(col("position") - col("tss")))
 
     logger.info("Calculate distance score for variant to gene.")
-    val variantGeneDistanceDf = variantGeneDistance(targetDf)
-    val variantPcDistanceDf = variantGeneDistance(proteinCodingDf)
-
-    // these four components uniquely identify a variant
-    val variantId = Seq("chr_id", "position", "ref_allele", "alt_allele")
+    val variantGeneDistanceDf = targetDf.transform(variantGeneDistance)
+    val variantPcDistanceDf = proteinCodingDf.transform(variantGeneDistance)
 
     logger.info("Rank variant scores by distance")
-    val variantGeneScored = variantGeneDistanceDf
-      .groupBy(col("chr_id"), col("position"), col("ref_allele"), col("alt_allele"))
-      .agg(closestGeneId(col("gene_id"), col("d")) as "gene_id_any",
-           min(col("d")) cast LongType as "gene_id_any_distance")
 
-    val variantPcScored = variantPcDistanceDf
-      .groupBy(
-        col("chr_id"),
-        col("position"),
-        col("ref_allele"),
-        col("alt_allele"),
-      )
-      .agg(closestGeneId(col("gene_id"), col("d")) as "gene_id_prot_coding",
-           min(col("d")) cast LongType as "gene_id_prot_coding_distance")
+    def findNearestGene(name: String)(df: DataFrame): DataFrame = {
+      val nameDistance = s"${name}_distance"
+      df.groupBy(variantIdCol: _*)
+        .agg(collect_list(col("gene_id")) as "geneList",
+             collect_list(col("d")) as "dist",
+             min(col("d")) cast LongType as nameDistance)
+        .select(
+          variantIdCol ++ Seq(
+            col(nameDistance),
+            map_from_entries(arrays_zip(col("dist"), col("geneList"))) as "distToGeneMap"): _*)
+        .withColumn(name, col("distToGeneMap")(col(nameDistance)))
+        .drop("distToGeneMap", "geneList", "dist")
+    }
+
+    val variantGeneScored = variantGeneDistanceDf.transform(findNearestGene("gene_id_any"))
+    val variantPcScored = variantPcDistanceDf.transform(findNearestGene("gene_id_prot_coding"))
 
     logger.info("Join scored distances variants and scored protein coding.")
-    val vgDistances = variantGeneScored.join(variantPcScored, variantId, "full_outer")
+    val vgDistances = variantGeneScored.join(variantPcScored, variantIdStr, "full_outer")
 
     logger.info("Join distances to variants.")
-    val variantIndex = variantDf.join(vgDistances, variantId, "left_outer")
+    val variantIndex = variantDf.join(vgDistances, variantIdStr, "left_outer")
 
     val outputs = Map(
       "variant" -> IOResource(variantIndex, variantConfiguration.outputs.variants)
