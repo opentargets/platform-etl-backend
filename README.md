@@ -179,6 +179,15 @@ responsibility_ to ensure that required inputs are available.
 
 ## Step notes
 
+### Variant
+
+Variant relates to the former genetics-pipe project. The step requires two inputs:
+
+| input | notes |
+| --- | --- |
+| `variant-annotation` | This is provided by the data- or genetics-team, and is confusingly also referred to as the variant-index in some places. |
+| `target-index` | Produced by the target step of the ETL. |
+
 ### Target Validation
 
 Inputs can be provided here where the only logic is to match an ENSG ID against an input column. Any input rows which

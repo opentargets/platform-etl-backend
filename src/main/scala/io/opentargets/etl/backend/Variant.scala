@@ -53,7 +53,10 @@ object Variant extends LazyLogging {
           .otherwise(col("genomicLocation.end")) as "tss"
       )
       .filter(
-        (col("biotype") isInCollection approvedBioTypes) && !(col("chromosome") isInCollection excludedChromosomes))
+        (col("biotype") isInCollection approvedBioTypes) && !(col(
+          "chromosome"
+        ) isInCollection excludedChromosomes)
+      )
 
     logger.info("Generate protein coding DF for variant index.")
     val proteinCodingDf = targetDf.filter(col("biotype") === "protein_coding")
@@ -71,7 +74,7 @@ object Variant extends LazyLogging {
         col("rsid") as "rs_id",
         col("vep.most_severe_consequence") as "most_severe_consequence",
         col("cadd") as "cadd",
-        col("af") as "af",
+        col("af") as "af"
       )
       .repartition(variantIdCol: _*)
 
@@ -79,7 +82,10 @@ object Variant extends LazyLogging {
       variantDf
         .join(
           target,
-          (col("chr_id") === col("chromosome")) && (abs(col("position") - col("tss")) <= variantConfiguration.tssDistance))
+          (col("chr_id") === col("chromosome")) && (abs(
+            col("position") - col("tss")
+          ) <= variantConfiguration.tssDistance)
+        )
         .withColumn("d", abs(col("position") - col("tss")))
 
     logger.info("Calculate distance score for variant to gene.")
@@ -91,13 +97,17 @@ object Variant extends LazyLogging {
     def findNearestGene(name: String)(df: DataFrame): DataFrame = {
       val nameDistance = s"${name}_distance"
       df.groupBy(variantIdCol: _*)
-        .agg(collect_list(col("gene_id")) as "geneList",
-             collect_list(col("d")) as "dist",
-             min(col("d")) cast LongType as nameDistance)
+        .agg(
+          collect_list(col("gene_id")) as "geneList",
+          collect_list(col("d")) as "dist",
+          min(col("d")) cast LongType as nameDistance
+        )
         .select(
           variantIdCol ++ Seq(
             col(nameDistance),
-            map_from_entries(arrays_zip(col("dist"), col("geneList"))) as "distToGeneMap"): _*)
+            map_from_entries(arrays_zip(col("dist"), col("geneList"))) as "distToGeneMap"
+          ): _*
+        )
         .withColumn(name, col("distToGeneMap")(col(nameDistance)))
         .drop("distToGeneMap", "geneList", "dist")
     }
