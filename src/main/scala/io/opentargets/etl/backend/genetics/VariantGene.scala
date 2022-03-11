@@ -12,6 +12,7 @@ import org.apache.spark.sql.functions.{
   element_at,
   explode,
   lit,
+  log,
   map_filter,
   map_from_entries,
   map_keys,
@@ -24,7 +25,8 @@ import org.apache.spark.sql.{Column, DataFrame, SparkSession}
 
 object VariantGene extends LazyLogging {
 
-  val idxCols: Seq[Column] = Seq("chr_id", "position", "ref_allele", "alt_allele").map(col)
+  val idxStrs: Seq[String] = Seq("chr_id", "position", "ref_allele", "alt_allele")
+  val idxCols: Seq[Column] = idxStrs.map(col)
 
   def apply()(implicit context: ETLSessionContext): IOResources = {
 
@@ -95,6 +97,9 @@ object VariantGene extends LazyLogging {
     // distance
     val variantDistance = calculateDistanceDf(variantRawDf, targetRawDf, configuration.tssDistance)
 
+    // qtl
+    val variantQtl = calculateQtls(variantRawDf, qtlRawDf)
+
     // interval
 
     val variantGeneIdx: DataFrame = ???
@@ -130,5 +135,29 @@ object VariantGene extends LazyLogging {
       .select(
         idxCols ++ Seq("d", "distance_score", "distance_score_q").map(col) :+ col("gene_id"): _*
       )
+  }
+
+  def calculateQtls(variant: DataFrame, qtls: DataFrame): DataFrame = {
+
+    val qtl = qtls
+      .select(
+        col("chrom") as "chr_id",
+        col("pos") as "position",
+        col("other_allele") as "ref_allele",
+        col("effect_allele") as "alt_allele",
+        col("beta") as "qtl_beta",
+        col("se") as "qtl_se",
+        when(col("pval") === 0d, lit(Double.MinPositiveValue)).otherwise(col("pval")) as "qtl_pval",
+        col("ensembl_id") as "gene_id",
+        col("type") as "type_id",
+        col("source") as "source_id",
+        col("feature")
+      )
+      .withColumn("qtl_score", -log(10, col("qtl_pval")))
+      .join(variant, idxStrs, "left_semi")
+
+    val w = Window.partitionBy("source_id", "feature").orderBy(col("qtl_score").asc)
+
+    qtl.withColumn("qtl_score_q", round(percent_rank().over(w), 1))
   }
 }
