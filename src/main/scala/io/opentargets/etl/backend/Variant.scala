@@ -1,6 +1,8 @@
 package io.opentargets.etl.backend
 
 import com.typesafe.scalalogging.LazyLogging
+import io.opentargets.etl.backend.genetics.Gene
+import io.opentargets.etl.backend.genetics.Gene.variantGeneDistance
 import io.opentargets.etl.backend.spark.{IOResource, IoHelpers}
 import io.opentargets.etl.backend.spark.IoHelpers.IOResources
 import org.apache.spark.sql.functions.{
@@ -42,23 +44,8 @@ object Variant extends LazyLogging {
     val variantRawDf: DataFrame = inputs("variants").data
     val targetRawDf: DataFrame = inputs("targets").data
 
-    val approvedBioTypes = variantConfiguration.excludedBiotypes.toSet
-    val excludedChromosomes: Set[String] = Set("MT")
-
     logger.info("Generate target DF for variant index.")
-    val targetDf = targetRawDf
-      .select(
-        col("id") as "gene_id",
-        col("genomicLocation.*"),
-        col("biotype"),
-        when(col("genomicLocation.strand") > 0, col("genomicLocation.start"))
-          .otherwise(col("genomicLocation.end")) as "tss"
-      )
-      .filter(
-        (col("biotype") isInCollection approvedBioTypes) && !(col(
-          "chromosome"
-        ) isInCollection excludedChromosomes)
-      )
+    val targetDf = Gene.getGeneDf(targetRawDf, context.configuration.genetics.approvedBiotypes)
 
     logger.info("Generate protein coding DF for variant index.")
     val proteinCodingDf = targetDf.filter(col("biotype") === "protein_coding")
@@ -98,19 +85,12 @@ object Variant extends LazyLogging {
 
     val variantWithVep = variantDf.drop("vep").join(vep, variantIdStr, "left_outer").cache
 
-    def variantGeneDistance(target: DataFrame): DataFrame =
-      variantWithVep
-        .join(
-          target,
-          (col("chr_id") === col("chromosome")) && (abs(
-            col("position") - col("tss")
-          ) <= variantConfiguration.tssDistance)
-        )
-        .withColumn("d", abs(col("position") - col("tss")))
-
     logger.info("Calculate distance score for variant to gene.")
-    val variantGeneDistanceDf = targetDf.transform(variantGeneDistance)
-    val variantPcDistanceDf = proteinCodingDf.transform(variantGeneDistance)
+    val variantGeneDistanceDf =
+      targetDf.transform(variantGeneDistance(variantWithVep, variantConfiguration.tssDistance))
+    val variantPcDistanceDf = proteinCodingDf.transform(
+      variantGeneDistance(variantWithVep, variantConfiguration.tssDistance)
+    )
 
     logger.info("Rank variant scores by distance")
 
