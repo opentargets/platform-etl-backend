@@ -37,6 +37,7 @@ object VariantGene extends LazyLogging {
 
     logger.info(s"Configuration for Variant: $configuration")
 
+    logger.info("Loading VariantGene inputs.")
     val mappedInputs = Map(
       "variants" -> configuration.inputs.variantIndex,
       "targets" -> configuration.inputs.targetIndex,
@@ -52,9 +53,26 @@ object VariantGene extends LazyLogging {
     val vepRawDf: DataFrame = inputs("vep").data
     val intervalRawDf: DataFrame = inputs("interval").data
 
+    logger.info("Calculate intermediate V2G subsets: vep, distance, qtl, interval.")
+    val variantVep = calculateVep(variantRawDf, vepRawDf)
+    val variantDistance = calculateDistanceDf(variantRawDf, targetRawDf, configuration.tssDistance)
+    val variantQtl = calculateQtls(variantRawDf, qtlRawDf)
+
+    //    val variantInterval = calculateInterval()
+
+    val variantGeneIdx: DataFrame = ???
+
+    val outputs = Map(
+      "variantGene" -> IOResource(variantGeneIdx, configuration.outputs.variantGene)
+    )
+    logger.info("Write variant-gene index outputs.")
+    IoHelpers.writeTo(outputs)
+  }
+
+  def calculateVep(variants: DataFrame, vep: DataFrame): DataFrame = {
     val groupingCols = idxCols :+ col("vep_gene_id")
 
-    val variantIdx: DataFrame = variantRawDf
+    val variantIdx: DataFrame = variants
       .select(
         col("chr_id"),
         col("position"),
@@ -67,7 +85,7 @@ object VariantGene extends LazyLogging {
       )
 
     // veps
-    val vepConsequencesDf = vepRawDf
+    val vepConsequencesDf = vep
       .filter(col("v2g_score").isNotNull)
       .select(
         col("Term") as "fpred_label",
@@ -94,21 +112,7 @@ object VariantGene extends LazyLogging {
       .filter(col("fpred_max_score").isNotNull)
       .drop("score_label_map")
 
-    // distance
-    val variantDistance = calculateDistanceDf(variantRawDf, targetRawDf, configuration.tssDistance)
-
-    // qtl
-    val variantQtl = calculateQtls(variantRawDf, qtlRawDf)
-
-    // interval
-
-    val variantGeneIdx: DataFrame = ???
-
-    val outputs = Map(
-      "variantGene" -> IOResource(variantGeneIdx, configuration.outputs.variantGene)
-    )
-    logger.info("Write variant-gene index outputs.")
-    IoHelpers.writeTo(outputs)
+    variantGeneVepDf
   }
 
   def calculateDistanceDf(variant: DataFrame, gene: DataFrame, distance: Long): DataFrame = {
