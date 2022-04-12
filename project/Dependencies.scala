@@ -44,11 +44,10 @@ object Dependencies {
     "org.scalactic" %% "scalactic" % testVersion,
     "org.scalatest" %% "scalatest" % testVersion % "test"
   ) :+ scalaCheck
-
-  lazy val typeSafeConfig = "com.typesafe" % "config" % "1.4.1"
-
   lazy val gcp = Seq(
     "com.google.cloud" % "google-cloud-dataproc" % "2.3.2" % "provided",
-    "com.google.cloud" % "google-cloud-storage" % "2.4.2"
+    "com.google.cloud" % "google-cloud-storage" % "2.4.2" % "provided"
   )
+  lazy val typeSafeConfig = "com.typesafe" % "config" % "1.4.1"
+
 }

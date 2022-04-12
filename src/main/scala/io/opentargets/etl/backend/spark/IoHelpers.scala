@@ -172,8 +172,11 @@ object IoHelpers extends LazyLogging {
 
     val serialisedSchema = ior.data.schema.json
     val iores = ior.configuration.copy(
-      path =
-        context.configuration.common.output.split("/").filter(_.nonEmpty).mkString("/", "/", ""))
+      path = ior.configuration.path
+        .stripPrefix(context.configuration.common.output)
+        .split("/")
+        .filter(_.nonEmpty)
+        .mkString("/", "/", ""))
 
     val cols = ior.data.columns.toList
     val id = ior.configuration.path.split("/").filter(_.nonEmpty).last

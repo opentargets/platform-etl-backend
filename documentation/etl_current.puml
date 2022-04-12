@@ -6,6 +6,7 @@ skinparam interface {
 skinparam artifact {
      backgroundColor<<noDependency>> orchid
      backgroundColor<<dependencies>> darkturquoise
+     backgroundColor<<genetics>> green
  }
 ' steps
 artifact associations <<dependencies>>
@@ -23,6 +24,8 @@ artifact search <<dependencies>>
 artifact target <<dependencies>>
 artifact openfda <<dependencies>>
 artifact ebiSearch <<dependencies>>
+
+artifact variant <<genetics>>
 
 reactome --> target
 
@@ -52,6 +55,7 @@ drug --> search
 associations --> search
 
 target --> interactions
+target --> variant
 
 target --> targetValidation
 
