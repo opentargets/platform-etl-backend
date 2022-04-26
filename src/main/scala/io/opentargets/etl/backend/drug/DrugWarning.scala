@@ -3,8 +3,7 @@ package io.opentargets.etl.backend.drug
 import com.typesafe.scalalogging.LazyLogging
 import org.apache.spark.sql.{DataFrame, SparkSession}
 
-/**
-  * Drug warnings as produced by ChEMBL. Available since ChEMBL release 28.
+/** Drug warnings as produced by ChEMBL. Available since ChEMBL release 28.
   *
   * Drug warning are manually curated by ChEMBL according to the methodology outlined
   * [[https://pubs.acs.org/doi/pdf/10.1021/acs.chemrestox.0c00296 in this research paper]].

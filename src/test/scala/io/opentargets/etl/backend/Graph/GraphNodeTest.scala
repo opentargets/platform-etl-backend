@@ -9,8 +9,9 @@ import org.apache.spark.sql.{DataFrame, Dataset, Row, SparkSession}
 
 object GraphNodeTest {
 
-  def createDF(data: Seq[(String, String)], structure: Seq[String])(
-      implicit sparkSession: SparkSession): DataFrame = {
+  def createDF(data: Seq[(String, String)], structure: Seq[String])(implicit
+      sparkSession: SparkSession
+  ): DataFrame = {
     val dataframe = sparkSession.createDataFrame(data).toDF(structure: _*)
     dataframe
   }

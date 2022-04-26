@@ -25,7 +25,8 @@ class MechanismOfActionTest extends EtlSparkUnitTest {
     // then
     assertResult(1)(results.count)
     assertResult(2, "Duplicate references should be removed")(
-      results.select(sparkSize(col("references"))).head().get(0))
+      results.select(sparkSize(col("references"))).head().get(0)
+    )
   }
 
 }

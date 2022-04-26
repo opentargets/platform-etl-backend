@@ -11,7 +11,8 @@ import org.scalatest.matchers.should.Matchers._
 
 object UniprotTest {
   val uniprotDataPath: String = this.getClass.getResource("/uniprot/sample_10.txt").getPath
-  val uniprotSslDataPath: String = this.getClass.getResource("/uniprot/subcellularLocationUniprot.tsv").getPath
+  val uniprotSslDataPath: String =
+    this.getClass.getResource("/uniprot/subcellularLocationUniprot.tsv").getPath
   lazy val uniprotDataStream: Iterator[String] = File(uniprotDataPath).lineIterator
   lazy val uniprotData: Seq[UniprotEntry] = {
     UniprotConverter.fromFlatFile(uniprotDataStream)
@@ -44,7 +45,8 @@ class UniprotTest extends EtlSparkUnitTest {
     import sparkSession.implicits._
     // given
     val input: Dataset[Row] = uniprotData.toDF
-    val sslDf: DataFrame = sparkSession.read.option("header", "true").option("sep", "\\t").csv(uniprotSslDataPath)
+    val sslDf: DataFrame =
+      sparkSession.read.option("header", "true").option("sep", "\\t").csv(uniprotSslDataPath)
     // when
     val results = Uniprot(input, sslDf)
 
@@ -64,7 +66,12 @@ class UniprotTest extends EtlSparkUnitTest {
     val uniprotDf: DataFrame = Seq(
       ("CDKL5", Array("Cytoplasm, cytoskeleton, microtubule organizing center, centrosome")),
       ("P48634", Array("Cytoplasm", "Nucleus")),
-      ("MAOB", Array("Mitochondrion outer membrane; Single-pass type IV membrane protein; Cytoplasmic side")),
+      (
+        "MAOB",
+        Array(
+          "Mitochondrion outer membrane; Single-pass type IV membrane protein; Cytoplasmic side"
+        )
+      ),
       ("P38398", Array("[Isoform 3]: Cytoplasm", "Nucleus"))
     ).toDF("uniprotId", "locations")
     val uniprotSsl: DataFrame = Seq(

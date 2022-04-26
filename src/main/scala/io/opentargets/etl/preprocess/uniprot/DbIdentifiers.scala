@@ -13,7 +13,6 @@ package io.opentargets.etl.preprocess.uniprot
   * }}}
   *
   * Supported databases are specified in this trait.
-  *
   */
 trait DbIdentifiers {
   val CHEMBL = "ChEMBL;"

@@ -12,17 +12,24 @@ object AssociationOTF extends LazyLogging {
     val fcDF = df
       .select(
         col("target_id"),
-        explode(filter(col("facet_classes"), c => {
-          val level = c.getField("level")
-          level === "l1" || level === "l2"
-        })) as "fc"
+        explode(
+          filter(
+            col("facet_classes"),
+            c => {
+              val level = c.getField("level")
+              level === "l1" || level === "l2"
+            }
+          )
+        ) as "fc"
       )
       .select("target_id", "fc.*")
       .orderBy("target_id", "id", "level")
       .groupBy("target_id", "id")
       .agg(collect_list("label") as "levels")
-      .withColumn("facet_classes",
-                  struct(col("levels").getItem(0) as "l1", col("levels").getItem(1) as "l2"))
+      .withColumn(
+        "facet_classes",
+        struct(col("levels").getItem(0) as "l1", col("levels").getItem(1) as "l2")
+      )
       .groupBy("target_id")
       .agg(collect_list("facet_classes") as "facet_classes")
       .orderBy("target_id")
@@ -30,8 +37,9 @@ object AssociationOTF extends LazyLogging {
     df.drop("facet_classes").join(fcDF, Seq("target_id"), "left_outer")
   }
 
-  def computeFacetTAs(df: DataFrame, keyCol: String, labelCol: String, vecCol: String)(
-      implicit context: ETLSessionContext): DataFrame = {
+  def computeFacetTAs(df: DataFrame, keyCol: String, labelCol: String, vecCol: String)(implicit
+      context: ETLSessionContext
+  ): DataFrame = {
     implicit val ss: SparkSession = context.sparkSession
 
     val taID = vecCol + "_tmp"
@@ -89,7 +97,7 @@ object AssociationOTF extends LazyLogging {
     val mappedInputs = Map(
       "evidences" -> conf.aotf.inputs.evidences,
       "targets" -> conf.aotf.inputs.targets,
-      "diseases" -> conf.aotf.inputs.diseases,
+      "diseases" -> conf.aotf.inputs.diseases
     )
 
     val dfs = IoHelpers.readFrom(mappedInputs)
@@ -124,11 +132,13 @@ object AssociationOTF extends LazyLogging {
         .withColumnRenamed("therapeuticAreas", "facet_therapeuticAreas")
 
     val targetsFacetReactome =
-      targets.select(col("target_id"),
-                     transform(col("reactome"),
-                               r =>
-                                 struct(r.getField("topLevelTerm") as "l1",
-                                        r.getField("pathway") as "l2")) as "facet_reactome")
+      targets.select(
+        col("target_id"),
+        transform(
+          col("reactome"),
+          r => struct(r.getField("topLevelTerm") as "l1", r.getField("pathway") as "l2")
+        ) as "facet_reactome"
+      )
 
     val finalTargets = targets
       .transform(computeFacetClasses)

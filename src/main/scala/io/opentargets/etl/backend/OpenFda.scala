@@ -1,7 +1,21 @@
 package io.opentargets.etl.backend
 
 import com.typesafe.scalalogging.LazyLogging
-import io.opentargets.etl.backend.openfda.stage.{AttachMeddraData, EventsFiltering, LoadData, MonteCarloSampling, OpenFdaCompute, OpenFdaDataPreparation, PrePrepRawFdaData, PrepareAdverseEventData, PrepareBlacklistData, PrepareDrugList, PrepareForMontecarlo, PrepareSummaryStatistics, StratifiedSampling}
+import io.opentargets.etl.backend.openfda.stage.{
+  AttachMeddraData,
+  EventsFiltering,
+  LoadData,
+  MonteCarloSampling,
+  OpenFdaCompute,
+  OpenFdaDataPreparation,
+  PrePrepRawFdaData,
+  PrepareAdverseEventData,
+  PrepareBlacklistData,
+  PrepareDrugList,
+  PrepareForMontecarlo,
+  PrepareSummaryStatistics,
+  StratifiedSampling
+}
 import io.opentargets.etl.backend.spark.IoHelpers.IOResources
 import io.opentargets.etl.backend.spark.{IOResource, IOResourceConfig, IoHelpers}
 import org.apache.spark.sql.functions.{explode, typedLit}
@@ -26,7 +40,12 @@ case object MeddraLowLevelTermsData extends FdaDataSource {
 }
 
 // Target Map Structure
-case class TargetDimension(colId: String, statsColId: String, outputUnfilteredResults: IOResourceConfig, outputResults: IOResourceConfig)
+case class TargetDimension(
+    colId: String,
+    statsColId: String,
+    outputUnfilteredResults: IOResourceConfig,
+    outputResults: IOResourceConfig
+)
 
 // OpenFDA FAERS ETL Step
 object OpenFda extends LazyLogging {

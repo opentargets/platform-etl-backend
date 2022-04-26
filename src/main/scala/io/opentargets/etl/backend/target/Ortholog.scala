@@ -8,8 +8,7 @@ import org.apache.spark.sql.{DataFrame, Dataset, SparkSession, functions}
 /** Maps orthologs to ensembl human gene ids */
 object Ortholog extends LazyLogging {
 
-  /**
-    * @param homologyDict     Ensembl dictionary of species: ftp://ftp.ensembl.org/pub/release-100/species_EnsemblVertebrates.txt
+  /** @param homologyDict     Ensembl dictionary of species: ftp://ftp.ensembl.org/pub/release-100/species_EnsemblVertebrates.txt
     * @param codingProteins   Ensembl human genes coding protein and nont coding RNA from
     *                         ftp://ftp.ensembl.org/pub/release-104/tsv/ensembl-compara/homologies/homo_sapiens/Compara.104.protein_default.homologies.tsv.gz
     *                         ftp://ftp.ensembl.org/pub/release-104/tsv/ensembl-compara/homologies/homo_sapiens/Compara.104.ncrna_default.homologies.tsv.gz
@@ -17,10 +16,12 @@ object Ortholog extends LazyLogging {
     * @param targetSpecies    List of whitelisted species taken from the configuration file.
     * @return
     */
-  def apply(homologyDict: DataFrame,
-            codingProteins: DataFrame,
-            homologyGeneDict: DataFrame,
-            targetSpecies: List[String])(implicit sparkSession: SparkSession): Dataset[Ortholog] = {
+  def apply(
+      homologyDict: DataFrame,
+      codingProteins: DataFrame,
+      homologyGeneDict: DataFrame,
+      targetSpecies: List[String]
+  )(implicit sparkSession: SparkSession): Dataset[Ortholog] = {
     import sparkSession.implicits._
     logger.info("Processing homologs.")
 
@@ -28,10 +29,12 @@ object Ortholog extends LazyLogging {
       targetSpecies.map(_.takeWhile(_.isDigit)).zipWithIndex.toDF("speciesId", "priority")
 
     val homoDict = homologyDict
-      .select(col("#name").as("name"),
-              col("species").as("speciesName"),
-              col("taxonomy_id"),
-              typedLit(targetSpecies.flatMap(_.split("-").headOption)).as("whitelist"))
+      .select(
+        col("#name").as("name"),
+        col("species").as("speciesName"),
+        col("taxonomy_id"),
+        typedLit(targetSpecies.flatMap(_.split("-").headOption)).as("whitelist")
+      )
       .filter(array_contains(col("whitelist"), col("taxonomy_id")))
 
     val homoGeneDictDf =
@@ -57,7 +60,7 @@ object Ortholog extends LazyLogging {
         col("identity").cast(DoubleType).as("queryPercentageIdentity"),
         col("homology_identity")
           .cast(DoubleType)
-          .as("targetPercentageIdentity"),
+          .as("targetPercentageIdentity")
       )
       .join(broadcast(priority), Seq("speciesId"), "left_outer")
       .as[Ortholog]
@@ -67,12 +70,14 @@ object Ortholog extends LazyLogging {
 
 }
 
-case class Ortholog(speciesId: String,
-                    speciesName: String,
-                    homologyType: String,
-                    targetGeneId: String,
-                    targetGeneSymbol: String,
-                    isHighConfidence: String,
-                    queryPercentageIdentity: Double,
-                    targetPercentageIdentity: Double,
-                    priority: Int)
+case class Ortholog(
+    speciesId: String,
+    speciesName: String,
+    homologyType: String,
+    targetGeneId: String,
+    targetGeneSymbol: String,
+    isHighConfidence: String,
+    queryPercentageIdentity: Double,
+    targetPercentageIdentity: Double,
+    priority: Int
+)

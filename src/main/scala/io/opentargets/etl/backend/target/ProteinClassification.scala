@@ -19,15 +19,18 @@ case class ProteinClassificationEntry(id: Long, label: String, level: String)
 
 object ProteinClassification extends LazyLogging {
 
-  def apply(dataFrame: DataFrame)(
-      implicit sparkSession: SparkSession): Dataset[ProteinClassification] = {
+  def apply(
+      dataFrame: DataFrame
+  )(implicit sparkSession: SparkSession): Dataset[ProteinClassification] = {
     import sparkSession.implicits._
     logger.info("Reading protein classifications from ChEMBL.")
     val accessionAndPcDF = dataFrame
       .select(
         explode(
-          arrays_zip(col("_metadata.protein_classification"), col("target_components.accession")))
-          .as("s"))
+          arrays_zip(col("_metadata.protein_classification"), col("target_components.accession"))
+        )
+          .as("s")
+      )
       .select(col("s.1").as("accession"), col("s.0").as("pc"))
       .select("accession", "pc.*")
 
@@ -35,9 +38,11 @@ object ProteinClassification extends LazyLogging {
       s"l$i"
     }
     val toStruct = (column: String) => {
-      struct(col("protein_class_id").as("id"),
-             col(column).as("label"),
-             typedLit(column).as("level"))
+      struct(
+        col("protein_class_id").as("id"),
+        col(column).as("label"),
+        typedLit(column).as("level")
+      )
     }
 
     val proteinClassificationExpandedDF = columns.foldLeft(accessionAndPcDF)((df, level) => {

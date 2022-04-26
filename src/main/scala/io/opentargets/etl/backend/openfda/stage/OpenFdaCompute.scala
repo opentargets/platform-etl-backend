@@ -16,7 +16,8 @@ import org.apache.spark.storage.StorageLevel
 
 object OpenFdaCompute extends LazyLogging {
   def apply(dfsData: IOResources, fdaCookedData: DataFrame, targetDimension: TargetDimension)(
-      implicit context: ETLSessionContext): IOResources = {
+      implicit context: ETLSessionContext
+  ): IOResources = {
     implicit val sparkSession = context.sparkSession
 
     // Prepare Summary Statistics
@@ -28,10 +29,12 @@ object OpenFdaCompute extends LazyLogging {
     // Add Meddra
     val fdaDataWithMeddra = (context.configuration.openfda.meddra match {
       case Some(_) =>
-        AttachMeddraData(fdaDataMontecarloReady,
-                         targetDimension.colId,
-                         dfsData(MeddraPreferredTermsData()).data,
-                         dfsData(MeddraLowLevelTermsData()).data)
+        AttachMeddraData(
+          fdaDataMontecarloReady,
+          targetDimension.colId,
+          dfsData(MeddraPreferredTermsData()).data,
+          dfsData(MeddraLowLevelTermsData()).data
+        )
       case _ =>
         fdaDataMontecarloReady
           .withColumn("meddraCode", typedLit[String](""))
@@ -39,10 +42,12 @@ object OpenFdaCompute extends LazyLogging {
     // Conditional generation of Stratified Sampling
     val stratifiedSamplingData: IOResources = if (context.configuration.openfda.sampling.enabled) {
       // This one really uses the raw OpenFDA Data
-      StratifiedSampling(dfsData(FdaData()).data,
-                         fdaDataWithSummaryStats,
-                         fdaDataWithMeddra,
-                         targetDimension.colId)
+      StratifiedSampling(
+        dfsData(FdaData()).data,
+        fdaDataWithSummaryStats,
+        fdaDataWithMeddra,
+        targetDimension.colId
+      )
     } else Map()
     // Compute Montecarlo Sampling
     val montecarloResults = MonteCarloSampling(
@@ -55,10 +60,14 @@ object OpenFdaCompute extends LazyLogging {
     // Produce Output
     logger.info(s"Write OpenFDA computation for target dimension '${targetDimension.colId}'")
     val outputMap: IOResources = Map(
-      s"unfiltered-${targetDimension.colId}" -> IOResource(fdaDataWithMeddra,
-                                                           targetDimension.outputUnfilteredResults),
-      s"openFdaResults-${targetDimension.colId}" -> IOResource(montecarloResults,
-                                                               targetDimension.outputResults)
+      s"unfiltered-${targetDimension.colId}" -> IOResource(
+        fdaDataWithMeddra,
+        targetDimension.outputUnfilteredResults
+      ),
+      s"openFdaResults-${targetDimension.colId}" -> IOResource(
+        montecarloResults,
+        targetDimension.outputResults
+      )
     ) ++ stratifiedSamplingData
     IoHelpers.writeTo(outputMap)
   }

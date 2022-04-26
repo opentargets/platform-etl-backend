@@ -7,15 +7,17 @@ import org.apache.spark.sql.functions._
 import org.apache.spark.sql.types.{IntegerType, LongType}
 import org.apache.spark.sql.{Column, DataFrame, Dataset, SparkSession}
 
-case class Ensembl(id: String,
-                   biotype: String,
-                   approvedName: String,
-                   alternativeGenes: Option[Array[String]],
-                   genomicLocation: GenomicLocation,
-                   approvedSymbol: String,
-                   proteinIds: Option[Array[IdAndSource]],
-                   transcriptIds: Option[Array[String]],
-                   signalP: Option[Array[IdAndSource]])
+case class Ensembl(
+    id: String,
+    biotype: String,
+    approvedName: String,
+    alternativeGenes: Option[Array[String]],
+    genomicLocation: GenomicLocation,
+    approvedSymbol: String,
+    proteinIds: Option[Array[IdAndSource]],
+    transcriptIds: Option[Array[String]],
+    signalP: Option[Array[IdAndSource]]
+)
 
 case class GenomicLocation(chromosome: String, start: Long, end: Long, strand: Integer)
 
@@ -93,7 +95,8 @@ object Ensembl extends LazyLogging {
     // in cases where there is a gene id on a canonical chromosome we want to use that as the 'reference' id.
     val geneOptionsContainCanonicalChromosome = approvedSymbolWithMoreThanOneGeneId.withColumn(
       "isCanonical",
-      exists(col("agTemp.chromosome"), (col: Column) => col.isInCollection(includeChromosomes)))
+      exists(col("agTemp.chromosome"), (col: Column) => col.isInCollection(includeChromosomes))
+    )
 
     /*
     Use this df to add the alt genes to the ensemblId with an approved symbol on a canonical chromosome, and then remove
@@ -101,13 +104,27 @@ object Ensembl extends LazyLogging {
      */
     val altGenesOnCanonicalId = geneOptionsContainCanonicalChromosome
       .filter(col("isCanonical"))
-      .withColumn("canonicalId", filter(col("agTemp"), (col: Column) => {
-        col.getField("chromosome").isInCollection(includeChromosomes)
-      }))
-      .withColumn("altGenes", filter(col("agTemp"), (col: Column) => {
-        !col.getField("chromosome").isInCollection(includeChromosomes)
-      }))
-      .filter(size(col("canonicalId")) === 1) // filter because we don't want to aggregate AG on symbols on several canonical chromosomes.
+      .withColumn(
+        "canonicalId",
+        filter(
+          col("agTemp"),
+          (col: Column) => {
+            col.getField("chromosome").isInCollection(includeChromosomes)
+          }
+        )
+      )
+      .withColumn(
+        "altGenes",
+        filter(
+          col("agTemp"),
+          (col: Column) => {
+            !col.getField("chromosome").isInCollection(includeChromosomes)
+          }
+        )
+      )
+      .filter(
+        size(col("canonicalId")) === 1
+      ) // filter because we don't want to aggregate AG on symbols on several canonical chromosomes.
       .select(
         expr("canonicalId.id[0]") as "id",
         col("altGenes.id") as "altGenes"
@@ -123,27 +140,34 @@ object Ensembl extends LazyLogging {
         col("approvedSymbol"),
         array_sort(col("agTemp")) as "ag"
       )
-      .select(col("approvedSymbol"),
-              col("ag.id").getItem(0) as "id",
-              col("ag.id") as "alternativeGenes")
+      .select(
+        col("approvedSymbol"),
+        col("ag.id").getItem(0) as "id",
+        col("ag.id") as "alternativeGenes"
+      )
       .select(col("id"), array_remove(col("alternativeGenes"), col("id")) as "alternativeGenes")
 
     val IdsToRemove = altGenesOnCanonicalId
-      .join(altGenesOnNonCanonicalId,
-            altGenesOnCanonicalId("id") === altGenesOnNonCanonicalId("id"),
-            "full_outer")
+      .join(
+        altGenesOnNonCanonicalId,
+        altGenesOnCanonicalId("id") === altGenesOnNonCanonicalId("id"),
+        "full_outer"
+      )
       .select(
-        flatten(array(coalesce(col("altGenes"), array()),
-                      coalesce(col("alternativeGenes"), array()))) as "genes"
+        flatten(
+          array(coalesce(col("altGenes"), array()), coalesce(col("alternativeGenes"), array()))
+        ) as "genes"
       )
       .select(explode(col("genes")) as "geneToRemove")
 
     dataFrame
       .join(altGenesOnCanonicalId.orderBy(col("id")), Seq("id"), "left_outer")
       .join(altGenesOnNonCanonicalId.orderBy(col("id")), Seq("id"), "left_outer")
-      .join(IdsToRemove.orderBy(col("geneToRemove")),
-            col("id") === col("geneToRemove"),
-            "left_anti")
+      .join(
+        IdsToRemove.orderBy(col("geneToRemove")),
+        col("id") === col("geneToRemove"),
+        "left_anti"
+      )
       .withColumn("alternativeGenes", coalesce(col("alternativeGenes"), col("altGenes")))
       .drop("altGenes")
   }
@@ -155,24 +179,33 @@ object Ensembl extends LazyLogging {
     *   - uniprot_swissprot
     *   - uniprot_trembl
     *   - ensembl_PRO
-    * */
+    */
   def refactorProteinId(df: DataFrame): DataFrame =
-    df.withColumn("ensembl_PRO",
-                  transformArrayToStruct(col("translations.id"),
-                                         typedLit("ensembl_PRO") :: Nil,
-                                         idAndSourceSchema))
-      .withColumn("uniprot_swissprot",
-                  transformArrayToStruct(col("uniprot_swissprot"),
-                                         typedLit("uniprot_swissprot") :: Nil,
-                                         idAndSourceSchema))
-      .withColumn("uniprot_trembl",
-                  transformArrayToStruct(col("uniprot_trembl"),
-                                         typedLit("uniprot_trembl") :: Nil,
-                                         idAndSourceSchema))
-      .withColumn(
-        "proteinIds",
-        safeArrayUnion(col("uniprot_swissprot"), col("uniprot_trembl"), col("ensembl_PRO")))
-      .drop("uniprot_swissprot", "translations", "uniprot_trembl", "ensembl_PRO")
+    df.withColumn(
+      "ensembl_PRO",
+      transformArrayToStruct(
+        col("translations.id"),
+        typedLit("ensembl_PRO") :: Nil,
+        idAndSourceSchema
+      )
+    ).withColumn(
+      "uniprot_swissprot",
+      transformArrayToStruct(
+        col("uniprot_swissprot"),
+        typedLit("uniprot_swissprot") :: Nil,
+        idAndSourceSchema
+      )
+    ).withColumn(
+      "uniprot_trembl",
+      transformArrayToStruct(
+        col("uniprot_trembl"),
+        typedLit("uniprot_trembl") :: Nil,
+        idAndSourceSchema
+      )
+    ).withColumn(
+      "proteinIds",
+      safeArrayUnion(col("uniprot_swissprot"), col("uniprot_trembl"), col("ensembl_PRO"))
+    ).drop("uniprot_swissprot", "translations", "uniprot_trembl", "ensembl_PRO")
 
   /** Return approved name from description */
   private def descriptionToApprovedName(dataFrame: DataFrame): DataFrame = {
@@ -188,6 +221,7 @@ object Ensembl extends LazyLogging {
     dataframe
       .withColumn(
         "signalP",
-        transformArrayToStruct(col("signalP"), typedLit("signalP") :: Nil, idAndSourceSchema))
+        transformArrayToStruct(col("signalP"), typedLit("signalP") :: Nil, idAndSourceSchema)
+      )
 
 }

@@ -69,8 +69,10 @@ object InteractionsHelpers extends LazyLogging {
         .withColumn("proteins", coalesce(col("proteinIds.id"), array()))
         .select("id", "proteins")
       val targetHGNC = df
-        .select(col("id"),
-                filter(col("dbXRefs"), col => { col.getField("source") === "HGNC" }) as "h")
+        .select(
+          col("id"),
+          filter(col("dbXRefs"), col => { col.getField("source") === "HGNC" }) as "h"
+        )
         .withColumn("mapped_id", explode(col("h.id")))
         .select(col("id") as "gene_id", concat(lit("HGNC:"), col("mapped_id")) as "mapped_id")
       val humanMappingDF = humanMapping.transformHumanMapping
@@ -90,7 +92,7 @@ object InteractionsHelpers extends LazyLogging {
             "id",
             "gene_id"
           )
-        )
+      )
 
       val mappingExplode =
         mappingHuman.withColumn("mapped_id", explode(col("mapped_id_list"))).drop("mapped_id_list")
@@ -327,8 +329,7 @@ object InteractionsHelpers extends LazyLogging {
 // This is option/step interaction in the config file
 object Interactions extends LazyLogging {
 
-  /**
-    * @param dataframes with targetA and/or targetB with null value.
+  /** @param dataframes with targetA and/or targetB with null value.
     * @return a DataFrame with the interaction_id unmatched
     */
   def getUnmatch(intact: DataFrame, string: DataFrame)(implicit ss: SparkSession): DataFrame = {
@@ -350,8 +351,7 @@ object Interactions extends LazyLogging {
     unmatch
   }
 
-  /**
-    * @param dataframe with targetA and/or targetB with null value.
+  /** @param dataframe with targetA and/or targetB with null value.
     * @return a DataFrame
     */
   def removeNullTargetA(df: DataFrame)(implicit ss: SparkSession): DataFrame = {
@@ -417,8 +417,10 @@ object Interactions extends LazyLogging {
       "interactionsEvidence" -> IOResource(interactionEvidences, outputs.interactionsEvidence),
       "interactions" -> IOResource(aggregationInteractions, outputs.interactions),
       // This can be transformed into a ammonite script.
-      "interactionUnmatch" -> IOResource(getUnmatch(interactionIntactDF, interactionStringsDF),
-                                         outputs.interactionsUnmatched)
+      "interactionUnmatch" -> IOResource(
+        getUnmatch(interactionIntactDF, interactionStringsDF),
+        outputs.interactionsUnmatched
+      )
     )
   }
 

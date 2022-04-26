@@ -21,7 +21,8 @@ class HallmarksTest extends EtlSparkUnitTest {
     val ds: Dataset[HallmarksWithId] = Hallmarks(rawDF)
     // then
     ds.select("approvedSymbol").distinct.count must equal(
-      rawDF.select("GENE_SYMBOL").distinct.count)
+      rawDF.select("GENE_SYMBOL").distinct.count
+    )
   }
 
   lazy val ds: Dataset[HallmarksWithId] = Hallmarks(hallmarksRawDf).cache()

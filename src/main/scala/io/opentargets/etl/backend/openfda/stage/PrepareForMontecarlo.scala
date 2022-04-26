@@ -7,12 +7,14 @@ import org.apache.spark.sql.DataFrame
 import org.apache.spark.sql.functions.{col, lit, log}
 
 object PrepareForMontecarlo extends LazyLogging {
-  def apply(fdaData: DataFrame,
-            targetDimensionStatsColId: String)
-           (implicit context: ETLSessionContext) = {
+  def apply(fdaData: DataFrame, targetDimensionStatsColId: String)(implicit
+      context: ETLSessionContext
+  ) = {
     import context.sparkSession.implicits._
 
-    logger.info(s"Prepare data for Montecarlo on target dimension stats '${targetDimensionStatsColId}'")
+    logger.info(
+      s"Prepare data for Montecarlo on target dimension stats '${targetDimensionStatsColId}'"
+    )
     // total unique report ids
     val uniqReports: Long = fdaData.select("safetyreportid").distinct.count
     val doubleAgg = fdaData
@@ -20,9 +22,12 @@ object PrepareForMontecarlo extends LazyLogging {
       .withColumnRenamed("uniq_report_ids", "A")
       .withColumn("C", col(targetDimensionStatsColId) - col("A"))
       .withColumn("B", col("uniq_report_ids_by_reaction") - col("A"))
-      .withColumn("D",
+      .withColumn(
+        "D",
         lit(uniqReports) - col(targetDimensionStatsColId) - col(
-          "uniq_report_ids_by_reaction") + col("A"))
+          "uniq_report_ids_by_reaction"
+        ) + col("A")
+      )
       .withColumn("aterm", $"A" * (log($"A") - log($"A" + $"B")))
       .withColumn("cterm", $"C" * (log($"C") - log($"C" + $"D")))
       .withColumn("acterm", ($"A" + $"C") * (log($"A" + $"C") - log($"A" + $"B" + $"C" + $"D")))

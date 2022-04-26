@@ -44,8 +44,9 @@ object KnownDrugs extends LazyLogging {
     IoHelpers.writeTo(dfDirectInfoAnnotated)
   }
 
-  def compute(datasources: Seq[String], inputs: IOResources)(
-      implicit context: ETLSessionContext): IOResources = {
+  def compute(datasources: Seq[String], inputs: IOResources)(implicit
+      context: ETLSessionContext
+  ): IOResources = {
     implicit val ss: SparkSession = context.sparkSession
     import KnownDrugsHelpers._
     import ss.implicits._
@@ -57,22 +58,27 @@ object KnownDrugs extends LazyLogging {
           $"ancestors",
           $"name".as("label")
         )
-        .orderBy($"diseaseId".asc))
+        .orderBy($"diseaseId".asc)
+    )
 
     val targets = broadcast(
       inputs("target").data
-        .select(col("id") as "targetId",
-                col("approvedSymbol"),
-                col("approvedName"),
-                filter(col("targetClass"), x => x.getField("level") === "l1") as "targetClass",
+        .select(
+          col("id") as "targetId",
+          col("approvedSymbol"),
+          col("approvedName"),
+          filter(col("targetClass"), x => x.getField("level") === "l1") as "targetClass"
         )
         .withColumn("targetClass", array_distinct(col("targetClass.label")))
-        .orderBy(col("targetId").asc))
+        .orderBy(col("targetId").asc)
+    )
 
     val drugs = broadcast(
       inputs("drug").data
-        .join(inputs("mechanism").data.withColumn("id", explode($"chemblIds")).drop("chemblIds"),
-              Seq("id"))
+        .join(
+          inputs("mechanism").data.withColumn("id", explode($"chemblIds")).drop("chemblIds"),
+          Seq("id")
+        )
         .select(
           $"id".as("drugId"),
           $"name".as("prefName"),
@@ -87,7 +93,8 @@ object KnownDrugs extends LazyLogging {
         .withColumn("targetId", explode($"targets"))
         .drop("targets")
         .dropDuplicates("drugId", "targetId")
-        .orderBy($"drugId".asc, $"targetId".asc))
+        .orderBy($"drugId".asc, $"targetId".asc)
+    )
 
     val knownDrugsDF = inputs("evidence").data
       .filter($"sourceId" isInCollection datasources)

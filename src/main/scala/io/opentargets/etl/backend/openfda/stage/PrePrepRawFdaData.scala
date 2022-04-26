@@ -8,12 +8,14 @@ object PrePrepRawFdaData extends LazyLogging {
   def apply(dfFda: DataFrame) = {
     logger.info("Reducing dimensions of FAERS dataset")
     // FDA Raw data pre-prep
-    val columns = Seq("safetyreportid",
+    val columns = Seq(
+      "safetyreportid",
       "serious",
       "seriousnessdeath",
       "receivedate",
       "primarysource.qualification as qualification",
-      "patient")
+      "patient"
+    )
     val fdaRawData = dfFda.selectExpr(columns: _*)
 
     fdaRawData

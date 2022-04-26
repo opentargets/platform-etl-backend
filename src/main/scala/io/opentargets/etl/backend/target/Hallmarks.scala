@@ -27,7 +27,7 @@ object Hallmarks extends LazyLogging {
       col("PUBMED_PMID").cast(LongType) as "pmid",
       col("HALLMARK") as "hallmark",
       col("IMPACT") as "impact",
-      col("DESCRIPTION") as "description",
+      col("DESCRIPTION") as "description"
       //col("CELL_LINE") as "cell_line"
     )
     val cancerHallmarks = Seq(
@@ -40,7 +40,7 @@ object Hallmarks extends LazyLogging {
       "escaping programmed cell death",
       "tumour promoting inflammation",
       "cell replicative immortality",
-      "escaping immune response to cancer",
+      "escaping immune response to cancer"
     )
     // add column 'is_cancer_hallmark' so we can split into cancer and non-cancer hallmarks.
     val isCancerDF = df
@@ -50,24 +50,28 @@ object Hallmarks extends LazyLogging {
 
     val cancerHallmarkDF = isCancerDF
       .filter(col("is_cancer_hallmark"))
-      .select(col("gene_symbol"),
-              struct(
-                col("pmid"),
-                col("description"),
-                col("impact"),
-                col("hallmark") as "label"
-              ).as("cancerHallmarks"))
+      .select(
+        col("gene_symbol"),
+        struct(
+          col("pmid"),
+          col("description"),
+          col("impact"),
+          col("hallmark") as "label"
+        ).as("cancerHallmarks")
+      )
       .groupBy("gene_symbol")
       .agg(collect_set("cancerHallmarks") as "cancerHallmarks")
 
     val hallmarksDF = isCancerDF
       .filter(!col("is_cancer_hallmark"))
-      .select(col("gene_symbol"),
-              struct(
-                col("pmid"),
-                col("description"),
-                col("hallmark") as "attribute_name"
-              ).as("attributes"))
+      .select(
+        col("gene_symbol"),
+        struct(
+          col("pmid"),
+          col("description"),
+          col("hallmark") as "attribute_name"
+        ).as("attributes")
+      )
       .groupBy("gene_symbol")
       .agg(collect_set("attributes") as "attributes")
 
@@ -76,11 +80,13 @@ object Hallmarks extends LazyLogging {
       .distinct
       .join(cancerHallmarkDF, Seq("gene_symbol"), "left_outer")
       .join(hallmarksDF, Seq("gene_symbol"), "left_outer")
-      .select(col("gene_symbol") as "approvedSymbol",
-              struct(
-                col("attributes"),
-                col("cancerHallmarks")
-              ).as("hallmarks"))
+      .select(
+        col("gene_symbol") as "approvedSymbol",
+        struct(
+          col("attributes"),
+          col("cancerHallmarks")
+        ).as("hallmarks")
+      )
       .as[HallmarksWithId]
   }
 }

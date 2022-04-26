@@ -9,7 +9,8 @@ object GeneWithLocationTest {
   def getHpaDataframe(implicit sparkSession: SparkSession): (DataFrame, DataFrame) = {
     val pathHpa = this.getClass.getResource("/target/hpa_20.tsv").getPath
     val pathHpaSl = this.getClass.getResource("/target/hpa_sl.tsv").getPath
-    val reader: String => DataFrame = sparkSession.read.option("sep", "\\t").option("header", value = true).csv(_)
+    val reader: String => DataFrame =
+      sparkSession.read.option("sep", "\\t").option("header", value = true).csv(_)
     (reader(pathHpa), reader(pathHpaSl))
   }
 }

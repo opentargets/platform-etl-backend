@@ -19,12 +19,14 @@ object Evidence extends LazyLogging {
       * pValue inRangeMin and inRangeMax have log10 applied before f(x) is calculated
       * where f(x) = (dNewRange / dOldRange * (n - old_range_lower_bound)) + new_lower
       * if cap is True then f(n) will be capped to new range boundaries
-      * */
-    def pValueLinearRescaling(pValue: Double,
-                              inRangeMin: Double,
-                              inRangeMax: Double,
-                              outRangeMin: Double,
-                              outRangeMax: Double): Double = {
+      */
+    def pValueLinearRescaling(
+        pValue: Double,
+        inRangeMin: Double,
+        inRangeMax: Double,
+        outRangeMin: Double,
+        outRangeMax: Double
+    ): Double = {
       val pValueLog = Math.log10(pValue)
       val inRangeMinLog = Math.log10(inRangeMin)
       val inRangeMaxLog = Math.log10(inRangeMax)
@@ -32,18 +34,20 @@ object Evidence extends LazyLogging {
       linearRescaling(pValueLog, inRangeMinLog, inRangeMaxLog, outRangeMin, outRangeMax)
     }
 
-    def linearRescaling(value: Double,
-                        inRangeMin: Double,
-                        inRangeMax: Double,
-                        outRangeMin: Double,
-                        outRangeMax: Double): Double = {
+    def linearRescaling(
+        value: Double,
+        inRangeMin: Double,
+        inRangeMax: Double,
+        outRangeMin: Double,
+        outRangeMax: Double
+    ): Double = {
       val delta1 = inRangeMax - inRangeMin
       val delta2 = outRangeMax - outRangeMin
 
       val score: Double = (delta1, delta2) match {
-        case (d1, d2) if d1 != 0D => (d2 * (value - inRangeMin) / d1) + outRangeMin
-        case (0D, 0D)             => value
-        case (0D, _)              => outRangeMin
+        case (d1, d2) if d1 != 0d => (d2 * (value - inRangeMin) / d1) + outRangeMin
+        case (0d, 0d)             => value
+        case (0d, _)              => outRangeMin
       }
 
       Math.max(Math.min(score, outRangeMax), outRangeMin)
@@ -67,11 +71,13 @@ object Evidence extends LazyLogging {
       prepared.withColumn(rawScoreColumnName, lit(null).cast(DoubleType))
   }
 
-  def excludeByBiotype(df: DataFrame,
-                       targets: DataFrame,
-                       columnName: String,
-                       targetIdCol: String,
-                       datasourceIdCol: String)(implicit context: ETLSessionContext): DataFrame = {
+  def excludeByBiotype(
+      df: DataFrame,
+      targets: DataFrame,
+      columnName: String,
+      targetIdCol: String,
+      datasourceIdCol: String
+  )(implicit context: ETLSessionContext): DataFrame = {
     def mkLUT(df: DataFrame): DataFrame = {
       df.select(
         col("id").as(targetIdCol),
@@ -110,22 +116,24 @@ object Evidence extends LazyLogging {
     filtered
   }
 
-  def resolveTargets(df: DataFrame,
-                     targets: DataFrame,
-                     columnName: String,
-                     fromId: String,
-                     toId: String)(implicit context: ETLSessionContext): DataFrame = {
+  def resolveTargets(
+      df: DataFrame,
+      targets: DataFrame,
+      columnName: String,
+      fromId: String,
+      toId: String
+  )(implicit context: ETLSessionContext): DataFrame = {
     def generateTargetsLUT(df: DataFrame): DataFrame = {
       df.select(
-          col("id").as("tId"),
-          array_distinct(
-            mkFlattenArray(
-              array(col("id")),
-              col("proteinIds.id"),
-              array(col("approvedSymbol"))
-            )).as("rIds"),
-        )
-        .withColumn("rId", explode(col("rIds")))
+        col("id").as("tId"),
+        array_distinct(
+          mkFlattenArray(
+            array(col("id")),
+            col("proteinIds.id"),
+            array(col("approvedSymbol"))
+          )
+        ).as("rIds")
+      ).withColumn("rId", explode(col("rIds")))
         .select("tId", "rId")
     }
 
@@ -152,11 +160,13 @@ object Evidence extends LazyLogging {
     resolved
   }
 
-  def resolveDiseases(df: DataFrame,
-                      diseases: DataFrame,
-                      columnName: String,
-                      fromId: String,
-                      toId: String)(implicit context: ETLSessionContext): DataFrame = {
+  def resolveDiseases(
+      df: DataFrame,
+      diseases: DataFrame,
+      columnName: String,
+      fromId: String,
+      toId: String
+  )(implicit context: ETLSessionContext): DataFrame = {
     logger.info("disease resolution evidences and write to out the ones didn't resolve")
 
     implicit val session: SparkSession = context.sparkSession
@@ -193,7 +203,8 @@ object Evidence extends LazyLogging {
     import ss.implicits._
 
     logger.info(
-      "build a LUT table for the datatypes to make sure every datasource has one datatype id")
+      "build a LUT table for the datatypes to make sure every datasource has one datatype id"
+    )
     val config = context.configuration.evidences
 
     val dsId = "datasourceId"
@@ -202,9 +213,11 @@ object Evidence extends LazyLogging {
     val defaultDTId = config.datatypeId
 
     val dfWithDT = if (df.columns.contains(colName)) {
-      df.withColumn(colName,
-                    when(col(colName).isNull, lit(defaultDTId))
-                      .otherwise(col(colName)))
+      df.withColumn(
+        colName,
+        when(col(colName).isNull, lit(defaultDTId))
+          .otherwise(col(colName))
+      )
     } else {
       df.withColumn(colName, lit(defaultDTId))
     }
@@ -215,7 +228,8 @@ object Evidence extends LazyLogging {
           .filter(_.datatypeId.isDefined)
           .map(x => x.id -> x.datatypeId.get)
           .toDF(dsId, customColName)
-          .orderBy(col(dsId).asc))
+          .orderBy(col(dsId).asc)
+      )
 
     dfWithDT
       .join(customDTs, Seq(dsId), "left_outer")
@@ -223,8 +237,9 @@ object Evidence extends LazyLogging {
       .drop(customColName)
   }
 
-  def generateHashes(df: DataFrame, columnName: String)(
-      implicit context: ETLSessionContext): DataFrame = {
+  def generateHashes(df: DataFrame, columnName: String)(implicit
+      context: ETLSessionContext
+  ): DataFrame = {
     implicit val ss: SparkSession = context.sparkSession
 
     val config = context.configuration.evidences
@@ -234,19 +249,19 @@ object Evidence extends LazyLogging {
     val commonReqFields = config.uniqueFields.toSet
 
     val dataTypes: List[(Column, List[Column])] = config.dataSources
-      .map(
-        dataType =>
-          (col("sourceId") === dataType.id) ->
-            (commonReqFields ++ dataType.uniqueFields.toSet).toList.sorted
-              .map(x => when(expr(x).isNotNull, expr(x).cast(StringType)).otherwise("")))
+      .map(dataType =>
+        (col("sourceId") === dataType.id) ->
+          (commonReqFields ++ dataType.uniqueFields.toSet).toList.sorted
+            .map(x => when(expr(x).isNotNull, expr(x).cast(StringType)).otherwise(""))
+      )
 
     val defaultDts = commonReqFields.toList.sorted.map { x =>
       when(col(x).isNotNull, col(x).cast(StringType)).otherwise("")
     }
 
     val hashes = dataTypes.tail
-      .foldLeft(when(dataTypes.head._1, sha1(concat(dataTypes.head._2: _*)))) {
-        case op => op._1.when(op._2._1, sha1(concat(op._2._2: _*)))
+      .foldLeft(when(dataTypes.head._1, sha1(concat(dataTypes.head._2: _*)))) { case op =>
+        op._1.when(op._2._1, sha1(concat(op._2._2: _*)))
       }
       .otherwise(sha1(concat(defaultDts: _*)))
 
@@ -264,23 +279,25 @@ object Evidence extends LazyLogging {
     }
 
     val scores = dts.tail
-      .foldLeft(when(dts.head._1, dts.head._2)) {
-        case op => op._1.when(op._2._1, op._2._2)
+      .foldLeft(when(dts.head._1, dts.head._2)) { case op =>
+        op._1.when(op._2._1, op._2._2)
       }
       .otherwise(expr(config.scoreExpr))
 
     df.withColumn(columnName, scores)
   }
 
-  def checkNullifiedScores(df: DataFrame, scoreColumnName: String, columnName: String)(
-      implicit context: ETLSessionContext): DataFrame = {
+  def checkNullifiedScores(df: DataFrame, scoreColumnName: String, columnName: String)(implicit
+      context: ETLSessionContext
+  ): DataFrame = {
     val idC = col(scoreColumnName)
 
     df.withColumn(columnName, idC.isNull)
   }
 
-  def markDuplicates(df: DataFrame, hashColumnName: String, columnName: String)(
-      implicit context: ETLSessionContext): DataFrame = {
+  def markDuplicates(df: DataFrame, hashColumnName: String, columnName: String)(implicit
+      context: ETLSessionContext
+  ): DataFrame = {
     val idC = col(hashColumnName)
     val w = Window.partitionBy(col("sourceId"), idC).orderBy(idC.asc)
 
@@ -339,8 +356,10 @@ object Evidence extends LazyLogging {
 
     val outputPathConf = context.configuration.evidences.outputs
     Map(
-      "ok" -> IOResource(transformedDF.filter(okFitler).drop(rt, rd, md, ns, xb),
-                         outputPathConf.succeeded),
+      "ok" -> IOResource(
+        transformedDF.filter(okFitler).drop(rt, rd, md, ns, xb),
+        outputPathConf.succeeded
+      ),
       "failed" -> IOResource(transformedDF.filter(not(okFitler)), outputPathConf.failed)
     )
   }

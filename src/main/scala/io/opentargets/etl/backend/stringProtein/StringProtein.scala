@@ -86,22 +86,36 @@ object StringProtein extends Serializable with LazyLogging {
       .withColumn("id_source_p2", regexp_replace(col("protein2"), "9606.", ""))
       .withColumn("biological_role", lit("unspecified role"))
       .withColumn("id_source", lit("ensembl_protein"))
-      .withColumn("organism",
-                  struct(lit("human") as "mnemonic",
-                         lit("Homo sapiens") as "scientific_name",
-                         lit("9606").cast("bigint") as "taxon_id"))
-      .withColumn("interactorA",
-                  struct(col("id_source"),
-                         col("biological_role"),
-                         col("id_source_p1") as "id",
-                         col("organism")))
-      .withColumn("interactorB",
-                  struct(col("id_source"),
-                         col("biological_role"),
-                         col("id_source_p2") as "id",
-                         col("organism")))
-      .withColumn("source_info",
-                  struct(lit("11") as "database_version", lit("string") as "source_database"))
+      .withColumn(
+        "organism",
+        struct(
+          lit("human") as "mnemonic",
+          lit("Homo sapiens") as "scientific_name",
+          lit("9606").cast("bigint") as "taxon_id"
+        )
+      )
+      .withColumn(
+        "interactorA",
+        struct(
+          col("id_source"),
+          col("biological_role"),
+          col("id_source_p1") as "id",
+          col("organism")
+        )
+      )
+      .withColumn(
+        "interactorB",
+        struct(
+          col("id_source"),
+          col("biological_role"),
+          col("id_source_p2") as "id",
+          col("organism")
+        )
+      )
+      .withColumn(
+        "source_info",
+        struct(lit("11") as "database_version", lit("string") as "source_database")
+      )
       .withColumn("causal_interaction", lit("False").cast(BooleanType))
       .drop("protein1", "protein2", "id_source_p1", "id_source_p2", "biological_role", "id_source")
       .withColumn(
@@ -114,13 +128,17 @@ object StringProtein extends Serializable with LazyLogging {
           col("e_neighborhood"),
           col("e_cooccurence"),
           col("e_coexpression"),
-          col("e_homology"),
+          col("e_homology")
         )
       )
-      .withColumn("interaction",
-                  struct(col("interaction_score"),
-                         col("causal_interaction"),
-                         col("all_evidence") as "evidence"))
+      .withColumn(
+        "interaction",
+        struct(
+          col("interaction_score"),
+          col("causal_interaction"),
+          col("all_evidence") as "evidence"
+        )
+      )
       .drop(
         "combined_score",
         "textmining",

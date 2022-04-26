@@ -10,14 +10,14 @@ case class Reactomes(id: String, pathways: Seq[Reactome])
 
 object Reactome extends LazyLogging {
 
-  /**
-    * @param reactomePathways raw reactome file available from [[https://reactome.org/download-data]].
+  /** @param reactomePathways raw reactome file available from [[https://reactome.org/download-data]].
     * @param reactomeEtlDF    as computed by ETL
     * @param sparkSession
     * @return dataframe of uniprotIds with related pathways
     */
-  def apply(reactomePathways: DataFrame, reactomeEtlDf: DataFrame)(
-      implicit ss: SparkSession): Dataset[Reactomes] = {
+  def apply(reactomePathways: DataFrame, reactomeEtlDf: DataFrame)(implicit
+      ss: SparkSession
+  ): Dataset[Reactomes] = {
     import ss.implicits._
 
     logger.info("Computing reactome pathways for target.")
@@ -50,9 +50,13 @@ object Reactome extends LazyLogging {
       .groupBy("ensemblId")
       .agg(
         collect_set(
-          struct(col("reactomeId") as "pathwayId",
-                 col("eventName") as "pathway",
-                 col("topLevelTerm"))) as "pathways")
+          struct(
+            col("reactomeId") as "pathwayId",
+            col("eventName") as "pathway",
+            col("topLevelTerm")
+          )
+        ) as "pathways"
+      )
       .withColumnRenamed("ensemblId", "id")
       .as[Reactomes]
 

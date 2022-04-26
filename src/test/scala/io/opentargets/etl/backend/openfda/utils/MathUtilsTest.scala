@@ -33,7 +33,7 @@ class MathUtilsTest extends EtlSparkUnitTest {
   }
 
   "rmultinomial probabilities" should "be 1 when there is only 1 option" in {
-    val multis = MathUtils.rmultinom(1, 1, BDV(Array(1D)))
-    assert(multis.data(0) == 1D)
+    val multis = MathUtils.rmultinom(1, 1, BDV(Array(1d)))
+    assert(multis.data(0) == 1d)
   }
 }

@@ -6,13 +6,14 @@ import io.opentargets.etl.backend.target.TargetUtils.transformArrayToStruct
 import org.apache.spark.sql.functions.{col, collect_set, explode, flatten, split, typedLit, filter}
 import org.apache.spark.sql.{DataFrame, Dataset, SparkSession}
 
-case class Ncbi(id: String,
-                synonyms: Array[LabelAndSource],
-                symbolSynonyms: Array[LabelAndSource],
-                nameSynonyms: Array[LabelAndSource])
+case class Ncbi(
+    id: String,
+    synonyms: Array[LabelAndSource],
+    symbolSynonyms: Array[LabelAndSource],
+    nameSynonyms: Array[LabelAndSource]
+)
 
-/**
-  * Ncbi data available from ftp://ftp.ncbi.nlm.nih.gov/gene/DATA/GENE_INFO/Mammalia/Homo_sapiens.gene_info.gz
+/** Ncbi data available from ftp://ftp.ncbi.nlm.nih.gov/gene/DATA/GENE_INFO/Mammalia/Homo_sapiens.gene_info.gz
   */
 object Ncbi extends LazyLogging {
   def apply(df: DataFrame)(implicit sparkSession: SparkSession): Dataset[Ncbi] = {
@@ -22,10 +23,12 @@ object Ncbi extends LazyLogging {
 
     val sep = "\\|"
     val ncbiDF = df
-      .select(split(col("Symbol"), sep).as("sy"),
-              split(col("dbXrefs"), sep).as("id"),
-              split(col("Synonyms"), sep).as("s"),
-              split(col("Other_designations"), sep).as("od"))
+      .select(
+        split(col("Symbol"), sep).as("sy"),
+        split(col("dbXrefs"), sep).as("id"),
+        split(col("Synonyms"), sep).as("s"),
+        split(col("Other_designations"), sep).as("od")
+      )
       .withColumn("id", explode(col("id")))
       .filter(col("id").startsWith("Ensembl"))
       .withColumn("id", split(col("id"), ":"))
@@ -46,10 +49,14 @@ object Ncbi extends LazyLogging {
 
     val transformedNCBI = List("synonyms", "symbolSynonyms", "nameSynonyms")
       .foldLeft(ncbiDF) { (B, name) =>
-        B.withColumn(name,
-                     transformArrayToStruct(filter(col(name), c => c !== "-"),
-                                            typedLit("NCBI_entrez") :: Nil,
-                                            labelAndSourceSchema))
+        B.withColumn(
+          name,
+          transformArrayToStruct(
+            filter(col(name), c => c !== "-"),
+            typedLit("NCBI_entrez") :: Nil,
+            labelAndSourceSchema
+          )
+        )
       }
 
     transformedNCBI.as[Ncbi]

@@ -1,7 +1,6 @@
 package io.opentargets.etl.preprocess.uniprot
 
-/**
-  * Description line (DE) contains additional information about protein names.
+/** Description line (DE) contains additional information about protein names.
   *
   * See [[https://web.expasy.org/docs/userman.html#DE_line DE documentation]] for additional information.
   */

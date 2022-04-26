@@ -19,7 +19,8 @@ class HelpersTest extends EtlSparkUnitTest with TableDrivenPropertyChecks with L
     StructType(
       StructField("a", IntegerType, nullable = true) ::
         StructField("b", LongType, nullable = false) ::
-        StructField("c", BooleanType, nullable = false) :: Nil)
+        StructField("c", BooleanType, nullable = false) :: Nil
+    )
   lazy val testData: Seq[Row] = Seq(Row(1, 1L, true), Row(2, 2L, false))
   lazy val testDf: DataFrame =
     sparkSession.createDataFrame(sparkSession.sparkContext.parallelize(testData), testStruct)
@@ -36,7 +37,9 @@ class HelpersTest extends EtlSparkUnitTest with TableDrivenPropertyChecks with L
         assert(
           results.values.forall(ioResConf =>
             ioResConf.format == config.common.outputFormat &&
-              inputFileNames.contains(ioResConf.path.split("/").last)))
+              inputFileNames.contains(ioResConf.path.split("/").last)
+          )
+        )
 
       case Left(ex) =>
         logger.error(ex.prettyPrint())
@@ -47,13 +50,16 @@ class HelpersTest extends EtlSparkUnitTest with TableDrivenPropertyChecks with L
   they should "load correctly when header and separator as specified" in {
     // given
     val path: String = this.getClass.getResource("/drugbank_v.csv").getPath
-    val input = IOResourceConfig("csv",
-                                 path,
-                                 Some(
-                                   List(
-                                     IOResourceConfigOption("sep", "\\t"),
-                                     IOResourceConfigOption("header", "true")
-                                   )))
+    val input = IOResourceConfig(
+      "csv",
+      path,
+      Some(
+        List(
+          IOResourceConfigOption("sep", "\\t"),
+          IOResourceConfigOption("header", "true")
+        )
+      )
+    )
     // when
     val results = IoHelpers.loadFileToDF(input)(sparkSession)
     // then
@@ -71,12 +77,15 @@ class HelpersTest extends EtlSparkUnitTest with TableDrivenPropertyChecks with L
   it should "correctly rename columns in nested arrays" in {
     // given
     val structWithArray = testStruct
-      .add("d",
-           ArrayType(
-             new StructType()
-               .add("e", StringType)
-               .add("f", StringType)
-               .add("g", IntegerType)))
+      .add(
+        "d",
+        ArrayType(
+          new StructType()
+            .add("e", StringType)
+            .add("f", StringType)
+            .add("g", IntegerType)
+        )
+      )
     // when
     val results = renameAllCols(structWithArray, renameFun)
     // then
@@ -86,7 +95,8 @@ class HelpersTest extends EtlSparkUnitTest with TableDrivenPropertyChecks with L
         .elementType
         .asInstanceOf[StructType]
         .fieldNames
-        .forall(_.head.isUpper))
+        .forall(_.head.isUpper)
+    )
   }
 
   private val potentialColumnNames = Table(

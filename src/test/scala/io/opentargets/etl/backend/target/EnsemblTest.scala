@@ -24,24 +24,40 @@ class EnsemblTest extends EtlSparkUnitTest {
   "The approved name" should "be extracted from the description field" in {
     // given
     val input = Seq(
-      ("ENSG00000210049",
-       "mitochondrially encoded tRNA-Phe (UUU/C) [Source:HGNC Symbol;Acc:HGNC:7481]]"),
+      (
+        "ENSG00000210049",
+        "mitochondrially encoded tRNA-Phe (UUU/C) [Source:HGNC Symbol;Acc:HGNC:7481]]"
+      ),
       ("ENSG00000211459", "mitochondrially encoded 12S rRNA [Source:HGNC Symbol;Acc:HGNC:7470]]"),
-      ("ENSG00000210077",
-       "mitochondrially encoded tRNA-Val (GUN) [Source:HGNC Symbol;Acc:HGNC:7500]]"),
+      (
+        "ENSG00000210077",
+        "mitochondrially encoded tRNA-Val (GUN) [Source:HGNC Symbol;Acc:HGNC:7500]]"
+      ),
       ("ENSG00000210082", "mitochondrially encoded 16S rRNA [Source:HGNC Symbol;Acc:HGNC:7471]]"),
-      ("ENSG00000209082",
-       "mitochondrially encoded tRNA-Leu (UUA/G) 1 [Source:HGNC Symbol;Acc:HGNC:7490]]"),
-      ("ENSG00000198888",
-       "mitochondrially encoded NADH:ubiquinone oxidoreductase core subunit 1 [Source:HGNC Symbol;Acc:HGNC:7455]]"),
-      ("ENSG00000210100",
-       "mitochondrially encoded tRNA-Ile (AUU/C) [Source:HGNC Symbol;Acc:HGNC:7488]]"),
-      ("ENSG00000210107",
-       "mitochondrially encoded tRNA-Gln (CAA/G) [Source:HGNC Symbol;Acc:HGNC:7495]]"),
-      ("ENSG00000210112",
-       "mitochondrially encoded tRNA-Met (AUA/G) [Source:HGNC Symbol;Acc:HGNC:7492]]"),
-      ("ENSG00000198763",
-       "mitochondrially encoded NADH:ubiquinone oxidoreductase core subunit 2 [Source:HGNC Symbol;Acc:HGNC:7456]]"),
+      (
+        "ENSG00000209082",
+        "mitochondrially encoded tRNA-Leu (UUA/G) 1 [Source:HGNC Symbol;Acc:HGNC:7490]]"
+      ),
+      (
+        "ENSG00000198888",
+        "mitochondrially encoded NADH:ubiquinone oxidoreductase core subunit 1 [Source:HGNC Symbol;Acc:HGNC:7455]]"
+      ),
+      (
+        "ENSG00000210100",
+        "mitochondrially encoded tRNA-Ile (AUU/C) [Source:HGNC Symbol;Acc:HGNC:7488]]"
+      ),
+      (
+        "ENSG00000210107",
+        "mitochondrially encoded tRNA-Gln (CAA/G) [Source:HGNC Symbol;Acc:HGNC:7495]]"
+      ),
+      (
+        "ENSG00000210112",
+        "mitochondrially encoded tRNA-Met (AUA/G) [Source:HGNC Symbol;Acc:HGNC:7492]]"
+      ),
+      (
+        "ENSG00000198763",
+        "mitochondrially encoded NADH:ubiquinone oxidoreductase core subunit 2 [Source:HGNC Symbol;Acc:HGNC:7456]]"
+      ),
       ("ENSG00000280144", "tec")
     )
     val df = sparkSession.createDataFrame(input).toDF("id", "description")
@@ -58,6 +74,7 @@ class EnsemblTest extends EtlSparkUnitTest {
       .head()
       .get(0)
       .toString should include(
-      "mitochondrially encoded NADH:ubiquinone oxidoreductase core subunit 2")
+      "mitochondrially encoded NADH:ubiquinone oxidoreductase core subunit 2"
+    )
   }
 }

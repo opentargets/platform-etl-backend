@@ -19,17 +19,20 @@ object GeneOntologyTest {
       None,
       GenomicLocation("12", 55820960, 55830824, -1),
       "DNAJC14",
-      Some(Array(
-        IdAndSource("AAI7147", "uniprot"),
-        IdAndSource("EAW96834", "uniprot"),
-        IdAndSource("AAK56241", "uniprot"),
-        IdAndSource("AAH80655", "uniprot"),
-        IdAndSource("ABQ59051", "uniprot"),
-        IdAndSource("ENSP00000504134", "ensembl_PRO")
-      )),
+      Some(
+        Array(
+          IdAndSource("AAI7147", "uniprot"),
+          IdAndSource("EAW96834", "uniprot"),
+          IdAndSource("AAK56241", "uniprot"),
+          IdAndSource("AAH80655", "uniprot"),
+          IdAndSource("ABQ59051", "uniprot"),
+          IdAndSource("ENSP00000504134", "ensembl_PRO")
+        )
+      ),
       Some(Array()),
       None
-    ))
+    )
+  )
 }
 
 class GeneOntologyTest extends EtlSparkUnitTest {

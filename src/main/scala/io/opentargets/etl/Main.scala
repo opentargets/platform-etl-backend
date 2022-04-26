@@ -73,9 +73,8 @@ object ETL extends LazyLogging {
     logger.info(s"finished to run step ($step)")
   }
 
-  /**
-    * Identify steps whose outputs already exist in GCP.
-    * */
+  /** Identify steps whose outputs already exist in GCP.
+    */
   def stepsWithExistingOuputs(implicit ctx: ETLSessionContext): Set[String] = {
     lazy val outputPaths: Map[String, String] = Map(
       "disease" -> ctx.configuration.disease.outputs.diseases.path,
@@ -92,7 +91,7 @@ object ETL extends LazyLogging {
       "drug" -> ctx.configuration.drug.outputs.drug.path,
       "knownDrug" -> ctx.configuration.knownDrugs.output.path,
       "ebisearch" -> ctx.configuration.ebisearch.outputs.ebisearchEvidence.path,
-      "fda" -> ctx.configuration.openfda.outputs.fdaResults.path,
+      "fda" -> ctx.configuration.openfda.outputs.fdaResults.path
     )
 
     val storage: Storage = StorageOptions.getDefaultInstance.getService
@@ -119,7 +118,9 @@ object ETL extends LazyLogging {
         implicit val ctxt: ETLSessionContext = otContext
 
         val completedSteps =
-          if (otContext.configuration.sparkSettings.ignoreIfExists && otContext.configuration.sparkSettings.writeMode == "ignore")
+          if (
+            otContext.configuration.sparkSettings.ignoreIfExists && otContext.configuration.sparkSettings.writeMode == "ignore"
+          )
             stepsWithExistingOuputs
           else Set.empty[String]
         logger.info(s"Steps already completed and not to be executed again: $completedSteps")

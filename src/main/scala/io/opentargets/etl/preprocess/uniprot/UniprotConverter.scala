@@ -17,8 +17,7 @@ case class UniprotEntry(
     locations: Seq[String]
 )
 
-/**
-  * Converts between Uniprot flat data file and UniprotEntryParsed
+/** Converts between Uniprot flat data file and UniprotEntryParsed
   */
 object UniprotConverter
     extends LineIdentifiers
@@ -54,12 +53,13 @@ object UniprotConverter
     val mappedLines = entry
       .groupBy(_.takeWhile(!_.isSpaceChar))
       .filterKeys(identifiers.contains)
-      .mapValues(
-        f =>
-          f.map(
-            _.dropWhile(!_.isSpaceChar)
-              .replaceAll("\\{.*\\}", "")
-              .trim))
+      .mapValues(f =>
+        f.map(
+          _.dropWhile(!_.isSpaceChar)
+            .replaceAll("\\{.*\\}", "")
+            .trim
+        )
+      )
       .withDefaultValue(Stream.empty[String])
 
     val id = processId(mappedLines(ID))
@@ -74,22 +74,23 @@ object UniprotConverter
     val names = processNames(descriptions)
     val symbolSynonyms = processSymbolSynonyms(geneSymbols)
 
-    UniprotEntry(id,
-                 accessions,
-                 names.recNames,
-                 names.altNames,
-                 symbolSynonyms ++ names.symbols,
-                 dbXrefs,
-                 funcAndLocs.functions,
-                 funcAndLocs.locations)
+    UniprotEntry(
+      id,
+      accessions,
+      names.recNames,
+      names.altNames,
+      symbolSynonyms ++ names.symbols,
+      dbXrefs,
+      funcAndLocs.functions,
+      funcAndLocs.locations
+    )
   }
 
   private def processId(lines: Seq[String]): String =
     lines.headOption.getOrElse("").takeWhile(!_.isSpaceChar)
 }
 
-/**
-  * Convert from flat Uniprot file to JSON and save results.
+/** Convert from flat Uniprot file to JSON and save results.
   *
   * Requires two program arguments: input file, output directory.
   *
@@ -106,8 +107,10 @@ object Main extends App with LazyLogging {
       |output file destination to save results in JSON format.""".stripMargin
   )
   val inputPath = args.head
-  assert(inputPath.endsWith("txt") || inputPath.endsWith("txt.gz"),
-         "Input file must be a text file.")
+  assert(
+    inputPath.endsWith("txt") || inputPath.endsWith("txt.gz"),
+    "Input file must be a text file."
+  )
 
   import org.json4s.jackson.Serialization.write
 

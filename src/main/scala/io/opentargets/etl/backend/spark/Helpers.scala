@@ -26,8 +26,7 @@ import scala.util.Random
 
 object Helpers extends LazyLogging {
 
-  /**
-    * generate a string prefix with `length` characters and ends like 'abcd_'
+  /** generate a string prefix with `length` characters and ends like 'abcd_'
     * where '_' is added at the end automatically
     * @param length the number of random characters to build the string prefix default to 5
     * @return the string suffixed with underscore
@@ -96,9 +95,11 @@ object Helpers extends LazyLogging {
     * it returns a pair that can be used to create a map of transformations. Useful to use with
     * withColumn DataFrame function too
     */
-  def trans(inColumn: Column,
-            newNameFn: String => String,
-            columnFn: Column => Column): (String, Column) = {
+  def trans(
+      inColumn: Column,
+      newNameFn: String => String,
+      columnFn: Column => Column
+  ): (String, Column) = {
 
     val name = newNameFn(inColumn.toString)
     val oper = columnFn(inColumn)
@@ -109,12 +110,11 @@ object Helpers extends LazyLogging {
 
   /** using the uri get the last token as an ID by example
     * http://identifiers.org/chembl.compound/CHEMBL207538 -> CHEMBL207538
-    * */
+    */
   def stripIDFromURI(uri: Column): Column =
     substring_index(uri, "/", -1)
 
-  /**
-    * @param col  Column of array type
+  /** @param col  Column of array type
     * @param cols Columns of array type
     * @return column of array type with input columns combined into single array with duplicates
     *         removed.
@@ -154,15 +154,15 @@ object Helpers extends LazyLogging {
 
   /** Transpose a Dataframe column to row
     * df is the implicit dataframe
-    *|  ID     |abdomen| aorta |col_...|
-    *|  ENSG1  |  0.0|  0.6    |  ...  |
-    *|  ENSG2  |  0.5|  0.7    |  ...  |
+    * |  ID     |abdomen| aorta |col_...|
+    * |  ENSG1  |  0.0|  0.6    |  ...  |
+    * |  ENSG2  |  0.5|  0.7    |  ...  |
     * to
-    *|  ID     |  key     | val   |
-    *|  ENSG1  |  abdomen |  0.00 |
-    *|  ENSG1  |  aorta   |  0.6  |
-    *|  ENSG2  |  abdomen |  0.5  |
-    *|  ENSG2  |  aorta   |  0.7  |
+    * |  ID     |  key     | val   |
+    * |  ENSG1  |  abdomen |  0.00 |
+    * |  ENSG1  |  aorta   |  0.6  |
+    * |  ENSG2  |  abdomen |  0.5  |
+    * |  ENSG2  |  aorta   |  0.7  |
     * @param by Column name pivot
     * @return a DataFrame
     */
@@ -173,7 +173,8 @@ object Helpers extends LazyLogging {
     val kvs = explode(
       array(
         cols.map(c => struct(lit(c).alias("key"), col(c).alias("val"))): _*
-      ))
+      )
+    )
 
     val byExprs = by.map(col)
 
@@ -239,15 +240,14 @@ object Helpers extends LazyLogging {
   def renameAllCols(schema: StructType, fn: String => String): StructType = {
 
     def renameDataType(dt: StructType): StructType =
-      StructType(dt.fields.map {
-        case StructField(name, dataType, nullable, metadata) =>
-          val renamedDT = dataType match {
-            case st: StructType => renameDataType(st)
-            case ArrayType(elementType: StructType, containsNull) =>
-              ArrayType(renameDataType(elementType), containsNull)
-            case rest: DataType => rest
-          }
-          StructField(fn(name), renamedDT, nullable, metadata)
+      StructType(dt.fields.map { case StructField(name, dataType, nullable, metadata) =>
+        val renamedDT = dataType match {
+          case st: StructType => renameDataType(st)
+          case ArrayType(elementType: StructType, containsNull) =>
+            ArrayType(renameDataType(elementType), containsNull)
+          case rest: DataType => rest
+        }
+        StructField(fn(name), renamedDT, nullable, metadata)
       })
 
     renameDataType(schema)
