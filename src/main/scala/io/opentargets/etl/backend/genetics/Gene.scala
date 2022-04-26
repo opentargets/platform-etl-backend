@@ -6,9 +6,8 @@ import org.apache.spark.sql.functions.{abs, col, when}
 
 object Gene {
 
-  def getGeneDf(dataframe: DataFrame, approvedBioTypes: List[String]): DataFrame = {
-    val excludedChromosomes: Set[String] = Set("MT")
-    dataframe
+  def getGeneDf(dataFrame: DataFrame): DataFrame = {
+    dataFrame
       .select(
         col("id") as "gene_id",
         col("genomicLocation.*"),
@@ -16,6 +15,14 @@ object Gene {
         when(col("genomicLocation.strand") > 0, col("genomicLocation.start"))
           .otherwise(col("genomicLocation.end")) as "tss"
       )
+  }
+
+  def getGeneFilteredByBiotypeDf(
+      dataframe: DataFrame,
+      approvedBioTypes: List[String]
+  ): DataFrame = {
+    val excludedChromosomes: Set[String] = Set("MT")
+    getGeneDf(dataframe)
       .filter(
         (col("biotype") isInCollection approvedBioTypes.toSet) && !(col(
           "chromosome"

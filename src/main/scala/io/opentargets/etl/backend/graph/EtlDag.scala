@@ -50,8 +50,10 @@ class EtlDag[V](dagConfig: List[EtlStep[V]]) extends LazyLogging {
   }
 
   @tailrec
-  private def getStepsFromIter(iter: => TopologicalOrderIterator[V, DefaultEdge],
-                               agg: List[V] = List.empty[V]): List[V] = {
+  private def getStepsFromIter(
+      iter: => TopologicalOrderIterator[V, DefaultEdge],
+      agg: List[V] = List.empty[V]
+  ): List[V] = {
     if (!iter.hasNext) agg else getStepsFromIter(iter, iter.next :: agg)
   }
 
@@ -63,7 +65,8 @@ class EtlDag[V](dagConfig: List[EtlStep[V]]) extends LazyLogging {
     } catch {
       case e: IllegalArgumentException =>
         logger.error(
-          s"Unable to find node $step in ETL DAG with nodes ${graph.vertexSet().toString}")
+          s"Unable to find node $step in ETL DAG with nodes ${graph.vertexSet().toString}"
+        )
         List.empty
     }
   }

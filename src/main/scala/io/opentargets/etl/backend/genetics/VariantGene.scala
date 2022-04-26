@@ -2,6 +2,7 @@ package io.opentargets.etl.backend.genetics
 
 import com.typesafe.scalalogging.LazyLogging
 import io.opentargets.etl.backend.ETLSessionContext
+import io.opentargets.etl.backend.spark.Helpers.unionDataframeDifferentSchema
 import io.opentargets.etl.backend.spark.IoHelpers.IOResources
 import io.opentargets.etl.backend.spark.{IOResource, IoHelpers}
 import org.apache.spark.sql.expressions.Window
@@ -20,7 +21,6 @@ import org.apache.spark.sql.functions.{
   max,
   percent_rank,
   round,
-  sequence,
   split,
   struct,
   when
@@ -52,7 +52,7 @@ object VariantGene extends LazyLogging {
     val inputs = IoHelpers.readFrom(mappedInputs)
 
     val variantRawDf: DataFrame = inputs("variants").data
-    val targetRawDf: DataFrame = inputs("targets").data
+    val targetRawDf: DataFrame = Gene.getGeneDf(inputs("targets").data)
     val qtlRawDf: DataFrame = inputs("qtl").data
     val vepRawDf: DataFrame = inputs("vep").data
     val intervalRawDf: DataFrame = inputs("interval").data
@@ -63,7 +63,10 @@ object VariantGene extends LazyLogging {
     val variantQtl = calculateQtls(variantRawDf, qtlRawDf)
     val variantInterval = calculateIntervals(variantRawDf, intervalRawDf)
 
-    val variantGeneIdx: DataFrame = ???
+    logger.info("Combine VEP, Distance, QTL, interval components, filtered by valid ENSG IDs")
+    val variantGeneIdx: DataFrame =
+      unionDataframeDifferentSchema(Seq(variantVep, variantDistance, variantQtl, variantInterval))
+        .join(targetRawDf, Seq("gene_id"), "left_semi")
 
     val outputs = Map(
       "variantGene" -> IOResource(variantGeneIdx, configuration.outputs.variantGene)
@@ -184,21 +187,23 @@ object VariantGene extends LazyLogging {
         col("score"),
         col("bio_feature") as "feature",
         col("file_metadata")(0) as "type_id",
-        col("file_metadata")(1) as "source_id",
+        col("file_metadata")(1) as "source_id"
       )
       .groupBy("chr_id", "start", "end", "gene_id", "type_id", "source_id", "feature")
       .agg(max(col("score")).as("interval_score"))
 
     val intervalWithVariantDf = intervalDf
-      .join(variantDf,
-            intervalDf("chr_id") === variantDf("chr_id") && col("position") > col("start") && col(
-              "position") < col("end"))
-      .drop("score", "start", "end")
+      .join(
+        variantDf.withColumnRenamed("chr_id", "chr"),
+        col("chr_id") === col("chr") && col("position") > col("start") && col("position") < col(
+          "end"
+        )
+      )
+      .drop("score", "start", "end", "chr")
 
     val w = Window.partitionBy("source_id", "feature").orderBy(col("interval_score").asc)
 
     intervalWithVariantDf
       .withColumn("interval_score_q", round(percent_rank().over(w), 1))
-
   }
 }

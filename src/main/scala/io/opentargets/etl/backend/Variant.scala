@@ -45,7 +45,8 @@ object Variant extends LazyLogging {
     val targetRawDf: DataFrame = inputs("targets").data
 
     logger.info("Generate target DF for variant index.")
-    val targetDf = Gene.getGeneDf(targetRawDf, context.configuration.genetics.approvedBiotypes)
+    val targetDf =
+      Gene.getGeneFilteredByBiotypeDf(targetRawDf, context.configuration.genetics.approvedBiotypes)
 
     logger.info("Generate protein coding DF for variant index.")
     val proteinCodingDf = targetDf.filter(col("biotype") === "protein_coding")
