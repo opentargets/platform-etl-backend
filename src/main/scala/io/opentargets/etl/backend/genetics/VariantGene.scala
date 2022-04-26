@@ -11,17 +11,21 @@ import org.apache.spark.sql.functions.{
   collect_set,
   element_at,
   explode,
+  input_file_name,
   lit,
   log,
   map_filter,
   map_from_entries,
   map_keys,
+  max,
   percent_rank,
   round,
+  sequence,
+  split,
   struct,
   when
 }
-import org.apache.spark.sql.{Column, DataFrame, SparkSession}
+import org.apache.spark.sql.{Column, DataFrame, SparkSession, functions}
 
 object VariantGene extends LazyLogging {
 
@@ -57,8 +61,7 @@ object VariantGene extends LazyLogging {
     val variantVep = calculateVep(variantRawDf, vepRawDf)
     val variantDistance = calculateDistanceDf(variantRawDf, targetRawDf, configuration.tssDistance)
     val variantQtl = calculateQtls(variantRawDf, qtlRawDf)
-
-    //    val variantInterval = calculateInterval()
+    val variantInterval = calculateIntervals(variantRawDf, intervalRawDf)
 
     val variantGeneIdx: DataFrame = ???
 
@@ -163,5 +166,39 @@ object VariantGene extends LazyLogging {
     val w = Window.partitionBy("source_id", "feature").orderBy(col("qtl_score").asc)
 
     qtl.withColumn("qtl_score_q", round(percent_rank().over(w), 1))
+  }
+
+  def calculateIntervals(variantRawDf: DataFrame, intervalRawDf: DataFrame): DataFrame = {
+    val variantDf = variantRawDf.select("chr_id", "position", "ref_allele", "alt_allele")
+    val intervalDf = intervalRawDf
+      .withColumn("filename", input_file_name)
+      .select(
+        col("*"),
+        split(split(col("filename"), "/interval/")(1), "/") as "file_metadata"
+      )
+      .select(
+        col("gene_id"),
+        col("chrom") as "chr_id",
+        col("start"),
+        col("end"),
+        col("score"),
+        col("bio_feature") as "feature",
+        col("file_metadata")(0) as "type_id",
+        col("file_metadata")(1) as "source_id",
+      )
+      .groupBy("chr_id", "start", "end", "gene_id", "type_id", "source_id", "feature")
+      .agg(max(col("score")).as("interval_score"))
+
+    val intervalWithVariantDf = intervalDf
+      .join(variantDf,
+            intervalDf("chr_id") === variantDf("chr_id") && col("position") > col("start") && col(
+              "position") < col("end"))
+      .drop("score", "start", "end")
+
+    val w = Window.partitionBy("source_id", "feature").orderBy(col("interval_score").asc)
+
+    intervalWithVariantDf
+      .withColumn("interval_score_q", round(percent_rank().over(w), 1))
+
   }
 }
