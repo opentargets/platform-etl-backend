@@ -171,7 +171,7 @@ object IoHelpers extends LazyLogging {
     val iores = ior.configuration.copy(
       path = ior.configuration.path
         .replace(context.configuration.common.output, "")
-        .split("/")Ω
+        .split("/")
         .filter(_.nonEmpty)
         .mkString("/", "/", "")
     )
