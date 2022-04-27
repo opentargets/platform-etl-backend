@@ -163,20 +163,26 @@ object Disease extends Serializable with LazyLogging {
       .map(lit(_))
 
     val efosTA = efosAncestry
-      .withColumn("therapeuticAreas",
-                  when(col("isTherapeuticArea") === true, array(col("id")))
-                    .otherwise(array_intersect(col("ancestors"), array(therapeuticAreas: _*))))
+      .withColumn(
+        "therapeuticAreas",
+        when(col("isTherapeuticArea") === true, array(col("id")))
+          .otherwise(array_intersect(col("ancestors"), array(therapeuticAreas: _*)))
+      )
 
     val efosLocations = efosTA
       .join(processLocations(efosTA), col("id") === col("father"), "left")
 
     val efosRenamed = efosLocations
       .withColumn("leaf", when(size(col("children")) === 0, typedLit(true)).otherwise(false))
-      .withColumn("ontology",
-                  struct(col("isTherapeuticArea"),
-                         col("leaf"),
-                         struct(col("code").as("url"), col("id").as("name"))
-                           .as("sources")))
+      .withColumn(
+        "ontology",
+        struct(
+          col("isTherapeuticArea"),
+          col("leaf"),
+          struct(col("code").as("url"), col("id").as("name"))
+            .as("sources")
+        )
+      )
       .withColumnRenamed("label", "name")
       .withColumnRenamed("definition", "description")
       .withColumnRenamed("obsolete_terms", "obsoleteTerms")

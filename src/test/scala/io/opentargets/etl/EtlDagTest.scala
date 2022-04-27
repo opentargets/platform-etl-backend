@@ -10,8 +10,7 @@ import pureconfig.ConfigReader
 
 class EtlDagTest extends AnyFlatSpecLike with Matchers with AppendedClues {
 
-  /**
-    * root
+  /** root
     * /
     * A
     * /  \
@@ -26,7 +25,7 @@ class EtlDagTest extends AnyFlatSpecLike with Matchers with AppendedClues {
     EtlStep("B", List("C", "D")),
     EtlStep("C", List("D")),
     EtlStep("D", List("A")),
-    EtlStep("E", List("A")),
+    EtlStep("E", List("A"))
   )
   val dag = new EtlDag[String](testGraphConf)
 
@@ -45,7 +44,10 @@ class EtlDagTest extends AnyFlatSpecLike with Matchers with AppendedClues {
   }
 
   it should "return the steps such that ancestors are before children" in {
-    dag.getDependenciesFor("C", "E") should (contain inOrderOnly ("A", "E", "D", "C") and have length 4)
+    dag.getDependenciesFor(
+      "C",
+      "E"
+    ) should (contain inOrderOnly ("A", "E", "D", "C") and have length 4)
   }
 
   "The Open Targets DAG" should "correctly resolve for complex step ('search')" in {

@@ -4,8 +4,7 @@ import com.typesafe.scalalogging.LazyLogging
 import org.apache.spark.sql.{DataFrame, SparkSession}
 import org.apache.spark.sql.functions._
 
-/**
-  * Object to process ChEMBL indications for incorporation into Drug.
+/** Object to process ChEMBL indications for incorporation into Drug.
   *
   * |-- id: string
   * |-- indications: array
@@ -45,18 +44,19 @@ object Indication extends Serializable with LazyLogging {
       .withColumn("id", explode(col("ids")))
       .withColumn(
         "indications",
-        struct(col("disease"), col("efoName"), col("references"), col("maxPhaseForIndication")))
+        struct(col("disease"), col("efoName"), col("references"), col("maxPhaseForIndication"))
+      )
       .groupBy(col("id"))
       .agg(
         collect_set("indications") as "indications",
-        collect_set(when(col("maxPhaseForIndication") === 4, col("disease"))) as "approvedIndications"
+        collect_set(
+          when(col("maxPhaseForIndication") === 4, col("disease"))
+        ) as "approvedIndications"
       )
       .withColumn("indicationCount", size(col("indications")))
   }
 
-  /**
-    *
-    * @param rawEfoData taken from the `disease` input data
+  /** @param rawEfoData taken from the `disease` input data
     * @return dataframe of `updatedEfo`, `efoName`, `allEfoIds`
     */
   private def getEfoDataframe(rawEfoData: DataFrame): DataFrame = {
@@ -74,9 +74,7 @@ object Indication extends Serializable with LazyLogging {
 
   }
 
-  /**
-    *
-    * @param indicationsRaw data as provided by ChEMBL
+  /** @param indicationsRaw data as provided by ChEMBL
     * @return dataframe with columns: ids, references, maxPhaseForIndication, disease
     */
   private def processIndicationsRawData(indicationsRaw: DataFrame): DataFrame = {
@@ -97,11 +95,13 @@ object Indication extends Serializable with LazyLogging {
       .groupBy("ids", maxP, "disease", "source")
       .agg(collect_set("ref_id") as "ref_id")
       // create structure of references and group
-      .withColumn(ref,
-                  struct(
-                    col("source"),
-                    flatten(col("ref_id")) as "ids"
-                  ))
+      .withColumn(
+        ref,
+        struct(
+          col("source"),
+          flatten(col("ref_id")) as "ids"
+        )
+      )
       .groupBy("ids", maxP, "disease")
       .agg(collect_set(col(ref)) as ref)
   }

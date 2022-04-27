@@ -18,7 +18,8 @@ class OpenFdaTest extends AnyWordSpecLike with SparkSessionSetup with Matchers {
       Map(
         DrugData() -> IOResourceConfig(
           "json",
-          this.getClass.getResource("/openfda/drug_test.json").getPath),
+          this.getClass.getResource("/openfda/drug_test.json").getPath
+        ),
         Blacklisting() -> IOResourceConfig(
           "csv",
           this.getClass.getResource("/openfda/blacklisted_events.txt").getPath,
@@ -27,11 +28,13 @@ class OpenFdaTest extends AnyWordSpecLike with SparkSessionSetup with Matchers {
               IOResourceConfigOption("sep", "\\t"),
               IOResourceConfigOption("ignoreLeadingWhiteSpace", "true"),
               IOResourceConfigOption("ignoreTrailingWhiteSpace", "true")
-            ))
+            )
+          )
         ),
         FdaData() -> IOResourceConfig(
           "json",
-          this.getClass.getResource("/openfda/adverseEventSample.jsonl").getPath)
+          this.getClass.getResource("/openfda/adverseEventSample.jsonl").getPath
+        )
       )
 
     // Read the files
@@ -55,10 +58,13 @@ class OpenFdaTest extends AnyWordSpecLike with SparkSessionSetup with Matchers {
       val fdaFilteredData = EventsFiltering(fdaData, blackList)
       assert(
         blackList
-          .join(fdaFilteredData,
-                fdaFilteredData("reaction_reactionmeddrapt") === blackList("reactions"),
-                "left_anti")
-          .count == blackList.count)
+          .join(
+            fdaFilteredData,
+            fdaFilteredData("reaction_reactionmeddrapt") === blackList("reactions"),
+            "left_anti"
+          )
+          .count == blackList.count
+      )
     }
   }
 }

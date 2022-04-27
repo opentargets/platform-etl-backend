@@ -23,36 +23,46 @@ object MoleculeTest {
       StructField("blackBoxWarning", BooleanType, nullable = false) ::
       StructField("name", StringType, nullable = true) ::
       StructField(
-      "cross_references",
-      ArrayType(
-        StructType(Array(
-          StructField("xref_id", StringType),
-          StructField("xref_name", StringType),
-          StructField("xref_src", StringType),
-          StructField("xref_src_url", StringType),
-          StructField("xref_url", StringType)
-        ))
-      )
-    ) ::
+        "cross_references",
+        ArrayType(
+          StructType(
+            Array(
+              StructField("xref_id", StringType),
+              StructField("xref_name", StringType),
+              StructField("xref_src", StringType),
+              StructField("xref_src_url", StringType),
+              StructField("xref_url", StringType)
+            )
+          )
+        )
+      ) ::
       StructField("yearOfFirstApproval", LongType) ::
       StructField("maximumClinicalTrialPhase", LongType) ::
-      StructField("molecule_hierarchy",
-                  StructType(Array(StructField("molecule_chembl_id", StringType),
-                                   StructField("parent_chembl_id", StringType)))) ::
+      StructField(
+        "molecule_hierarchy",
+        StructType(
+          Array(
+            StructField("molecule_chembl_id", StringType),
+            StructField("parent_chembl_id", StringType)
+          )
+        )
+      ) ::
       StructField("hasBeenWithdrawn", BooleanType) ::
       StructField("withdrawn_year", LongType) ::
       StructField("withdrawn_reason", ArrayType(StringType)) ::
       StructField("withdrawn_country", ArrayType(StringType)) ::
       StructField("withdrawn_class", ArrayType(StringType)) ::
-      StructField("syns",
-                  ArrayType(
-                    StructType(
-                      Array(
-                        StructField("mol_synonyms", StringType),
-                        StructField("synonym_type", StringType)
-                      )
-                    )
-                  )) ::
+      StructField(
+        "syns",
+        ArrayType(
+          StructType(
+            Array(
+              StructField("mol_synonyms", StringType),
+              StructField("synonym_type", StringType)
+            )
+          )
+        )
+      ) ::
       StructField("drugbank_id", StringType) ::
       Nil
   )
@@ -91,8 +101,10 @@ object MoleculeTest {
           "cross_references",
           ArrayType(
             StructType(
-              Array(StructField("xref_src", StringType), StructField("xref_id", StringType))),
-            containsNull = false),
+              Array(StructField("xref_src", StringType), StructField("xref_id", StringType))
+            ),
+            containsNull = false
+          ),
           nullable = false
         )
       )
@@ -123,14 +135,23 @@ object MoleculeTest {
       Array(
         StructField("id", StringType),
         StructField("drugbank_id", StringType),
-        StructField("syns",
-                    ArrayType(StructType(Array(StructField("mol_synonyms", StringType),
-                                               StructField("synonym_type", StringType)))))
-      ))
+        StructField(
+          "syns",
+          ArrayType(
+            StructType(
+              Array(
+                StructField("mol_synonyms", StringType),
+                StructField("synonym_type", StringType)
+              )
+            )
+          )
+        )
+      )
+    )
     val data: Seq[Row] = Seq(
       Row("id1", "DB01", Seq(Row("Aches-N-Pain", "trade_name"), Row("Advil", "trade_name"))),
       Row("id1", "DB01", Seq(Row("Ibuprofil", "UBAN"), Row("U-18573", "research_code"))),
-      Row("id2", "DB02", Seq(Row("Quinocort", "trade_name"), Row("Terra-Cortil", "other"))),
+      Row("id2", "DB02", Seq(Row("Quinocort", "trade_name"), Row("Terra-Cortil", "other")))
     )
     sparkSession.createDataFrame(sparkSession.sparkContext.parallelize(data), schema)
   }
@@ -144,7 +165,8 @@ object MoleculeTest {
         StructField("withdrawn_class", ArrayType(StringType)),
         StructField("withdrawn_country", ArrayType(StringType)),
         StructField("withdrawn_year", LongType)
-      ))
+      )
+    )
 
     val data: Seq[Row] = Seq(
       Row("id1", true, Seq(), Seq("United States"), 1965L),
@@ -199,10 +221,14 @@ class MoleculeTest extends EtlSparkUnitTest {
     val crossReferences: collection.Map[String, Array[String]] =
       results.head.getMap[String, Array[String]](1)
     // then
-    assert(crossReferences.keys.toSet.contains(refColumn.toUpperCase),
-           "Map key should be designated source.")
-    assert(crossReferences.values.size equals 1,
-           "Singleton cross references should have a single value.")
+    assert(
+      crossReferences.keys.toSet.contains(refColumn.toUpperCase),
+      "Map key should be designated source."
+    )
+    assert(
+      crossReferences.values.size equals 1,
+      "Singleton cross references should have a single value."
+    )
   }
 
   it should "successfully merge two maps of references" in {
@@ -214,8 +240,10 @@ class MoleculeTest extends EtlSparkUnitTest {
     // when
     val results: DataFrame = Molecule invokePrivate mergeXRMaps(refs1, refs2)
     // then
-    assert(refs1.join(refs2, Seq("id"), "fullouter").select(col("id")).count() == results.count(),
-           "All IDs should be returned in combined dataframe.")
+    assert(
+      refs1.join(refs2, Seq("id"), "fullouter").select(col("id")).count() == results.count(),
+      "All IDs should be returned in combined dataframe."
+    )
     assert(
       results
         .select(org.apache.spark.sql.functions.size(map_keys(col("xref"))))
@@ -234,8 +262,10 @@ class MoleculeTest extends EtlSparkUnitTest {
     // when
     val results: DataFrame = Molecule invokePrivate mergeXRMaps(refs1, refs2)
     // then
-    assert(refs1.join(refs2, Seq("id"), "fullouter").select(col("id")).count() == results.count(),
-           "All IDs should be returned in combined dataframe.")
+    assert(
+      refs1.join(refs2, Seq("id"), "fullouter").select(col("id")).count() == results.count(),
+      "All IDs should be returned in combined dataframe."
+    )
     assert(
       results.filter(array_contains(map_keys(col("xref")), "a")).count() == 2,
       "All sources from source references should be included in combined map"
@@ -262,7 +292,7 @@ class MoleculeTest extends EtlSparkUnitTest {
       Seq("a", "c"),
       Seq("b", "c"),
       Seq("b", "d"),
-      Seq("a", "e"),
+      Seq("a", "e")
     )
     // when
     val map: Map[String, Seq[String]] = Molecule.createSrcToReferenceMap(input)
@@ -270,8 +300,10 @@ class MoleculeTest extends EtlSparkUnitTest {
     assertResult(2) {
       map.keySet.size
     }
-    assertResult(input.size,
-                 "There should be the same number of values in the maps as there were inputs.") {
+    assertResult(
+      input.size,
+      "There should be the same number of values in the maps as there were inputs."
+    ) {
       map.values.foldLeft(0)((acc, seq) => acc + seq.size)
     }
   }
@@ -284,11 +316,16 @@ class MoleculeTest extends EtlSparkUnitTest {
     // then
     val expectedColumns = Set("id", "childChemblIds")
     assert(results.count == 2, "Two inputs had children so two rows should be returned.")
-    assert(results.columns.length == expectedColumns.size && results.columns.forall(
-             expectedColumns.contains),
-           "All expected columns should be present")
-    assert(results.filter(col("id") === "a").head.getList[String](1).size == 2,
-           "Id 'a' should have two children.")
+    assert(
+      results.columns.length == expectedColumns.size && results.columns.forall(
+        expectedColumns.contains
+      ),
+      "All expected columns should be present"
+    )
+    assert(
+      results.filter(col("id") === "a").head.getList[String](1).size == 2,
+      "Id 'a' should have two children."
+    )
   }
 
   it should "separate synonyms into tradeNames and synonyms" in {
@@ -311,13 +348,19 @@ class MoleculeTest extends EtlSparkUnitTest {
       r.forall(v => v)
     }
 
-    assert(results.columns.length == 3 && results.columns.forall(expectedColumns.contains),
-           "Expected columns should be generated.")
+    assert(
+      results.columns.length == 3 && results.columns.forall(expectedColumns.contains),
+      "Expected columns should be generated."
+    )
     assert(results.count == 2, "Results should be grouped by ID")
-    assert(testcounts("tradeNames", expectedTradeNameCount),
-           "The correct number of trade names are grouped")
-    assert(testcounts("synonyms", expectedSynonymCount),
-           "The correct number of synonyms are grouped.")
+    assert(
+      testcounts("tradeNames", expectedTradeNameCount),
+      "The correct number of trade names are grouped"
+    )
+    assert(
+      testcounts("synonyms", expectedSynonymCount),
+      "The correct number of synonyms are grouped."
+    )
 
   }
 

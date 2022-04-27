@@ -24,15 +24,18 @@ object Tractability extends LazyLogging {
       struct(
         lit(nameComponents.head).as("modality"), // first part of column name is modality
         lit(nameComponents.last).as("id"), // last part of column name is id
-        when(col(columnName) === 1, true).otherwise(false).as("value"),
+        when(col(columnName) === 1, true).otherwise(false).as("value")
       )
     }
     val columnsAsTractabilityStructDF = dataColumns.foldLeft(tractabilityDF)((df, nxt) =>
-      df.withColumn(nxt, mapTractabilityColumnToStruct(nxt)))
+      df.withColumn(nxt, mapTractabilityColumnToStruct(nxt))
+    )
     // merge all column into a single array
     columnsAsTractabilityStructDF
-      .select(col(gid).as("ensemblGeneId"),
-              array(dataColumns.head, dataColumns.tail: _*).as("tractability"))
+      .select(
+        col(gid).as("ensemblGeneId"),
+        array(dataColumns.head, dataColumns.tail: _*).as("tractability")
+      )
       .as[TractabilityWithId]
 
   }

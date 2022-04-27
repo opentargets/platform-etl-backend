@@ -46,7 +46,7 @@ object EBISearch extends LazyLogging {
       "diseases" -> EBIConfiguration.diseaseEtl,
       "targets" -> EBIConfiguration.targetEtl,
       "evidence" -> EBIConfiguration.evidenceETL,
-      "associationDirectOverall" -> EBIConfiguration.associationETL,
+      "associationDirectOverall" -> EBIConfiguration.associationETL
     )
 
     val inputDataFrames = IoHelpers.readFrom(mappedInputs)
@@ -55,10 +55,14 @@ object EBISearch extends LazyLogging {
     logger.info(s"write to ${context.configuration.common.output}/ebisearch")
     IoHelpers.writeTo(
       Map(
-        "ebisearchEvidence" -> IOResource(dataToSave("ebisearchEvidence"),
-                                          EBIConfiguration.outputs.ebisearchEvidence),
-        "ebisearchAssociations" -> IOResource(dataToSave("ebisearchAssociations"),
-                                              EBIConfiguration.outputs.ebisearchAssociations)
+        "ebisearchEvidence" -> IOResource(
+          dataToSave("ebisearchEvidence"),
+          EBIConfiguration.outputs.ebisearchEvidence
+        ),
+        "ebisearchAssociations" -> IOResource(
+          dataToSave("ebisearchAssociations"),
+          EBIConfiguration.outputs.ebisearchAssociations
+        )
       )
     )
   }

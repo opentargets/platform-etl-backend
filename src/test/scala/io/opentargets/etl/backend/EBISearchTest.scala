@@ -73,11 +73,17 @@ class EBISearchTest extends EtlSparkUnitTest {
     val results = EBISearch.generateDatasets(resources)
 
     // then
-    assert(expectedColumns.forall(expectedCol =>
-      results("ebisearchEvidence").columns.contains(expectedCol)))
+    assert(
+      expectedColumns.forall(expectedCol =>
+        results("ebisearchEvidence").columns.contains(expectedCol)
+      )
+    )
 
-    assert(expectedColumns.forall(expectedCol =>
-      results("ebisearchAssociations").columns.contains(expectedCol)))
+    assert(
+      expectedColumns.forall(expectedCol =>
+        results("ebisearchAssociations").columns.contains(expectedCol)
+      )
+    )
   }
 
 }

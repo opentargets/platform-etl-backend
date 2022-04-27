@@ -9,14 +9,17 @@ object PrepareDrugList extends LazyLogging {
   def apply(dfChembl: DataFrame) = {
     logger.info("Prepare ChEMBL data for attaching it to FAERS dataset")
     val drugList = dfChembl
-      .selectExpr("id as chembl_id",
+      .selectExpr(
+        "id as chembl_id",
         "synonyms as synonyms",
         "name as pref_name",
         "tradeNames as trade_names",
-        "linkedTargets as linkedTargets")
-      .withColumn("drug_names",
-        array_distinct(
-          flatten(array(col("trade_names"), array(col("pref_name")), col("synonyms")))))
+        "linkedTargets as linkedTargets"
+      )
+      .withColumn(
+        "drug_names",
+        array_distinct(flatten(array(col("trade_names"), array(col("pref_name")), col("synonyms"))))
+      )
       .withColumn("_drug_name", explode(col("drug_names")))
       .withColumn("drug_name", lower(col("_drug_name")))
       .select("chembl_id", "drug_name", "linkedTargets")

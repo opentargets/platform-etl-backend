@@ -7,8 +7,7 @@ import io.opentargets.etl.backend.spark.{IOResource, IOResourceConfig, IoHelpers
 import io.opentargets.etl.backend.spark.IoHelpers.IOResources
 import io.opentargets.etl.backend.spark.Helpers.{transposeDataframe, unionDataframeDifferentSchema}
 
-/**
-  * This step is replacing the process which was previously done in the `data-pipeline` project
+/** This step is replacing the process which was previously done in the `data-pipeline` project
   * The next step is to replace this business logic with a new approach.
   */
 // This is option/step expression in the config file
@@ -26,7 +25,8 @@ object Expression extends LazyLogging {
         "Approved" -> true,
         "Supported" -> true,
         "Enhanced" -> true
-      )))
+      )
+    ))
 
     val levelMap: Column = (typedLit(
       Map(
@@ -36,16 +36,19 @@ object Expression extends LazyLogging {
         "High" -> 3,
         "N/A" -> 0,
         "Not representative" -> 0
-      )))
+      )
+    ))
 
     val normalTissueNormDF = normalTissueDF.columns
       .foldLeft(normalTissueDF)((curr, n) => curr.withColumnRenamed(n, n.replaceAll("\\s", "_")))
 
     normalTissueNormDF
       .filter(col("Level") =!= "N/A")
-      .select(normalTissueNormDF.col("*"),
-              reliabilityMap(col("Reliability")).as("ReliabilityMap"),
-              levelMap(col("Level")).as("LevelMap"))
+      .select(
+        normalTissueNormDF.col("*"),
+        reliabilityMap(col("Reliability")).as("ReliabilityMap"),
+        levelMap(col("Level")).as("LevelMap")
+      )
   }
 
   /* Rename the dataframe fields with standard fields.
@@ -59,9 +62,11 @@ object Expression extends LazyLogging {
     Given three baseline dataframes with the same schema it generates a uniq dataframe per rows
     | Gene, Tissue, rna_val, binned, zscore, unit |
    */
-  private def baselineExpressionMaps(rnaDF: DataFrame,
-                                     binnedDF: DataFrame,
-                                     zscoreDF: DataFrame): DataFrame = {
+  private def baselineExpressionMaps(
+      rnaDF: DataFrame,
+      binnedDF: DataFrame,
+      zscoreDF: DataFrame
+  ): DataFrame = {
 
     val rnaTransposed = transposeDataframe(rnaDF, Seq("ID")).withColumn("unit", lit("TPM"))
     val binnedTransposed = transposeDataframe(binnedDF, Seq("ID")).withColumn("unit", lit(""))
@@ -75,10 +80,12 @@ object Expression extends LazyLogging {
 
     val baseExpressionGrouped = baseExpressions
       .groupBy("Gene", "Tissue")
-      .agg(max(col("rna")).as("rna_val"),
-           max(col("binned")).as("binned_val"),
-           max(col("zscore")).as("zscore_val"),
-           first("unit", ignoreNulls = true).as("unit_val"))
+      .agg(
+        max(col("rna")).as("rna_val"),
+        max(col("binned")).as("binned_val"),
+        max(col("zscore")).as("zscore_val"),
+        first("unit", ignoreNulls = true).as("unit_val")
+      )
 
     baseExpressionGrouped
   }
@@ -141,8 +148,10 @@ object Expression extends LazyLogging {
   /*
     Given the list of gene, tissues it fills the info with rna,level,rscore and unit info.
    */
-  private def generateBaselineInfo(normalTissueDF: DataFrame,
-                                   baselineExpressionDF: DataFrame): DataFrame = {
+  private def generateBaselineInfo(
+      normalTissueDF: DataFrame,
+      baselineExpressionDF: DataFrame
+  ): DataFrame = {
     val normalTissueKeyDF =
       normalTissueDF
         .withColumn("key", concat(col("Gene"), lit('-'), col("Tissue")))
@@ -176,9 +185,11 @@ object Expression extends LazyLogging {
   /*
      Generate baseline expressions dataframe.
    */
-  private def generateExpressions(normalTissueDF: DataFrame,
-                                  baselineExpressionDF: DataFrame,
-                                  efoTissueMap: DataFrame): DataFrame = {
+  private def generateExpressions(
+      normalTissueDF: DataFrame,
+      baselineExpressionDF: DataFrame,
+      efoTissueMap: DataFrame
+  ): DataFrame = {
 
     val tissueBaselineInfoDF = generateBaselineInfo(normalTissueDF, baselineExpressionDF)
 
@@ -195,22 +206,32 @@ object Expression extends LazyLogging {
       .agg(
         max(col("ReliabilityMapDef")).as("reliability"),
         max(col("LevelMapDef")).as("level"),
-        struct(max(col("rna")).as("value"),
-               max(col("zscore")).as("zscore"),
-               max(col("binned")).as("level"),
-               max(col("unit")).as("unit")).as("rna"),
+        struct(
+          max(col("rna")).as("value"),
+          max(col("zscore")).as("zscore"),
+          max(col("binned")).as("level"),
+          max(col("unit")).as("unit")
+        ).as("rna"),
         collect_list(
-          when(col("Cell_type_def").isNotNull,
-               struct(col("Cell_type_def").as("name"),
-                      col("ReliabilityMapDef").as("reliability"),
-                      col("LevelMapDef").as("level")))
+          when(
+            col("Cell_type_def").isNotNull,
+            struct(
+              col("Cell_type_def").as("name"),
+              col("ReliabilityMapDef").as("reliability"),
+              col("LevelMapDef").as("level")
+            )
+          )
         ).as("cell_type")
       )
-      .withColumn("organsValue",
-                  when(col("organs").isNull, Array.empty[String]).otherwise(col("organs")))
-      .withColumn("anatomicalSystems",
-                  when(col("anatomical_systems").isNull, Array.empty[String])
-                    .otherwise(col("anatomical_systems")))
+      .withColumn(
+        "organsValue",
+        when(col("organs").isNull, Array.empty[String]).otherwise(col("organs"))
+      )
+      .withColumn(
+        "anatomicalSystems",
+        when(col("anatomical_systems").isNull, Array.empty[String])
+          .otherwise(col("anatomical_systems"))
+      )
       .drop("organs", "anatomical_systems")
 
     val hpa = protein
@@ -223,10 +244,13 @@ object Expression extends LazyLogging {
             col("organsValue").as("organs"),
             col("anatomicalSystems").as("anatomical_systems"),
             col("rna").as("rna"),
-            struct(col("reliability").as("reliability"),
-                   col("level").as("level"),
-                   col("cell_type").as("cell_type")).as("protein")
-          )).as("tissues")
+            struct(
+              col("reliability").as("reliability"),
+              col("level").as("level"),
+              col("cell_type").as("cell_type")
+            ).as("protein")
+          )
+        ).as("tissues")
       )
       .withColumnRenamed("Gene", "id")
 
@@ -254,12 +278,16 @@ object Expression extends LazyLogging {
 
     val normalTissueDF = transformNormalTissue(inputDataFrames("tissues").data)
 
-    val efoTissueMap = efoTissueMapping(inputDataFrames("mapwithefos").data,
-                                        inputDataFrames("expressionhierarchy").data)
+    val efoTissueMap = efoTissueMapping(
+      inputDataFrames("mapwithefos").data,
+      inputDataFrames("expressionhierarchy").data
+    )
 
-    val baselineExpressionDF = baselineExpressionMaps(inputDataFrames("rna").data,
-                                                      inputDataFrames("binned").data,
-                                                      inputDataFrames("zscore").data)
+    val baselineExpressionDF = baselineExpressionMaps(
+      inputDataFrames("rna").data,
+      inputDataFrames("binned").data,
+      inputDataFrames("zscore").data
+    )
 
     val expressionDF = generateExpressions(normalTissueDF, baselineExpressionDF, efoTissueMap)
     expressionDF

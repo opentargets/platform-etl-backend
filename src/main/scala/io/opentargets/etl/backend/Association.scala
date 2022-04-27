@@ -41,32 +41,36 @@ object Association extends LazyLogging {
         zip_with(
           array_repeat(lit(1.0), size(vector)),
           sequence(lit(1), size(vector)),
-          (e, i) => e / powCol(i, 2D)
+          (e, i) => e / powCol(i, 2d)
         ),
-        lit(0D),
+        lit(0d),
         (a, el) => a + el
       )
 
-    def harmonicFn(df: DataFrame,
-                   pairColNames: Seq[String],
-                   scoreColName: String,
-                   outputColName: String,
-                   weightColName: Option[String],
-                   scaler: Option[Column]): DataFrame = {
+    def harmonicFn(
+        df: DataFrame,
+        pairColNames: Seq[String],
+        scoreColName: String,
+        outputColName: String,
+        weightColName: Option[String],
+        scaler: Option[Column]
+    ): DataFrame = {
 
       val tName = mkRandomPrefix()
       val w = Window.partitionBy(pairColNames.map(col): _*)
-      val weightC = weightColName.map(col).getOrElse(lit(1D))
+      val weightC = weightColName.map(col).getOrElse(lit(1d))
       val wScore = tName + "_ths_w"
       val tDF = df
         .withColumn(wScore, col(scoreColName) * weightC)
         .withColumn(tName + "_ths_k", row_number() over w.orderBy(col(wScore).desc))
-        .withColumn(tName + "_ths_dx_max", typedLit(1D) / powCol(col(tName + "_ths_k"), 2D))
-        .withColumn(tName + "_ths_dx", col(wScore) / powCol(col(tName + "_ths_k"), 2D))
+        .withColumn(tName + "_ths_dx_max", typedLit(1d) / powCol(col(tName + "_ths_k"), 2d))
+        .withColumn(tName + "_ths_dx", col(wScore) / powCol(col(tName + "_ths_k"), 2d))
         .withColumn(tName + "_ths_t", sum(col(tName + "_ths_dx")).over(w))
         .withColumn(tName + "_ths_t_max", sum(col(tName + "_ths_dx_max")).over(w))
-        .withColumn(outputColName,
-                    col(tName + "_ths_t") / scaler.getOrElse(col(tName + "_ths_t_max")))
+        .withColumn(
+          outputColName,
+          col(tName + "_ths_t") / scaler.getOrElse(col(tName + "_ths_t_max"))
+        )
 
       // remove temporal cols
       tDF.drop(tDF.columns.filter(_.startsWith(tName)): _*)
@@ -91,7 +95,8 @@ object Association extends LazyLogging {
           otc.dataSources
             .toDS()
             .selectExpr(s"id as $dsId", "propagate")
-            .orderBy(col(dsId).asc))
+            .orderBy(col(dsId).asc)
+        )
 
         /*
          ontology propagation happens just when datasource is not one of the banned ones
@@ -105,9 +110,11 @@ object Association extends LazyLogging {
 
         val fullExpanded = dfWithLut
           .join(broadcast(lut.orderBy($"did".asc)), col(dId) === $"did", "inner")
-          .withColumn("_ancestors",
-                      when($"propagate" === true, concat(array($"did"), $"ancestors"))
-                        .otherwise(array($"did")))
+          .withColumn(
+            "_ancestors",
+            when($"propagate" === true, concat(array($"did"), $"ancestors"))
+              .otherwise(array($"did"))
+          )
           .withColumn("ancestor", explode($"_ancestors"))
           .drop(dId, "did", "ancestors", "_ancestors")
           .withColumnRenamed("ancestor", dId)
@@ -115,8 +122,7 @@ object Association extends LazyLogging {
         fullExpanded
       }
 
-      /**
-        * join weight per datasource from configuration section `otc`
+      /** join weight per datasource from configuration section `otc`
         * @param otc from ETL configuration section
         * @return the modified dataframe
         */
@@ -147,10 +153,12 @@ object Association extends LazyLogging {
         val dsPartition = Seq(dsId, dId, tId)
 
         val datasourceAssocs = df
-        // .leftJoinWeights(associationsSec, weightId)
+          // .leftJoinWeights(associationsSec, weightId)
           .transform(harmonicFn(_, dsPartition, evScore, dsIdScore, None, Some(lit(maxHS))))
-          .withColumn(dsEvsCount,
-                      count(col(evId)).over(Window.partitionBy(dsPartition.map(col): _*)))
+          .withColumn(
+            dsEvsCount,
+            count(col(evId)).over(Window.partitionBy(dsPartition.map(col): _*))
+          )
 
         val res = datasourceAssocs
           .selectExpr(cols: _*)
@@ -162,8 +170,9 @@ object Association extends LazyLogging {
 
   }
 
-  def prepareEvidences(expandOntology: Boolean = false)(
-      implicit context: ETLSessionContext): DataFrame = {
+  def prepareEvidences(
+      expandOntology: Boolean = false
+  )(implicit context: ETLSessionContext): DataFrame = {
     implicit val ss: SparkSession = context.sparkSession
     import Helpers.ImplicitExtras
 
@@ -186,7 +195,7 @@ object Association extends LazyLogging {
     val dfs = IoHelpers.readFrom(mappedInputs)
     val evidences = dfs("evidences").data
       .selectExpr(evidenceColumns: _*)
-      .where(col(evScore) > 0D)
+      .where(col(evScore) > 0d)
 
     val evs = if (expandOntology) {
       evidences
@@ -237,8 +246,9 @@ object Association extends LazyLogging {
     )
   }
 
-  def computeAssociationsPerDT(assocsPerDS: DataFrame)(
-      implicit context: ETLSessionContext): DataFrame = {
+  def computeAssociationsPerDT(
+      assocsPerDS: DataFrame
+  )(implicit context: ETLSessionContext): DataFrame = {
 
     implicit val ss: SparkSession = context.sparkSession
 
@@ -271,8 +281,9 @@ object Association extends LazyLogging {
     res
   }
 
-  def computeAssociationsAllDS(assocsPerDS: DataFrame)(
-      implicit context: ETLSessionContext): DataFrame = {
+  def computeAssociationsAllDS(
+      assocsPerDS: DataFrame
+  )(implicit context: ETLSessionContext): DataFrame = {
     implicit val ss: SparkSession = context.sparkSession
     import Helpers._
 
@@ -293,12 +304,15 @@ object Association extends LazyLogging {
       .withColumnRenamed(dsIdScore, dsScoreName)
       .withColumnRenamed(dsEvsCount, dsCountName)
       .transform(
-        harmonicFn(_,
-                   pairPartition,
-                   dsScoreName,
-                   overallDsIdScore,
-                   Some(weightId),
-                   Some(lit(maxHS))))
+        harmonicFn(
+          _,
+          pairPartition,
+          dsScoreName,
+          overallDsIdScore,
+          Some(weightId),
+          Some(lit(maxHS))
+        )
+      )
       .withColumn(overallDsEvsCount, sum(col(dsCountName)).over(w))
       .selectExpr(cols: _*)
       .dropDuplicates(pairPartition)
@@ -306,8 +320,9 @@ object Association extends LazyLogging {
     res
   }
 
-  def computeAssociationsPerDS(evidences: DataFrame)(
-      implicit context: ETLSessionContext): DataFrame = {
+  def computeAssociationsPerDS(
+      evidences: DataFrame
+  )(implicit context: ETLSessionContext): DataFrame = {
     implicit val ss: SparkSession = context.sparkSession
 
     import ss.implicits._

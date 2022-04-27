@@ -5,8 +5,7 @@ import io.opentargets.etl.backend.spark.Helpers.validateDF
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.{DataFrame, SparkSession}
 
-/**
-  * Object for preparing mechanism of action section of the drug object.
+/** Object for preparing mechanism of action section of the drug object.
   *
   * Output structure:
   *
@@ -22,20 +21,17 @@ import org.apache.spark.sql.{DataFrame, SparkSession}
   * ---- targetName
   * -- uniqueActiontype
   * -- unqueTargetType
-  *
-  *
   */
 object MechanismOfAction extends LazyLogging {
 
-  /**
-    *
-    * @param mechanismDf: raw data from Chembl
+  /** @param mechanismDf: raw data from Chembl
     * @param targetDf: raw data from Chembl
     * @param geneDf: gene parquet file listed under target in configuration
     * @param sparkSession implicit
     */
-  def apply(mechanismDf: DataFrame, targetDf: DataFrame, geneDf: DataFrame)(
-      implicit sparkSession: SparkSession): DataFrame = {
+  def apply(mechanismDf: DataFrame, targetDf: DataFrame, geneDf: DataFrame)(implicit
+      sparkSession: SparkSession
+  ): DataFrame = {
 
     logger.info("Processing mechanisms of action")
     val mechanism = mechanismDf
@@ -86,7 +82,8 @@ object MechanismOfAction extends LazyLogging {
       .agg(collect_list("col.ref_id").as("ref_id"), collect_list("col.ref_url").as("ref_url"))
       .withColumn(
         "references",
-        struct(col("ref_type").as("source"), col("ref_id").as("ids"), col("ref_url").as("urls")))
+        struct(col("ref_type").as("source"), col("ref_id").as("ids"), col("ref_url").as("urls"))
+      )
       .groupBy("id")
       .agg(collect_list("references").as("references"))
   }
@@ -111,7 +108,13 @@ object MechanismOfAction extends LazyLogging {
     val genes = gene.select(geneCols: _*)
 
     targetDf
-      .join(genes, targetDf("uniprot_id") === genes("uniprot_id") || targetDf("uniprot_id") === genes("geneId"), "left_outer")
+      .join(
+        genes,
+        targetDf("uniprot_id") === genes("uniprot_id") || targetDf("uniprot_id") === genes(
+          "geneId"
+        ),
+        "left_outer"
+      )
       .groupBy("target_chembl_id", "targetName", "targetType")
       .agg(array_distinct(collect_list("geneId")).as("targets"))
   }

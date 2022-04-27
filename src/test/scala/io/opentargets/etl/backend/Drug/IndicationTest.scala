@@ -35,7 +35,8 @@ class IndicationTest extends EtlSparkUnitTest {
     // then
     assert(
       results.columns.forall(expectedColumns.contains),
-      s"Expected columns $expectedColumns but found ${results.columns.mkString("Array(", ", ", ")")}")
+      s"Expected columns $expectedColumns but found ${results.columns.mkString("Array(", ", ", ")")}"
+    )
   }
 
   "Processing ChEMBL indications data" should "correctly process raw ChEMBL data into expected format" in {

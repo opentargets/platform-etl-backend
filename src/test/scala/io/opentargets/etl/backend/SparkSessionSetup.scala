@@ -4,7 +4,7 @@ import org.apache.spark.sql.SparkSession
 
 trait SparkSessionSetup {
 
-  lazy implicit val sparkSession = SparkSession
+  implicit lazy val sparkSession = SparkSession
     .builder()
     .master("local[*]")
     .appName("etlSparkTest")
@@ -12,4 +12,3 @@ trait SparkSessionSetup {
     .getOrCreate()
 
 }
-

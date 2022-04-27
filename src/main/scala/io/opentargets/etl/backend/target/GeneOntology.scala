@@ -19,19 +19,19 @@ import org.apache.spark.storage.StorageLevel
 
 object GeneOntology extends LazyLogging {
 
-  /**
-    * @param human       gene ontology available from [[ftp://ftp.ebi.ac.uk/pub/databases/GO/goa/HUMAN/goa_human.gaf.gz EBI's database]]
+  /** @param human       gene ontology available from [[ftp://ftp.ebi.ac.uk/pub/databases/GO/goa/HUMAN/goa_human.gaf.gz EBI's database]]
     * @param rna         (human) gene ontology available from [[ftp://ftp.ebi.ac.uk/pub/databases/GO/goa/HUMAN/goa_human_rna.gaf.gz EBI's database]]
     * @param rnaLookup   to map from RNACentral -> Ensembl ids available from [[ftp://ftp.ebi.ac.uk/pub/databases/RNAcentral/current_release/id_mapping/database_mappings/ensembl.tsv EBI]]
     * @param ecoLookup   to map from goId -> eco ids available from [[ftp://ftp.ebi.ac.uk/pub/databases/GO/goa/HUMAN/goa_human.gpa.gz EBI]]
     * @param humanLookup to map from Uniprot accession to Ensembl Id
     */
-  def apply(human: DataFrame,
-            rna: DataFrame,
-            rnaLookup: DataFrame,
-            ecoLookup: DataFrame,
-            humanLookup: Dataset[Ensembl])(
-      implicit sparkSession: SparkSession): Dataset[GeneOntologyByEnsembl] = {
+  def apply(
+      human: DataFrame,
+      rna: DataFrame,
+      rnaLookup: DataFrame,
+      ecoLookup: DataFrame,
+      humanLookup: Dataset[Ensembl]
+  )(implicit sparkSession: SparkSession): Dataset[GeneOntologyByEnsembl] = {
     import sparkSession.implicits._
 
     logger.info("Transforming Gene Ontology inputs for Target step.")
@@ -54,7 +54,8 @@ object GeneOntology extends LazyLogging {
     logger.debug("Linking gene ontologies with Ensembl Ids")
     val rnaWithEnsemblId: Dataset[GeneOntologyByEnsembl] = broadcast(
       humanRnaGo
-        .join(rnaLU, humanRnaGo("dbObjectId") === rnaLU("rnaCentralId")))
+        .join(rnaLU, humanRnaGo("dbObjectId") === rnaLU("rnaCentralId"))
+    )
       .join(ecoLU, Seq("goId", "geneProduct", "evidence"), "left_outer")
       .drop("rnaCentralId")
       .transform(nestGO)
@@ -68,15 +69,18 @@ object GeneOntology extends LazyLogging {
     rnaWithEnsemblId
       .withColumnRenamed("go", "go_i")
       .join(humanWithEnsemblId, Seq("ensemblId"), "outer")
-      .select(col("ensemblId"),
-              array_union(coalesce(col("go"), typedLit(Array.empty[GO])),
-                          coalesce(col("go_i"), typedLit(Array.empty[GO]))).as("go"))
+      .select(
+        col("ensemblId"),
+        array_union(
+          coalesce(col("go"), typedLit(Array.empty[GO])),
+          coalesce(col("go_i"), typedLit(Array.empty[GO]))
+        ).as("go")
+      )
       .as[GeneOntologyByEnsembl]
 
   }
 
-  /**
-    * Returns required columns from raw dataframe.
+  /** Returns required columns from raw dataframe.
     *
     * All columns are renamed according to the [[http://geneontology.org/docs/go-annotation-file-gaf-format-2.2/ GO specification]].
     */
@@ -115,7 +119,7 @@ object GeneOntology extends LazyLogging {
   /** Returns lookup table from RNACentral identifiers to Ensembl Gene Ids.
     *
     * Only Ensembl Genes starting with ENSG are included.
-    * */
+    */
   private def rnaToEnsemblLookupTable(dataFrame: DataFrame): DataFrame = {
     val colNames =
       Seq("rnaCentralId", "database", "externalId", "ncbiTaxonId", "rnaType", "ensemblId")
@@ -127,11 +131,11 @@ object GeneOntology extends LazyLogging {
       .withColumn("ensemblId", regexp_extract(col("ensemblId"), "ENSG[0-9]+", 0))
   }
 
-  /**
-    * @return dataframe with columns 'ensemblId', 'uniprotId'
+  /** @return dataframe with columns 'ensemblId', 'uniprotId'
     */
-  private def ensemblDfToHumanLookupTable(dataset: Dataset[Ensembl])(
-      implicit sparkSession: SparkSession): DataFrame = {
+  private def ensemblDfToHumanLookupTable(
+      dataset: Dataset[Ensembl]
+  )(implicit sparkSession: SparkSession): DataFrame = {
     import sparkSession.implicits._
     dataset
       .filter(ensg => ensg.proteinIds != null && ensg.proteinIds.nonEmpty)
@@ -148,8 +152,9 @@ object GeneOntology extends LazyLogging {
   }
 
   /** Returns dataframe with columns [ensemblId, go] */
-  private def nestGO(dataFrame: DataFrame)(
-      implicit sparkSession: SparkSession): Dataset[GeneOntologyByEnsembl] = {
+  private def nestGO(
+      dataFrame: DataFrame
+  )(implicit sparkSession: SparkSession): Dataset[GeneOntologyByEnsembl] = {
     import sparkSession.implicits._
     dataFrame
       .drop("dbObjectId")
@@ -163,11 +168,12 @@ object GeneOntology extends LazyLogging {
 
   /** Returns a dataframe with columns [goId, ecoId] */
   private def ecoLookupTable(df: DataFrame): DataFrame = {
-    df.select(col("_c3") as "goId",
-              col("_c1") as "geneProduct",
-              col("_c5") as "ecoId",
-              split(col("_c11"), "=")(1) as "evidence")
-      .orderBy(col("goId"))
+    df.select(
+      col("_c3") as "goId",
+      col("_c1") as "geneProduct",
+      col("_c5") as "ecoId",
+      split(col("_c11"), "=")(1) as "evidence"
+    ).orderBy(col("goId"))
       .distinct
       .persist(StorageLevel.MEMORY_AND_DISK)
   }
@@ -175,9 +181,11 @@ object GeneOntology extends LazyLogging {
 
 case class GeneOntologyByEnsembl(ensemblId: String, go: Array[GO])
 
-case class GO(id: String,
-              source: String,
-              evidence: String,
-              aspect: String,
-              geneProduct: String,
-              ecoId: String)
+case class GO(
+    id: String,
+    source: String,
+    evidence: String,
+    aspect: String,
+    geneProduct: String,
+    ecoId: String
+)

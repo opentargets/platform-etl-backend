@@ -92,9 +92,15 @@ object Transformers {
         )
 
       val targetHGNC = df
-        .select(col("targetId"), filter(col("dbXRefs"), col => {
-          col.getField("source") === "HGNC"
-        }) as "h")
+        .select(
+          col("targetId"),
+          filter(
+            col("dbXRefs"),
+            col => {
+              col.getField("source") === "HGNC"
+            }
+          ) as "h"
+        )
         .select(col("targetId"), explode_outer(col("h.id")) as "hgncId")
         .withColumn("hgncId", when(col("hgncId").isNotNull, concat(lit("HGNC:"), col("hgncId"))))
         .orderBy("targetId")
@@ -199,9 +205,11 @@ object Transformers {
         .selectExpr(idColumnName, "therapeuticAreas")
         .withColumn("therapeuticAreaId", explode(col("therapeuticAreas")))
         .orderBy(col("therapeuticAreaId"))
-        .join(df.selectExpr(s"$idColumnName as therapeuticAreaId", "name as therapeuticAreaLabel"),
-              Seq("therapeuticAreaId"),
-              "inner")
+        .join(
+          df.selectExpr(s"$idColumnName as therapeuticAreaId", "name as therapeuticAreaLabel"),
+          Seq("therapeuticAreaId"),
+          "inner"
+        )
         .drop("therapeuticAreaId", "therapeuticAreas")
         .groupBy(col(idColumnName))
         .agg(collect_set(col("therapeuticAreaLabel")).as(taLabelsColumnName))
@@ -513,13 +521,19 @@ object Search extends LazyLogging {
       .join(
         inputDataFrame("mechanism").data
           .withColumn("id", explode(col("chemblIds")))
-          .transform(nest(_: DataFrame,
-                          List("mechanismOfAction", "references", "targetName", "targets"),
-                          "rows"))
+          .transform(
+            nest(
+              _: DataFrame,
+              List("mechanismOfAction", "references", "targetName", "targets"),
+              "rows"
+            )
+          )
           .groupBy("id")
-          .agg(collect_list("rows") as "rows",
-               collect_set("actionType") as "uniqueActionTypes",
-               collect_set("targetType") as "uniqueTargetType"),
+          .agg(
+            collect_list("rows") as "rows",
+            collect_set("actionType") as "uniqueActionTypes",
+            collect_set("targetType") as "uniqueTargetType"
+          ),
         Seq("id"),
         "left_outer"
       )

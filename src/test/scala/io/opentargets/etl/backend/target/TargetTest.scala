@@ -10,11 +10,13 @@ class TargetTest extends EtlSparkUnitTest {
 
   "ProteinIds" should "not have duplicate accession entries and be returned in sorted order" in {
     // given
-    val input = Array("ENSP00000252338-ensembl_PRO",
-                      "O75949-uniprot_swissprot",
-                      "O75949-uniprot",
-                      "B1ALV6-uniprot",
-                      "D3DVU1-uniprot")
+    val input = Array(
+      "ENSP00000252338-ensembl_PRO",
+      "O75949-uniprot_swissprot",
+      "O75949-uniprot",
+      "B1ALV6-uniprot",
+      "D3DVU1-uniprot"
+    )
     // when
     val results = Target.cleanProteinIds(input)
 

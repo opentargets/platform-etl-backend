@@ -51,13 +51,13 @@ class TargetUtilsTest extends EtlSparkUnitTest {
       sparkSession.createDataFrame(sparkSession.sparkContext.parallelize(data)).toDF(columns: _*)
 
     val res =
-      df.withColumn("hgncSynonymsLabel",
-                    transformArrayToStruct(col("hgncSynonyms"),
-                                           typedLit("HGNC") :: Nil,
-                                           labelAndSourceSchema))
-        .withColumn(
-          "hgncSynonymsId",
-          transformArrayToStruct(col("hgncSynonyms"), typedLit("HGNC") :: Nil, idAndSourceSchema))
+      df.withColumn(
+        "hgncSynonymsLabel",
+        transformArrayToStruct(col("hgncSynonyms"), typedLit("HGNC") :: Nil, labelAndSourceSchema)
+      ).withColumn(
+        "hgncSynonymsId",
+        transformArrayToStruct(col("hgncSynonyms"), typedLit("HGNC") :: Nil, idAndSourceSchema)
+      )
 
     res.columns should contain("hgncSynonymsLabel").and(contain("hgncSynonymsId"))
 

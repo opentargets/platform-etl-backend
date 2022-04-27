@@ -21,20 +21,24 @@ case class TargetSafety(id: String, safetyLiabilities: Array[TargetSafetyEvidenc
 
 case class TargetSafetyStudy(name: String, description: String, `type`: String)
 
-case class TargetSafetyEvidence(event: String,
-                                eventId: String,
-                                effects: Array[(String, String)],
-                                biosample: Array[Biosample],
-                                datasource: String,
-                                literature: String,
-                                url: String,
-                                study: Array[TargetSafetyStudy])
+case class TargetSafetyEvidence(
+    event: String,
+    eventId: String,
+    effects: Array[(String, String)],
+    biosample: Array[Biosample],
+    datasource: String,
+    literature: String,
+    url: String,
+    study: Array[TargetSafetyStudy]
+)
 
-case class Biosample(tissueLabel: String,
-                     tissueId: String,
-                     cellLabel: String,
-                     cellFormat: String,
-                     cellId: String)
+case class Biosample(
+    tissueLabel: String,
+    tissueId: String,
+    cellLabel: String,
+    cellFormat: String,
+    cellId: String
+)
 
 object Safety extends LazyLogging {
 
@@ -42,7 +46,8 @@ object Safety extends LazyLogging {
       adverseEventsDF: DataFrame,
       safetyRiskDF: DataFrame,
       toxicityDF: DataFrame,
-      geneToEnsgLookup: DataFrame)(implicit sparkSession: SparkSession): Dataset[TargetSafety] = {
+      geneToEnsgLookup: DataFrame
+  )(implicit sparkSession: SparkSession): Dataset[TargetSafety] = {
     import sparkSession.implicits._
 
     logger.info("Computing target safety information.")
@@ -56,13 +61,15 @@ object Safety extends LazyLogging {
     // combine into single dataframe and group by Ensembl id.
     // The data is relatively sparse, so expect lots of nulls.
     val combinedDF = unionDataframeDifferentSchema(Seq(aeDF, tsDF, toxDF))
-      .groupBy(col("event"),
-               col("eventId"),
-               col("datasource"),
-               col("id"),
-               col("effects"),
-               col("literature"),
-               col("url"))
+      .groupBy(
+        col("event"),
+        col("eventId"),
+        col("datasource"),
+        col("id"),
+        col("effects"),
+        col("literature"),
+        col("url")
+      )
       .agg(collect_set(col("study")) as "study", collect_set(col("biosample")) as "biosample")
       .transform(groupByEvidence)
 
@@ -90,8 +97,10 @@ object Safety extends LazyLogging {
       )
       .withColumn(
         "effects",
-        struct(element_at(col("effects"), 1) as "direction",
-               element_at(col("effects"), 2) as "dosing")
+        struct(
+          element_at(col("effects"), 1) as "direction",
+          element_at(col("effects"), 2) as "dosing"
+        )
       )
 
     val effectsDF = aeDF
@@ -141,10 +150,14 @@ object Safety extends LazyLogging {
         ) as "biosample",
         trim(col("official_symbol")) as "official_symbol",
         lit("ToxCast") as "datasource",
-        lit("https://www.epa.gov/chemical-research/exploring-toxcast-data-downloadable-data") as "url",
-        struct(col("assay_component_endpoint_name") as "name",
-               col("assay_component_desc") as "description",
-               col("assay_format_type") as "type") as "study"
+        lit(
+          "https://www.epa.gov/chemical-research/exploring-toxcast-data-downloadable-data"
+        ) as "url",
+        struct(
+          col("assay_component_endpoint_name") as "name",
+          col("assay_component_desc") as "description",
+          col("assay_format_type") as "type"
+        ) as "study"
       )
     ).join(geneIdLookup, array_contains(col("name"), col("official_symbol")), "left_outer")
       .drop(geneIdLookup.columns.filter(_ != "ensgId"): _*)
@@ -157,19 +170,18 @@ object Safety extends LazyLogging {
     logger.debug("Grouping target safety by ensembl id.")
 
     df.select(
-        col("id"),
-        struct(
-          col("event"),
-          col("eventId"),
-          col("effects"),
-          col("biosample"),
-          col("datasource"),
-          col("literature"),
-          col("url"),
-          col("study")
-        ) as "safety"
-      )
-      .groupBy("id")
+      col("id"),
+      struct(
+        col("event"),
+        col("eventId"),
+        col("effects"),
+        col("biosample"),
+        col("datasource"),
+        col("literature"),
+        col("url"),
+        col("study")
+      ) as "safety"
+    ).groupBy("id")
       .agg(collect_set("safety") as "safetyLiabilities")
   }
 }

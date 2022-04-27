@@ -22,7 +22,8 @@ object OtarProject extends LazyLogging {
             col("project_name").as("project_name"),
             concat(lit("http://home.opentargets.org/"), col("otar_code")).as("reference")
           )
-        ).as("projects"))
+        ).as("projects")
+      )
   }
 
   def apply()(implicit context: ETLSessionContext): IOResources = {

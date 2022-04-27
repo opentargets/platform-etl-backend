@@ -10,11 +10,15 @@ object TargetUtils {
     * constant additionalColumns. See TargetUtilsTest example of usage
     * @return cast(ArrayType(schema)) of the nullable transformation
     */
-  def transformArrayToStruct(sourceCol: Column,
-                             additionalColumns: List[Column],
-                             schema: StructType,
-                             customCondition: Option[Column] = None): Column =
-    when(customCondition.getOrElse(size(sourceCol) >= 0),
-         transform(sourceCol, c => struct(c :: additionalColumns: _*)))
+  def transformArrayToStruct(
+      sourceCol: Column,
+      additionalColumns: List[Column],
+      schema: StructType,
+      customCondition: Option[Column] = None
+  ): Column =
+    when(
+      customCondition.getOrElse(size(sourceCol) >= 0),
+      transform(sourceCol, c => struct(c :: additionalColumns: _*))
+    )
       .cast(ArrayType(schema))
 }

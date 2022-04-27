@@ -11,10 +11,9 @@ import org.apache.spark.sql.functions._
 object Connections extends LazyLogging {
   def diseaseEdges(df: DataFrame): DataFrame = {
     df.selectExpr(
-        "id",
-        "parents"
-      )
-      .withColumn("parent", explode(col("parents")))
+      "id",
+      "parents"
+    ).withColumn("parent", explode(col("parents")))
       .where(col("parent").isNotNull)
       .withColumn("type", lit("relation"))
       .withColumn("cat", lit("parent_of"))
@@ -42,12 +41,14 @@ object Connections extends LazyLogging {
       associationEdges(computeAssociationsPerDS(prepareEvidences()))
 
     val outputs = Map(
-      "disease_connections" -> IOResource(dEdges,
-                                          IOResourceConfig(common.outputFormat,
-                                                           common.output + "/diseaseConnections")),
+      "disease_connections" -> IOResource(
+        dEdges,
+        IOResourceConfig(common.outputFormat, common.output + "/diseaseConnections")
+      ),
       "association_connections" -> IOResource(
         assocEdges,
-        IOResourceConfig(common.outputFormat, common.output + "/associationConnections"))
+        IOResourceConfig(common.outputFormat, common.output + "/associationConnections")
+      )
     )
 
     IoHelpers.writeTo(outputs)

@@ -19,11 +19,14 @@ object ETLSessionContext extends LazyLogging {
       val evidence = if (config.evidences.dataSourcesExclude.nonEmpty) {
         logger.info(s"Excluding data sources for evidence: ${config.evidences.dataSourcesExclude}")
         val ds = config.evidences.dataSources.filter(d =>
-          !config.evidences.dataSourcesExclude.contains(d.id))
+          !config.evidences.dataSourcesExclude.contains(d.id)
+        )
         config.evidences.copy(dataSources = ds)
       } else config.evidences
-      ETLSessionContext(config.copy(evidences = evidence),
-                        getOrCreateSparkSession(progName, config.sparkUri))
+      ETLSessionContext(
+        config.copy(evidences = evidence),
+        getOrCreateSparkSession(progName, config.sparkUri)
+      )
     }
   }
 }

@@ -10,6 +10,10 @@ object EventsFiltering extends LazyLogging {
     logger.info("Filter out those events that are blacklisted")
     // Do the filtering
     dfFdaEvents
-      .join(dfBlackList, dfFdaEvents("reaction_reactionmeddrapt") === dfBlackList("reactions"), "left_anti")
+      .join(
+        dfBlackList,
+        dfFdaEvents("reaction_reactionmeddrapt") === dfBlackList("reactions"),
+        "left_anti"
+      )
   }
 }

@@ -14,8 +14,7 @@ import org.apache.spark.sql.functions.{
   when
 }
 
-/**
-  * Utility object to hold methods common to Drug and DrugBeta steps to prevent code duplication.
+/** Utility object to hold methods common to Drug and DrugBeta steps to prevent code duplication.
   */
 object DrugCommon extends Serializable with LazyLogging {
 
@@ -54,8 +53,7 @@ object DrugCommon extends Serializable with LazyLogging {
     )
   }
 
-  /**
-    * User defined function wrapper of `generateDescriptionField`
+  /** User defined function wrapper of `generateDescriptionField`
     */
   val generateDescriptionFieldUdf: UserDefinedFunction = udf(
     (
@@ -79,11 +77,10 @@ object DrugCommon extends Serializable with LazyLogging {
         withdrawnCountries,
         withdrawnReasons,
         blackBoxWarning
-    )
+      )
   )
 
-  /**
-    * take a list of tokens and join them like a proper english sentence with items in it. As
+  /** take a list of tokens and join them like a proper english sentence with items in it. As
     * an example ["miguel", "cinzia", "jarrod"] -> "miguel, cinzia and jarrod" and all the
     * the causistic you could find in it.
     * @param tokens list of tokens
@@ -106,7 +103,8 @@ object DrugCommon extends Serializable with LazyLogging {
     val strTokens: Seq[String] = tokens
       .map(
         _.withFilter(_ != null)
-          .map(_.toString))
+          .map(_.toString)
+      )
       .getOrElse(Seq.empty[String])
 
     strTokens.size match {
@@ -120,8 +118,7 @@ object DrugCommon extends Serializable with LazyLogging {
     }
   }
 
-  /**
-    * Use drug metadata to construct a syntactically correct English sentence description of the drug.
+  /** Use drug metadata to construct a syntactically correct English sentence description of the drug.
     * @return sentence describing the key features of the drug.
     */
   def generateDescriptionField(
@@ -163,8 +160,10 @@ object DrugCommon extends Serializable with LazyLogging {
           None
         case (n, 0) =>
           if (n <= minIndicationsToShow) {
-            DrugCommon.mkStringSemantic(Option(approvedIndications.map(_._2)),
-                                        " and is indicated for ")
+            DrugCommon.mkStringSemantic(
+              Option(approvedIndications.map(_._2)),
+              " and is indicated for "
+            )
           } else
             Some(s" and has $n approved indications")
         case (0, m) =>
@@ -191,7 +190,8 @@ object DrugCommon extends Serializable with LazyLogging {
       )
 
     val year = withdrawnYear.map(y =>
-      s" ${if (withdrawnCountries.size > 1) "initially" else ""} in ${y.toString}")
+      s" ${if (withdrawnCountries.size > 1) "initially" else ""} in ${y.toString}"
+    )
     val countries = DrugCommon.mkStringSemantic(Option(withdrawnCountries), " in ")
     val reasons = DrugCommon.mkStringSemantic(Option(withdrawnReasons), " due to ")
     val wdrawnNoteList = List(Some(" It was withdrawn"), countries, year, reasons, Some("."))
@@ -226,10 +226,14 @@ object DrugCommon extends Serializable with LazyLogging {
       )
       .withColumn("targetCount", size(col("targets")))
       .withColumn("diseaseCount", size(col("diseases")))
-      .withColumn("linkedTargets",
-                  struct(col("targets").as("rows"), col("targetCount").as("count")))
-      .withColumn("linkedDiseases",
-                  struct(col("diseases").as("rows"), col("diseaseCount").as("count")))
+      .withColumn(
+        "linkedTargets",
+        struct(col("targets").as("rows"), col("targetCount").as("count"))
+      )
+      .withColumn(
+        "linkedDiseases",
+        struct(col("diseases").as("rows"), col("diseaseCount").as("count"))
+      )
       .select("drugId", "linkedTargets", "linkedDiseases")
   }
 

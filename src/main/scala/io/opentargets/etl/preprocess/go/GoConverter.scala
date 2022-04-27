@@ -9,9 +9,7 @@ object GoConverter {
   private val endEntry = (line: String) => line.trim.nonEmpty
   private val separator = ":"
 
-  /**
-    *
-    * @param file input file in obo format available from [[http://geneontology.org/docs/download-ontology/#go_obo_and_owl here]]
+  /** @param file input file in obo format available from [[http://geneontology.org/docs/download-ontology/#go_obo_and_owl here]]
     *             The file is separated into entries which start with [Term] and end with a blank line.
     *
     *             There are a large number of fields available as specified in the [[http://owlcollab.github.io/oboformat/doc/obo-syntax documentation]].

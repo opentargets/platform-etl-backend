@@ -7,16 +7,17 @@ import io.opentargets.etl.backend.target.TargetUtils.transformArrayToStruct
 import org.apache.spark.sql.{DataFrame, Dataset, SparkSession}
 import org.apache.spark.sql.functions.{array, col, element_at, explode, split, typedLit}
 
-case class Hgnc(ensemblId: String,
-                hgncId: Array[IdAndSource],
-                approvedSymbol: String,
-                approvedName: String,
-                hgncSynonyms: Option[Array[LabelAndSource]],
-                hgncSymbolSynonyms: Option[Array[LabelAndSource]],
-                hgncNameSynonyms: Option[Array[LabelAndSource]],
-                hgncObsoleteSymbols: Option[Array[LabelAndSource]],
-                hgncObsoleteNames: Option[Array[LabelAndSource]],
-                uniprotIds: Option[Array[String]],
+case class Hgnc(
+    ensemblId: String,
+    hgncId: Array[IdAndSource],
+    approvedSymbol: String,
+    approvedName: String,
+    hgncSynonyms: Option[Array[LabelAndSource]],
+    hgncSymbolSynonyms: Option[Array[LabelAndSource]],
+    hgncNameSynonyms: Option[Array[LabelAndSource]],
+    hgncObsoleteSymbols: Option[Array[LabelAndSource]],
+    hgncObsoleteNames: Option[Array[LabelAndSource]],
+    uniprotIds: Option[Array[String]]
 )
 object Hgnc extends LazyLogging {
 
@@ -27,8 +28,9 @@ object Hgnc extends LazyLogging {
 
   }
 
-  private def selectAndRenameFields(dataFrame: DataFrame)(
-      implicit ss: SparkSession): Dataset[Hgnc] = {
+  private def selectAndRenameFields(
+      dataFrame: DataFrame
+  )(implicit ss: SparkSession): Dataset[Hgnc] = {
     import ss.implicits._
     val hgncDf = dataFrame
       .select(
@@ -37,7 +39,12 @@ object Hgnc extends LazyLogging {
         col("symbol") as "approvedSymbol",
         col("name") as "approvedName",
         col("uniprot_ids"),
-        safeArrayUnion(col("prev_name"), col("prev_symbol"), col("alias_symbol"), col("alias_name")) as "hgncSynonyms",
+        safeArrayUnion(
+          col("prev_name"),
+          col("prev_symbol"),
+          col("alias_symbol"),
+          col("alias_name")
+        ) as "hgncSynonyms",
         safeArrayUnion(col("alias_symbol")) as "hgncSymbolSynonyms",
         safeArrayUnion(col("alias_name")) as "hgncNameSynonyms",
         safeArrayUnion(col("prev_symbol")) as "hgncObsoleteSymbols",
@@ -45,15 +52,18 @@ object Hgnc extends LazyLogging {
       )
       .transform(Helpers.snakeToLowerCamelSchema)
 
-    val synonyms = List("hgncSynonyms",
-                        "hgncSymbolSynonyms",
-                        "hgncNameSynonyms",
-                        "hgncObsoleteSymbols",
-                        "hgncObsoleteNames")
+    val synonyms = List(
+      "hgncSynonyms",
+      "hgncSymbolSynonyms",
+      "hgncNameSynonyms",
+      "hgncObsoleteSymbols",
+      "hgncObsoleteNames"
+    )
       .foldLeft(hgncDf) { (B, name) =>
         B.withColumn(
           name,
-          transformArrayToStruct(col(name), typedLit("HGNC") :: Nil, labelAndSourceSchema))
+          transformArrayToStruct(col(name), typedLit("HGNC") :: Nil, labelAndSourceSchema)
+        )
       }
 
     val hgncWithDbRef = synonyms

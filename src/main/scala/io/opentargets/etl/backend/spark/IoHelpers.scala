@@ -14,8 +14,7 @@ case class IOResourceConfigOption(k: String, v: String)
 /** Combines data and metadata regarding storage/retrieval */
 case class IOResource(data: DataFrame, configuration: IOResourceConfig)
 
-/**
-  * Specifies resource to be used in the ETL.
+/** Specifies resource to be used in the ETL.
   *
   * @param format           used to help Spark know the format of the incoming file
   * @param path             to resource
@@ -31,14 +30,17 @@ case class IOResourceConfig(
     generateMetadata: Boolean = true
 )
 
-case class Metadata(id: String,
-                    resource: IOResourceConfig,
-                    serialisedSchema: String,
-                    columns: List[String])
+case class Metadata(
+    id: String,
+    resource: IOResourceConfig,
+    serialisedSchema: String,
+    columns: List[String]
+)
 
 object CsvHelpers {
   val tsvWithHeader: Option[Seq[IOResourceConfigOption]] = Some(
-    Seq(IOResourceConfigOption("header", "true"), IOResourceConfigOption("sep", "\t")))
+    Seq(IOResourceConfigOption("header", "true"), IOResourceConfigOption("sep", "\t"))
+  )
 }
 
 object IoHelpers extends LazyLogging {
@@ -77,16 +79,14 @@ object IoHelpers extends LazyLogging {
     logger.info(s"load dataset ${pathInfo.path} with ${pathInfo.toString}")
 
     pathInfo.options
-      .foldLeft(session.read.format(pathInfo.format)) {
-        case ops =>
-          val options = ops._2.map(c => c.k -> c.v).toMap
-          ops._1.options(options)
+      .foldLeft(session.read.format(pathInfo.format)) { case ops =>
+        val options = ops._2.map(c => c.k -> c.v).toMap
+        ops._1.options(options)
       }
       .load(pathInfo.path)
   }
 
-  /**
-    * Helper function to prepare multiple files of the same category to be read by `readFrom`
+  /** Helper function to prepare multiple files of the same category to be read by `readFrom`
     *
     * @param resourceConfigs collection of IOResourceConfig of unknown composition
     * @return Map with random keys to input resource.
@@ -105,18 +105,16 @@ object IoHelpers extends LazyLogging {
     val data = output.data
     val conf = output.configuration
 
-    val pb = conf.partitionBy.foldLeft(data.write) {
-      case (df, ops) =>
-        logger.debug(s"enabled partition by ${ops.toString}")
-        df.partitionBy(ops: _*)
+    val pb = conf.partitionBy.foldLeft(data.write) { case (df, ops) =>
+      logger.debug(s"enabled partition by ${ops.toString}")
+      df.partitionBy(ops: _*)
     }
 
     conf.options
-      .foldLeft(pb) {
-        case (df, ops) =>
-          logger.debug(s"write to ${conf.path} with options ${ops.toString}")
-          val options = ops.map(c => c.k -> c.v).toMap
-          df.options(options)
+      .foldLeft(pb) { case (df, ops) =>
+        logger.debug(s"write to ${conf.path} with options ${ops.toString}")
+        val options = ops.map(c => c.k -> c.v).toMap
+        df.options(options)
 
       }
       .format(conf.format)
@@ -126,8 +124,7 @@ object IoHelpers extends LazyLogging {
     output
   }
 
-  /**
-    * writeTo save all datasets in the Map outputs. It does write per IOResource
+  /** writeTo save all datasets in the Map outputs. It does write per IOResource
     * its companion metadata dataset
     *
     * @param outputs the Map with all IOResource
@@ -154,8 +151,7 @@ object IoHelpers extends LazyLogging {
     outputs
   }
 
-  /**
-    * Given an IOResource ior and the metadata config section it generates a one-line DF that
+  /** Given an IOResource ior and the metadata config section it generates a one-line DF that
     * will be saved coalesced to 1 into a folder inside the metadata output folder. This will
     * make easier to collect the matadata of the created resources
     *
@@ -164,16 +160,21 @@ object IoHelpers extends LazyLogging {
     * @param context    ETL context object
     * @return a new IOResource with all needed information and data ready to be saved
     */
-  private def generateMetadata(ior: IOResource, withConfig: IOResourceConfig)(
-      implicit context: ETLSessionContext): IOResource = {
+  private def generateMetadata(ior: IOResource, withConfig: IOResourceConfig)(implicit
+      context: ETLSessionContext
+  ): IOResource = {
     require(withConfig.path.nonEmpty, "metadata resource path cannot be empty")
     implicit val session: SparkSession = context.sparkSession
     import session.implicits._
 
     val serialisedSchema = ior.data.schema.json
     val iores = ior.configuration.copy(
-      path =
-        context.configuration.common.output.split("/").filter(_.nonEmpty).mkString("/", "/", ""))
+      path = ior.configuration.path
+        .replace(context.configuration.common.output, "")
+        .split("/")
+        .filter(_.nonEmpty)
+        .mkString("/", "/", "")
+    )
 
     val cols = ior.data.columns.toList
     val id = ior.configuration.path.split("/").filter(_.nonEmpty).last

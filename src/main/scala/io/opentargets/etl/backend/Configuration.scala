@@ -22,34 +22,42 @@ object Configuration extends LazyLogging {
 
   case class DataSource(id: String, weight: Double, dataType: String, propagate: Boolean)
 
-  case class EvidenceEntry(id: String,
-                           uniqueFields: List[String],
-                           datatypeId: Option[String],
-                           scoreExpr: String,
-                           excludedBiotypes: Option[List[String]])
+  case class EvidenceEntry(
+      id: String,
+      uniqueFields: List[String],
+      datatypeId: Option[String],
+      scoreExpr: String,
+      excludedBiotypes: Option[List[String]]
+  )
 
-  case class EvidenceInputsSection(rawEvidences: IOResourceConfig,
-                                   diseases: IOResourceConfig,
-                                   targets: IOResourceConfig)
+  case class EvidenceInputsSection(
+      rawEvidences: IOResourceConfig,
+      diseases: IOResourceConfig,
+      targets: IOResourceConfig
+  )
 
   case class SucceedFailedOutputs(succeeded: IOResourceConfig, failed: IOResourceConfig)
 
-  case class EvidencesSection(inputs: EvidenceInputsSection,
-                              uniqueFields: List[String],
-                              scoreExpr: String,
-                              datatypeId: String,
-                              dataSourcesExclude: List[String],
-                              dataSources: List[EvidenceEntry],
-                              outputs: SucceedFailedOutputs)
+  case class EvidencesSection(
+      inputs: EvidenceInputsSection,
+      uniqueFields: List[String],
+      scoreExpr: String,
+      datatypeId: String,
+      dataSourcesExclude: List[String],
+      dataSources: List[EvidenceEntry],
+      outputs: SucceedFailedOutputs
+  )
 
   case class AssociationInputsSection(evidences: IOResourceConfig, diseases: IOResourceConfig)
 
-  case class AssociationOutputsSection(directByDatasource: IOResourceConfig,
-                                       directByDatatype: IOResourceConfig,
-                                       directByOverall: IOResourceConfig,
-                                       indirectByDatasource: IOResourceConfig,
-                                       indirectByDatatype: IOResourceConfig,
-                                       indirectByOverall: IOResourceConfig)
+  case class AssociationOutputsSection(
+      directByDatasource: IOResourceConfig,
+      directByDatatype: IOResourceConfig,
+      directByOverall: IOResourceConfig,
+      indirectByDatasource: IOResourceConfig,
+      indirectByDatatype: IOResourceConfig,
+      indirectByOverall: IOResourceConfig
+  )
 
   case class AssociationsSection(
       outputs: AssociationOutputsSection,
@@ -59,9 +67,11 @@ object Configuration extends LazyLogging {
       dataSources: List[DataSource]
   )
 
-  case class AOTFInputsSection(evidences: IOResourceConfig,
-                               diseases: IOResourceConfig,
-                               targets: IOResourceConfig)
+  case class AOTFInputsSection(
+      evidences: IOResourceConfig,
+      diseases: IOResourceConfig,
+      targets: IOResourceConfig
+  )
 
   case class AOTFOutputsSection(clickhouse: IOResourceConfig, elasticsearch: IOResourceConfig)
 
@@ -72,10 +82,12 @@ object Configuration extends LazyLogging {
 
   case class InputExtension(extensionType: String, input: IOResourceConfig)
 
-  case class DrugOutputs(drug: IOResourceConfig,
-                         mechanismOfAction: IOResourceConfig,
-                         indications: IOResourceConfig,
-                         warnings: IOResourceConfig)
+  case class DrugOutputs(
+      drug: IOResourceConfig,
+      mechanismOfAction: IOResourceConfig,
+      indications: IOResourceConfig,
+      warnings: IOResourceConfig
+  )
   case class DrugSection(
       chemblMolecule: IOResourceConfig,
       chemblIndication: IOResourceConfig,
@@ -130,16 +142,20 @@ object Configuration extends LazyLogging {
       output: IOResourceConfig
   )
 
-  case class Common(input: String,
-                    output: String,
-                    error: String,
-                    outputFormat: String,
-                    metadata: IOResourceConfig)
+  case class Common(
+      input: String,
+      output: String,
+      error: String,
+      outputFormat: String,
+      metadata: IOResourceConfig
+  )
 
-  case class KnownDrugsInputsSection(evidences: IOResourceConfig,
-                                     diseases: IOResourceConfig,
-                                     targets: IOResourceConfig,
-                                     drugs: DrugOutputs)
+  case class KnownDrugsInputsSection(
+      evidences: IOResourceConfig,
+      diseases: IOResourceConfig,
+      targets: IOResourceConfig,
+      drugs: DrugOutputs
+  )
 
   case class KnownDrugsSection(inputs: KnownDrugsInputsSection, output: IOResourceConfig)
 
@@ -147,21 +163,27 @@ object Configuration extends LazyLogging {
 
   case class TargetValidationInput(name: String, idColumn: String, data: IOResourceConfig)
 
-  case class TargetValidation(inputs: Seq[TargetValidationInput],
-                              target: IOResourceConfig,
-                              output: SucceedFailedOutputs)
+  case class TargetValidation(
+      inputs: Seq[TargetValidationInput],
+      target: IOResourceConfig,
+      output: SucceedFailedOutputs
+  )
 
-  case class SearchInputsSection(evidences: IOResourceConfig,
-                                 diseases: IOResourceConfig,
-                                 diseaseHpo: IOResourceConfig,
-                                 hpo: IOResourceConfig,
-                                 targets: IOResourceConfig,
-                                 drugs: DrugOutputs,
-                                 associations: IOResourceConfig)
+  case class SearchInputsSection(
+      evidences: IOResourceConfig,
+      diseases: IOResourceConfig,
+      diseaseHpo: IOResourceConfig,
+      hpo: IOResourceConfig,
+      targets: IOResourceConfig,
+      drugs: DrugOutputs,
+      associations: IOResourceConfig
+  )
 
-  case class SearchOutputsSection(targets: IOResourceConfig,
-                                  diseases: IOResourceConfig,
-                                  drugs: IOResourceConfig)
+  case class SearchOutputsSection(
+      targets: IOResourceConfig,
+      diseases: IOResourceConfig,
+      drugs: IOResourceConfig
+  )
 
   case class SearchSection(inputs: SearchInputsSection, outputs: SearchOutputsSection)
 
@@ -171,40 +193,44 @@ object Configuration extends LazyLogging {
 
   case class Target(input: TargetInput, outputs: TargetOutput, hgncOrthologSpecies: List[String])
 
-  case class TargetInput(chemicalProbes: IOResourceConfig,
-                         hgnc: IOResourceConfig,
-                         ensembl: IOResourceConfig,
-                         uniprot: IOResourceConfig,
-                         uniprotSsl: IOResourceConfig,
-                         geneOntology: IOResourceConfig,
-                         geneOntologyRna: IOResourceConfig,
-                         geneOntologyRnaLookup: IOResourceConfig,
-                         geneOntologyEco: IOResourceConfig,
-                         tep: IOResourceConfig,
-                         hpa: IOResourceConfig,
-                         hpaSlOntology: IOResourceConfig,
-                         hallmarks: IOResourceConfig,
-                         ncbi: IOResourceConfig,
-                         psEssentialityMatrix: IOResourceConfig,
-                         psGeneIdentifier: IOResourceConfig,
-                         chembl: IOResourceConfig,
-                         geneticConstraints: IOResourceConfig,
-                         homologyDictionary: IOResourceConfig,
-                         homologyCodingProteins: IOResourceConfig,
-                         homologyGeneDictionary: IOResourceConfig,
-                         tractability: IOResourceConfig,
-                         safetyToxicity: IOResourceConfig,
-                         safetySafetyRisk: IOResourceConfig,
-                         safetyAdverseEvent: IOResourceConfig,
-                         reactomeEtl: IOResourceConfig,
-                         reactomePathways: IOResourceConfig)
+  case class TargetInput(
+      chemicalProbes: IOResourceConfig,
+      hgnc: IOResourceConfig,
+      ensembl: IOResourceConfig,
+      uniprot: IOResourceConfig,
+      uniprotSsl: IOResourceConfig,
+      geneOntology: IOResourceConfig,
+      geneOntologyRna: IOResourceConfig,
+      geneOntologyRnaLookup: IOResourceConfig,
+      geneOntologyEco: IOResourceConfig,
+      tep: IOResourceConfig,
+      hpa: IOResourceConfig,
+      hpaSlOntology: IOResourceConfig,
+      hallmarks: IOResourceConfig,
+      ncbi: IOResourceConfig,
+      psEssentialityMatrix: IOResourceConfig,
+      psGeneIdentifier: IOResourceConfig,
+      chembl: IOResourceConfig,
+      geneticConstraints: IOResourceConfig,
+      homologyDictionary: IOResourceConfig,
+      homologyCodingProteins: IOResourceConfig,
+      homologyGeneDictionary: IOResourceConfig,
+      tractability: IOResourceConfig,
+      safetyToxicity: IOResourceConfig,
+      safetySafetyRisk: IOResourceConfig,
+      safetyAdverseEvent: IOResourceConfig,
+      reactomeEtl: IOResourceConfig,
+      reactomePathways: IOResourceConfig
+  )
 
   case class TargetOutput(target: IOResourceConfig)
 
   case class SparkSettings(writeMode: String, ignoreIfExists: Boolean) {
     val validWriteModes = Set("error", "errorifexists", "append", "overwrite", "ignore")
-    require(validWriteModes.contains(writeMode),
-            s"$writeMode is not valid. Must be one of ${validWriteModes.toString()}")
+    require(
+      validWriteModes.contains(writeMode),
+      s"$writeMode is not valid. Must be one of ${validWriteModes.toString()}"
+    )
   }
 
   // --- OtarProject configuration
@@ -215,8 +241,10 @@ object Configuration extends LazyLogging {
   )
 
   // --- EBISearch configuration
-  case class EBISearchOutputSection(ebisearchAssociations: IOResourceConfig,
-                                    ebisearchEvidence: IOResourceConfig)
+  case class EBISearchOutputSection(
+      ebisearchAssociations: IOResourceConfig,
+      ebisearchEvidence: IOResourceConfig
+  )
 
   case class EBISearchSection(
       diseaseEtl: IOResourceConfig,
@@ -241,7 +269,7 @@ object Configuration extends LazyLogging {
   )
   case class OpenfdaMeddraSection(
       meddraPreferredTerms: IOResourceConfig,
-      meddraLowLevelTerms: IOResourceConfig,
+      meddraLowLevelTerms: IOResourceConfig
   )
 
   case class OpenfdaSection(

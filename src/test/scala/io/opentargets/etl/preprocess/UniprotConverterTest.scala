@@ -38,7 +38,8 @@ class UniprotConverterTest
     // and all database entries should be of interest
     entries.head.dbXrefs
       .forall(d => dbOfInterest.exists(_.startsWith(d.split(POST_PROCESS_SPLIT).head))) should be(
-      true)
+      true
+    )
   }
 
   "The ID" should "be extracted from the raw line starting with ID" in {
@@ -83,7 +84,8 @@ class UniprotConverterTest
       "Apoptosis inhibitor expressed by macrophages",
       "CT-2",
       "IgM-associated peptide",
-      "SP-alpha")
+      "SP-alpha"
+    )
     result.symbols should contain theSameElementsAs Seq("hAIM")
   }
 

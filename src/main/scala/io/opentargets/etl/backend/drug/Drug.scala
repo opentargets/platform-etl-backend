@@ -8,8 +8,7 @@ import io.opentargets.etl.backend.spark.{IOResource, IoHelpers}
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.{Column, DataFrame, SparkSession}
 
-/**
-  * This step will eventually replace the existing Drug step.
+/** This step will eventually replace the existing Drug step.
   *
   * It incorporates processing which was previously done in the `data-pipeline` project and consolidates all the logic in
   * this class.
@@ -79,7 +78,8 @@ object Drug extends Serializable with LazyLogging {
     }
 
     logger.info(
-      "Joining molecules, indications, mechanisms of action, and target and disease linkages.")
+      "Joining molecules, indications, mechanisms of action, and target and disease linkages."
+    )
 
     // We define a drug as having either a drugbank id, a mechanism of action, or an indication.
     val isDrugMolecule: Column = array_contains(map_keys(col("crossReferences")), "drugbank") ||
@@ -89,10 +89,12 @@ object Drug extends Serializable with LazyLogging {
     // using left_outer joins as we want to keep all molecules until the filter clause which defines a 'drug' for the
     // purposes of the index.
     val drugDf: DataFrame = moleculeProcessedDf
-      .join(indicationProcessedDf
-              .select("id", "indications"),
-            Seq("id"),
-            "left_outer")
+      .join(
+        indicationProcessedDf
+          .select("id", "indications"),
+        Seq("id"),
+        "left_outer"
+      )
       .join(
         mechanismOfActionProcessedDf
           .select(explode(col("chemblIds")).as("id"))

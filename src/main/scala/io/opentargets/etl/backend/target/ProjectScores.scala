@@ -5,16 +5,16 @@ import io.opentargets.etl.backend.spark.Helpers._
 import org.apache.spark.sql.{DataFrame, Dataset, SparkSession}
 import org.apache.spark.sql.functions.{array, col, typedLit}
 
-/**
-  * @param id   ensembl gene id eg. ENSGXXXX
+/** @param id   ensembl gene id eg. ENSGXXXX
   * @param xRef database cross reference
   */
 case class GeneWithDbXRef(id: String, xRef: Seq[IdAndSource])
 
 /** ProjectScores from [[https://score.depmap.sanger.ac.uk/ Cancer Depdendency Map]] */
 object ProjectScores extends LazyLogging {
-  def apply(projectScore: DataFrame, dependencyMatrix: DataFrame)(
-      implicit sparkSession: SparkSession): Dataset[GeneWithDbXRef] = {
+  def apply(projectScore: DataFrame, dependencyMatrix: DataFrame)(implicit
+      sparkSession: SparkSession
+  ): Dataset[GeneWithDbXRef] = {
     import sparkSession.implicits._
     logger.info("Calculating project scores.")
 
@@ -23,7 +23,7 @@ object ProjectScores extends LazyLogging {
       .select(
         col("gene_id").as("id"),
         col("ensembl_gene_id"),
-        col("hgnc_symbol"),
+        col("hgnc_symbol")
       )
 
     val geneWithDependencyScoreDF = {

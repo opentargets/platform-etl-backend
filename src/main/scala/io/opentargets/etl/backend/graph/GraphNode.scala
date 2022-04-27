@@ -13,21 +13,22 @@ import org.jgrapht.Graphs._
 import org.jgrapht.util._
 import org.jgrapht.alg.shortestpath._
 
-/**
-  vertices must contain "id", "label" fields. The field label can be called in a flexible way.
-  edges must contain "src" and "dst" fields
-  * */
+/**  vertices must contain "id", "label" fields. The field label can be called in a flexible way.
+  *  edges must contain "src" and "dst" fields
+  */
 object GraphNode extends Serializable with LazyLogging {
 
   type DAGT[N] = DirectedAcyclicGraph[N, DefaultEdge]
 
-  case class GraphNodeDocument(id: String,
-                               label: String,
-                               ancestors: Seq[String],
-                               descendants: Seq[String],
-                               children: Seq[String],
-                               parents: Seq[String],
-                               path: Seq[Seq[String]])
+  case class GraphNodeDocument(
+      id: String,
+      label: String,
+      ancestors: Seq[String],
+      descendants: Seq[String],
+      children: Seq[String],
+      parents: Seq[String],
+      path: Seq[Seq[String]]
+  )
 
   def makeGraph[N](vertices: Seq[N], edges: Seq[(N, N)]): DAGT[N] = {
     val jgraph =
@@ -54,8 +55,9 @@ object GraphNode extends Serializable with LazyLogging {
   }
 
   /** given the graph and the vertices(id,label) it generates a dataframe with id, parents, children, ... */
-  def processGraph(vertices: DataFrame, graph: DAGT[String])(
-      implicit ss: SparkSession): DataFrame = {
+  def processGraph(vertices: DataFrame, graph: DAGT[String])(implicit
+      ss: SparkSession
+  ): DataFrame = {
     import ss.implicits._
 
     logger.debug("Compute the graph. Calculate the ancestry.")
@@ -69,13 +71,15 @@ object GraphNode extends Serializable with LazyLogging {
         .getAllPaths(topV.toSet, Set(id), true, null)
         .toSeq
         .map(e => e.getVertexList.toSeq)
-      GraphNodeDocument(id,
-                        label,
-                        graph.getAncestors(id).toSeq,
-                        graph.getDescendants(id).toSeq,
-                        successorListOf(graph, id),
-                        predecessorListOf(graph, id),
-                        paths)
+      GraphNodeDocument(
+        id,
+        label,
+        graph.getAncestors(id).toSeq,
+        graph.getDescendants(id).toSeq,
+        successorListOf(graph, id),
+        predecessorListOf(graph, id),
+        paths
+      )
     }
 
     V.toDF

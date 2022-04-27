@@ -48,6 +48,6 @@ trait LineIdentifiers {
   val DATABASE_XREF = "DR" // optional
   val COMMENT = "CC" // optional
   val GENE_SYMBOLS = "GN" // symbol synonyms
-  lazy val identifiers
-    : List[String] = ID :: ACCESSION :: DESCRIPTION :: DATABASE_XREF :: COMMENT :: GENE_SYMBOLS :: Nil
+  lazy val identifiers: List[String] =
+    ID :: ACCESSION :: DESCRIPTION :: DATABASE_XREF :: COMMENT :: GENE_SYMBOLS :: Nil
 }

@@ -5,11 +5,13 @@ import breeze.stats.distributions.Binomial
 
 object MathUtils {
 
-  def calculateCriticalValues(permutations: Int,
-                              n_j: Int,
-                              n_i: Seq[Long],
-                              total: Int,
-                              prob: Double): Double = {
+  def calculateCriticalValues(
+      permutations: Int,
+      n_j: Int,
+      n_i: Seq[Long],
+      total: Int,
+      prob: Double
+  ): Double = {
     import breeze.linalg._
     import breeze.stats._
 
@@ -59,7 +61,7 @@ object MathUtils {
       X(0, i) = Bin.sample.toDouble
 
       for (j <- 1 until p.size) {
-        val P = p(j) / (1D - sum(p(0 until j)))
+        val P = p(j) / (1d - sum(p(0 until j)))
         val N = (size - sum(X(0 until j, i))).toInt
 
         val Binj: Int = N match {
