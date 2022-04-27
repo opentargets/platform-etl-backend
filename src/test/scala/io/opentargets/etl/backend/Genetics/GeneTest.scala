@@ -15,7 +15,7 @@ class GeneTest extends EtlSparkUnitTest {
     // when
     val df = Gene.variantGeneDistance(variants, distance)(threeTargets)
     // then
-    assertResult(1, "One target within range.")(df.count())
+    assertResult(2, "One target within range.")(df.count())
 
   }
 }
