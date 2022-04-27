@@ -188,6 +188,20 @@ Variant relates to the former genetics-pipe project. The step requires two input
 | `variant-annotation` | This is provided by the data- or genetics-team, and is confusingly also referred to as the variant-index in some places. |
 | `target-index` | Produced by the target step of the ETL. |
 
+### Variant Gene
+
+Variant to gene relates to the former genetics-pipe project. The step associates variants (from the `variant` step)
+to genes (from the `target`) step. The step is configured in the `variant-gene` section of the configuration file and
+requires the following inputs:
+
+| input | notes | 
+| --- | --- |
+| `variant-index` | Output of the variant step | 
+| `target-index` | Output of the target step | 
+| `vep-consequences` |  | 
+| `qtl` | | 
+| `interval` | | 
+
 ### Target Validation
 
 Inputs can be provided here where the only logic is to match an ENSG ID against an input column. Any input rows which

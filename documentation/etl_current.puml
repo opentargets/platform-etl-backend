@@ -27,6 +27,7 @@ artifact ebiSearch <<dependencies>>
 artifact variant <<dependencies>>
 
 artifact variant <<genetics>>
+artifact variantGene <<genetics>>
 
 reactome --> target
 
@@ -57,9 +58,10 @@ associations --> search
 
 target --> interactions
 target --> variant
-
+target --> variantGene
 target --> targetValidation
-target --> variant
+
+variant --> variantGene
 
 drug --> openfda
 
