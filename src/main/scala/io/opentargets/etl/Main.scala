@@ -69,7 +69,7 @@ object ETL extends LazyLogging {
       case "targetvalidation" =>
         logger.info("run step targetValidation")
         TargetValidation()
-      case "variantindex" =>
+      case "variant" =>
         logger.info("run step variant-index (genetics)")
         Variant()
       case "variantgene" =>
@@ -127,9 +127,7 @@ object ETL extends LazyLogging {
         implicit val ctxt: ETLSessionContext = otContext
 
         val completedSteps =
-          if (
-            otContext.configuration.sparkSettings.ignoreIfExists && otContext.configuration.sparkSettings.writeMode == "ignore"
-          )
+          if (otContext.configuration.sparkSettings.ignoreIfExists && otContext.configuration.sparkSettings.writeMode == "ignore")
             stepsWithExistingOuputs
           else Set.empty[String]
         logger.info(s"Steps already completed and not to be executed again: $completedSteps")

@@ -181,6 +181,8 @@ responsibility_ to ensure that required inputs are available.
 
 ### Variant
 
+> Run with step name 'variant'
+
 Variant relates to the former genetics-pipe project. The step requires two inputs:
 
 | input | notes |
@@ -189,6 +191,8 @@ Variant relates to the former genetics-pipe project. The step requires two input
 | `target-index` | Produced by the target step of the ETL. |
 
 ### Variant Gene
+
+> Run with step name 'variantgene'
 
 Variant to gene relates to the former genetics-pipe project. The step associates variants (from the `variant` step)
 to genes (from the `target`) step. The step is configured in the `variant-gene` section of the configuration file and
