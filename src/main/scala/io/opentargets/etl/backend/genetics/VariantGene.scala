@@ -8,6 +8,8 @@ import io.opentargets.etl.backend.spark.{IOResource, IoHelpers}
 import org.apache.spark.sql.expressions.Window
 import org.apache.spark.sql.functions.{
   array_max,
+  broadcast,
+  coalesce,
   col,
   collect_set,
   element_at,
@@ -23,6 +25,7 @@ import org.apache.spark.sql.functions.{
   round,
   split,
   struct,
+  typedLit,
   when
 }
 import org.apache.spark.sql.{Column, DataFrame, SparkSession, functions}
@@ -52,21 +55,43 @@ object VariantGene extends LazyLogging {
     val inputs = IoHelpers.readFrom(mappedInputs)
 
     val variantRawDf: DataFrame = inputs("variants").data
-    val targetRawDf: DataFrame = Gene.getGeneDf(inputs("targets").data)
+    val targetRawDf: DataFrame = Gene
+      .getGeneDf(inputs("targets").data, context.configuration.genetics.approvedBiotypes)
+      .cache()
     val qtlRawDf: DataFrame = inputs("qtl").data
     val vepRawDf: DataFrame = inputs("vep").data
     val intervalRawDf: DataFrame = inputs("interval").data
 
+    def logDfInfo(df: DataFrame, name: String): Unit = {
+      logger.info(s"$name count: ${df.count()}")
+      logger.info(s"$name columns: ${df.columns.mkString("Array(", ", ", ")")}")
+      logger.info(s"$name plan: \n${df.explain(true)}")
+    }
+
     logger.info("Calculate intermediate V2G subsets: vep, distance, qtl, interval.")
-    val variantVep = calculateVep(variantRawDf, vepRawDf)
-    val variantDistance = calculateDistanceDf(variantRawDf, targetRawDf, configuration.tssDistance)
-    val variantQtl = calculateQtls(variantRawDf, qtlRawDf)
-    val variantInterval = calculateIntervals(variantRawDf, intervalRawDf)
+    val variantVep = calculateVep(variantRawDf, vepRawDf).cache()
+    logDfInfo(variantVep, "VEP")
+    variantVep.write.parquet("gs://ot-team/jarrod/genetics/output/vep/")
+
+    val variantDistance =
+      calculateDistanceDf(variantRawDf, targetRawDf, configuration.tssDistance).cache()
+    logDfInfo(variantDistance, "Distance")
+    variantDistance.write.parquet("gs://ot-team/jarrod/genetics/output/distance/")
+
+    val variantQtl = calculateQtls(variantRawDf, qtlRawDf).cache()
+    logDfInfo(variantQtl, "Qtl")
+    variantQtl.write.parquet("gs://ot-team/jarrod/genetics/output/qtl/")
+
+    val variantInterval = calculateIntervals(variantRawDf, intervalRawDf).cache()
+    logDfInfo(variantInterval, "Interval")
+    variantInterval.write.parquet("gs://ot-team/jarrod/genetics/output/interval/")
 
     logger.info("Combine VEP, Distance, QTL, interval components, filtered by valid ENSG IDs")
     val variantGeneIdx: DataFrame =
       unionDataframeDifferentSchema(Seq(variantVep, variantDistance, variantQtl, variantInterval))
-        .join(targetRawDf, Seq("gene_id"), "left_semi")
+        .withColumn("fpred_labels", coalesce(col("fpred_labels"), typedLit(Array.empty[String])))
+        .withColumn("fpred_scores", coalesce(col("fpred_scores"), typedLit(Array.empty[Double])))
+        .join(broadcast(targetRawDf.select("gene_id")), Seq("gene_id"), "left_semi")
 
     val outputs = Map(
       "variantGene" -> IOResource(variantGeneIdx, configuration.outputs.variantGene)
@@ -134,10 +159,11 @@ object VariantGene extends LazyLogging {
 
     val dists = gene
       .transform(Gene.variantGeneDistance(nearests, distance))
-      .withColumn("distance_score", when(col("d") > 0, lit(1.0) / col("d")).otherwise(1.0))
+      .withColumn("distance_score", when(col("d") > 0.0, lit(1.0) / col("d")).otherwise(1.0))
 
-    /** fixme: This feels wrong. We assign a score based on source_id and feature which are the same for all rows.
-      */
+    // fixme: All these window functions are doing the same thing: partition on 'source_id' and 'feature' and order
+    // by some score field, then calculate the percentile rank. We could do this as a final step after the large
+    // table is made.
     val w = Window.partitionBy("source_id", "feature").orderBy(col("distance_score").asc)
 
     dists
@@ -195,7 +221,7 @@ object VariantGene extends LazyLogging {
     val intervalWithVariantDf = intervalDf
       .join(
         variantDf.withColumnRenamed("chr_id", "chr"),
-        col("chr_id") === col("chr") && col("position") > col("start") && col("position") < col(
+        col("chr_id") === col("chr") && col("position") >= col("start") && col("position") <= col(
           "end"
         )
       )

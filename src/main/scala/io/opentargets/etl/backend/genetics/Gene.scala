@@ -2,7 +2,7 @@ package io.opentargets.etl.backend.genetics
 
 import io.opentargets.etl.backend.Configuration.Genetics
 import org.apache.spark.sql.DataFrame
-import org.apache.spark.sql.functions.{abs, col, when}
+import org.apache.spark.sql.functions.{abs, broadcast, col, when}
 
 object Gene {
 
@@ -31,7 +31,7 @@ object Gene {
   def variantGeneDistance(variant: DataFrame, distance: Long)(target: DataFrame): DataFrame =
     variant
       .join(
-        target,
+        broadcast(target.select("chromosome", "tss", "gene_id")),
         (col("chr_id") === col("chromosome")) && (abs(
           col("position") - col("tss")
         ) <= distance)

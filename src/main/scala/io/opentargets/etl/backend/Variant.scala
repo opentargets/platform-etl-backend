@@ -52,6 +52,7 @@ object Variant extends LazyLogging {
     val proteinCodingDf = targetDf.filter(col("biotype") === "protein_coding")
 
     logger.info("Generate variant DF for variant index.")
+    // fixme: filter by valid chromosomes to get rid of the alternative assemblies
     val variantDf = variantRawDf
       .filter(col("chrom_b38").isNotNull && col("pos_b38").isNotNull)
       .select(
@@ -113,6 +114,9 @@ object Variant extends LazyLogging {
         .drop("distToGeneMap", "geneList", "dist")
     }
 
+    // fixme: I don't think that these fields are used. This is just the variant index, the variant-gene
+    // index should include this information if it is relevant. Even it if is not, we can get the
+    // information by looking at the top ranked distance gene in the variant-gene index.
     val variantGeneScored = variantGeneDistanceDf.transform(findNearestGene("gene_id_any"))
     val variantPcScored = variantPcDistanceDf.transform(findNearestGene("gene_id_prot_coding"))
 
@@ -126,6 +130,7 @@ object Variant extends LazyLogging {
       "variant" -> IOResource(variantIndex, variantConfiguration.outputs.variants)
     )
     logger.info("Write variant index outputs.")
+    // fixme: save output partitioned by chromosome
     IoHelpers.writeTo(outputs)
   }
 }
