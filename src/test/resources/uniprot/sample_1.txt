@@ -290,9 +290,14 @@ CC       virus 1/HTLV-1 protein Tax; this interaction increases Tax interacting
 CC       partner CREB1 O-GlcNAcylation. {ECO:0000269|PubMed:28742148}.
 CC   -!- SUBCELLULAR LOCATION: [Isoform 3]: Nucleus
 CC       {ECO:0000269|PubMed:11341771}.
-CC   -!- SUBCELLULAR LOCATION: [Isoform 1]: Cytoplasm
-CC       {ECO:0000269|PubMed:11148210, ECO:0000269|PubMed:11341771,
-CC       ECO:0000269|PubMed:11788610}.
+CC   -!- SUBCELLULAR LOCATION: Cytoplasm {ECO:0000269|PubMed:19923450,
+CC       ECO:0000269|PubMed:3753689, ECO:0000269|PubMed:3754863}. Mitochondrion
+CC       {ECO:0000269|PubMed:19923450}. Nucleus {ECO:0000269|PubMed:19923450,
+CC       ECO:0000269|PubMed:3753689}. Microsome {ECO:0000269|PubMed:19923450}.
+CC       Endoplasmic reticulum {ECO:0000269|PubMed:19923450}. Secreted
+CC       {ECO:0000250}. Note=Associated with different subcellular fractions
+CC       such as mitochondrial, nuclear, and rough/smooth microsomal fractions.
+CC       {ECO:0000269|PubMed:19923450}.
 CC   -!- ALTERNATIVE PRODUCTS:
 CC       Event=Alternative splicing; Named isoforms=4;
 CC       Name=1;
