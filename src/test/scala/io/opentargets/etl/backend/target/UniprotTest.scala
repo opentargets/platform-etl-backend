@@ -72,7 +72,20 @@ class UniprotTest extends EtlSparkUnitTest {
           "Mitochondrion outer membrane; Single-pass type IV membrane protein; Cytoplasmic side"
         )
       ),
-      ("P38398", Array("[Isoform 3]: Cytoplasm", "Nucleus"))
+      ("P38398", Array("[Isoform 3]: Cytoplasm", "Nucleus")),
+      (
+        "OAS1_HUMAN",
+        Array(
+          "Cytoplasm",
+          "Mitochondrion",
+          "Nucleus",
+          "Microsome",
+          "Endoplasmic reticulum",
+          "Secreted",
+          "[Isoform p46]:",
+          "[Isoform p42]:"
+        )
+      )
     ).toDF("uniprotId", "locations")
     val uniprotSsl: DataFrame = Seq(
       ("SL1", "Cytoplasm", "Component")
@@ -81,9 +94,10 @@ class UniprotTest extends EtlSparkUnitTest {
     // when
     val results = Uniprot invokePrivate methodUnderTest(uniprotSsl, uniprotDf)
 
-    def getLocationFor(uniprotId: String): DataFrame = results
-      .filter(col("uniprotId") === uniprotId)
-      .select(explode(col("subcellularLocations")) as "locations")
+    def getLocationFor(uniprotId: String): DataFrame =
+      results
+        .filter(col("uniprotId") === uniprotId)
+        .select(explode(col("subcellularLocations")) as "locations")
     // then
     // no uniprot entries should be lost
     results.count() should be(uniprotDf.count())
@@ -98,6 +112,9 @@ class UniprotTest extends EtlSparkUnitTest {
     getLocationFor("P38398")
       .filter(col("locations.location").equalTo("[Isoform 3]: Cytoplasm"))
       .count() should be(1)
+    // badly formed entries should not be included
+    getLocationFor("OAS1_HUMAN")
+      .count() should be(6)
   }
 
 }

@@ -131,6 +131,7 @@ object Uniprot extends LazyLogging {
       )
       .withColumn("location", when(col("iso") =!= "", col("iso")).otherwise(col("ssl_match")))
       .drop("iso", "loc1", "loc2", "loc3")
+      .filter(col("location").isNotNull)
 
     val locationsWithSslTerms = locationsProcessedDf
       .join(broadcast(subcellOntologyDf), Seq("ssl_match"), "left_outer")

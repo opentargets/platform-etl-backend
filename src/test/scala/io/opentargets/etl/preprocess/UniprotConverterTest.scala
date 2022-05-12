@@ -130,6 +130,14 @@ class UniprotConverterTest
     results.functions should have size 1
   }
 
+  "Subcellular locations" should "all have a location" in {
+    val expectedSubcellularLocationCount = 7
+
+    val entry: UniprotEntry = UniprotConverter.fromFlatFile(oneEntry.lineIterator).head
+
+    entry.locations should have size expectedSubcellularLocationCount
+  }
+
   "Database cross references" should "only include databases of interest" in {
     // given
     val inputs = Seq(
