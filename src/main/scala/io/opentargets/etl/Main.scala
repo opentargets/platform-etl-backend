@@ -23,9 +23,6 @@ object ETL extends LazyLogging {
       case "associationotf" =>
         logger.info("run step associationOTF")
         AssociationOTF()
-      case "connection" =>
-        logger.info("run step connections")
-        Connections()
       case "disease" =>
         logger.info("run step disease")
         Disease()
@@ -118,9 +115,7 @@ object ETL extends LazyLogging {
         implicit val ctxt: ETLSessionContext = otContext
 
         val completedSteps =
-          if (
-            otContext.configuration.sparkSettings.ignoreIfExists && otContext.configuration.sparkSettings.writeMode == "ignore"
-          )
+          if (otContext.configuration.sparkSettings.ignoreIfExists && otContext.configuration.sparkSettings.writeMode == "ignore")
             stepsWithExistingOuputs
           else Set.empty[String]
         logger.info(s"Steps already completed and not to be executed again: $completedSteps")
