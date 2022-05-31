@@ -2,14 +2,12 @@ package io.opentargets.etl.backend.genetics
 
 import com.typesafe.scalalogging.LazyLogging
 import io.opentargets.etl.backend.ETLSessionContext
-import io.opentargets.etl.backend.spark.Helpers.unionDataframeDifferentSchema
 import io.opentargets.etl.backend.spark.IoHelpers.IOResources
 import io.opentargets.etl.backend.spark.{IOResource, IoHelpers}
 import org.apache.spark.sql.expressions.Window
 import org.apache.spark.sql.functions.{
   array_max,
   broadcast,
-  coalesce,
   col,
   collect_set,
   element_at,
@@ -25,7 +23,6 @@ import org.apache.spark.sql.functions.{
   round,
   split,
   struct,
-  typedLit,
   when
 }
 import org.apache.spark.sql.{Column, DataFrame, SparkSession, functions}
@@ -62,39 +59,49 @@ object VariantGene extends LazyLogging {
     val vepRawDf: DataFrame = inputs("vep").data
     val intervalRawDf: DataFrame = inputs("interval").data
 
+    /** Utility method to log (info-level) the columns and execution plan of a dataframe to assist
+      * in debugging and optimisation.
+      * @param df
+      *   to view metadata
+      * @param name
+      *   to identify dataframe
+      */
     def logDfInfo(df: DataFrame, name: String): Unit = {
-      logger.info(s"$name count: ${df.count()}")
       logger.info(s"$name columns: ${df.columns.mkString("Array(", ", ", ")")}")
       logger.info(s"$name plan: \n${df.explain(true)}")
     }
 
     logger.info("Calculate intermediate V2G subsets: vep, distance, qtl, interval.")
-    val variantVep = calculateVep(variantRawDf, vepRawDf).cache()
+    val variantVep =
+      calculateVep(variantRawDf, vepRawDf).transform(removeUnwantedGenes(_, targetRawDf))
     logDfInfo(variantVep, "VEP")
-    variantVep.write.parquet("gs://ot-team/jarrod/genetics/output/vep/")
+    // variantVep.write.parquet("gs://ot-team/jarrod/genetics/output/vep/")
 
     val variantDistance =
-      calculateDistanceDf(variantRawDf, targetRawDf, configuration.tssDistance).cache()
+      calculateDistanceDf(variantRawDf, targetRawDf, configuration.tssDistance).transform(
+        removeUnwantedGenes(_, targetRawDf)
+      )
     logDfInfo(variantDistance, "Distance")
-    variantDistance.write.parquet("gs://ot-team/jarrod/genetics/output/distance/")
+    // variantDistance.write.parquet("gs://ot-team/jarrod/genetics/output/distance/")
 
-    val variantQtl = calculateQtls(variantRawDf, qtlRawDf).cache()
+    val variantQtl =
+      calculateQtls(variantRawDf, qtlRawDf).transform(removeUnwantedGenes(_, targetRawDf))
     logDfInfo(variantQtl, "Qtl")
-    variantQtl.write.parquet("gs://ot-team/jarrod/genetics/output/qtl/")
+    // variantQtl.write.parquet("gs://ot-team/jarrod/genetics/output/qtl/")
 
-    val variantInterval = calculateIntervals(variantRawDf, intervalRawDf).cache()
+    val variantInterval =
+      calculateIntervals(variantRawDf, intervalRawDf).transform(removeUnwantedGenes(_, targetRawDf))
     logDfInfo(variantInterval, "Interval")
-    variantInterval.write.parquet("gs://ot-team/jarrod/genetics/output/interval/")
+    // variantInterval.write.parquet("gs://ot-team/jarrod/genetics/output/interval/")
 
     logger.info("Combine VEP, Distance, QTL, interval components, filtered by valid ENSG IDs")
-    val variantGeneIdx: DataFrame =
-      unionDataframeDifferentSchema(Seq(variantVep, variantDistance, variantQtl, variantInterval))
-        .withColumn("fpred_labels", coalesce(col("fpred_labels"), typedLit(Array.empty[String])))
-        .withColumn("fpred_scores", coalesce(col("fpred_scores"), typedLit(Array.empty[Double])))
-        .join(broadcast(targetRawDf.select("gene_id")), Seq("gene_id"), "left_semi")
 
+    val dfsToCombine = Seq(variantVep, variantDistance, variantQtl, variantInterval)
+    val vgCombined: DataFrame =
+      dfsToCombine.reduce((dfa, dfb) => dfa.unionByName(dfb, allowMissingColumns = true))
+    logDfInfo(vgCombined, "Combined variant to gene")
     val outputs = Map(
-      "variantGene" -> IOResource(variantGeneIdx, configuration.outputs.variantGene)
+      "variantGene" -> IOResource(vgCombined, configuration.outputs.variantGene)
     )
     logger.info("Write variant-gene index outputs.")
     IoHelpers.writeTo(outputs)
@@ -135,7 +142,8 @@ object VariantGene extends LazyLogging {
           col("f.fpred_label") as "fpred_labels",
           lit("fpred").as("type_id"),
           lit("vep").as("source_id"),
-          lit("unspecified").as("feature")
+          lit("unspecified").as("feature"),
+          col("vep_gene_id") as "gene_id"
         ): _*
       )
       .withColumn("fpred_max_score", array_max(map_keys(col("score_label_map"))))
@@ -231,5 +239,9 @@ object VariantGene extends LazyLogging {
 
     intervalWithVariantDf
       .withColumn("interval_score_q", round(percent_rank().over(w), 1))
+  }
+
+  def removeUnwantedGenes(df: DataFrame, genes: DataFrame): DataFrame = {
+    df.join(broadcast(genes.select("gene_id")), Seq("gene_id"), "left_semi")
   }
 }
