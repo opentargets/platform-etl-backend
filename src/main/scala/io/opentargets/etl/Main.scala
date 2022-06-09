@@ -115,7 +115,9 @@ object ETL extends LazyLogging {
         implicit val ctxt: ETLSessionContext = otContext
 
         val completedSteps =
-          if (otContext.configuration.sparkSettings.ignoreIfExists && otContext.configuration.sparkSettings.writeMode == "ignore")
+          if (
+            otContext.configuration.sparkSettings.ignoreIfExists && otContext.configuration.sparkSettings.writeMode == "ignore"
+          )
             stepsWithExistingOuputs
           else Set.empty[String]
         logger.info(s"Steps already completed and not to be executed again: $completedSteps")
