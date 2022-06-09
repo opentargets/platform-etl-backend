@@ -78,23 +78,15 @@ object VariantGene extends LazyLogging {
     logger.info("Calculate intermediate V2G subsets: vep, distance, qtl, interval.")
     val variantVep =
       calculateVep(variantRawDf, vepRawDf)
-    // logDfInfo(variantVep, "VEP")
-    // variantVep.write.parquet("gs://ot-team/jarrod/genetics/output/vep/")
 
     val variantDistance =
       calculateDistanceDf(variantRawDf, targetRawDf, configuration.tssDistance)
-    // logDfInfo(variantDistance, "Distance")
-    // variantDistance.write.parquet("gs://ot-team/jarrod/genetics/output/distance/")
 
     val variantQtl =
       calculateQtls(variantRawDf, qtlRawDf)
-    // logDfInfo(variantQtl, "Qtl")
-    // variantQtl.write.parquet("gs://ot-team/jarrod/genetics/output/qtl/")
 
     val variantInterval =
       calculateIntervals(variantRawDf, intervalRawDf)
-    // logDfInfo(variantInterval, "Interval")
-    // variantInterval.write.parquet("gs://ot-team/jarrod/genetics/output/interval/")
 
     logger.info("Combine VEP, Distance, QTL, interval components, filtered by valid ENSG IDs")
 
