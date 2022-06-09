@@ -21,6 +21,7 @@ import org.apache.spark.sql.functions.{
   max,
   percent_rank,
   round,
+  sequence,
   split,
   struct,
   when
@@ -52,6 +53,9 @@ object VariantGene extends LazyLogging {
     val inputs = IoHelpers.readFrom(mappedInputs)
 
     val variantRawDf: DataFrame = inputs("variants").data
+      .repartitionByRange(col("chr_id"), col("position"))
+      .sortWithinPartitions("chr_id", "position")
+
     val targetRawDf: DataFrame = Gene
       .getGeneDf(inputs("targets").data, context.configuration.genetics.approvedBiotypes)
       .cache()
@@ -73,32 +77,34 @@ object VariantGene extends LazyLogging {
 
     logger.info("Calculate intermediate V2G subsets: vep, distance, qtl, interval.")
     val variantVep =
-      calculateVep(variantRawDf, vepRawDf).transform(removeUnwantedGenes(_, targetRawDf))
-    logDfInfo(variantVep, "VEP")
+      calculateVep(variantRawDf, vepRawDf)
+    // logDfInfo(variantVep, "VEP")
     // variantVep.write.parquet("gs://ot-team/jarrod/genetics/output/vep/")
 
     val variantDistance =
-      calculateDistanceDf(variantRawDf, targetRawDf, configuration.tssDistance).transform(
-        removeUnwantedGenes(_, targetRawDf)
-      )
-    logDfInfo(variantDistance, "Distance")
+      calculateDistanceDf(variantRawDf, targetRawDf, configuration.tssDistance)
+    // logDfInfo(variantDistance, "Distance")
     // variantDistance.write.parquet("gs://ot-team/jarrod/genetics/output/distance/")
 
     val variantQtl =
-      calculateQtls(variantRawDf, qtlRawDf).transform(removeUnwantedGenes(_, targetRawDf))
-    logDfInfo(variantQtl, "Qtl")
+      calculateQtls(variantRawDf, qtlRawDf)
+    // logDfInfo(variantQtl, "Qtl")
     // variantQtl.write.parquet("gs://ot-team/jarrod/genetics/output/qtl/")
 
     val variantInterval =
-      calculateIntervals(variantRawDf, intervalRawDf).transform(removeUnwantedGenes(_, targetRawDf))
-    logDfInfo(variantInterval, "Interval")
+      calculateIntervals(variantRawDf, intervalRawDf)
+    // logDfInfo(variantInterval, "Interval")
     // variantInterval.write.parquet("gs://ot-team/jarrod/genetics/output/interval/")
 
     logger.info("Combine VEP, Distance, QTL, interval components, filtered by valid ENSG IDs")
 
     val dfsToCombine = Seq(variantVep, variantDistance, variantQtl, variantInterval)
     val vgCombined: DataFrame =
-      dfsToCombine.reduce((dfa, dfb) => dfa.unionByName(dfb, allowMissingColumns = true))
+      dfsToCombine
+        .reduce((dfa, dfb) => dfa.unionByName(dfb, allowMissingColumns = true))
+        .transform(removeUnwantedGenes(_, targetRawDf))
+        .repartition(200)
+
     logDfInfo(vgCombined, "Combined variant to gene")
     val outputs = Map(
       "variantGene" -> IOResource(vgCombined, configuration.outputs.variantGene)
@@ -225,15 +231,16 @@ object VariantGene extends LazyLogging {
       )
       .groupBy("chr_id", "start", "end", "gene_id", "type_id", "source_id", "feature")
       .agg(max(col("score")).as("interval_score"))
+      .withColumn("position", explode(sequence(col("start"), col("end"))))
+      .repartitionByRange(col("chr_id"), col("position"))
+      .sortWithinPartitions(col("chr_id"), col("position"))
 
     val intervalWithVariantDf = intervalDf
       .join(
-        variantDf.withColumnRenamed("chr_id", "chr"),
-        col("chr_id") === col("chr") && col("position") >= col("start") && col("position") <= col(
-          "end"
-        )
+        variantDf,
+        Seq("chr_id", "position")
       )
-      .drop("score", "start", "end", "chr")
+      .drop("score", "start", "end")
 
     val w = Window.partitionBy("source_id", "feature").orderBy(col("interval_score").asc)
 

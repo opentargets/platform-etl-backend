@@ -26,11 +26,12 @@ import scala.util.Random
 
 object Helpers extends LazyLogging {
 
-  /**
-    * generate a string prefix with `length` characters and ends like 'abcd_'
-    * where '_' is added at the end automatically
-    * @param length the number of random characters to build the string prefix default to 5
-    * @return the string suffixed with underscore
+  /** generate a string prefix with `length` characters and ends like 'abcd_' where '_' is added at
+    * the end automatically
+    * @param length
+    *   the number of random characters to build the string prefix default to 5
+    * @return
+    *   the string suffixed with underscore
     */
   def mkRandomPrefix(length: Int = 5): String =
     Random.alphanumeric.take(length).mkString("", "", "_")
@@ -58,8 +59,8 @@ object Helpers extends LazyLogging {
 
   /** Returns input string wrapped in backticks if it contains period character.
     *
-    * Spark interprets the . symbol to be a select. Input files may include this in their column names causing
-    * unanticipated behaviour.
+    * Spark interprets the . symbol to be a select. Input files may include this in their column
+    * names causing unanticipated behaviour.
     */
   val wrapColumnNamesWithPeriodCharacters: String => String = {
     case a if a.contains(".") => s"`$a`"
@@ -69,9 +70,12 @@ object Helpers extends LazyLogging {
   /** generate a spark session given the arguments if sparkUri is None then try to get from env
     * otherwise it will set the master explicitely
     *
-    * @param appName  the app name
-    * @param sparkUri uri for the spark env master if None then it will try to get from yarn
-    * @return a sparksession object
+    * @param appName
+    *   the app name
+    * @param sparkUri
+    *   uri for the spark env master if None then it will try to get from yarn
+    * @return
+    *   a sparksession object
     */
   def getOrCreateSparkSession(appName: String, sparkUri: Option[String]): SparkSession = {
     logger.info(s"create spark session with uri:'${sparkUri.toString}'")
@@ -80,6 +84,11 @@ object Helpers extends LazyLogging {
       .set("spark.driver.maxResultSize", "0")
       .set("spark.debug.maxToStringFields", "2000")
       .set("spark.sql.mapKeyDedupPolicy", "LAST_WIN")
+      .set("spark.sql.autoBroadcastJoinThreshold", "-1")
+      .set("spark.dynamicAllocation.enabled", "true")
+      .set("spark.sql.adaptive.enabled", "true")
+      .set("spark.sql.adaptive.skewJoin.enabled", "true")
+      .set("spark.sql.adaptive.skewJoin.skewedPartitionFactor", "5")
 
     // if some uri then setmaster must be set otherwise
     // it tries to get from env if any yarn running
@@ -93,13 +102,15 @@ object Helpers extends LazyLogging {
       .getOrCreate
   }
 
-  /** apply to newNameFn() to the new name for the transformation and columnFn() to the inColumn
-    * it returns a pair that can be used to create a map of transformations. Useful to use with
+  /** apply to newNameFn() to the new name for the transformation and columnFn() to the inColumn it
+    * returns a pair that can be used to create a map of transformations. Useful to use with
     * withColumn DataFrame function too
     */
-  def trans(inColumn: Column,
-            newNameFn: String => String,
-            columnFn: Column => Column): (String, Column) = {
+  def trans(
+      inColumn: Column,
+      newNameFn: String => String,
+      columnFn: Column => Column
+  ): (String, Column) = {
 
     val name = newNameFn(inColumn.toString)
     val oper = columnFn(inColumn)
@@ -110,15 +121,16 @@ object Helpers extends LazyLogging {
 
   /** using the uri get the last token as an ID by example
     * http://identifiers.org/chembl.compound/CHEMBL207538 -> CHEMBL207538
-    * */
+    */
   def stripIDFromURI(uri: Column): Column =
     substring_index(uri, "/", -1)
 
-  /**
-    * @param col  Column of array type
-    * @param cols Columns of array type
-    * @return column of array type with input columns combined into single array with duplicates
-    *         removed.
+  /** @param col
+    *   Column of array type
+    * @param cols
+    *   Columns of array type
+    * @return
+    *   column of array type with input columns combined into single array with duplicates removed.
     */
   def mkFlattenArray(col: Column, cols: Column*): Column = {
     val colss: Seq[Column] = col +: cols
@@ -135,8 +147,10 @@ object Helpers extends LazyLogging {
   }
 
   /** colNames are columns to flat if any inner array and then concatenate them
-    * @param colNames list of column names as string
-    * @return A `Column` ready to be used as any other column operator
+    * @param colNames
+    *   list of column names as string
+    * @return
+    *   A `Column` ready to be used as any other column operator
     */
   def flattenCat(colNames: String*): Column = {
     val cols = colNames.mkString(",")
@@ -153,28 +167,32 @@ object Helpers extends LazyLogging {
             |t -> isnotnull(t))""".stripMargin)
   }
 
-  /** Transpose a Dataframe column to row
-    * df is the implicit dataframe
-    *|  ID     |abdomen| aorta |col_...|
-    *|  ENSG1  |  0.0|  0.6    |  ...  |
-    *|  ENSG2  |  0.5|  0.7    |  ...  |
+  /** Transpose a Dataframe column to row df is the implicit dataframe
+    * | ID    | abdomen | aorta | col_... |
+    * |:------|:--------|:------|:--------|
+    * | ENSG1 | 0.0     | 0.6   | ...     |
+    * | ENSG2 | 0.5     | 0.7   | ...     |
     * to
-    *|  ID     |  key     | val   |
-    *|  ENSG1  |  abdomen |  0.00 |
-    *|  ENSG1  |  aorta   |  0.6  |
-    *|  ENSG2  |  abdomen |  0.5  |
-    *|  ENSG2  |  aorta   |  0.7  |
-    * @param by Column name pivot
-    * @return a DataFrame
+    * | ID    | key     | val  |
+    * |:------|:--------|:-----|
+    * | ENSG1 | abdomen | 0.00 |
+    * | ENSG1 | aorta   | 0.6  |
+    * | ENSG2 | abdomen | 0.5  |
+    * | ENSG2 | aorta   | 0.7  |
+    * @param by
+    *   Column name pivot
+    * @return
+    *   a DataFrame
     */
   def transposeDataframe(df: DataFrame, by: Seq[String]): DataFrame = {
     val (cols, types) = df.dtypes.filter { case (c, _) => !by.contains(c) }.unzip
-    //require(types.distinct.size == 1, s"${types.distinct.toString}.length != 1")
+    // require(types.distinct.size == 1, s"${types.distinct.toString}.length != 1")
 
     val kvs = explode(
       array(
         cols.map(c => struct(lit(c).alias("key"), col(c).alias("val"))): _*
-      ))
+      )
+    )
 
     val byExprs = by.map(col)
 
@@ -182,11 +200,12 @@ object Helpers extends LazyLogging {
       .select(byExprs ++ Seq(col("_kvs.key"), col("_kvs.val")): _*)
   }
 
-  /** generate the union between two dataframe with different Schema.
-    * df is the implicit dataframe
+  /** generate the union between two dataframe with different Schema. df is the implicit dataframe
     *
-    * @param df2 Dataframe with possibly a different Columns
-    * @return a DataFrame
+    * @param df2
+    *   Dataframe with possibly a different Columns
+    * @return
+    *   a DataFrame
     */
   def unionDataframeDifferentSchema(df: DataFrame, df2: DataFrame): DataFrame = {
     val cols1 = df.columns.toSet
@@ -203,13 +222,15 @@ object Helpers extends LazyLogging {
   def unionDataframeDifferentSchema(df: Seq[DataFrame]): DataFrame =
     df.reduce((a, b) => unionDataframeDifferentSchema(a, b))
 
-  /** generate a set of String with the union of Columns.
-    * Eg, myCols =( a,c,d) and allCols(a,c,d,e,f,h)
-    * return (a,c,d,e,f,h)
+  /** generate a set of String with the union of Columns. Eg, myCols =( a,c,d) and
+    * allCols(a,c,d,e,f,h) return (a,c,d,e,f,h)
     *
-    * @param myCols  the list of the Columns in a specific Dataframe
-    * @param allCols the list of Columns to match
-    * @return a sparksession object
+    * @param myCols
+    *   the list of the Columns in a specific Dataframe
+    * @param allCols
+    *   the list of Columns to match
+    * @return
+    *   a sparksession object
     */
   def columnExpr(myCols: Set[String], allCols: Set[String]): Set[Column] = {
     val inter = (allCols intersect myCols).map(col)
@@ -218,14 +239,16 @@ object Helpers extends LazyLogging {
     inter union differ
   }
 
-  /** generate snake to camel for the Elasticsearch indices.
-    * Replace all _ with Capiltal letter except the first letter. Eg. "abc_def_gh" => "abcDefGh"
-    * @param df Dataframe
-    * @return a DataFrame with the schema lowerCamel
+  /** generate snake to camel for the Elasticsearch indices. Replace all _ with Capiltal letter
+    * except the first letter. Eg. "abc_def_gh" => "abcDefGh"
+    * @param df
+    *   Dataframe
+    * @return
+    *   a DataFrame with the schema lowerCamel
     */
   def snakeToLowerCamelSchema(df: DataFrame)(implicit session: SparkSession): DataFrame = {
 
-    //replace all _ with Capiltal letter except the first letter. Eg. "abc_def_gh" => "abcDefGh"
+    // replace all _ with Capiltal letter except the first letter. Eg. "abc_def_gh" => "abcDefGh"
     val snakeToLowerCamelFnc = (s: String) => {
       val tokens = s.split("_")
       tokens.head + tokens.tail.map(_.capitalize).mkString
@@ -240,15 +263,14 @@ object Helpers extends LazyLogging {
   def renameAllCols(schema: StructType, fn: String => String): StructType = {
 
     def renameDataType(dt: StructType): StructType =
-      StructType(dt.fields.map {
-        case StructField(name, dataType, nullable, metadata) =>
-          val renamedDT = dataType match {
-            case st: StructType => renameDataType(st)
-            case ArrayType(elementType: StructType, containsNull) =>
-              ArrayType(renameDataType(elementType), containsNull)
-            case rest: DataType => rest
-          }
-          StructField(fn(name), renamedDT, nullable, metadata)
+      StructType(dt.fields.map { case StructField(name, dataType, nullable, metadata) =>
+        val renamedDT = dataType match {
+          case st: StructType => renameDataType(st)
+          case ArrayType(elementType: StructType, containsNull) =>
+            ArrayType(renameDataType(elementType), containsNull)
+          case rest: DataType => rest
+        }
+        StructField(fn(name), renamedDT, nullable, metadata)
       })
 
     renameDataType(schema)
@@ -257,7 +279,7 @@ object Helpers extends LazyLogging {
   // Replace the spaces from the schema fields with _
   def replaceSpacesSchema(df: DataFrame)(implicit session: SparkSession): DataFrame = {
 
-    //replace all spaces with _
+    // replace all spaces with _
     val renameFcn = (s: String) => s.replaceAll(" ", "_")
 
     val newDF =
@@ -266,14 +288,18 @@ object Helpers extends LazyLogging {
     newDF
   }
 
-  /** Given a dataframe with a n columns, this method create a new column called `collectUnder` which will include all
-    * columns listed in `includedColumns` in a struct column. Those columns will be removed from the original dataframe.
-    * This can be used to nest fields.
+  /** Given a dataframe with a n columns, this method create a new column called `collectUnder`
+    * which will include all columns listed in `includedColumns` in a struct column. Those columns
+    * will be removed from the original dataframe. This can be used to nest fields.
     *
-    * @param dataFrame       on which to perform nesting
-    * @param includedColumns columns to include in new nested column
-    * @param collectUnder    name of new struct column
-    * @return dataframe with new column `collectUnder` with `includedColumns` nested within it.
+    * @param dataFrame
+    *   on which to perform nesting
+    * @param includedColumns
+    *   columns to include in new nested column
+    * @param collectUnder
+    *   name of new struct column
+    * @return
+    *   dataframe with new column `collectUnder` with `includedColumns` nested within it.
     */
   def nest(dataFrame: DataFrame, includedColumns: List[String], collectUnder: String): DataFrame = {
     // We need to use a random column name in case `collectUnder` is also in `includedColumns` as Spark SQL
@@ -287,24 +313,29 @@ object Helpers extends LazyLogging {
 
   /** Helper function to confirm that all required columns are available on dataframe.
     *
-    * @param requiredColumns on input dataframe
-    * @param dataFrame       dataframe to test
+    * @param requiredColumns
+    *   on input dataframe
+    * @param dataFrame
+    *   dataframe to test
     */
   def validateDF(requiredColumns: Set[String], dataFrame: DataFrame): Unit = {
     lazy val msg =
       s"One or more required columns (${requiredColumns.mkString(",")}) not found in dataFrame columns: ${dataFrame.columns
-        .mkString(",")}"
+          .mkString(",")}"
     val columnsOnDf = dataFrame.columns.toSet
     assert(requiredColumns.forall(columnsOnDf.contains), msg)
   }
 
   /** Returns the result of array_union(arr_1, ..., arr_n) where null arrays are cast to empty.
     *
-    * The default implementation of array_union returns null if any of the input arrays is null. This method meets the
-    * need of joining arrays where one or more of them may be null, but we still want the partial result returned.
+    * The default implementation of array_union returns null if any of the input arrays is null.
+    * This method meets the need of joining arrays where one or more of them may be null, but we
+    * still want the partial result returned.
     *
-    * @param columns of array type
-    * @return union of columns
+    * @param columns
+    *   of array type
+    * @return
+    *   union of columns
     */
   def safeArrayUnion(columns: Column*): Column = {
     columns.map(coalesce(_, typedLit(Array.empty))).reduce((c1, c2) => array_union(c1, c2))

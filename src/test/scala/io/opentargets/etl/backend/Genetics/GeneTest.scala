@@ -11,7 +11,7 @@ class GeneTest extends EtlSparkUnitTest {
     // given
     val variants = Seq((1, 1000)).toDF("chr_id", "position")
     val threeTargets =
-      Seq((1, 100, "g1"), (1, 700, "g1"), (1, 1300, "g1")).toDF("chromosome", "tss", "gene_id")
+      Seq((1, 100, "g1"), (1, 700, "g1"), (1, 1300, "g1")).toDF("chr_id", "tss", "gene_id")
     val distance = 500
     // when
     val df = Gene.variantGeneDistance(variants, distance)(threeTargets)

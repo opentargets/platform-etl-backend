@@ -9,6 +9,7 @@
 /project/target
 /elasticsearch/target
 /src/target
+/src/main/scala/project/target
 /input/
 /output
 /data
@@ -16,6 +17,7 @@
 /output/
 /tmp
 /scratch
+/scripts
 /deprecated/resources/amm.application.conf
 project/metals.sbt
 .vscode/
