@@ -23,7 +23,9 @@ artifact search <<dependencies>>
 artifact target <<dependencies>>
 artifact openfda <<dependencies>>
 artifact ebiSearch <<dependencies>>
+artifact otar <<dependencies>>
 
+disease --> otar
 reactome --> target
 
 evidence --> associations
