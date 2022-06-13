@@ -228,40 +228,6 @@ not 'drugs'. We define a drug to be any molecule that meets one or more of the f
 | target-etl | ETL step 'target' ||
 | drugbank-to-chembl | [Drugbank vocabulary](https://go.drugbank.com/releases/latest#open-data) | File `Drugbank Vocabulary` |
 
-### Baseline Expression
-
-The primary input sources of the baseline expression dataset are
-
-- The human protein atlas (https://www.proteinatlas.org/)
-- Opentarget baseline expressions resources
-
-We define a baseline expression information as
-
-- gene
-    - tissues[]
-        - label
-    - efo_code
-    - organs[]
-    - anatomical_system[]
-    - rna
-    - protein
-      - level
-      - reliability
-      - cell_type[]
-
-
-To run the `baseline expression` step use the example command under `Create a fat JAR` with `expression` as the step name.
-
-### EBI Search datasets
-The primary input sources for generating the EBI Search datasets are
- *) Diseases 
- *) Targets 
- *) Evidence
- *) Association Direct Overalls
-
-The step `ebisearch` will generate two datasets with targetId, diseaseId, approvedSymbol, name and score.
-
-
 #### Adding additional resources to enrich data
 
 Addition resources can be specified to enrich the data included in the outputs. The following `extension-type`s are
@@ -352,6 +318,24 @@ The `Drug` step writes three files under the common directory specified in the `
 - Indications
 
 Each of these outputs includes a field `id` to allow later linkages between them.
+
+### Baseline Expression
+
+The primary input sources of the baseline expression dataset are
+
+ - The human protein atlas (https://www.proteinatlas.org/)
+ - Opentarget baseline expressions resources
+
+To run the `baseline expression` step use the example command under `Create a fat JAR` with `expression` as the step name.
+
+### EBI Search datasets
+The primary input sources for generating the EBI Search datasets are
+*) Diseases
+*) Targets
+*) Evidence
+*) Association Direct Overalls
+
+The step `ebisearch` will generate two datasets with targetId, diseaseId, approvedSymbol, name and score.
 
 ### GO
 
@@ -546,6 +530,10 @@ and the significance of an adverse event depends both on the number of adverse e
 not reproducible. Sampling is provided for basic validation and testing.
 
 The sampled dataset is saved to disk, and can be used as an input for subsequent jobs.
+
+### Otar Projects
+
+Annotate diseases with Open Targets Projects metadata. (Internal and Partner Preview Platform)
 
 ## Development environment notes
 

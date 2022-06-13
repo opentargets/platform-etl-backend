@@ -23,9 +23,6 @@ object ETL extends LazyLogging {
       case "associationotf" =>
         logger.info("run step associationOTF")
         AssociationOTF()
-      case "connection" =>
-        logger.info("run step connections")
-        Connections()
       case "disease" =>
         logger.info("run step disease")
         Disease()
