@@ -25,7 +25,8 @@ object Ensembl extends LazyLogging {
 
   val includeChromosomes: List[String] = (1 to 22).toList.map(_.toString) ::: List("X", "Y", "MT")
 
-  def apply(df: DataFrame)(implicit ss: SparkSession): Dataset[Ensembl] = {
+  def apply(df: DataFrame, transcriptIds: Dataset[CanonicalTranscript])(
+      implicit ss: SparkSession): Dataset[Ensembl] = {
     logger.info("Transforming Ensembl inputs.")
     import ss.implicits._
     val ensemblDF: DataFrame = df
@@ -41,6 +42,7 @@ object Ensembl extends LazyLogging {
         col("chromosome"), // chromosome
         col("approvedSymbol"),
         col("transcripts.id") as "transcriptIds",
+        col("transcripts.exons"),
         col("signalP"),
         col("uniprot_trembl"),
         col("uniprot_swissprot"),
@@ -49,6 +51,8 @@ object Ensembl extends LazyLogging {
       .orderBy(col("id").asc)
       .dropDuplicates("id")
       .persist()
+      .transform(addCanonicalTranscriptId(_, transcriptIds))
+      .transform(addCanonicalExons)
       .transform(nest(_, List("chromosome", "start", "end", "strand"), "genomicLocation"))
       .transform(descriptionToApprovedName)
       .transform(refactorProteinId)
@@ -56,6 +60,31 @@ object Ensembl extends LazyLogging {
       .transform(selectBestNonReferenceGene)
 
     ensemblDF.as[Ensembl]
+  }
+
+  private def addCanonicalTranscriptId(
+      dataFrame: DataFrame,
+      canonicalTranscripts: Dataset[CanonicalTranscript]): DataFrame = {
+    dataFrame.join(canonicalTranscripts, Seq("id"), "left_outer")
+  }
+
+  /**
+    *  Adds canonicalExons to dataframe as an array of Array(e1_start, e1_end, ..., en_start, en_end).
+    */
+  private def addCanonicalExons(dataFrame: DataFrame): DataFrame = {
+    dataFrame
+      .withColumn("exonIndex", array_position(col("transcriptIds"), col("canonicalTranscript")))
+      .withColumn(
+        "exons",
+        // array_position returns 0 when canonical transcript not found in transcripts.
+        when(col("exonIndex") > 0, element_at(col("exons"), col("exonIndex").cast(IntegerType)))
+          .otherwise(null)
+      )
+      .withColumn("canonicalExons",
+                  when(col("exons").isNotNull, flatten(transform(col("exons"), x => {
+                    array(x("start"), x("end"))
+                  }))).otherwise(null))
+      .drop("exonIndex", "exons")
   }
 
   /** Returns dataframe with only one non-encoding gene per approvedSymbol. The other gene ids pointing to the same
@@ -182,30 +211,34 @@ object Ensembl extends LazyLogging {
     */
   def refactorProteinId(df: DataFrame): DataFrame =
     df.withColumn(
-      "ensembl_PRO",
-      transformArrayToStruct(
-        col("translations.id"),
-        typedLit("ensembl_PRO") :: Nil,
-        idAndSourceSchema
+        "ensembl_PRO",
+        transformArrayToStruct(
+          col("translations.id"),
+          typedLit("ensembl_PRO") :: Nil,
+          idAndSourceSchema
+        )
       )
-    ).withColumn(
-      "uniprot_swissprot",
-      transformArrayToStruct(
-        col("uniprot_swissprot"),
-        typedLit("uniprot_swissprot") :: Nil,
-        idAndSourceSchema
+      .withColumn(
+        "uniprot_swissprot",
+        transformArrayToStruct(
+          col("uniprot_swissprot"),
+          typedLit("uniprot_swissprot") :: Nil,
+          idAndSourceSchema
+        )
       )
-    ).withColumn(
-      "uniprot_trembl",
-      transformArrayToStruct(
-        col("uniprot_trembl"),
-        typedLit("uniprot_trembl") :: Nil,
-        idAndSourceSchema
+      .withColumn(
+        "uniprot_trembl",
+        transformArrayToStruct(
+          col("uniprot_trembl"),
+          typedLit("uniprot_trembl") :: Nil,
+          idAndSourceSchema
+        )
       )
-    ).withColumn(
-      "proteinIds",
-      safeArrayUnion(col("uniprot_swissprot"), col("uniprot_trembl"), col("ensembl_PRO"))
-    ).drop("uniprot_swissprot", "translations", "uniprot_trembl", "ensembl_PRO")
+      .withColumn(
+        "proteinIds",
+        safeArrayUnion(col("uniprot_swissprot"), col("uniprot_trembl"), col("ensembl_PRO"))
+      )
+      .drop("uniprot_swissprot", "translations", "uniprot_trembl", "ensembl_PRO")
 
   /** Return approved name from description */
   private def descriptionToApprovedName(dataFrame: DataFrame): DataFrame = {
