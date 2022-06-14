@@ -136,8 +136,7 @@ object Molecule extends LazyLogging {
 
     // make sure that the arrays aren't left null and are sorted.
     groupings.foldLeft(full)((df, colName) =>
-      df.withColumn(colName, coalesce(array_sort(col(colName)), typedLit(Seq.empty[String])))
-    )
+      df.withColumn(colName, coalesce(array_sort(col(colName)), typedLit(Seq.empty[String]))))
   }
 
   /** Group all child molecules by chembl_id
@@ -191,8 +190,8 @@ object Molecule extends LazyLogging {
           )
         ).as("sources")
       )
-      .withColumn("ref_id", col("sources.xref_id"))
-      .withColumn("ref_src", col("sources.xref_src"))
+      .withColumn("ref_id", col("sources.ref_id"))
+      .withColumn("ref_src", col("sources.ref_source"))
       .withColumn("refs", array(col("ref_src"), col("ref_id")).as("refs"))
       .drop("sources", "ref_id", "ref_src")
 

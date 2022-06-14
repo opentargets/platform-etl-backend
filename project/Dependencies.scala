@@ -28,7 +28,7 @@ object Dependencies {
     "org.jgrapht" % "jgrapht-core" % "1.4.0"
   )
 
-  lazy val sparkVersion = "3.1.1"
+  lazy val sparkVersion = "3.1.3"
   lazy val sparkDeps = Seq(
     "com.github.fommil.netlib" % "all" % "1.1.2" pomOnly (),
     "com.databricks" %% "spark-xml" % "0.11.0",
