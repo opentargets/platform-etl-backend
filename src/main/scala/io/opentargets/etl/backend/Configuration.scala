@@ -22,6 +22,16 @@ object Configuration extends LazyLogging {
 
   case class DataSource(id: String, weight: Double, dataType: String, propagate: Boolean)
 
+  case class EpmcInputs(cooccurences: IOResourceConfig)
+
+  case class Epmc(
+      input: EpmcInputs,
+      output: IOResourceConfig,
+      excludedTargetTerms: List[String],
+      sectionsOfInterest: List[String],
+      printMetrics: Boolean
+  )
+
   case class EvidenceEntry(
       id: String,
       uniqueFields: List[String],
@@ -311,6 +321,7 @@ object Configuration extends LazyLogging {
       expression: ExpressionSection,
       openfda: OpenfdaSection,
       ebisearch: EBISearchSection,
-      otarproject: OtarProjectSection
+      otarproject: OtarProjectSection,
+      epmc: Epmc
   )
 }

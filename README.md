@@ -319,6 +319,21 @@ The `Drug` step writes three files under the common directory specified in the `
 
 Each of these outputs includes a field `id` to allow later linkages between them.
 
+### Epmc
+
+This step was incorporated into the ETL to generate the EPMC evidence file used in the Evidence step. This was 
+originally managed by the Open Targets Data Team but moved here to reduce release friction.
+
+#### Inputs
+
+`cooccurences` files generated through the `processing` step of the [Literature pipeline](https://github.
+com/opentargets/platform-etl-literature/). 
+
+#### Configuration
+
+The flag `print-metrics` optionally logs statistics about the generated data. Data is cached before metrics are 
+generated, so it is not _too_ deleterious to performance to run this. 
+
 ### Baseline Expression
 
 The primary input sources of the baseline expression dataset are
