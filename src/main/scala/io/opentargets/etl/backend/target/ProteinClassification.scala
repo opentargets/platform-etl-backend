@@ -28,11 +28,9 @@ object ProteinClassification extends LazyLogging {
       .select(
         explode(
           arrays_zip(col("_metadata.protein_classification"), col("target_components.accession"))
-        )
-          .as("s")
+        ).as("s")
       )
-      .select(col("s.1").as("accession"), col("s.0").as("pc"))
-      .select("accession", "pc.*")
+      .select(col("s.accession"), col("s.protein_classification.*"))
 
     val columns = 1 to 8 map { i =>
       s"l$i"
