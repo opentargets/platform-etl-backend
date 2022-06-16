@@ -7,7 +7,6 @@ import com.typesafe.scalalogging.LazyLogging
 
 import scala.util._
 import io.opentargets.etl.backend._
-import io.opentargets.etl.backend.Epmc
 import io.opentargets.etl.backend.drug.Drug
 import io.opentargets.etl.backend.graph.EtlDag
 import io.opentargets.etl.common.GoogleStorageHelpers

@@ -2,10 +2,7 @@ package io.opentargets.etl.backend
 
 import com.typesafe.scalalogging.LazyLogging
 import org.apache.spark.sql._
-import org.apache.spark.sql.functions._
-import io.opentargets.etl.backend.spark.{IOResource, IOResourceConfig, IoHelpers}
-import io.opentargets.etl.backend.spark.IoHelpers
-import io.opentargets.etl.backend.spark.IoHelpers.IOResources
+import io.opentargets.etl.backend.spark.{IOResource, IoHelpers}
 import org.apache.spark.sql.SparkSession
 
 object EBISearch extends LazyLogging {
