@@ -25,7 +25,7 @@ class HelpersTest extends EtlSparkUnitTest with TableDrivenPropertyChecks with L
   lazy val testDf: DataFrame =
     sparkSession.createDataFrame(sparkSession.sparkContext.parallelize(testData), testStruct)
 
-  they should "load correctly when header and separator as specified" in {
+  "Files" should "load correctly when header and separator as specified" in {
     // given
     val path: String = this.getClass.getResource("/drugbank_v.csv").getPath
     val input = IOResourceConfig(

@@ -65,10 +65,9 @@ object IoHelpers extends LazyLogging {
     logger.info(s"load dataset ${pathInfo.path} with ${pathInfo.toString}")
 
     pathInfo.options
-      .foldLeft(session.read.format(pathInfo.format)) {
-        case ops =>
-          val options = ops._2.map(c => c.k -> c.v).toMap
-          ops._1.options(options)
+      .foldLeft(session.read.format(pathInfo.format)) { case ops =>
+        val options = ops._2.map(c => c.k -> c.v).toMap
+        ops._1.options(options)
       }
       .load(pathInfo.path)
   }
@@ -81,51 +80,73 @@ object IoHelpers extends LazyLogging {
   def seqToIOResourceConfigMap(resourceConfigs: Seq[IOResourceConfig]): IOResourceConfigurations = {
     (for (rc <- resourceConfigs) yield Random.alphanumeric.take(6).toString -> rc).toMap
   }
-
-  private def writeTo(output: IOResource, multiformat: Boolean = true)(
-      implicit context: ETLSessionContext): IOResource = {
+  private def writeTo(output: IOResource)(implicit context: ETLSessionContext): IOResource = {
     implicit val spark: SparkSession = context.sparkSession
 
     val writeMode = context.configuration.sparkSettings.writeMode
     logger.debug(s"Write mode set to $writeMode")
 
-    // cache data when writing multiple times to prevent duplicate computation.
-    val data = if (multiformat) output.data.cache() else output.data
+    logger.info(s"save IOResource ${output.toString}")
+    val data = output.data
     val conf = output.configuration
-    val formatAndPath: Seq[(String, String)] = {
-      val standard = (conf.format, conf.path)
-      val additional = for (i <- context.configuration.common.additionalFormats) yield {
-        (i, conf.path.replace(conf.format, i))
+
+    val pb = conf.partitionBy.foldLeft(data.write) { case (df, ops) =>
+      logger.debug(s"enabled partition by ${ops.toString}")
+      df.partitionBy(ops: _*)
+    }
+
+    conf.options
+      .foldLeft(pb) { case (df, ops) =>
+        logger.debug(s"write to ${conf.path} with options ${ops.toString}")
+        val options = ops.map(c => c.k -> c.v).toMap
+        df.options(options)
+
       }
-      standard +: { if (multiformat) additional else Nil }
-    }
-    logger.info(s"Writing $formatAndPath")
-
-    // add partitionBy configuration to DataFrame Writer
-    val pb = conf.partitionBy.foldLeft(data.write) {
-      case (df, ops) =>
-        logger.debug(s"enabled partition by ${ops.toString}")
-        df.partitionBy(ops: _*)
-    }
-
-    // add write option configuration to DataFrame Writer
-    val dfWriter: DataFrameWriter[Row] = conf.options
-      .foldLeft(pb) {
-        case (df, ops) =>
-          logger.debug(s"write to ${conf.path} with options ${ops.toString}")
-          val options = ops.map(c => c.k -> c.v).toMap
-          df.options(options)
-      }
-
-    formatAndPath.foreach { fp =>
-      logger.info(s"save dataframe to ${fp._2} in format ${fp._1}")
-      dfWriter
-        .format(fp._1)
-        .mode(writeMode)
-        .save(fp._2)
-    }
+      .format(conf.format)
+      .mode(writeMode)
+      .save(conf.path)
 
     output
+  }
+
+  /** Add additional output formats to prepared IOResources. Each dataframe will be cached to prevent recalculation on a
+    *  subsequent call to write.
+    *
+    *  Additional formats are set in the configuration under `common.additional-outputs`. When there are entries here,
+    *  each output is given an additional configuration to facilitate writing in multiple output formats (eg, json and parquet).
+    * @param resources standard collection of resources to save
+    * @param configs additional output configurations
+    * @return IOResources of outputs to save. This includes all the entries in `resources` and an additional entry for
+    *         each item in `config`.
+    */
+  private def addAdditionalOutputFormats(
+      resources: IOResources,
+      configs: List[IOResourceConfig]
+  ): IOResources = {
+
+    val cachedResources: IOResources =
+      resources.mapValues(r => IOResource(r.data.cache(), r.configuration))
+
+    cachedResources ++ cachedResources.flatMap(kv => {
+      val (name, resource) = kv
+      configs.map(additionalFormat => {
+        val resourceName = {
+          val pathComponents = resource.configuration.path.split("/")
+          if (pathComponents.nonEmpty) pathComponents.last else ""
+        }
+        val key = s"${name}_${additionalFormat.format}"
+        val value = IOResource(
+          resource.data,
+          resource.configuration
+            .copy(
+              format = additionalFormat.format,
+              path = s"${additionalFormat.path}/${resourceName}",
+              generateMetadata = false
+            )
+        )
+        key -> value
+      })
+    })
   }
 
   /** writeTo save all datasets in the Map outputs. It does write per IOResource
@@ -138,17 +159,22 @@ object IoHelpers extends LazyLogging {
   def writeTo(outputs: IOResources)(implicit context: ETLSessionContext): IOResources = {
     implicit val spark: SparkSession = context.sparkSession
 
+    // add in additional output types
+    val resourcesToWrite =
+      if (context.configuration.common.additionalOutputs.isEmpty) outputs
+      else addAdditionalOutputFormats(outputs, context.configuration.common.additionalOutputs)
+
     val datasetNamesStr = outputs.keys.mkString("(", ", ", ")")
     logger.info(s"write datasets $datasetNamesStr")
 
-    outputs foreach { out =>
+    resourcesToWrite foreach { out =>
       logger.info(s"save dataset ${out._1}")
       writeTo(out._2)
 
       if (out._2.configuration.generateMetadata) {
         logger.info(s"save metadata for dataset ${out._1}")
         val md = generateMetadata(out._2, context.configuration.common.metadata)
-        writeTo(md, multiformat = false)
+        writeTo(md)
       }
     }
 
@@ -164,9 +190,9 @@ object IoHelpers extends LazyLogging {
     * @param context    ETL context object
     * @return a new IOResource with all needed information and data ready to be saved
     */
-  private def generateMetadata(ior: IOResource, withConfig: IOResourceConfig)(
-      implicit
-      context: ETLSessionContext): IOResource = {
+  private def generateMetadata(ior: IOResource, withConfig: IOResourceConfig)(implicit
+      context: ETLSessionContext
+  ): IOResource = {
     require(withConfig.path.nonEmpty, "metadata resource path cannot be empty")
     implicit val session: SparkSession = context.sparkSession
     import session.implicits._

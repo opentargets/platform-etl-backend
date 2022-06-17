@@ -157,7 +157,7 @@ object Configuration extends LazyLogging {
       output: String,
       error: String,
       outputFormat: String,
-      additionalFormats: List[String],
+      additionalOutputs: List[IOResourceConfig],
       metadata: IOResourceConfig
   )
 
