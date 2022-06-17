@@ -65,9 +65,10 @@ object IoHelpers extends LazyLogging {
     logger.info(s"load dataset ${pathInfo.path} with ${pathInfo.toString}")
 
     pathInfo.options
-      .foldLeft(session.read.format(pathInfo.format)) { case ops =>
-        val options = ops._2.map(c => c.k -> c.v).toMap
-        ops._1.options(options)
+      .foldLeft(session.read.format(pathInfo.format)) {
+        case ops =>
+          val options = ops._2.map(c => c.k -> c.v).toMap
+          ops._1.options(options)
       }
       .load(pathInfo.path)
   }
@@ -81,31 +82,48 @@ object IoHelpers extends LazyLogging {
     (for (rc <- resourceConfigs) yield Random.alphanumeric.take(6).toString -> rc).toMap
   }
 
-  private def writeTo(output: IOResource)(implicit context: ETLSessionContext): IOResource = {
+  private def writeTo(output: IOResource, multiformat: Boolean = true)(
+      implicit context: ETLSessionContext): IOResource = {
     implicit val spark: SparkSession = context.sparkSession
 
     val writeMode = context.configuration.sparkSettings.writeMode
     logger.debug(s"Write mode set to $writeMode")
 
-    logger.info(s"save IOResource ${output.toString}")
-    val data = output.data
+    // cache data when writing multiple times to prevent duplicate computation.
+    val data = if (multiformat) output.data.cache() else output.data
     val conf = output.configuration
+    val formatAndPath: Seq[(String, String)] = {
+      val standard = (conf.format, conf.path)
+      val additional = for (i <- context.configuration.common.additionalFormats) yield {
+        (i, conf.path.replace(conf.format, i))
+      }
+      standard +: { if (multiformat) additional else Nil }
+    }
+    logger.info(s"Writing $formatAndPath")
 
-    val pb = conf.partitionBy.foldLeft(data.write) { case (df, ops) =>
-      logger.debug(s"enabled partition by ${ops.toString}")
-      df.partitionBy(ops: _*)
+    // add partitionBy configuration to DataFrame Writer
+    val pb = conf.partitionBy.foldLeft(data.write) {
+      case (df, ops) =>
+        logger.debug(s"enabled partition by ${ops.toString}")
+        df.partitionBy(ops: _*)
     }
 
-    conf.options
-      .foldLeft(pb) { case (df, ops) =>
-        logger.debug(s"write to ${conf.path} with options ${ops.toString}")
-        val options = ops.map(c => c.k -> c.v).toMap
-        df.options(options)
-
+    // add write option configuration to DataFrame Writer
+    val dfWriter: DataFrameWriter[Row] = conf.options
+      .foldLeft(pb) {
+        case (df, ops) =>
+          logger.debug(s"write to ${conf.path} with options ${ops.toString}")
+          val options = ops.map(c => c.k -> c.v).toMap
+          df.options(options)
       }
-      .format(conf.format)
-      .mode(writeMode)
-      .save(conf.path)
+
+    formatAndPath.foreach { fp =>
+      logger.info(s"save dataframe to ${fp._2} in format ${fp._1}")
+      dfWriter
+        .format(fp._1)
+        .mode(writeMode)
+        .save(fp._2)
+    }
 
     output
   }
@@ -130,7 +148,7 @@ object IoHelpers extends LazyLogging {
       if (out._2.configuration.generateMetadata) {
         logger.info(s"save metadata for dataset ${out._1}")
         val md = generateMetadata(out._2, context.configuration.common.metadata)
-        writeTo(md)
+        writeTo(md, multiformat = false)
       }
     }
 
@@ -146,9 +164,9 @@ object IoHelpers extends LazyLogging {
     * @param context    ETL context object
     * @return a new IOResource with all needed information and data ready to be saved
     */
-  private def generateMetadata(ior: IOResource, withConfig: IOResourceConfig)(implicit
-      context: ETLSessionContext
-  ): IOResource = {
+  private def generateMetadata(ior: IOResource, withConfig: IOResourceConfig)(
+      implicit
+      context: ETLSessionContext): IOResource = {
     require(withConfig.path.nonEmpty, "metadata resource path cannot be empty")
     implicit val session: SparkSession = context.sparkSession
     import session.implicits._
