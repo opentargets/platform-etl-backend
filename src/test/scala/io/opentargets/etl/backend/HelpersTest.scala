@@ -25,28 +25,6 @@ class HelpersTest extends EtlSparkUnitTest with TableDrivenPropertyChecks with L
   lazy val testDf: DataFrame =
     sparkSession.createDataFrame(sparkSession.sparkContext.parallelize(testData), testStruct)
 
-  "generateDefaultIoOutputConfiguration" should "generate a valid configuration for each of its input files" in {
-    // given
-    Configuration.config match {
-      case Right(config) =>
-        val inputFileNames = Seq("a", "b", "c")
-        // when
-        val results = IoHelpers.generateDefaultIoOutputConfiguration(inputFileNames: _*)(config)
-        // then
-        assert(results.keys.size == inputFileNames.size)
-        assert(
-          results.values.forall(ioResConf =>
-            ioResConf.format == config.common.outputFormat &&
-              inputFileNames.contains(ioResConf.path.split("/").last)
-          )
-        )
-
-      case Left(ex) =>
-        logger.error(ex.prettyPrint())
-        assertDoesNotCompile("OT config loading problem")
-    }
-  }
-
   they should "load correctly when header and separator as specified" in {
     // given
     val path: String = this.getClass.getResource("/drugbank_v.csv").getPath

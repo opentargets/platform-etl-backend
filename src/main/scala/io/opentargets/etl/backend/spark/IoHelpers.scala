@@ -48,20 +48,6 @@ object IoHelpers extends LazyLogging {
   type IOResourceConfigurations = Map[String, IOResourceConfig]
   type IOResources = Map[String, IOResource]
 
-  /** Create an IOResourceConf Map for each of the given files, where the file is a key and the value is the output
-    * configuration
-    * @param files will be the names out the output files
-    * @param configuration to provide access to the program's configuration
-    * @return a map of file -> IOResourceConfig
-    */
-  def generateDefaultIoOutputConfiguration(
-      files: String*
-  )(configuration: OTConfig): IOResourceConfigurations = {
-    files.map { n =>
-      n -> IOResourceConfig(configuration.common.outputFormat, configuration.common.output + s"/$n")
-    } toMap
-  }
-
   /** It creates an hashmap of dataframes.
     *   Es. inputsDataFrame {"disease", Dataframe} , {"target", Dataframe}
     *   Reading is the first step in the pipeline
