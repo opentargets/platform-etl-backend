@@ -246,8 +246,9 @@ object Configuration extends LazyLogging {
   // --- OtarProject configuration
   case class OtarProjectSection(
       diseaseEtl: IOResourceConfig,
-      otar: IOResourceConfig,
-      output: IOResourceConfig
+      output: IOResourceConfig,
+      otarMeta: IOResourceConfig,
+      otarProjectToEfo: IOResourceConfig
   )
 
   // --- EBISearch configuration
