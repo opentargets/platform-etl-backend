@@ -552,7 +552,9 @@ Annotate diseases with Open Targets Projects metadata. (Internal and Partner Pre
 
 Requires 3 inputs:
 - Output of disease step
-- 2 Google Sheets exported from internal OT data.
+- 2 Google Sheets exported from internal OT data:
+  - a lookup from otar project ids to EFO IDs
+  - otar project metadata: name, active status and ID
 
 ## Development environment notes
 
