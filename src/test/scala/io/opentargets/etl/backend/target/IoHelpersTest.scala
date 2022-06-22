@@ -11,11 +11,11 @@ class IoHelpersTest extends EtlSparkUnitTest {
     import sparkSession.implicits._
     val addFormats = PrivateMethod[IOResources]('addAdditionalOutputFormats)
     val df = Seq(1).toDF
-    val resources: IOResources = Map("one" -> IOResource(df, IOResourceConfig("f1", "p1")))
-    val configs: List[IOResourceConfig] = List(IOResourceConfig("f2", "p2"))
+    val resources: IOResources = Map("one" -> IOResource(df, IOResourceConfig("f1", "p1/f1/out")))
+    val configs: List[String] = List("f2")
 
     // when
-    val result = IoHelpers invokePrivate addFormats(resources, configs)
+    val result = IoHelpers invokePrivate addFormats(resources, configs, "parquet")
 
     // then
     // an entry created for each format

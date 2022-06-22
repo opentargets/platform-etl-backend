@@ -115,13 +115,15 @@ object IoHelpers extends LazyLogging {
     *  Additional formats are set in the configuration under `common.additional-outputs`. When there are entries here,
     *  each output is given an additional configuration to facilitate writing in multiple output formats (eg, json and parquet).
     * @param resources standard collection of resources to save
-    * @param configs additional output configurations
+    * @param additionalFormats additional output configurations
+    * @param defaultFormat default format for writing outputs
     * @return IOResources of outputs to save. This includes all the entries in `resources` and an additional entry for
     *         each item in `config`.
     */
   private def addAdditionalOutputFormats(
       resources: IOResources,
-      configs: List[IOResourceConfig]
+      additionalFormats: List[String],
+      defaultFormat: String
   ): IOResources = {
 
     val cachedResources: IOResources =
@@ -129,18 +131,15 @@ object IoHelpers extends LazyLogging {
 
     cachedResources ++ cachedResources.flatMap(kv => {
       val (name, resource) = kv
-      configs.map(additionalFormat => {
-        val resourceName = {
-          val pathComponents = resource.configuration.path.split("/")
-          if (pathComponents.nonEmpty) pathComponents.last else ""
-        }
-        val key = s"${name}_${additionalFormat.format}"
+      additionalFormats.map(additionalFormat => {
+        val resourceName = resource.configuration.path.replace(defaultFormat, additionalFormat)
+        val key = s"${name}_$additionalFormat"
         val value = IOResource(
           resource.data,
           resource.configuration
             .copy(
-              format = additionalFormat.format,
-              path = s"${additionalFormat.path}/${resourceName}",
+              format = additionalFormat,
+              path = resourceName,
               generateMetadata = false
             )
         )
@@ -162,7 +161,12 @@ object IoHelpers extends LazyLogging {
     // add in additional output types
     val resourcesToWrite =
       if (context.configuration.common.additionalOutputs.isEmpty) outputs
-      else addAdditionalOutputFormats(outputs, context.configuration.common.additionalOutputs)
+      else
+        addAdditionalOutputFormats(
+          outputs,
+          context.configuration.common.additionalOutputs,
+          context.configuration.common.outputFormat
+        )
 
     val datasetNamesStr = outputs.keys.mkString("(", ", ", ")")
     logger.info(s"write datasets $datasetNamesStr")
