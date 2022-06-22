@@ -48,20 +48,6 @@ object IoHelpers extends LazyLogging {
   type IOResourceConfigurations = Map[String, IOResourceConfig]
   type IOResources = Map[String, IOResource]
 
-  /** Create an IOResourceConf Map for each of the given files, where the file is a key and the value is the output
-    * configuration
-    * @param files will be the names out the output files
-    * @param configuration to provide access to the program's configuration
-    * @return a map of file -> IOResourceConfig
-    */
-  def generateDefaultIoOutputConfiguration(
-      files: String*
-  )(configuration: OTConfig): IOResourceConfigurations = {
-    files.map { n =>
-      n -> IOResourceConfig(configuration.common.outputFormat, configuration.common.output + s"/$n")
-    } toMap
-  }
-
   /** It creates an hashmap of dataframes.
     *   Es. inputsDataFrame {"disease", Dataframe} , {"target", Dataframe}
     *   Reading is the first step in the pipeline
@@ -94,7 +80,6 @@ object IoHelpers extends LazyLogging {
   def seqToIOResourceConfigMap(resourceConfigs: Seq[IOResourceConfig]): IOResourceConfigurations = {
     (for (rc <- resourceConfigs) yield Random.alphanumeric.take(6).toString -> rc).toMap
   }
-
   private def writeTo(output: IOResource)(implicit context: ETLSessionContext): IOResource = {
     implicit val spark: SparkSession = context.sparkSession
 
@@ -124,6 +109,45 @@ object IoHelpers extends LazyLogging {
     output
   }
 
+  /** Add additional output formats to prepared IOResources. Each dataframe will be cached to prevent recalculation on a
+    *  subsequent call to write.
+    *
+    *  Additional formats are set in the configuration under `common.additional-outputs`. When there are entries here,
+    *  each output is given an additional configuration to facilitate writing in multiple output formats (eg, json and parquet).
+    * @param resources standard collection of resources to save
+    * @param additionalFormats additional output configurations
+    * @param defaultFormat default format for writing outputs
+    * @return IOResources of outputs to save. This includes all the entries in `resources` and an additional entry for
+    *         each item in `config`.
+    */
+  private def addAdditionalOutputFormats(
+      resources: IOResources,
+      additionalFormats: List[String],
+      defaultFormat: String
+  ): IOResources = {
+
+    val cachedResources: IOResources =
+      resources.mapValues(r => IOResource(r.data.cache(), r.configuration))
+
+    cachedResources ++ cachedResources.flatMap(kv => {
+      val (name, resource) = kv
+      additionalFormats.map(additionalFormat => {
+        val resourceName = resource.configuration.path.replace(defaultFormat, additionalFormat)
+        val key = s"${name}_$additionalFormat"
+        val value = IOResource(
+          resource.data,
+          resource.configuration
+            .copy(
+              format = additionalFormat,
+              path = resourceName,
+              generateMetadata = false
+            )
+        )
+        key -> value
+      })
+    })
+  }
+
   /** writeTo save all datasets in the Map outputs. It does write per IOResource
     * its companion metadata dataset
     *
@@ -134,10 +158,20 @@ object IoHelpers extends LazyLogging {
   def writeTo(outputs: IOResources)(implicit context: ETLSessionContext): IOResources = {
     implicit val spark: SparkSession = context.sparkSession
 
+    // add in additional output types
+    val resourcesToWrite =
+      if (context.configuration.common.additionalOutputs.isEmpty) outputs
+      else
+        addAdditionalOutputFormats(
+          outputs,
+          context.configuration.common.additionalOutputs,
+          context.configuration.common.outputFormat
+        )
+
     val datasetNamesStr = outputs.keys.mkString("(", ", ", ")")
     logger.info(s"write datasets $datasetNamesStr")
 
-    outputs foreach { out =>
+    resourcesToWrite foreach { out =>
       logger.info(s"save dataset ${out._1}")
       writeTo(out._2)
 

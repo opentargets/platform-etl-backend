@@ -37,13 +37,13 @@ object Dependencies {
     "org.apache.spark" %% "spark-graphx" % sparkVersion % "provided",
     "org.apache.spark" %% "spark-mllib" % sparkVersion % "provided"
   )
-  lazy val scalaCheck = "org.scalacheck" %% "scalacheck" % "1.14.3"
 
   lazy val testVersion = "3.2.2"
   lazy val testingDeps = Seq(
     "org.scalactic" %% "scalactic" % testVersion,
-    "org.scalatest" %% "scalatest" % testVersion % "test"
-  ) :+ scalaCheck
+    "org.scalatest" %% "scalatest" % testVersion % "test",
+    "org.scalamock" %% "scalamock" % "5.1.0" % "test"
+  )
 
   lazy val typeSafeConfig = "com.typesafe" % "config" % "1.4.1"
 

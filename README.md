@@ -46,6 +46,14 @@ The `options` field configures how Spark will read the input files. Both Json an
 configurable options, details of which can be
 found [in the documentation](https://spark.apache.org/docs/latest/api/scala/org/apache/spark/sql/DataFrameReader.html)
 
+#### Additional output formats
+
+Typically all outputs should use `common.output-format` to specify a Spark supported write format ("json", "parquet",
+etc). Relying on this value allows us to read in pre-computed steps easily. 
+
+If you require outputs in additional formats, complete the `common.additional-outputs` section. Metadata is not 
+generated for these additional sources. 
+
 #### Configuring Spark
 
 If you want to use a local installation of Spark customise the `application.conf` with the following spark-uri field and
