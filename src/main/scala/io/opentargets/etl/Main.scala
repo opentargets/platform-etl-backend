@@ -7,7 +7,7 @@ import com.typesafe.scalalogging.LazyLogging
 
 import scala.util._
 import io.opentargets.etl.backend._
-import io.opentargets.etl.backend.genetics.VariantGene
+import io.opentargets.etl.backend.genetics.{VariantDisease, VariantGene}
 import io.opentargets.etl.backend.drug.Drug
 import io.opentargets.etl.backend.graph.EtlDag
 import io.opentargets.etl.common.GoogleStorageHelpers
@@ -75,6 +75,9 @@ object ETL extends LazyLogging {
       case "variantgene" =>
         logger.info("run step variant-gene (genetics)")
         VariantGene()
+      case "variantdisease" =>
+        logger.info("run step variant-disease (genetics)")
+        VariantDisease()
       case _ => logger.warn(s"step $step is unknown so nothing to execute")
     }
     logger.info(s"finished to run step ($step)")
@@ -127,7 +130,9 @@ object ETL extends LazyLogging {
         implicit val ctxt: ETLSessionContext = otContext
 
         val completedSteps =
-          if (otContext.configuration.sparkSettings.ignoreIfExists && otContext.configuration.sparkSettings.writeMode == "ignore")
+          if (
+            otContext.configuration.sparkSettings.ignoreIfExists && otContext.configuration.sparkSettings.writeMode == "ignore"
+          )
             stepsWithExistingOuputs
           else Set.empty[String]
         logger.info(s"Steps already completed and not to be executed again: $completedSteps")

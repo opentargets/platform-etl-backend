@@ -326,6 +326,20 @@ object Configuration extends LazyLogging {
       outputs: VariantGeneOutputs,
       tssDistance: Long
   )
+
+  case class VariantDiseaseOutputs(variantDisease: IOResourceConfig)
+  case class VariantDiseaseInputs(
+      variants: IOResourceConfig,
+      studies: IOResourceConfig,
+      toploci: IOResourceConfig,
+      finemapping: IOResourceConfig,
+      ld: IOResourceConfig,
+      efos: IOResourceConfig
+  )
+  case class VariantDiseaseSection(
+      inputs: VariantDiseaseInputs,
+      outputs: VariantDiseaseOutputs
+  )
   // --- Genetics end --- //
 
   case class EtlStep[T](step: T, dependencies: List[T])
@@ -355,6 +369,7 @@ object Configuration extends LazyLogging {
       otarproject: OtarProjectSection,
       genetics: Genetics,
       variant: Variants,
-      variantGene: VariantGeneSection
+      variantGene: VariantGeneSection,
+      variantDisease: VariantDiseaseSection
   )
 }
