@@ -7,7 +7,12 @@ import com.typesafe.scalalogging.LazyLogging
 
 import scala.util._
 import io.opentargets.etl.backend._
-import io.opentargets.etl.backend.genetics.{VariantDisease, VariantDiseaseColoc, VariantGene}
+import io.opentargets.etl.backend.genetics.{
+  DiseaseVariantGene,
+  VariantDisease,
+  VariantDiseaseColoc,
+  VariantGene
+}
 import io.opentargets.etl.backend.drug.Drug
 import io.opentargets.etl.backend.graph.EtlDag
 import io.opentargets.etl.common.GoogleStorageHelpers
@@ -81,6 +86,12 @@ object ETL extends LazyLogging {
       case "variantdiseasecoloc" =>
         logger.info("run step variant-disease-coloc (genetics)")
         VariantDiseaseColoc()
+      case "diseasevariantgene" =>
+        logger.info("run step disease-variant-gene (genetics")
+        DiseaseVariantGene()
+//      case "scoreddatasets" =>
+//        logger.info("run step scoreddatasets (genetics")
+//        ScoredDatasets()
       case _ => logger.warn(s"step $step is unknown so nothing to execute")
     }
     logger.info(s"finished to run step ($step)")
@@ -108,7 +119,8 @@ object ETL extends LazyLogging {
       "variant" -> ctx.configuration.variant.outputs.variants.path,
       "variantGene" -> ctx.configuration.variant.outputs.variants.path,
       "variantDisease" -> ctx.configuration.variantDisease.outputs.variantDisease.path,
-      "variantDiseaseColoc" -> ctx.configuration.variantDiseaseColoc.outputs.variantDiseaseColoc.path
+      "variantDiseaseColoc" -> ctx.configuration.variantDiseaseColoc.outputs.variantDiseaseColoc.path,
+      "diseaseVariantGene" -> ctx.configuration.diseaseVariantGene.outputs.diseaseVariantGene.path
     )
 
     val storage: Storage = StorageOptions.getDefaultInstance.getService

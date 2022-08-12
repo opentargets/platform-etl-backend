@@ -340,7 +340,11 @@ object Configuration extends LazyLogging {
       inputs: VariantDiseaseInputs,
       outputs: VariantDiseaseOutputs
   )
+  case class DVGInputs(variantGene: IOResourceConfig, variantDisease: IOResourceConfig)
+  case class DVGOutputs(diseaseVariantGene: IOResourceConfig)
+  case class DiseaseVariantGeneSection(inputs: DVGInputs, outputs: DVGOutputs)
   case class VariantDiseaseColocOutputs(variantDiseaseColoc: IOResourceConfig)
+
   case class VariantDiseaseColocInputs(
       variants: IOResourceConfig,
       targets: IOResourceConfig,
@@ -381,6 +385,7 @@ object Configuration extends LazyLogging {
       variant: Variants,
       variantGene: VariantGeneSection,
       variantDisease: VariantDiseaseSection,
+      diseaseVariantGene: DiseaseVariantGeneSection,
       variantDiseaseColoc: VariantDiseaseColocSection
   )
 }
