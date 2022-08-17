@@ -20,7 +20,7 @@ class EnsemblTest extends EtlSparkUnitTest {
     // given
     import sparkSession.implicits._
     val df = ensemblRawDf
-    val results = Ensembl(df, sparkSession.emptyDataset[CanonicalTranscript])
+    val results = Ensembl(df, sparkSession.emptyDataset[GeneAndCanonicalTranscript])
     // then
     results.count should equal(ensemblRawDf.count +- 10)
   }
@@ -87,8 +87,12 @@ class EnsemblTest extends EtlSparkUnitTest {
     import sparkSession.implicits._
     val addExons = PrivateMethod[DataFrame]('addCanonicalExons)
     val df: DataFrame = Seq(
-      ("T1", Array("T1", "T2"), Array(Array(Exon(1, 2), Exon(5, 6)), Array(Exon(1, 2)))),
-      ("T2", Array("T1", "T2"), Array(Array(Exon(1, 2), Exon(5, 6)), Array(Exon(3, 5), Exon(7, 9))))
+      (CanonicalTranscript("T1", "1", 1, 1, "+"),
+       Array("T1", "T2"),
+       Array(Array(Exon(1, 2), Exon(5, 6)), Array(Exon(1, 2)))),
+      (CanonicalTranscript("T2", "1", 1, 1, "-"),
+       Array("T1", "T2"),
+       Array(Array(Exon(1, 2), Exon(5, 6)), Array(Exon(3, 5), Exon(7, 9))))
     ).toDF("canonicalTranscript", "transcriptIds", "exons")
 
     // when
@@ -96,7 +100,7 @@ class EnsemblTest extends EtlSparkUnitTest {
 
     // then
     val t1: Seq[Integer] = result
-      .filter(col("canonicalTranscript") === "T1")
+      .filter(col("canonicalTranscript.id") === "T1")
       .select(col("canonicalExons"))
       .head
       .getSeq[Integer](0)

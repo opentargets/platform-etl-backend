@@ -57,7 +57,7 @@ object Target extends LazyLogging {
 
     // 2. prepare intermediate dataframes per source
     val chemicalProbes: DataFrame = inputDataFrames("chemicalProbes").data
-    val geneCode: Dataset[CanonicalTranscript] = GeneCode(inputDataFrames("geneCode").data)
+    val geneCode: Dataset[GeneAndCanonicalTranscript] = GeneCode(inputDataFrames("geneCode").data)
     val hgnc: Dataset[Hgnc] = Hgnc(inputDataFrames("hgnc").data)
     val hallmarks: Dataset[HallmarksWithId] = Hallmarks(inputDataFrames("hallmarks").data)
     val ncbi: Dataset[Ncbi] = Ncbi(inputDataFrames("ncbi").data)
@@ -179,32 +179,26 @@ object Target extends LazyLogging {
     */
   private def generateEnsgToSymbolLookup(df: DataFrame): DataFrame = {
     df.select(
-        col("id"),
-        col("proteinIds.id") as "pid",
-        array(col("approvedSymbol")) as "as",
-        filter(col("synonyms"), _.getField("source") === "uniprot") as "uniprot",
-        filter(col("synonyms"), _.getField("source") === "HGNC") as "HGNC",
-        array_distinct(
-          safeArrayUnion(
-            col("proteinIds.id"),
-            col("symbolSynonyms.label"),
-            col("obsoleteSymbols.label"),
-            array(col("approvedSymbol"))
-          )
-        ) as "symbols"
-      )
-      .select(
-        col("id"),
-        flatten(array(col("pid"), col("as"))) as "s",
-        col("uniprot.label") as "uniprot",
-        col("HGNC.label") as "HGNC",
-        col("symbols")
-      )
-      .select(col("id") as "ensgId",
-              col("s") as "name",
-              col("uniprot"),
-              col("HGNC"),
-              col("symbols"))
+      col("id"),
+      col("proteinIds.id") as "pid",
+      array(col("approvedSymbol")) as "as",
+      filter(col("synonyms"), _.getField("source") === "uniprot") as "uniprot",
+      filter(col("synonyms"), _.getField("source") === "HGNC") as "HGNC",
+      array_distinct(
+        safeArrayUnion(
+          col("proteinIds.id"),
+          col("symbolSynonyms.label"),
+          col("obsoleteSymbols.label"),
+          array(col("approvedSymbol"))
+        )
+      ) as "symbols"
+    ).select(
+      col("id"),
+      flatten(array(col("pid"), col("as"))) as "s",
+      col("uniprot.label") as "uniprot",
+      col("HGNC.label") as "HGNC",
+      col("symbols")
+    ).select(col("id") as "ensgId", col("s") as "name", col("uniprot"), col("HGNC"), col("symbols"))
       .persist(StorageLevel.MEMORY_AND_DISK_SER)
   }
 
@@ -480,7 +474,7 @@ object Target extends LazyLogging {
       .withColumnRenamed("approvedSymbol", "as")
 
     val merged = eDf
-    // this removes non-reference ensembl genes introduced by HGNC.
+      // this removes non-reference ensembl genes introduced by HGNC.
       .join(hgnc, eDf("id") === hgnc("ensemblId"), "left_outer")
       // if approvedName and approvedSymbol provided by HGNC use those, otherwise Ensembl for symbol or empty string for name
       .withColumn("approvedName", coalesce(col("approvedName"), col("an"), lit("")))
@@ -559,7 +553,7 @@ object Target extends LazyLogging {
           case uniprot if uniprot.endsWith("uniprot")   => 3
           case ensembl if ensembl.contains("ensembl")   => 4
           case _                                        => 5
-      }
+        }
       val l = sourceToInt(left)
       val r = sourceToInt(right)
       // if same source use natural ordering otherwise custom ordering for source.
