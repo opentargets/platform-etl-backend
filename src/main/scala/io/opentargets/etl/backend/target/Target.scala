@@ -57,10 +57,11 @@ object Target extends LazyLogging {
 
     // 2. prepare intermediate dataframes per source
     val chemicalProbes: DataFrame = inputDataFrames("chemicalProbes").data
+    val geneCode: Dataset[GeneAndCanonicalTranscript] = GeneCode(inputDataFrames("geneCode").data)
     val hgnc: Dataset[Hgnc] = Hgnc(inputDataFrames("hgnc").data)
     val hallmarks: Dataset[HallmarksWithId] = Hallmarks(inputDataFrames("hallmarks").data)
     val ncbi: Dataset[Ncbi] = Ncbi(inputDataFrames("ncbi").data)
-    val ensemblDf: Dataset[Ensembl] = Ensembl(inputDataFrames("ensembl").data)
+    val ensemblDf: Dataset[Ensembl] = Ensembl(inputDataFrames("ensembl").data, geneCode)
     val uniprotDS: Dataset[Uniprot] =
       Uniprot(inputDataFrames("uniprot").data, inputDataFrames("uniprotSsl").data)
     val geneOntologyDf: Dataset[GeneOntologyByEnsembl] = GeneOntology(
@@ -106,8 +107,7 @@ object Target extends LazyLogging {
       addEnsemblIdsToUniprot(
         hgnc,
         addProteinClassificationToUniprot(uniprotDS, proteinClassification)
-      )
-        .withColumnRenamed("proteinIds", "pid")
+      ).withColumnRenamed("proteinIds", "pid")
         .join(hpa, Seq("id"), "left_outer")
         .withColumn(
           "subcellularLocations",
@@ -396,6 +396,7 @@ object Target extends LazyLogging {
       "chemicalProbes" -> targetInputs.chemicalProbes,
       "ensembl" -> targetInputs.ensembl,
       "geneticConstraints" -> targetInputs.geneticConstraints,
+      "geneCode" -> targetInputs.genCode,
       "geneOntologyHuman" -> targetInputs.geneOntology,
       "geneOntologyRna" -> targetInputs.geneOntologyRna,
       "geneOntologyRnaLookup" -> targetInputs.geneOntologyRnaLookup,

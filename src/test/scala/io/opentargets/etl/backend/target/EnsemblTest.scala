@@ -5,18 +5,22 @@ import io.opentargets.etl.backend.target.EnsemblTest.ensemblRawDf
 import org.apache.spark.sql.functions.col
 import org.apache.spark.sql.{DataFrame, SparkSession}
 import org.scalatest.matchers.should.Matchers.convertToAnyShouldWrapper
+import org.scalatest.matchers.should.Matchers._
 
 object EnsemblTest {
   def ensemblRawDf(implicit sparkSession: SparkSession): DataFrame =
     sparkSession.read.json(this.getClass.getResource("/target/homo_test.jsonl.gz").getPath)
 }
 
+case class Exon(start: Int, end: Int)
+
 class EnsemblTest extends EtlSparkUnitTest {
 
   "Ensembl" should "convert raw dataframe into Ensembl objects without loss" in {
     // given
+    import sparkSession.implicits._
     val df = ensemblRawDf
-    val results = Ensembl(df)
+    val results = Ensembl(df, sparkSession.emptyDataset[GeneAndCanonicalTranscript])
     // then
     results.count should equal(ensemblRawDf.count +- 10)
   }
@@ -76,5 +80,31 @@ class EnsemblTest extends EtlSparkUnitTest {
       .toString should include(
       "mitochondrially encoded NADH:ubiquinone oxidoreductase core subunit 2"
     )
+  }
+
+  "Canonical exons" should "be added as array of (start, stop, start, stop...)" in {
+    // given
+    import sparkSession.implicits._
+    val addExons = PrivateMethod[DataFrame]('addCanonicalExons)
+    val df: DataFrame = Seq(
+      (CanonicalTranscript("T1", "1", 1, 1, "+"),
+       Array("T1", "T2"),
+       Array(Array(Exon(1, 2), Exon(5, 6)), Array(Exon(1, 2)))),
+      (CanonicalTranscript("T2", "1", 1, 1, "-"),
+       Array("T1", "T2"),
+       Array(Array(Exon(1, 2), Exon(5, 6)), Array(Exon(3, 5), Exon(7, 9))))
+    ).toDF("canonicalTranscript", "transcriptIds", "exons")
+
+    // when
+    val result = Ensembl invokePrivate addExons(df)
+
+    // then
+    val t1: Seq[Integer] = result
+      .filter(col("canonicalTranscript.id") === "T1")
+      .select(col("canonicalExons"))
+      .head
+      .getSeq[Integer](0)
+    t1 should contain inOrderOnly (1, 2, 5, 6)
+
   }
 }

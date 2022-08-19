@@ -469,7 +469,13 @@ the data. Options for parsing the inputs should not need to be updated.
 1. Tractability
     - File provided by ChEMBL: https://storage.googleapis.com/otar001-core/Tractability/21.
       08/tractability_buckets_<latest>.tsv
-
+1. GenCode
+    - This is used to find the canonical transcript IDs for each gene and their relevant exons. This information 
+      would ideally come from Ensemble, but that won't be available until Sept 2022 at the earliest. For additional 
+      discussion refer to [this issue](https://github.com/opentargets/issues/issues/1947)
+    - The file is available to download from: `ftp://ftp.ebi.ac.
+      uk/pub/databases/gencode/Gencode_human/release_40/gencode.v40.annotation.gff3.gz`, updating the versions as 
+      necessary. 
 ### OpenFDA FAERS DB
 
 The openFDA drug adverse event API returns data that has been collected from the FDA Adverse Event Reporting System (FAERS),
