@@ -6,21 +6,11 @@ import org.apache.spark.sql.functions._
 
 /** Object to process ChEMBL indications for incorporation into Drug.
   *
-  * \|-- id: string
-  * \|-- indications: array
-  * \| |-- element: struct
-  * \| | |-- disease: string
-  * \| | |-- efoName: string
-  * \| | |-- disease: string
-  * \| | |-- references: array
-  * \| | | |-- element: struct
-  * \| | | | |-- ids: array
-  * \| | | | | |-- element: string
-  * \| | | | |-- source: string
-  * \| | |-- maxPhaseForIndication: long
-  * \|-- approvedIndications: array
-  * \| |-- element: string
-  * \|-- indicationCount: integer
+  * \|-- id: string \|-- indications: array \| |-- element: struct \| | |-- disease: string \| | |--
+  * efoName: string \| | |-- disease: string \| | |-- references: array \| | | |-- element: struct
+  * \| | | | |-- ids: array \| | | | | |-- element: string \| | | | |-- source: string \| | |--
+  * maxPhaseForIndication: long \|-- approvedIndications: array \| |-- element: string \|--
+  * indicationCount: integer
   *
   * There is some duplication of results here as the same ChEMBL ID can have the same indication,
   * but this implementation is much faster in ES to serve the API.
