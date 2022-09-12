@@ -10,12 +10,12 @@ import org.scalatest.matchers.should.Matchers.convertToAnyShouldWrapper
 class TargetUtilsTest extends EtlSparkUnitTest {
 
   "TargetUtils" should "transform id column to label and source struct" in {
-    //root
+    // root
     // |-- ensemblId: string (nullable = true)
     // |-- hgncSynonyms: array (nullable = true)
     // |    |-- element: string (containsNull = true)
     //
-    //root
+    // root
     // |-- ensemblId: string (nullable = true)
     // |-- hgncSynonyms: array (nullable = true)
     // |    |-- element: string (containsNull = true)
@@ -28,15 +28,15 @@ class TargetUtilsTest extends EtlSparkUnitTest {
     // |    |    |-- id: string (nullable = true)
     // |    |    |-- source: string (nullable = true)
     //
-    //+---------+---------------+---------------------------------------+---------------------------------------+
-    //|ensemblId|hgncSynonyms   |hgncSynonymsLabel                      |hgncSynonymsId                         |
-    //+---------+---------------+---------------------------------------+---------------------------------------+
-    //|ENSG1    |[foo, baz, bar]|[{foo, HGNC}, {baz, HGNC}, {bar, HGNC}]|[{foo, HGNC}, {baz, HGNC}, {bar, HGNC}]|
-    //|ENSG2    |[foo, baz, bar]|[{foo, HGNC}, {baz, HGNC}, {bar, HGNC}]|[{foo, HGNC}, {baz, HGNC}, {bar, HGNC}]|
-    //|ENSG3    |[foo, baz, bar]|[{foo, HGNC}, {baz, HGNC}, {bar, HGNC}]|[{foo, HGNC}, {baz, HGNC}, {bar, HGNC}]|
-    //|ENSG4    |null           |null                                   |null                                   |
-    //|ENSG5    |[]             |[]                                     |[]                                     |
-    //+---------+---------------+---------------------------------------+---------------------------------------+
+    // +---------+---------------+---------------------------------------+---------------------------------------+
+    // |ensemblId|hgncSynonyms   |hgncSynonymsLabel                      |hgncSynonymsId                         |
+    // +---------+---------------+---------------------------------------+---------------------------------------+
+    // |ENSG1    |[foo, baz, bar]|[{foo, HGNC}, {baz, HGNC}, {bar, HGNC}]|[{foo, HGNC}, {baz, HGNC}, {bar, HGNC}]|
+    // |ENSG2    |[foo, baz, bar]|[{foo, HGNC}, {baz, HGNC}, {bar, HGNC}]|[{foo, HGNC}, {baz, HGNC}, {bar, HGNC}]|
+    // |ENSG3    |[foo, baz, bar]|[{foo, HGNC}, {baz, HGNC}, {bar, HGNC}]|[{foo, HGNC}, {baz, HGNC}, {bar, HGNC}]|
+    // |ENSG4    |null           |null                                   |null                                   |
+    // |ENSG5    |[]             |[]                                     |[]                                     |
+    // +---------+---------------+---------------------------------------+---------------------------------------+
 
     import sparkSession.implicits._
     val columns = Seq("ensemblId", "hgncSynonyms")

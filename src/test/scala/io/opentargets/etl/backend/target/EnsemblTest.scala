@@ -89,10 +89,12 @@ class EnsemblTest extends EtlSparkUnitTest {
     val df: DataFrame = Seq(
       (CanonicalTranscript("T1", "1", 1, 1, "+"),
        Array("T1", "T2"),
-       Array(Array(Exon(1, 2), Exon(5, 6)), Array(Exon(1, 2)))),
+       Array(Array(Exon(1, 2), Exon(5, 6)), Array(Exon(1, 2)))
+      ),
       (CanonicalTranscript("T2", "1", 1, 1, "-"),
        Array("T1", "T2"),
-       Array(Array(Exon(1, 2), Exon(5, 6)), Array(Exon(3, 5), Exon(7, 9))))
+       Array(Array(Exon(1, 2), Exon(5, 6)), Array(Exon(3, 5), Exon(7, 9)))
+      )
     ).toDF("canonicalTranscript", "transcriptIds", "exons")
 
     // when

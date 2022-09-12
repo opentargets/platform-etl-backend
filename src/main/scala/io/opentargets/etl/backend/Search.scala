@@ -32,11 +32,11 @@ object Transformers {
   def processTargets(genes: DataFrame): DataFrame =
     genes.withColumnRenamed("id", "targetId")
 
-  /** NOTE finding drugs from associations are computed just using direct assocs
-    *  otherwise drugs are spread traversing all efo tree.
-    *  returns Dataframe with ["associationId", "drugIds", "targetId", "diseaseId"]
+  /** NOTE finding drugs from associations are computed just using direct assocs otherwise drugs are
+    * spread traversing all efo tree. returns Dataframe with ["associationId", "drugIds",
+    * "targetId", "diseaseId"]
     */
-  def findAssociationsWithDrugs(evidence: DataFrame): DataFrame = {
+  def findAssociationsWithDrugs(evidence: DataFrame): DataFrame =
     evidence
       .filter(col("drugId").isNotNull)
       .selectExpr("drugId", "targetId", "diseaseId")
@@ -47,7 +47,6 @@ object Transformers {
         first(col("targetId")).as("targetId"),
         first(col("diseaseId")).as("diseaseId")
       )
-  }
 
   // TODO mkarmona finish this
   implicit class Implicits(val df: DataFrame) {
@@ -96,9 +95,7 @@ object Transformers {
           col("targetId"),
           filter(
             col("dbXRefs"),
-            col => {
-              col.getField("source") === "HGNC"
-            }
+            col => col.getField("source") === "HGNC"
           ) as "h"
         )
         .select(col("targetId"), explode_outer(col("h.id")) as "hgncId")

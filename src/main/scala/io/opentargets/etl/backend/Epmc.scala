@@ -62,10 +62,10 @@ object Epmc extends LazyLogging {
       )
       logger.info(
         s"Number of publications without pubmed ID: ${cooccurencesDf
-          .filter(col("publicationIdentifier").contains("PMC"))
-          .select("publicationIdentifier")
-          .distinct
-          .count()}"
+            .filter(col("publicationIdentifier").contains("PMC"))
+            .select("publicationIdentifier")
+            .distinct
+            .count()}"
       )
       logger.info(
         s"Number of targets: ${evidence.select(col("targetFromSourceId")).distinct.count()}"
@@ -91,7 +91,7 @@ object Epmc extends LazyLogging {
       df: DataFrame,
       excludedTerms: List[String],
       sectionOfInterest: List[String]
-  ): DataFrame = {
+  ): DataFrame =
     df.filter(col("section").isin(sectionOfInterest: _*))
       .withColumn("pmid", trim(col("pmid") cast StringType))
       .withColumn("publicationIdentifier", coalesce(col("pmid"), col("pmcid")))
@@ -122,6 +122,5 @@ object Epmc extends LazyLogging {
       .withColumn("pmcIds", when(size(col("pmcIds")) =!= 0, col("pmcIds")))
       .filter(col("resourceScore") > 1)
       .cache()
-  }
 
 }

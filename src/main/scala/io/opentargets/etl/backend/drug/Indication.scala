@@ -6,24 +6,24 @@ import org.apache.spark.sql.functions._
 
 /** Object to process ChEMBL indications for incorporation into Drug.
   *
-  * |-- id: string
-  * |-- indications: array
-  * |    |-- element: struct
-  * |    |    |-- disease: string
-  * |    |    |-- efoName: string
-  * |    |    |-- disease: string
-  * |    |    |-- references: array
-  * |    |    |    |-- element: struct
-  * |    |    |    |    |-- ids: array
-  * |    |    |    |    |    |-- element: string
-  * |    |    |    |    |-- source: string
-  * |    |    |-- maxPhaseForIndication: long
-  * |-- approvedIndications: array
-  * |    |-- element: string
-  * |-- indicationCount: integer
+  * \|-- id: string
+  * \|-- indications: array
+  * \| |-- element: struct
+  * \| | |-- disease: string
+  * \| | |-- efoName: string
+  * \| | |-- disease: string
+  * \| | |-- references: array
+  * \| | | |-- element: struct
+  * \| | | | |-- ids: array
+  * \| | | | | |-- element: string
+  * \| | | | |-- source: string
+  * \| | |-- maxPhaseForIndication: long
+  * \|-- approvedIndications: array
+  * \| |-- element: string
+  * \|-- indicationCount: integer
   *
-  * There is some duplication of results here as the same ChEMBL ID can have the same indication, but this implementation
-  * is much faster in ES to serve the API.
+  * There is some duplication of results here as the same ChEMBL ID can have the same indication,
+  * but this implementation is much faster in ES to serve the API.
   */
 object Indication extends Serializable with LazyLogging {
   private val efoId: String = "disease"
@@ -56,10 +56,12 @@ object Indication extends Serializable with LazyLogging {
       .withColumn("indicationCount", size(col("indications")))
   }
 
-  /** @param rawEfoData taken from the `disease` input data
-    * @return dataframe of `updatedEfo`, `efoName`, `allEfoIds`
+  /** @param rawEfoData
+    *   taken from the `disease` input data
+    * @return
+    *   dataframe of `updatedEfo`, `efoName`, `allEfoIds`
     */
-  private def getEfoDataframe(rawEfoData: DataFrame): DataFrame = {
+  private def getEfoDataframe(rawEfoData: DataFrame): DataFrame =
     rawEfoData
       .select(
         col("id") as "updatedEfo",
@@ -72,10 +74,10 @@ object Indication extends Serializable with LazyLogging {
         col("updatedEfo")
       )
 
-  }
-
-  /** @param indicationsRaw data as provided by ChEMBL
-    * @return dataframe with columns: ids, references, maxPhaseForIndication, disease
+  /** @param indicationsRaw
+    *   data as provided by ChEMBL
+    * @return
+    *   dataframe with columns: ids, references, maxPhaseForIndication, disease
     */
   private def processIndicationsRawData(indicationsRaw: DataFrame): DataFrame = {
 

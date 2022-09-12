@@ -16,31 +16,32 @@ object InteractionsHelpers extends LazyLogging {
   implicit class AggregationHelpers(df: DataFrame)(implicit ss: SparkSession) {
     import Configuration._
 
-    /** from the RNACentral file generates a dataframe with gene_id, mapped_id Columns.
-      * Every single mapping file has to return a common dataframe schema in order to easily union them.
-      * @return a DataFrame (gene_id, mapped_id)
+    /** from the RNACentral file generates a dataframe with gene_id, mapped_id Columns. Every single
+      * mapping file has to return a common dataframe schema in order to easily union them.
+      * @return
+      *   a DataFrame (gene_id, mapped_id)
       */
-    def transformRnacentral: DataFrame = {
+    def transformRnacentral: DataFrame =
       df.withColumnRenamed("_c0", "mapped_id")
         .withColumnRenamed("_c5", "gene_id")
         .select("gene_id", "mapped_id")
-    }
 
-    /** from Human Mapping file generates a dataframe with gene_id, mapped_id Columns.
-      * Every single mapping file has to return a common dataframe schema in order to easily union them.
-      * @return a DataFrame (gene_id, mapped_id)
+    /** from Human Mapping file generates a dataframe with gene_id, mapped_id Columns. Every single
+      * mapping file has to return a common dataframe schema in order to easily union them.
+      * @return
+      *   a DataFrame (gene_id, mapped_id)
       */
-    def transformHumanMapping: DataFrame = {
+    def transformHumanMapping: DataFrame =
       df.filter(col("_c1") === "Ensembl")
         .groupBy("_c2")
         .agg(collect_list("_c0").alias("mapping_list"))
         .withColumnRenamed("_c2", "id")
         .withColumn("mapping_list", coalesce(col("mapping_list"), array()))
         .select("id", "mapping_list")
-    }
 
     /** from Human mapping it extract links between Gene Name and gene_id and other id.
-      * @return a DataFrame (gene_id, mapped_id)
+      * @return
+      *   a DataFrame (gene_id, mapped_id)
       */
     def transformGeneIds(humanMapping: DataFrame): DataFrame = {
       val genes = humanMapping
@@ -58,11 +59,14 @@ object InteractionsHelpers extends LazyLogging {
       geneMapping
     }
 
-    /** generate the mapping gene_id, mapped_id. It will be used to map the intact entries.
-      * df is the implicit dataframe. Target is computed from another module.
-      * @param rnaCentral rna central resource
-      * @param humanMapping human mapping resource
-      * @return a DataFrame
+    /** generate the mapping gene_id, mapped_id. It will be used to map the intact entries. df is
+      * the implicit dataframe. Target is computed from another module.
+      * @param rnaCentral
+      *   rna central resource
+      * @param humanMapping
+      *   human mapping resource
+      * @return
+      *   a DataFrame
       */
     def generateMapping(rnaCentral: DataFrame, humanMapping: DataFrame): DataFrame = {
       val targetsProteins = df
@@ -71,7 +75,7 @@ object InteractionsHelpers extends LazyLogging {
       val targetHGNC = df
         .select(
           col("id"),
-          filter(col("dbXRefs"), col => { col.getField("source") === "HGNC" }) as "h"
+          filter(col("dbXRefs"), col => col.getField("source") === "HGNC") as "h"
         )
         .withColumn("mapped_id", explode(col("h.id")))
         .select(col("id") as "gene_id", concat(lit("HGNC:"), col("mapped_id")) as "mapped_id")
@@ -104,12 +108,16 @@ object InteractionsHelpers extends LazyLogging {
 
     }
 
-    /** generate the interactions from Intact resource
-      * df is the implicit dataframe: Intact dataframe
-      * @param targets Dataframe with list of ensembl_id, protein_id
-      * @param rnacentral Dataframe with the rna_id, ensembl_id
-      * @param humanmapping dataframe with human_id, ensembl_id
-      * @return a DataFrame
+    /** generate the interactions from Intact resource df is the implicit dataframe: Intact
+      * dataframe
+      * @param targets
+      *   Dataframe with list of ensembl_id, protein_id
+      * @param rnacentral
+      *   Dataframe with the rna_id, ensembl_id
+      * @param humanmapping
+      *   dataframe with human_id, ensembl_id
+      * @return
+      *   a DataFrame
       */
     def generateIntacts(
         targets: DataFrame,
@@ -121,10 +129,12 @@ object InteractionsHelpers extends LazyLogging {
       intactInteractions
     }
 
-    /** generate the interactions from Strings resource.
-      * df is the implicit dataframe: Strings dataframe
-      * @param ensproteins Dataframe with the protein_id, ensembl_id
-      * @return a DataFrame
+    /** generate the interactions from Strings resource. df is the implicit dataframe: Strings
+      * dataframe
+      * @param ensproteins
+      *   Dataframe with the protein_id, ensembl_id
+      * @return
+      *   a DataFrame
       */
     def generateStrings(ensproteins: DataFrame): DataFrame = {
       val mapping = ensproteins.withColumnRenamed("protein_id", "mapped_id").distinct
@@ -137,20 +147,23 @@ object InteractionsHelpers extends LazyLogging {
 
     // Common procedure to transform the Dataframes in common Interaction entries.
 
-    /** generate a string truncated at - or _ char.
-      * Eg. "URS123-2_992   return URS123"
-      * @param s string with possible _, -, .  or spaces chars
-      * @return a string
+    /** generate a string truncated at - or _ char. Eg. "URS123-2_992 return URS123"
+      * @param s
+      *   string with possible _, -, . or spaces chars
+      * @return
+      *   a string
       */
     val getCodeFcn = udf { s: String =>
       s.trim.split("_")(0).split("-")(0)
     }
 
-    /** generate the interactions from a common Dataframe schema
-      * For intact resource (intact,reactomea and signor) we swap (A, B) and add to the dataframe
-      * String data is symetrical by definition so no swap is required
-      * @param mappingInfo Dataframe with mapping_id, ensembl_id
-      * @return a DataFrame
+    /** generate the interactions from a common Dataframe schema For intact resource
+      * (intact,reactomea and signor) we swap (A, B) and add to the dataframe String data is
+      * symetrical by definition so no swap is required
+      * @param mappingInfo
+      *   Dataframe with mapping_id, ensembl_id
+      * @return
+      *   a DataFrame
       */
     def generateInteractions(mappingInfo: DataFrame): DataFrame = {
 
@@ -243,9 +256,10 @@ object InteractionsHelpers extends LazyLogging {
     }
 
     /** select the fields for the intex interaction_evidences
-      * @return a DataFrame
+      * @return
+      *   a DataFrame
       */
-    def selectFields: DataFrame = {
+    def selectFields: DataFrame =
       df.selectExpr(
         "targetA",
         "intA",
@@ -262,11 +276,10 @@ object InteractionsHelpers extends LazyLogging {
         "intBBiologicalRole"
       )
 
-    }
-
-    /** aggragate and count TargetA and Target B.
-      * This dataframe generates the info stored in the index interactions
-      * @return a DataFrame
+    /** aggragate and count TargetA and Target B. This dataframe generates the info stored in the
+      * index interactions
+      * @return
+      *   a DataFrame
       */
     def generateInteractionsAgg: DataFrame = {
 
@@ -291,10 +304,12 @@ object InteractionsHelpers extends LazyLogging {
       interactionsAggregated
     }
 
-    /** Union of the aggregations of intact and strings
-      * df is the implicit dataframe: Intact dataframe
-      * @param interactionStrings dataframe with string info
-      * @return a DataFrame
+    /** Union of the aggregations of intact and strings df is the implicit dataframe: Intact
+      * dataframe
+      * @param interactionStrings
+      *   dataframe with string info
+      * @return
+      *   a DataFrame
       */
     def interactionAggreation(interactionStrings: DataFrame): DataFrame = {
       val intactAggregation = df.generateInteractionsAgg
@@ -305,10 +320,11 @@ object InteractionsHelpers extends LazyLogging {
 
     }
 
-    /** Union of the evidences of intact and strings
-      * df is the implicit dataframe: Intact dataframe
-      * @param stringInteractions dataframe with strings info
-      * @return a DataFrame
+    /** Union of the evidences of intact and strings df is the implicit dataframe: Intact dataframe
+      * @param stringInteractions
+      *   dataframe with strings info
+      * @return
+      *   a DataFrame
       */
     def generateEvidences(stringInteractions: DataFrame): DataFrame = {
       val intactInteractionEvidences = df.selectFields
@@ -329,8 +345,10 @@ object InteractionsHelpers extends LazyLogging {
 // This is option/step interaction in the config file
 object Interactions extends LazyLogging {
 
-  /** @param dataframes with targetA and/or targetB with null value.
-    * @return a DataFrame with the interaction_id unmatched
+  /** @param dataframes
+    *   with targetA and/or targetB with null value.
+    * @return
+    *   a DataFrame with the interaction_id unmatched
     */
   def getUnmatch(intact: DataFrame, string: DataFrame)(implicit ss: SparkSession): DataFrame = {
 
@@ -351,24 +369,25 @@ object Interactions extends LazyLogging {
     unmatch
   }
 
-  /** @param dataframe with targetA and/or targetB with null value.
-    * @return a DataFrame
+  /** @param dataframe
+    *   with targetA and/or targetB with null value.
+    * @return
+    *   a DataFrame
     */
-  def removeNullTargetA(df: DataFrame)(implicit ss: SparkSession): DataFrame = {
+  def removeNullTargetA(df: DataFrame)(implicit ss: SparkSession): DataFrame =
     df.filter(col("targetA").isNotNull)
-  }
 
   /** Homo_sapiens.GRCh38.chr.gtf.gz is a tsv file with the first 5 lines are comments
-    * @param interactionsConfiguration ensembl protein file path
-    * @return a DataFrame
+    * @param interactionsConfiguration
+    *   ensembl protein file path
+    * @return
+    *   a DataFrame
     */
-  def transformEnsemblProtein(df: DataFrame)(implicit ss: SparkSession): DataFrame = {
-
+  def transformEnsemblProtein(df: DataFrame)(implicit ss: SparkSession): DataFrame =
     df.filter(col("_c2") === "CDS")
       .withColumn("gene_id", regexp_extract(col("_c8"), "ENSG\\w{11}", 0))
       .withColumn("protein_id", regexp_extract(col("_c8"), "ENSP\\w{11}", 0))
       .select("gene_id", "protein_id")
-  }
 
   def compute()(implicit context: ETLSessionContext): IOResources = {
     implicit val ss = context.sparkSession

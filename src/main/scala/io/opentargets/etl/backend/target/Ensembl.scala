@@ -66,13 +66,13 @@ object Ensembl extends LazyLogging {
   private def addCanonicalTranscriptId(
       dataFrame: DataFrame,
       canonicalTranscripts: Dataset[GeneAndCanonicalTranscript]
-  ): DataFrame = {
+  ): DataFrame =
     dataFrame.join(canonicalTranscripts, Seq("id"), "left_outer")
-  }
 
-  /**  Adds canonicalExons to dataframe as an array of Array(e1_start, e1_end, ..., en_start, en_end).
+  /** Adds canonicalExons to dataframe as an array of Array(e1_start, e1_end, ..., en_start,
+    * en_end).
     */
-  private def addCanonicalExons(dataFrame: DataFrame): DataFrame = {
+  private def addCanonicalExons(dataFrame: DataFrame): DataFrame =
     dataFrame
       .withColumn("exonIndex", array_position(col("transcriptIds"), col("canonicalTranscript.id")))
       .withColumn(
@@ -88,31 +88,30 @@ object Ensembl extends LazyLogging {
           flatten(
             transform(
               col("exons"),
-              x => {
-                array(x("start"), x("end"))
-              }
+              x => array(x("start"), x("end"))
             )
           )
         ).otherwise(null)
       )
       .drop("exonIndex", "exons")
-  }
 
-  /** Returns dataframe with only one non-encoding gene per approvedSymbol. The other gene ids pointing to the same
-    * approvedSymbol are listed in `alternativeGenes`.
+  /** Returns dataframe with only one non-encoding gene per approvedSymbol. The other gene ids
+    * pointing to the same approvedSymbol are listed in `alternativeGenes`.
     *
-    * The exception is that when more than one gene with the same gene ID points to different chromosomes, each are
-    * retained: eg.U2, U4, Y_RNA each have multiple EnsemblIds on different chromosomes.
+    * The exception is that when more than one gene with the same gene ID points to different
+    * chromosomes, each are retained: eg.U2, U4, Y_RNA each have multiple EnsemblIds on different
+    * chromosomes.
     *
-    * In cases where there is a gene on the canonical chromosome with the same approvedSymbol as the non-encoding gene,
-    * all non-encoding genes will be listed as alternative genes to the gene on the canonical chromosome.
+    * In cases where there is a gene on the canonical chromosome with the same approvedSymbol as the
+    * non-encoding gene, all non-encoding genes will be listed as alternative genes to the gene on
+    * the canonical chromosome.
     *
-    * In cases where there are multiple gene ids on non-canonical chromosomes, the longest will be chosen, with the
-    * longest being calculated as gene_end - gene_start. If there are multiple gene ids with the same length one will
-    * be chosen at random.
+    * In cases where there are multiple gene ids on non-canonical chromosomes, the longest will be
+    * chosen, with the longest being calculated as gene_end - gene_start. If there are multiple gene
+    * ids with the same length one will be chosen at random.
     *
-    * All alternative gene ids which are reviewed are not included in the index will be included in the alternative id
-    * field.
+    * All alternative gene ids which are reviewed are not included in the index will be included in
+    * the alternative id field.
     */
   def selectBestNonReferenceGene(dataFrame: DataFrame): DataFrame = {
 
@@ -148,18 +147,14 @@ object Ensembl extends LazyLogging {
         "canonicalId",
         filter(
           col("agTemp"),
-          (col: Column) => {
-            col.getField("chromosome").isInCollection(includeChromosomes)
-          }
+          (col: Column) => col.getField("chromosome").isInCollection(includeChromosomes)
         )
       )
       .withColumn(
         "altGenes",
         filter(
           col("agTemp"),
-          (col: Column) => {
-            !col.getField("chromosome").isInCollection(includeChromosomes)
-          }
+          (col: Column) => !col.getField("chromosome").isInCollection(includeChromosomes)
         )
       )
       .filter(
@@ -212,8 +207,8 @@ object Ensembl extends LazyLogging {
       .drop("altGenes")
   }
 
-  /** Returns dataframe with column 'proteinIds' added and columns, 'translations', 'uniprot_trembl',
-    * 'ensembl_PRO' and 'uniprot_swissprot' removed.
+  /** Returns dataframe with column 'proteinIds' added and columns, 'translations',
+    * 'uniprot_trembl', 'ensembl_PRO' and 'uniprot_swissprot' removed.
     *
     * 'proteinIds' includes sources:
     *   - uniprot_swissprot

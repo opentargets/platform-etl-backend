@@ -7,8 +7,8 @@ import io.opentargets.etl.backend.spark.{IOResource, IOResourceConfig, IoHelpers
 import io.opentargets.etl.backend.spark.IoHelpers.IOResources
 import io.opentargets.etl.backend.spark.Helpers.{transposeDataframe, unionDataframeDifferentSchema}
 
-/** This step is replacing the process which was previously done in the `data-pipeline` project
-  * The next step is to replace this business logic with a new approach.
+/** This step is replacing the process which was previously done in the `data-pipeline` project The
+  * next step is to replace this business logic with a new approach.
   */
 // This is option/step expression in the config file
 object Expression extends LazyLogging {
@@ -53,10 +53,9 @@ object Expression extends LazyLogging {
 
   /* Rename the dataframe fields with standard fields.
    */
-  private def standardiseBaseline(df: DataFrame): DataFrame = {
+  private def standardiseBaseline(df: DataFrame): DataFrame =
     df.withColumnRenamed("key", "Tissue")
       .withColumnRenamed("ID", "Gene")
-  }
 
   /*
     Given three baseline dataframes with the same schema it generates a uniq dataframe per rows

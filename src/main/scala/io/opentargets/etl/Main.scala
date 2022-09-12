@@ -111,8 +111,7 @@ object ETL extends LazyLogging {
     outputPaths.filter(kv => existingOutputs.contains(kv._2)).keySet
   }
 
-  def apply(steps: Seq[String]): Unit = {
-
+  def apply(steps: Seq[String]): Unit =
     ETLSessionContext() match {
       case Right(otContext) =>
         implicit val ctxt: ETLSessionContext = otContext
@@ -143,11 +142,9 @@ object ETL extends LazyLogging {
         }
       case Left(ex) => logger.error(ex.prettyPrint())
     }
-  }
 }
 
 object Main {
-  def main(args: Array[String]): Unit = {
+  def main(args: Array[String]): Unit =
     ETL(args)
-  }
 }

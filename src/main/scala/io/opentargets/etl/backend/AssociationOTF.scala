@@ -63,9 +63,8 @@ object AssociationOTF extends LazyLogging {
   }
 
   def computeFacetTractability(df: DataFrame): DataFrame = {
-    val facetFilter: (Column, String) => Column = (c: Column, name: String) => {
+    val facetFilter: (Column, String) => Column = (c: Column, name: String) =>
       c.getField("value") === true && c.getField("modality") === name
-    }
     val tractabilityFacetsDF = df
       .select(
         col("target_id"),

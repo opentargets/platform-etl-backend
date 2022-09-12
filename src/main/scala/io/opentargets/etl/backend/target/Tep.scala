@@ -15,7 +15,8 @@ case class Tep(
 
 object Tep extends LazyLogging {
 
-  /** @param df tep input file provided by Open Targets data team
+  /** @param df
+    *   tep input file provided by Open Targets data team
     */
   def apply(df: DataFrame)(implicit ss: SparkSession): Dataset[Tep] = {
     import ss.implicits._

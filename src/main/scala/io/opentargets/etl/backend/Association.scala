@@ -123,8 +123,10 @@ object Association extends LazyLogging {
       }
 
       /** join weight per datasource from configuration section `otc`
-        * @param otc from ETL configuration section
-        * @return the modified dataframe
+        * @param otc
+        *   from ETL configuration section
+        * @return
+        *   the modified dataframe
         */
       def leftJoinWeights(otc: AssociationsSection, weightColName: String): DataFrame = {
         // obtain weights per datasource table
