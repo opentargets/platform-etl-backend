@@ -14,9 +14,8 @@ object UniprotTest {
   val uniprotSslDataPath: String =
     this.getClass.getResource("/uniprot/subcellularLocationUniprot.tsv").getPath
   lazy val uniprotDataStream: Iterator[String] = File(uniprotDataPath).lineIterator
-  lazy val uniprotData: Seq[UniprotEntry] = {
+  lazy val uniprotData: Seq[UniprotEntry] =
     UniprotConverter.fromFlatFile(uniprotDataStream)
-  }
 
   case class DbTest(uniprotId: String, dbXrefs: Seq[String])
 

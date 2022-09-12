@@ -43,11 +43,15 @@ object TargetValidation extends Serializable with LazyLogging {
     IoHelpers.writeTo(rs)
   }
 
-  /** @param df       to validate
-    * @param idColumn column which contains ENSG ids
-    * @param targetDf output of ETL target step
-    * @return tuple of dataframes: left side includes df with rows removed which did not correspond to a row in
-    *         {@code targetDf}. Right side are all the rows which were removed from @{code df}.
+  /** @param df
+    *   to validate
+    * @param idColumn
+    *   column which contains ENSG ids
+    * @param targetDf
+    *   output of ETL target step
+    * @return
+    *   tuple of dataframes: left side includes df with rows removed which did not correspond to a
+    *   row in {@code targetDf}. Right side are all the rows which were removed from @{code df}.
     */
   def validate(df: DataFrame, idColumn: String)(implicit
       targetDf: DataFrame

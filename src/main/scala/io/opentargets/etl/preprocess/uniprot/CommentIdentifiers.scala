@@ -54,8 +54,10 @@ trait CommentIdentifiers {
 
   /** Group raw comments into proper comment entities.
     *
-    * @param uniprotComments with array of 'raw' comments
-    * @return UniprotFunctionsAndLocations contains parsed functions and locations.
+    * @param uniprotComments
+    *   with array of 'raw' comments
+    * @return
+    *   UniprotFunctionsAndLocations contains parsed functions and locations.
     */
   def updateComments(uniprotComments: Iterator[String]): UniprotFunctionsAndLocations = {
     val newComments = concatenateComments(uniprotComments).filter(com =>
@@ -70,7 +72,7 @@ trait CommentIdentifiers {
       .split("Note=")
 
     val a: Array[String] = noNotes.headOption
-      .map(opt => {
+      .map { opt =>
         val cleanedOfReferences = opt
           .replaceAll("\\{.+?\\}", "")
         // handle case where Uniprot record isn't standard, having form [Isoform A.1]:...
@@ -83,7 +85,7 @@ trait CommentIdentifiers {
           .map(_.trim)
           .filter(!_.startsWith("Note="))
           .filter(_.nonEmpty)
-      })
+      }
       .getOrElse(Array.empty)
 
     a
@@ -107,7 +109,7 @@ trait CommentIdentifiers {
       comments: Iterator[String],
       buf: Seq[String] = Seq.empty,
       newComments: Seq[String] = Seq.empty
-  ): Seq[String] = {
+  ): Seq[String] =
     // no more comments, return what we have
     if (comments.isEmpty) newComments :+ buf.mkString(" ")
     else {
@@ -124,5 +126,4 @@ trait CommentIdentifiers {
         concatenateComments(comments, buf :+ head, newComments)
       }
     }
-  }
 }

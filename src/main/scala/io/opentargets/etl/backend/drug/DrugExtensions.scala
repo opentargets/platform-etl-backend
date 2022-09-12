@@ -50,11 +50,15 @@ object DrugExtensions extends LazyLogging {
     )
   }
 
-  /** @param moleculeDf basic molecule dataframe generated from ChEMBL inputs in Molecule.scala
-    * @param config configuration object for extracting necessary input files
-    * @param sparkSession running spark session
-    * @return a DataFrame with additional synonyms added to the Molecule dataframe as specified by the input files
-    *         provided in the configuration.
+  /** @param moleculeDf
+    *   basic molecule dataframe generated from ChEMBL inputs in Molecule.scala
+    * @param config
+    *   configuration object for extracting necessary input files
+    * @param sparkSession
+    *   running spark session
+    * @return
+    *   a DataFrame with additional synonyms added to the Molecule dataframe as specified by the
+    *   input files provided in the configuration.
     */
   private def synonymExtensions(moleculeDf: DataFrame, config: Seq[InputExtension])(implicit
       sparkSession: SparkSession
@@ -119,11 +123,15 @@ object DrugExtensions extends LazyLogging {
 
   }
 
-  /** processExtensions extracts a subset of extension files provided and prepares them for reading into dataframes.
+  /** processExtensions extracts a subset of extension files provided and prepares them for reading
+    * into dataframes.
     *
-    * @param extentionType name of extension to filter for, eg synonym or cross-reference
-    * @param extensions list of all custom extension files provided in config
-    * @return filtered list of extensions in format ready to be read into dataframes.
+    * @param extentionType
+    *   name of extension to filter for, eg synonym or cross-reference
+    * @param extensions
+    *   list of all custom extension files provided in config
+    * @return
+    *   filtered list of extensions in format ready to be read into dataframes.
     */
   private def groupExtensionByType(
       extentionType: String,
@@ -135,8 +143,10 @@ object DrugExtensions extends LazyLogging {
 
   /** Helper function to ensure that incoming synonyms do not contain special characters and that
     * synonyms are grouped by the id field.
-    * @param synonymDf raw DF provided by user
-    * @return standardized dataframe in form id: String, synonyms: array[String]
+    * @param synonymDf
+    *   raw DF provided by user
+    * @return
+    *   standardized dataframe in form id: String, synonyms: array[String]
     */
   private def standardiseSynonymsDf(synonymDf: DataFrame): DataFrame = {
     Helpers.validateDF(Set("id", "synonyms"), synonymDf)
@@ -164,9 +174,12 @@ object DrugExtensions extends LazyLogging {
 
   }
 
-  /** @param molecule dataframe of molecules generated from ChEMBL data
-    * @param synonyms must have been standardised!
-    * @return moleculeDf with additional synonyms as specified in `synonyms`
+  /** @param molecule
+    *   dataframe of molecules generated from ChEMBL data
+    * @param synonyms
+    *   must have been standardised!
+    * @return
+    *   moleculeDf with additional synonyms as specified in `synonyms`
     */
   private def addSynonymsToMolecule(molecule: DataFrame, synonyms: DataFrame): DataFrame = {
     // prevent ambiguous columns on join

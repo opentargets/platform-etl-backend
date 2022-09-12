@@ -16,11 +16,16 @@ case class IOResource(data: DataFrame, configuration: IOResourceConfig)
 
 /** Specifies resource to be used in the ETL.
   *
-  * @param format           used to help Spark know the format of the incoming file
-  * @param path             to resource
-  * @param options          configuration options
-  * @param partitionBy      partition results by
-  * @param generateMetadata whether the resource needs associated metadata.
+  * @param format
+  *   used to help Spark know the format of the incoming file
+  * @param path
+  *   to resource
+  * @param options
+  *   configuration options
+  * @param partitionBy
+  *   partition results by
+  * @param generateMetadata
+  *   whether the resource needs associated metadata.
   */
 case class IOResourceConfig(
     format: String,
@@ -48,9 +53,8 @@ object IoHelpers extends LazyLogging {
   type IOResourceConfigurations = Map[String, IOResourceConfig]
   type IOResources = Map[String, IOResource]
 
-  /** It creates an hashmap of dataframes.
-    *   Es. inputsDataFrame {"disease", Dataframe} , {"target", Dataframe}
-    *   Reading is the first step in the pipeline
+  /** It creates an hashmap of dataframes. Es. inputsDataFrame {"disease", Dataframe} , {"target",
+    * Dataframe} Reading is the first step in the pipeline
     */
   def readFrom(
       inputFileConf: IOResourceConfigurations
@@ -74,12 +78,13 @@ object IoHelpers extends LazyLogging {
 
   /** Helper function to prepare multiple files of the same category to be read by `readFrom`
     *
-    * @param resourceConfigs collection of IOResourceConfig of unknown composition
-    * @return Map with random keys to input resource.
+    * @param resourceConfigs
+    *   collection of IOResourceConfig of unknown composition
+    * @return
+    *   Map with random keys to input resource.
     */
-  def seqToIOResourceConfigMap(resourceConfigs: Seq[IOResourceConfig]): IOResourceConfigurations = {
+  def seqToIOResourceConfigMap(resourceConfigs: Seq[IOResourceConfig]): IOResourceConfigurations =
     (for (rc <- resourceConfigs) yield Random.alphanumeric.take(6).toString -> rc).toMap
-  }
   private def writeTo(output: IOResource)(implicit context: ETLSessionContext): IOResource = {
     implicit val spark: SparkSession = context.sparkSession
 
@@ -109,16 +114,21 @@ object IoHelpers extends LazyLogging {
     output
   }
 
-  /** Add additional output formats to prepared IOResources. Each dataframe will be cached to prevent recalculation on a
-    *  subsequent call to write.
+  /** Add additional output formats to prepared IOResources. Each dataframe will be cached to
+    * prevent recalculation on a subsequent call to write.
     *
-    *  Additional formats are set in the configuration under `common.additional-outputs`. When there are entries here,
-    *  each output is given an additional configuration to facilitate writing in multiple output formats (eg, json and parquet).
-    * @param resources standard collection of resources to save
-    * @param additionalFormats additional output configurations
-    * @param defaultFormat default format for writing outputs
-    * @return IOResources of outputs to save. This includes all the entries in `resources` and an additional entry for
-    *         each item in `config`.
+    * Additional formats are set in the configuration under `common.additional-outputs`. When there
+    * are entries here, each output is given an additional configuration to facilitate writing in
+    * multiple output formats (eg, json and parquet).
+    * @param resources
+    *   standard collection of resources to save
+    * @param additionalFormats
+    *   additional output configurations
+    * @param defaultFormat
+    *   default format for writing outputs
+    * @return
+    *   IOResources of outputs to save. This includes all the entries in `resources` and an
+    *   additional entry for each item in `config`.
     */
   private def addAdditionalOutputFormats(
       resources: IOResources,
@@ -129,9 +139,9 @@ object IoHelpers extends LazyLogging {
     val cachedResources: IOResources =
       resources.mapValues(r => IOResource(r.data.cache(), r.configuration))
 
-    cachedResources ++ cachedResources.flatMap(kv => {
+    cachedResources ++ cachedResources.flatMap { kv =>
       val (name, resource) = kv
-      additionalFormats.map(additionalFormat => {
+      additionalFormats.map { additionalFormat =>
         val resourceName = resource.configuration.path.replace(defaultFormat, additionalFormat)
         val key = s"${name}_$additionalFormat"
         val value = IOResource(
@@ -144,16 +154,19 @@ object IoHelpers extends LazyLogging {
             )
         )
         key -> value
-      })
-    })
+      }
+    }
   }
 
-  /** writeTo save all datasets in the Map outputs. It does write per IOResource
-    * its companion metadata dataset
+  /** writeTo save all datasets in the Map outputs. It does write per IOResource its companion
+    * metadata dataset
     *
-    * @param outputs the Map with all IOResource
-    * @param context the context to have the configuration and the spark session
-    * @return the same outputs as a continuator
+    * @param outputs
+    *   the Map with all IOResource
+    * @param context
+    *   the context to have the configuration and the spark session
+    * @return
+    *   the same outputs as a continuator
     */
   def writeTo(outputs: IOResources)(implicit context: ETLSessionContext): IOResources = {
     implicit val spark: SparkSession = context.sparkSession
@@ -185,14 +198,18 @@ object IoHelpers extends LazyLogging {
     outputs
   }
 
-  /** Given an IOResource ior and the metadata config section it generates a one-line DF that
-    * will be saved coalesced to 1 into a folder inside the metadata output folder. This will
-    * make easier to collect the matadata of the created resources
+  /** Given an IOResource ior and the metadata config section it generates a one-line DF that will
+    * be saved coalesced to 1 into a folder inside the metadata output folder. This will make easier
+    * to collect the matadata of the created resources
     *
-    * @param ior        the IOResource from which generates the metadata
-    * @param withConfig the metadata Config section
-    * @param context    ETL context object
-    * @return a new IOResource with all needed information and data ready to be saved
+    * @param ior
+    *   the IOResource from which generates the metadata
+    * @param withConfig
+    *   the metadata Config section
+    * @param context
+    *   ETL context object
+    * @return
+    *   a new IOResource with all needed information and data ready to be saved
     */
   private def generateMetadata(ior: IOResource, withConfig: IOResourceConfig)(implicit
       context: ETLSessionContext

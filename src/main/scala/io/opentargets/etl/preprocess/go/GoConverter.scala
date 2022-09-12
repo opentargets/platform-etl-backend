@@ -9,18 +9,21 @@ object GoConverter {
   private val endEntry = (line: String) => line.trim.nonEmpty
   private val separator = ":"
 
-  /** @param file input file in obo format available from [[http://geneontology.org/docs/download-ontology/#go_obo_and_owl here]]
-    *             The file is separated into entries which start with [Term] and end with a blank line.
+  /** @param file
+    *   input file in obo format available from
+    *   [[http://geneontology.org/docs/download-ontology/#go_obo_and_owl here]] The file is
+    *   separated into entries which start with [Term] and end with a blank line.
     *
-    *             There are a large number of fields available as specified in the [[http://owlcollab.github.io/oboformat/doc/obo-syntax documentation]].
-    *             Fields are key-value pairs separated by a colon.
+    * There are a large number of fields available as specified in the
+    * [[http://owlcollab.github.io/oboformat/doc/obo-syntax documentation]]. Fields are key-value
+    * pairs separated by a colon.
     *
-    *             This method only extracts the id and name field.
+    * This method only extracts the id and name field.
     * @return
     */
   def convertFileToGo(file: Iterator[String], fields: Set[String] = Set("id", "name")): Seq[Go] = {
     @tailrec
-    def go(lines: Iterator[String], entries: Seq[Go]): Seq[Go] = {
+    def go(lines: Iterator[String], entries: Seq[Go]): Seq[Go] =
       lines.hasNext match {
         case true =>
           val entryIt = lines.dropWhile(startEntry)
@@ -36,7 +39,6 @@ object GoConverter {
           }
         case false => entries
       }
-    }
 
     go(file, Seq.empty[Go])
   }

@@ -26,7 +26,7 @@ class OtarProjectTest extends EtlSparkUnitTest {
 
   lazy val inputOtarLookup: DataFrame = Seq(
     ("OTAR_x01", "EFO_0000729"),
-    ("OTAR_x01", "EFO_0003767"),
+    ("OTAR_x01", "EFO_0003767")
   ).toDF("otar_code", "efo_disease_id")
 
   "Processing Diseases and Otar Projects" should "return a dataframe with a specific list of attributes" in {

@@ -6,9 +6,10 @@ import org.apache.spark.sql.types.{ArrayType, StructType}
 
 object TargetUtils {
 
-  /** transform sourceCol as array column into an array of struct with schema ArrayType(schema) repeating inside
-    * constant additionalColumns. See TargetUtilsTest example of usage
-    * @return cast(ArrayType(schema)) of the nullable transformation
+  /** transform sourceCol as array column into an array of struct with schema ArrayType(schema)
+    * repeating inside constant additionalColumns. See TargetUtilsTest example of usage
+    * @return
+    *   cast(ArrayType(schema)) of the nullable transformation
     */
   def transformArrayToStruct(
       sourceCol: Column,

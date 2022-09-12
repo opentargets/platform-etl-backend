@@ -23,7 +23,7 @@ object LoadData {
     implicit val sparkSession = context.sparkSession
 
     // Prepare the loading Map
-    val sourceData = {
+    val sourceData =
       context.configuration.openfda.meddra match {
         // DISCLAIMER - There's probably a better way to do this
         case Some(meddraConfig) =>
@@ -41,7 +41,6 @@ object LoadData {
             FdaData() -> context.configuration.openfda.fdaData
           )
       }
-    }
     // Load the data
     IoHelpers.readFrom(sourceData)
   }

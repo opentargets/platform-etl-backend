@@ -62,7 +62,7 @@ class UniprotConverterTest
   }
 
   "Descriptions" should "be converted to lists of recommended and alternative names" in {
-    //given
+    // given
     val input = Seq(
       "RecName: Full=CD5 antigen-like",
       "AltName: Full=Apoptosis inhibitor expressed by macrophages",
@@ -166,12 +166,10 @@ class UniprotConverterTest
       ("Reactome; R-HSA-162791; Attachment of GPI anchor to uPAR.", "Reactome R-HSA-162791")
     )
     forAll(inputs) { (in: String, out: String) =>
-      {
-        // when
-        val results = extractIdentifiers(in)
-        // then
-        results should be(out)
-      }
+      // when
+      val results = extractIdentifiers(in)
+      // then
+      results should be(out)
     }
   }
 

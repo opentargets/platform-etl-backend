@@ -15,10 +15,10 @@ object Evidence extends LazyLogging {
 
   object UDFs {
 
-    /** apply the function f(x) to n using and old (start_range) and a new range.
-      * pValue inRangeMin and inRangeMax have log10 applied before f(x) is calculated
-      * where f(x) = (dNewRange / dOldRange * (n - old_range_lower_bound)) + new_lower
-      * if cap is True then f(n) will be capped to new range boundaries
+    /** apply the function f(x) to n using and old (start_range) and a new range. pValue inRangeMin
+      * and inRangeMax have log10 applied before f(x) is calculated where f(x) = (dNewRange /
+      * dOldRange * (n - old_range_lower_bound)) + new_lower if cap is True then f(n) will be capped
+      * to new range boundaries
       */
     def pValueLinearRescaling(
         pValue: Double,
@@ -78,12 +78,11 @@ object Evidence extends LazyLogging {
       targetIdCol: String,
       datasourceIdCol: String
   )(implicit context: ETLSessionContext): DataFrame = {
-    def mkLUT(df: DataFrame): DataFrame = {
+    def mkLUT(df: DataFrame): DataFrame =
       df.select(
         col("id").as(targetIdCol),
         col("biotype")
       )
-    }
 
     logger.info("filter evidences by target biotype exclusion list - default is nothing to exclude")
 
@@ -123,7 +122,7 @@ object Evidence extends LazyLogging {
       fromId: String,
       toId: String
   )(implicit context: ETLSessionContext): DataFrame = {
-    def generateTargetsLUT(df: DataFrame): DataFrame = {
+    def generateTargetsLUT(df: DataFrame): DataFrame =
       df.select(
         col("id").as("tId"),
         array_distinct(
@@ -135,7 +134,6 @@ object Evidence extends LazyLogging {
         ).as("rIds")
       ).withColumn("rId", explode(col("rIds")))
         .select("tId", "rId")
-    }
 
     logger.info("target resolution evidences and write to out the ones didn't resolve")
 

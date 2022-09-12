@@ -10,8 +10,8 @@ import org.apache.spark.sql.{Column, DataFrame, SparkSession}
 
 /** This step will eventually replace the existing Drug step.
   *
-  * It incorporates processing which was previously done in the `data-pipeline` project and consolidates all the logic in
-  * this class.
+  * It incorporates processing which was previously done in the `data-pipeline` project and
+  * consolidates all the logic in this class.
   */
 object Drug extends Serializable with LazyLogging {
 
@@ -122,11 +122,10 @@ object Drug extends Serializable with LazyLogging {
   /*
   Final tidying up that aren't business logic but are nice to have for consistent outputs.
    */
-  def cleanup(df: DataFrame): DataFrame = {
+  def cleanup(df: DataFrame): DataFrame =
     // add empty collection as value instead of null values.
-    Seq("tradeNames", "synonyms").foldLeft(df)((dataF, column) => {
+    Seq("tradeNames", "synonyms").foldLeft(df) { (dataF, column) =>
       dataF.withColumn(column, coalesce(col(column), typedLit(Seq.empty)))
-    })
-  }
+    }
 
 }

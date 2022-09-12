@@ -44,9 +44,10 @@ object MathUtils {
 
   /** rmultinom(n, size, prob) from R
     *
-    * @link https://stat.ethz.ch/R-manual/R-devel/library/stats/html/Multinom.html
-    *       Here the implementation reference
-    *       and here https://github.com/wch/r-source/blob/f8d4d7d48051860cc695b99db9be9cf439aee743/src/nmath/rmultinom.c
+    * @link
+    *   https://stat.ethz.ch/R-manual/R-devel/library/stats/html/Multinom.html Here the
+    *   implementation reference and here
+    *   https://github.com/wch/r-source/blob/f8d4d7d48051860cc695b99db9be9cf439aee743/src/nmath/rmultinom.c
     */
   def rmultinom(iterations: Int, size: Int, probV: BDV[Double]): BDM[Double] = {
     require(probV.size > 0 && size > 0, "the probability vector must be > 0 and the size > 0")

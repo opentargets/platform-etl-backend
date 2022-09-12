@@ -20,15 +20,15 @@ object Hallmarks extends LazyLogging {
 
     logger.info("Transforming hallmarks inputs...")
 
-    //val df = rawDf.columns.foldLeft(rawDf)((d, n) => d.withColumnRenamed(n, n.toLowerCase))
+    // val df = rawDf.columns.foldLeft(rawDf)((d, n) => d.withColumnRenamed(n, n.toLowerCase))
     val df = rawDf.select(
       col("GENE_SYMBOL") as "gene_symbol",
-      //col("CELL_TYPE") as "cell_type",
+      // col("CELL_TYPE") as "cell_type",
       col("PUBMED_PMID").cast(LongType) as "pmid",
       col("HALLMARK") as "hallmark",
       col("IMPACT") as "impact",
       col("DESCRIPTION") as "description"
-      //col("CELL_LINE") as "cell_line"
+      // col("CELL_LINE") as "cell_line"
     )
     val cancerHallmarks = Seq(
       "proliferative signalling",

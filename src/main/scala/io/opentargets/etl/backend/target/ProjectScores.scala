@@ -5,8 +5,10 @@ import io.opentargets.etl.backend.spark.Helpers._
 import org.apache.spark.sql.{DataFrame, Dataset, SparkSession}
 import org.apache.spark.sql.functions.{array, col, typedLit}
 
-/** @param id   ensembl gene id eg. ENSGXXXX
-  * @param xRef database cross reference
+/** @param id
+  *   ensembl gene id eg. ENSGXXXX
+  * @param xRef
+  *   database cross reference
   */
 case class GeneWithDbXRef(id: String, xRef: Seq[IdAndSource])
 
@@ -26,16 +28,15 @@ object ProjectScores extends LazyLogging {
         col("hgnc_symbol")
       )
 
-    val geneWithDependencyScoreDF = {
+    val geneWithDependencyScoreDF =
       dependencyMatrix.columns
         .withFilter(_ != "Gene")
         .map(wrapColumnNamesWithPeriodCharacters)
-        .foldLeft(dependencyMatrix.withColumn("total", typedLit(0)))((df, c) => {
+        .foldLeft(dependencyMatrix.withColumn("total", typedLit(0))) { (df, c) =>
           df.withColumn("total", col("total") + col(c))
-        })
+        }
         .select("Gene", "total")
         .filter(col("total") > 0)
-    }
 
     val projectScoreDS = geneWithDependencyScoreDF
       .join(projectScoreIdsDF, col("Gene") === projectScoreIdsDF("hgnc_symbol"))

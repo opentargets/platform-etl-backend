@@ -338,13 +338,13 @@ class MoleculeTest extends EtlSparkUnitTest {
     val expectedTradeNameCount = Seq(("id1", 2), ("id2", 1))
     val expectedSynonymCount = Seq(("id1", 2), ("id2", 1))
     def testcounts(column: String, inputs: Seq[(String, Int)]): Boolean = {
-      val r = for ((id, count) <- inputs) yield {
-        results
-          .filter(col("id") === id)
-          .select(org.apache.spark.sql.functions.size(col(column).as("s")))
-          .head
-          .getAs[Int](0) == count
-      }
+      val r =
+        for ((id, count) <- inputs)
+          yield results
+            .filter(col("id") === id)
+            .select(org.apache.spark.sql.functions.size(col(column).as("s")))
+            .head
+            .getAs[Int](0) == count
       r.forall(v => v)
     }
 

@@ -2,9 +2,9 @@ package io.opentargets.etl.preprocess.uniprot
 
 /** UniprotKB Database cross-references specified in the DR line.
   *
-  * Each record contains zero or more database cross references.
-  * The full list of available cross references is available
-  * in the [[https://web.expasy.org/docs/userman.html#DR_line DR line documentation]].
+  * Each record contains zero or more database cross references. The full list of available cross
+  * references is available in the
+  * [[https://web.expasy.org/docs/userman.html#DR_line DR line documentation]].
   *
   * The records have the following format:
   *
@@ -40,9 +40,8 @@ trait DbIdentifiers {
     *
     * A database of interest is one that is specified in {{this.dbOfInterest}}
     */
-  def isDbOfInterest(string: String): Boolean = {
+  def isDbOfInterest(string: String): Boolean =
     dbOfInterest.map(db => string.startsWith(db)).exists(b => b)
-  }
 
   /** Return string of "[resource identifier] [resource abbreviation]" */
   def extractIdentifiers(string: String): String =

@@ -8,8 +8,9 @@ import org.apache.spark.sql.{DataFrame, SparkSession}
   * Drug warning are manually curated by ChEMBL according to the methodology outlined
   * [[https://pubs.acs.org/doi/pdf/10.1021/acs.chemrestox.0c00296 in this research paper]].
   *
-  * The mappings to Meddra SOC codes are hard coded explicitly here, because they are bespoke categorisations
-  * from the authors of the paper and '''do not''' map directly back to specific Meddra categories.
+  * The mappings to Meddra SOC codes are hard coded explicitly here, because they are bespoke
+  * categorisations from the authors of the paper and '''do not''' map directly back to specific
+  * Meddra categories.
   */
 object DrugWarning extends LazyLogging {
   def apply(df: DataFrame)(implicit sparkSession: SparkSession): DataFrame = {

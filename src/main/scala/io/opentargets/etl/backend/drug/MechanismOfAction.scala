@@ -9,8 +9,7 @@ import org.apache.spark.sql.{DataFrame, SparkSession}
   *
   * Output structure:
   *
-  * id
-  * mechanismsOfAction
+  * id mechanismsOfAction
   * -- rows
   * ---- mechanismOfAction
   * ---- references
@@ -24,10 +23,14 @@ import org.apache.spark.sql.{DataFrame, SparkSession}
   */
 object MechanismOfAction extends LazyLogging {
 
-  /** @param mechanismDf: raw data from Chembl
-    * @param targetDf: raw data from Chembl
-    * @param geneDf: gene parquet file listed under target in configuration
-    * @param sparkSession implicit
+  /** @param mechanismDf:
+    *   raw data from Chembl
+    * @param targetDf:
+    *   raw data from Chembl
+    * @param geneDf:
+    *   gene parquet file listed under target in configuration
+    * @param sparkSession
+    *   implicit
     */
   def apply(mechanismDf: DataFrame, targetDf: DataFrame, geneDf: DataFrame)(implicit
       sparkSession: SparkSession

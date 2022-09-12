@@ -10,10 +10,13 @@ case class Reactomes(id: String, pathways: Seq[Reactome])
 
 object Reactome extends LazyLogging {
 
-  /** @param reactomePathways raw reactome file available from [[https://reactome.org/download-data]].
-    * @param reactomeEtlDF    as computed by ETL
+  /** @param reactomePathways
+    *   raw reactome file available from [[https://reactome.org/download-data]].
+    * @param reactomeEtlDF
+    *   as computed by ETL
     * @param sparkSession
-    * @return dataframe of uniprotIds with related pathways
+    * @return
+    *   dataframe of uniprotIds with related pathways
     */
   def apply(reactomePathways: DataFrame, reactomeEtlDf: DataFrame)(implicit
       ss: SparkSession

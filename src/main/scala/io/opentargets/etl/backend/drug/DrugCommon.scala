@@ -20,19 +20,17 @@ object DrugCommon extends Serializable with LazyLogging {
 
   // Effectively a wrapper around the 'description` UDF: isolating in function so the adding/dumping necessary
   // columns doesn't clutter logic in the apply method. Note: this should be applied after all other transformations!
-  def addDescription(dataFrame: DataFrame): DataFrame = {
+  def addDescription(dataFrame: DataFrame): DataFrame =
     dataFrame
       .withColumn("_indication_phases", col("indications.maxPhaseForIndication"))
       .withColumn("_indication_labels", col("indications.efoName"))
       .transform(addDescriptionField)
       .drop("_indication_phases", "_indication_labels")
-  }
 
   /*
   Adds description field to dataframe using UDF.
    */
-  def addDescriptionField(dataFrame: DataFrame): DataFrame = {
-
+  def addDescriptionField(dataFrame: DataFrame): DataFrame =
     dataFrame.withColumn(
       "description",
       DrugCommon.generateDescriptionFieldUdf(
@@ -51,7 +49,6 @@ object DrugCommon extends Serializable with LazyLogging {
         col("blackBoxWarning")
       )
     )
-  }
 
   /** User defined function wrapper of `generateDescriptionField`
     */
@@ -80,16 +77,23 @@ object DrugCommon extends Serializable with LazyLogging {
       )
   )
 
-  /** take a list of tokens and join them like a proper english sentence with items in it. As
-    * an example ["miguel", "cinzia", "jarrod"] -> "miguel, cinzia and jarrod" and all the
-    * the causistic you could find in it.
-    * @param tokens list of tokens
-    * @param start prefix string to use
-    * @param sep the separator to use but not with the last two elements
-    * @param end the suffix to put
-    * @param lastSep the last separator as " and "
-    * @tparam T it is converted to string
-    * @return the unique string with all information concatenated
+  /** take a list of tokens and join them like a proper english sentence with items in it. As an
+    * example ["miguel", "cinzia", "jarrod"] -> "miguel, cinzia and jarrod" and all the the
+    * causistic you could find in it.
+    * @param tokens
+    *   list of tokens
+    * @param start
+    *   prefix string to use
+    * @param sep
+    *   the separator to use but not with the last two elements
+    * @param end
+    *   the suffix to put
+    * @param lastSep
+    *   the last separator as " and "
+    * @tparam T
+    *   it is converted to string
+    * @return
+    *   the unique string with all information concatenated
     */
   def mkStringSemantic[T](
       tokens: Option[Seq[T]],
@@ -118,8 +122,10 @@ object DrugCommon extends Serializable with LazyLogging {
     }
   }
 
-  /** Use drug metadata to construct a syntactically correct English sentence description of the drug.
-    * @return sentence describing the key features of the drug.
+  /** Use drug metadata to construct a syntactically correct English sentence description of the
+    * drug.
+    * @return
+    *   sentence describing the key features of the drug.
     */
   def generateDescriptionField(
       drugType: String,
@@ -142,7 +148,7 @@ object DrugCommon extends Serializable with LazyLogging {
       case Some(p) =>
         Some(
           s" with a maximum clinical trial phase of ${romanNumbers(p)}${if (indicationLabels.size > 1) " (across all indications)"
-          else ""}"
+            else ""}"
         )
       case _ => None
     }
@@ -215,8 +221,7 @@ object DrugCommon extends Serializable with LazyLogging {
     ).withFilter(_.isDefined).map(_.get).mkString
   }
 
-  def getUniqTargetsAndDiseasesPerDrugId(evidenceDf: DataFrame): DataFrame = {
-
+  def getUniqTargetsAndDiseasesPerDrugId(evidenceDf: DataFrame): DataFrame =
     evidenceDf
       .filter(col("sourceId") === "chembl")
       .groupBy(col("drugId"))
@@ -235,6 +240,5 @@ object DrugCommon extends Serializable with LazyLogging {
         struct(col("diseases").as("rows"), col("diseaseCount").as("count"))
       )
       .select("drugId", "linkedTargets", "linkedDiseases")
-  }
 
 }

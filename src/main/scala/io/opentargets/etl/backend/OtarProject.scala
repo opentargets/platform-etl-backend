@@ -8,10 +8,14 @@ import org.apache.spark.sql.functions._
 
 object OtarProject extends LazyLogging {
 
-  /** @param disease output of ETL disease step
-    * @param otarMeta metadata about otar projects [ otar_code, project_name, project_status ]
-    * @param efoLookup mapping from otar project to disease [ otar_code, efo_disease_id ]
-    * @return dataframe of [ efo_id, projects [ { otar_code, status, project_name, reference } ... ] ]
+  /** @param disease
+    *   output of ETL disease step
+    * @param otarMeta
+    *   metadata about otar projects [ otar_code, project_name, project_status ]
+    * @param efoLookup
+    *   mapping from otar project to disease [ otar_code, efo_disease_id ]
+    * @return
+    *   dataframe of [ efo_id, projects [ { otar_code, status, project_name, reference } ... ] ]
     */
   def generateOtarInfo(disease: DataFrame, otarMeta: DataFrame, efoLookup: DataFrame): DataFrame = {
 

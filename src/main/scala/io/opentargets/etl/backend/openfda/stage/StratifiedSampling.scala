@@ -9,9 +9,14 @@ import org.apache.spark.sql.DataFrame
 
 object StratifiedSampling extends LazyLogging {
 
-  /** @param cleanFda       cleanFda is the data after it has been cleaned: filtered by blacklist, qualifications of reporter, patient death, etc.
-    * @param significantFda significantFda is the data that has been prepared for MC sampling, as at this point we have already removed all log-likelihood rations that are effectively zero.
-    * @param sampleSize proportion of dataset to take
+  /** @param cleanFda
+    *   cleanFda is the data after it has been cleaned: filtered by blacklist, qualifications of
+    *   reporter, patient death, etc.
+    * @param significantFda
+    *   significantFda is the data that has been prepared for MC sampling, as at this point we have
+    *   already removed all log-likelihood rations that are effectively zero.
+    * @param sampleSize
+    *   proportion of dataset to take
     */
   def apply(
       rawFda: DataFrame,
@@ -43,8 +48,8 @@ object StratifiedSampling extends LazyLogging {
 
     logger.info(s"Writing statified sampling for target dimension '${targetDimensionColId}'...")
     // Write Stratified Sampling information
-    //val writeMap: IOResources =
-    //IoHelpers.writeTo(writeMap)
+    // val writeMap: IOResources =
+    // IoHelpers.writeTo(writeMap)
     Map(
       s"stratifiedSampling_${targetDimensionColId}" -> IOResource(
         rawFda

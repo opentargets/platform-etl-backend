@@ -5,12 +5,16 @@ import org.apache.spark.sql.functions.{array, col, lit, struct}
 import org.apache.spark.sql.types.{FloatType, IntegerType}
 import org.apache.spark.sql.{DataFrame, Dataset, SparkSession}
 
-/** @param constraintType One of [mis, lof, syn]
-  * @param upperRank      Loss of function: It’s telling you what’s the relative genetic constraint of this gene as compared
-  *                       to all the other genes. For example  “upperRank” = 1 would be the gene with the highest oeUpper
-  *                       value. null if constraintType is not lof
-  * @param upperBin       null if constraintType is not lof
-  * @param upperBin6      null if constraintType is not lof
+/** @param constraintType
+  *   One of [mis, lof, syn]
+  * @param upperRank
+  *   Loss of function: It’s telling you what’s the relative genetic constraint of this gene as
+  *   compared to all the other genes. For example “upperRank” = 1 would be the gene with the
+  *   highest oeUpper value. null if constraintType is not lof
+  * @param upperBin
+  *   null if constraintType is not lof
+  * @param upperBin6
+  *   null if constraintType is not lof
   */
 case class GeneticConstraint(
     constraintType: String,

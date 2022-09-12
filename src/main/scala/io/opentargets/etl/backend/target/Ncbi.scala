@@ -13,7 +13,8 @@ case class Ncbi(
     nameSynonyms: Array[LabelAndSource]
 )
 
-/** Ncbi data available from ftp://ftp.ncbi.nlm.nih.gov/gene/DATA/GENE_INFO/Mammalia/Homo_sapiens.gene_info.gz
+/** Ncbi data available from
+  * ftp://ftp.ncbi.nlm.nih.gov/gene/DATA/GENE_INFO/Mammalia/Homo_sapiens.gene_info.gz
   */
 object Ncbi extends LazyLogging {
   def apply(df: DataFrame)(implicit sparkSession: SparkSession): Dataset[Ncbi] = {

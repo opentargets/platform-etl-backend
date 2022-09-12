@@ -5,8 +5,8 @@ import org.apache.spark.sql.functions.{col, regexp_extract, when}
 import org.apache.spark.sql.types.LongType
 import org.apache.spark.sql.{DataFrame, Dataset, SparkSession}
 
-/** GeneCode is used to extract the canonical transcripts for each Ensembl gene. This information is not presently
-  * available in the Ensembl input file, but should be added in Sept 2022.
+/** GeneCode is used to extract the canonical transcripts for each Ensembl gene. This information is
+  * not presently available in the Ensembl input file, but should be added in Sept 2022.
   */
 object GeneCode extends LazyLogging {
 
