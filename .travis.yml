@@ -4,6 +4,7 @@ language: scala
 jdk:
   - openjdk8
 script:
+  - sbt ++$TRAVIS_SCALA_VERSION scalafmtCheckAll
   - sbt ++$TRAVIS_SCALA_VERSION clean compile
   - sbt ++$TRAVIS_SCALA_VERSION coverage test coverageReport
   - sbt ++$TRAVIS_SCALA_VERSION 'set test in assembly := {}' assembly
