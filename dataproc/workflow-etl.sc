@@ -11,14 +11,12 @@ import scala.jdk.CollectionConverters.asJavaIterableConverter
 
 // RELEASE SPECIFIC CONFIGURATION
 val bucket = "open-targets-pre-data-releases"
-val release = "22.02.3"
-val etlJar = "etl-backend-target-4e8fefc.jar"
-val literatureJar = "etl-literature-ef90689.jar"
+val release = "development"
+val etlJar = "etl-backend-6be94af.jar"
+val literatureJar = "etl-literature-465701c.jar"
 
-val etlParquetConfig = "22_02_platform_parquet.conf"
-val literatureParquetConfig = "2202_literature_parquet.conf"
-val etlJsonConf = "22_02_platform_json.conf"
-val literatureJsonConf = "2202_literature_json.conf"
+val etlConfiguration = "22_09_platform.conf"
+val literatureConfiguration = "2209_literature_parquet.conf"
 
 // RARELY CHANGED CONFIGURATION
 val projectId = "open-targets-eu-dev"
@@ -29,11 +27,6 @@ val configPath = s"gs://$bucket/$release/conf"
 
 val gcpUrl = s"$region-dataproc.googleapis.com:443"
 
-// Create jobs and workflows
-val jsonJobs = new EtlWorkflowJobs(etlJsonConf, literatureJsonConf)
-val parquetJobs = new EtlWorkflowJobs(etlParquetConfig, literatureParquetConfig)
-val jsonWorkflow = new EtlWorkflow(jsonJobs)
-val parquetWorkflow = new EtlWorkflow(parquetJobs)
 
 /**
   * Define jobs which can be added to workflow
@@ -46,6 +39,7 @@ class EtlWorkflowJobs(configEtl: String, configLiterature: String) {
   val reactome = "reactome"
   val expression = "expression"
   val go = "go-step"
+  val empc = "epmc-step"
   val target = "target"
   val interaction = "interaction"
   val targetValidation = "targetValidation"
@@ -62,6 +56,11 @@ class EtlWorkflowJobs(configEtl: String, configLiterature: String) {
   val diseaseIndex: OrderedJob = OrderedJob.newBuilder
     .setStepId(disease)
     .setSparkJob(sparkJob(disease, etlJar, configEtl))
+    .build
+  val empcEvidence: OrderedJob = OrderedJob.newBuilder
+    .setStepId(empc)
+    .addPrerequisiteStepIds(literature)
+    .setSparkJob(sparkJob(empc, etlJar, configEtl))
     .build
   val reactomeIndex: OrderedJob = OrderedJob.newBuilder
     .setStepId(reactome)
@@ -224,6 +223,7 @@ class EtlWorkflow(jobs: EtlWorkflowJobs) {
     .addJobs(jobs.ebiSearchIndex)
     .addJobs(jobs.fdaIndex)
     .addJobs(jobs.literatureIndex)
+    .addJobs(jobs.empcEvidence)
     .setPlacement(workflowTemplatePlacement)
     .build
 
@@ -237,6 +237,11 @@ class EtlWorkflow(jobs: EtlWorkflowJobs) {
   }
 }
 
+// Create jobs and workflows
+//val jsonJobs = new EtlWorkflowJobs(etlJsonConf, literatureJsonConf)
+val parquetJobs = new EtlWorkflowJobs(etlConfiguration, literatureConfiguration)
+//val jsonWorkflow = new EtlWorkflow(jsonJobs)
+val workflow = new EtlWorkflow(parquetJobs)
+
 // wrap in futures to run in parallel
-jsonWorkflow.run()
-parquetWorkflow.run()
+workflow.run()
