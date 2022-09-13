@@ -163,21 +163,25 @@ object Target extends LazyLogging {
       .transform(removeDuplicatedSynonyms)
   }
 
-  /** for all alternative names or symbols a target can take is worth cleaning them up from duplicated entries */
+  /** for all alternative names or symbols a target can take is worth cleaning them up from
+    * duplicated entries
+    */
   private def removeDuplicatedSynonyms(df: DataFrame): DataFrame =
     ("synonyms" :: "symbolSynonyms" :: "nameSynonyms" :: "obsoleteNames" :: "obsoleteSymbols" :: Nil)
       .foldLeft(df) { (B, name) =>
         B.withColumn(name, array_distinct(col(name)))
       }
 
-  /** Some of the input data sets do not use Ensembl Ids to identify records. Commonly we see uniprot
-    * accessions or protein Ids. This dataframe can be used as a 'helper' to link these datasets with
-    * the ENSG ID used in Open Targets.
+  /** Some of the input data sets do not use Ensembl Ids to identify records. Commonly we see
+    * uniprot accessions or protein Ids. This dataframe can be used as a 'helper' to link these
+    * datasets with the ENSG ID used in Open Targets.
     *
-    * @param df interim target DF.
-    * @return dataframe [ensgId, name, uniprot, HGNC] mapping ensembl Ids to other common sources.
+    * @param df
+    *   interim target DF.
+    * @return
+    *   dataframe [ensgId, name, uniprot, HGNC] mapping ensembl Ids to other common sources.
     */
-  private def generateEnsgToSymbolLookup(df: DataFrame): DataFrame = {
+  private def generateEnsgToSymbolLookup(df: DataFrame): DataFrame =
     df.select(
       col("id"),
       col("proteinIds.id") as "pid",
@@ -200,7 +204,6 @@ object Target extends LazyLogging {
       col("symbols")
     ).select(col("id") as "ensgId", col("s") as "name", col("uniprot"), col("HGNC"), col("symbols"))
       .persist(StorageLevel.MEMORY_AND_DISK_SER)
-  }
 
   def addEnsemblIdsToUniprot(hgnc: Dataset[Hgnc], uniprot: DataFrame): DataFrame = {
     logger.debug("Grouping Uniprot entries by Ensembl Id.")
@@ -264,13 +267,12 @@ object Target extends LazyLogging {
   )(dataFrame: DataFrame)(implicit ss: SparkSession): DataFrame = {
     logger.info("Adding Homologues to dataframe")
 
-    /** The orthologs should appear in the order of closest to further from homosapiens. See opentargets/platform#1699
+    /** The orthologs should appear in the order of closest to further from homosapiens. See
+      * opentargets/platform#1699
       */
     ss.udf.register(
       "speciesDistanceSort",
-      (o: Ortholog, o1: Ortholog) => {
-        o.priority compare o1.priority
-      }
+      (o: Ortholog, o1: Ortholog) => o.priority compare o1.priority
     )
 
     // add in gene symbol for paralogs (human genes)
@@ -352,10 +354,14 @@ object Target extends LazyLogging {
 
   /** Group chemical probes by ensembl ID and add to interim target dataframe.
     *
-    * @param cpDF              raw chemical probes dataset provided by PIS
-    * @param ensemblIdLookupDF map from ensg -> other names.
-    * @param targetDF          interim target dataset
-    * @return target dataset with chemical probes added
+    * @param cpDF
+    *   raw chemical probes dataset provided by PIS
+    * @param ensemblIdLookupDF
+    *   map from ensg -> other names.
+    * @param targetDF
+    *   interim target dataset
+    * @return
+    *   target dataset with chemical probes added
     */
   private def addChemicalProbes(cpDF: DataFrame, ensemblIdLookupDF: DataFrame)(
       targetDF: DataFrame
@@ -463,9 +469,9 @@ object Target extends LazyLogging {
 
   /** Merge Hgnc and Ensembl datasets in a way that preserves logic of data pipeline.
     *
-    * The deprecated data pipeline build up the target dataset in a step-wise manner, where later steps only added
-    * fields if they were not already provided by an earlier one. This method reproduces that logic so that fields
-    * provided on both datasets are set by Hgnc.
+    * The deprecated data pipeline build up the target dataset in a step-wise manner, where later
+    * steps only added fields if they were not already provided by an earlier one. This method
+    * reproduces that logic so that fields provided on both datasets are set by Hgnc.
     */
   private def mergeHgncAndEnsembl(hgnc: Dataset[Hgnc], ensembl: Dataset[Ensembl]): DataFrame = {
     logger.debug("Merging Hgnc and Ensembl datasets")
@@ -489,7 +495,8 @@ object Target extends LazyLogging {
 
   /** Updates column `proteinIds` to remove duplicates and sort by source.
     *
-    * @return dataframe with same schema as input.
+    * @return
+    *   dataframe with same schema as input.
     */
   def filterAndSortProteinIds(dataFrame: DataFrame): DataFrame = {
     val splitToken = "-"
@@ -521,16 +528,15 @@ object Target extends LazyLogging {
 
   /** Removes duplicate proteinIds and orders output by source preference
     *
-    * The ETL collects proteinIds (accession numbers) from a variety of sources and combines them all. This function
-    * removes duplicate accession numbers. The duplicate to remove is determined by the following source hierarchy:
+    * The ETL collects proteinIds (accession numbers) from a variety of sources and combines them
+    * all. This function removes duplicate accession numbers. The duplicate to remove is determined
+    * by the following source hierarchy:
     *
-    * 1. uniprot_swissprot
-    * 2. uniprot_trembl
-    * 3. uniprot
-    * 4. ensembl_PRO
+    *   1. uniprot_swissprot 2. uniprot_trembl 3. uniprot 4. ensembl_PRO
     *
     * ids with entries in the form ACCESSION-SOURCE. Accession and Source are split by a hyphen.
-    * @return input array with duplicates removed and sorted by hierarchy preference.
+    * @return
+    *   input array with duplicates removed and sorted by hierarchy preference.
     */
   val cleanProteinIds: Seq[String] => Seq[String] = (ids: Seq[String]) => {
     val splitToken = "-"
@@ -538,14 +544,14 @@ object Target extends LazyLogging {
     val idAndSource: Seq[String] = ids
       .map(entry => entry.split(splitToken))
       .map(arr => (arr.head.trim, arr.tail.head))
-      .foldLeft(Seq.empty[String])((acc, nxt) => {
+      .foldLeft(Seq.empty[String]) { (acc, nxt) =>
         if (map.contains(nxt._1)) acc
         else {
           map.update(nxt._1, nxt._2)
           (nxt._1 + splitToken + nxt._2) +: acc
         }
-      })
-    idAndSource.sortWith((left, right) => {
+      }
+    idAndSource.sortWith { (left, right) =>
       val sourceToInt = (source: String) =>
         source match {
           case swissprot if swissprot.contains("swiss") => 1
@@ -558,7 +564,7 @@ object Target extends LazyLogging {
       val r = sourceToInt(right)
       // if same source use natural ordering otherwise custom ordering for source.
       if (l == r) left < right else l < r
-    })
+    }
   }
   val proteinIdUdf: UserDefinedFunction = udf(cleanProteinIds)
 

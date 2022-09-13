@@ -66,7 +66,7 @@ object StringProtein extends Serializable with LazyLogging {
       ("textmining", "MI:0110")
     )
 
-    val stringDatasetEvidence = colsEvidence.foldLeft(stringDatasetFiltered)((acc, nxt) => {
+    val stringDatasetEvidence = colsEvidence.foldLeft(stringDatasetFiltered) { (acc, nxt) =>
       acc.withColumn(
         "e_" + nxt._1,
         struct(
@@ -77,7 +77,7 @@ object StringProtein extends Serializable with LazyLogging {
           lit(null) as "pubmed_id"
         )
       )
-    })
+    }
 
     stringDatasetEvidence
       .filter(col("protein1").contains("9606."))

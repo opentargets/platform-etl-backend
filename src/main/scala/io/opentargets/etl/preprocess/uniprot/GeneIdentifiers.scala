@@ -2,7 +2,8 @@ package io.opentargets.etl.preprocess.uniprot
 
 /** Description line (DE) contains additional information about protein names.
   *
-  * See [[https://web.expasy.org/docs/userman.html#DE_line DE documentation]] for additional information.
+  * See [[https://web.expasy.org/docs/userman.html#DE_line DE documentation]] for additional
+  * information.
   */
 trait GeneIdentifiers {
 
@@ -11,7 +12,7 @@ trait GeneIdentifiers {
   val SYMBOL_ORF = "ORFNames"
   val genePrefixes: List[String] = SYMBOL_NAME :: SYMBOL_SYNONYMS :: SYMBOL_ORF :: Nil
 
-  def processSymbolSynonyms(lines: Seq[String]): Seq[String] = {
+  def processSymbolSynonyms(lines: Seq[String]): Seq[String] =
     lines
       .mkString(" ")
       .split(";")
@@ -23,5 +24,4 @@ trait GeneIdentifiers {
       .flatMap(_.split(","))
       .map(sym => sym.trim.stripSuffix(";").trim)
       .toSeq
-  }
 }

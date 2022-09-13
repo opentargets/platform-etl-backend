@@ -19,11 +19,20 @@ import org.apache.spark.storage.StorageLevel
 
 object GeneOntology extends LazyLogging {
 
-  /** @param human       gene ontology available from [[ftp://ftp.ebi.ac.uk/pub/databases/GO/goa/HUMAN/goa_human.gaf.gz EBI's database]]
-    * @param rna         (human) gene ontology available from [[ftp://ftp.ebi.ac.uk/pub/databases/GO/goa/HUMAN/goa_human_rna.gaf.gz EBI's database]]
-    * @param rnaLookup   to map from RNACentral -> Ensembl ids available from [[ftp://ftp.ebi.ac.uk/pub/databases/RNAcentral/current_release/id_mapping/database_mappings/ensembl.tsv EBI]]
-    * @param ecoLookup   to map from goId -> eco ids available from [[ftp://ftp.ebi.ac.uk/pub/databases/GO/goa/HUMAN/goa_human.gpa.gz EBI]]
-    * @param humanLookup to map from Uniprot accession to Ensembl Id
+  /** @param human
+    *   gene ontology available from
+    *   [[ftp://ftp.ebi.ac.uk/pub/databases/GO/goa/HUMAN/goa_human.gaf.gz EBI's database]]
+    * @param rna
+    *   (human) gene ontology available from
+    *   [[ftp://ftp.ebi.ac.uk/pub/databases/GO/goa/HUMAN/goa_human_rna.gaf.gz EBI's database]]
+    * @param rnaLookup
+    *   to map from RNACentral -> Ensembl ids available from
+    *   [[ftp://ftp.ebi.ac.uk/pub/databases/RNAcentral/current_release/id_mapping/database_mappings/ensembl.tsv EBI]]
+    * @param ecoLookup
+    *   to map from goId -> eco ids available from
+    *   [[ftp://ftp.ebi.ac.uk/pub/databases/GO/goa/HUMAN/goa_human.gpa.gz EBI]]
+    * @param humanLookup
+    *   to map from Uniprot accession to Ensembl Id
     */
   def apply(
       human: DataFrame,
@@ -82,7 +91,8 @@ object GeneOntology extends LazyLogging {
 
   /** Returns required columns from raw dataframe.
     *
-    * All columns are renamed according to the [[http://geneontology.org/docs/go-annotation-file-gaf-format-2.2/ GO specification]].
+    * All columns are renamed according to the
+    * [[http://geneontology.org/docs/go-annotation-file-gaf-format-2.2/ GO specification]].
     */
   private def extractRequiredColumnsFromRawDf(dataFrame: DataFrame): DataFrame = {
     val columnNamesFromSpecification = Seq(
@@ -131,7 +141,8 @@ object GeneOntology extends LazyLogging {
       .withColumn("ensemblId", regexp_extract(col("ensemblId"), "ENSG[0-9]+", 0))
   }
 
-  /** @return dataframe with columns 'ensemblId', 'uniprotId'
+  /** @return
+    *   dataframe with columns 'ensemblId', 'uniprotId'
     */
   private def ensemblDfToHumanLookupTable(
       dataset: Dataset[Ensembl]
@@ -139,14 +150,14 @@ object GeneOntology extends LazyLogging {
     import sparkSession.implicits._
     dataset
       .filter(ensg => ensg.proteinIds != null && ensg.proteinIds.nonEmpty)
-      .map(row => {
+      .map { row =>
         val ensembId = row.id
         val accessions = row.proteinIds
           .getOrElse(Array.empty)
           .withFilter(_.source.contains("uniprot"))
           .map(pids => pids.id) :+ row.approvedSymbol
         (ensembId, accessions.distinct)
-      })
+      }
       .toDF("ensemblId", "uniprotId")
       .withColumn("uniprotId", explode(col("uniprotId")))
   }
@@ -167,7 +178,7 @@ object GeneOntology extends LazyLogging {
   }
 
   /** Returns a dataframe with columns [goId, ecoId] */
-  private def ecoLookupTable(df: DataFrame): DataFrame = {
+  private def ecoLookupTable(df: DataFrame): DataFrame =
     df.select(
       col("_c3") as "goId",
       col("_c1") as "geneProduct",
@@ -176,7 +187,6 @@ object GeneOntology extends LazyLogging {
     ).orderBy(col("goId"))
       .distinct
       .persist(StorageLevel.MEMORY_AND_DISK)
-  }
 }
 
 case class GeneOntologyByEnsembl(ensemblId: String, go: Array[GO])

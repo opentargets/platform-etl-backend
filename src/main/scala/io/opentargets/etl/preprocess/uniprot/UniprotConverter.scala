@@ -27,27 +27,30 @@ object UniprotConverter
     with GeneIdentifiers
     with LazyLogging {
 
-  /** Returns list of UniprotEntry based on provided iterator of UniprotKB data from flat file format.
+  /** Returns list of UniprotEntry based on provided iterator of UniprotKB data from flat file
+    * format.
     *
     * Uniprot provides their knowledge base in a flat file format specified in the
-    * [[https://www.uniprot.org/help/uniprotkb_manual UniprotKb manual]]. A more detailed guide for each record can be
-    * found in the [[ https://web.expasy.org/docs/userman.html user guide]].
+    * [[https://www.uniprot.org/help/uniprotkb_manual UniprotKb manual]]. A more detailed guide for
+    * each record can be found in the [[https://web.expasy.org/docs/userman.html user guide]].
     *
-    * There is a trait for each of the line types of interest (CC - comment, DE - description, etc) with methods to
-    * parse meaningful results from those lines.
+    * There is a trait for each of the line types of interest (CC - comment, DE - description, etc)
+    * with methods to parse meaningful results from those lines.
     *
-    * The input file is provided from the [[https://github.com/opentargets/platform-input-support platform-input-support]]
-    * project.
+    * The input file is provided from the
+    * [[https://github.com/opentargets/platform-input-support platform-input-support]] project.
     *
-    * The caller of the class is responsible for managing the incoming file and ensuring that it is properly closed.
+    * The caller of the class is responsible for managing the incoming file and ensuring that it is
+    * properly closed.
     *
-    * @param data from UniprotKB flat file.
-    * @return a seq of UniprotEntry elements
+    * @param data
+    *   from UniprotKB flat file.
+    * @return
+    *   a seq of UniprotEntry elements
     */
-  def fromFlatFile(data: Iterator[String]): Seq[UniprotEntry] = {
+  def fromFlatFile(data: Iterator[String]): Seq[UniprotEntry] =
     data
       .consumeWhile(_.takeWhile(!_.startsWith(END_RECORD)))(convertUniprotEntry)
-  }
 
   private def convertUniprotEntry(entry: Seq[String]): UniprotEntry = {
     val mappedLines = entry
@@ -94,11 +97,11 @@ object UniprotConverter
   *
   * Requires two program arguments: input file, output directory.
   *
-  * To use: java -cp io-opentargets-etl-backend-assembly-[version].jar io.opentargets.etl.preprocess.uniprot \
-  * input file \
-  * output file
+  * To use: java -cp io-opentargets-etl-backend-assembly-[version].jar
+  * io.opentargets.etl.preprocess.uniprot \ input file \ output file
   *
-  * Note: jar file must have been assembled with Spark bundled as it relies on the JSON library bundled with Spark.
+  * Note: jar file must have been assembled with Spark bundled as it relies on the JSON library
+  * bundled with Spark.
   */
 object Main extends App with LazyLogging {
   assert(

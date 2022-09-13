@@ -25,9 +25,8 @@ object CrossReferencesExtensionTest {
 }
 
 class CrossReferencesExtensionTest extends EtlSparkUnitTest {
-  val addCrossReferenceToMolecules: PrivateMethod[Dataset[Row]] = {
+  val addCrossReferenceToMolecules: PrivateMethod[Dataset[Row]] =
     PrivateMethod[Dataset[Row]]('addCrossReferenceToMolecule)
-  }
 
   // given a cross reference and the field doesn't already exist, it's added to the cross reference field
   "A cross reference extension file with a new reference field" should "be added to the existing references" in {
@@ -133,12 +132,10 @@ object SynonymExtensionTest {
 }
 class SynonymExtensionTest extends EtlSparkUnitTest {
 
-  val stardardiseSynonyms: PrivateMethod[Dataset[Row]] = {
+  val stardardiseSynonyms: PrivateMethod[Dataset[Row]] =
     PrivateMethod[Dataset[Row]]('standardiseSynonymsDf)
-  }
-  val addSynonymsToMolecule: PrivateMethod[Dataset[Row]] = {
+  val addSynonymsToMolecule: PrivateMethod[Dataset[Row]] =
     PrivateMethod[Dataset[Row]]('addSynonymsToMolecule)
-  }
 
   "Synonym extension input files" must "have at least two columns, 'id' and 'synonym'" in {
     // given

@@ -35,17 +35,15 @@ object ProteinClassification extends LazyLogging {
     val columns = 1 to 8 map { i =>
       s"l$i"
     }
-    val toStruct = (column: String) => {
+    val toStruct = (column: String) =>
       struct(
         col("protein_class_id").as("id"),
         col(column).as("label"),
         typedLit(column).as("level")
       )
-    }
 
-    val proteinClassificationExpandedDF = columns.foldLeft(accessionAndPcDF)((df, level) => {
-      df.withColumn(level, toStruct(level))
-    })
+    val proteinClassificationExpandedDF =
+      columns.foldLeft(accessionAndPcDF)((df, level) => df.withColumn(level, toStruct(level)))
 
     proteinClassificationExpandedDF
       .select(col("accession"), array(columns.head, columns.tail: _*).as("levels"))

@@ -10,15 +10,7 @@ import pureconfig.ConfigReader
 
 class EtlDagTest extends AnyFlatSpecLike with Matchers with AppendedClues {
 
-  /** root
-    * /
-    * A
-    * /  \
-    * D   E
-    * /
-    * C
-    * /
-    * B
+  /** root / A / \ D E / C / B
     */
   val testGraphConf = List(
     EtlStep("A", List()),

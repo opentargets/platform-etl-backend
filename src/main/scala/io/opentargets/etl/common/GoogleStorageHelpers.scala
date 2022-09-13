@@ -2,8 +2,10 @@ package io.opentargets.etl.common;
 
 object GoogleStorageHelpers {
 
-  /** @path path to google storage blob.
-    * @return a tuple of (bucket, blob) for a given path.
+  /** @path
+    *   path to google storage blob.
+    * @return
+    *   a tuple of (bucket, blob) for a given path.
     */
   def pathToBucketBlob(path: String): (String, String) = {
     require(path.trim.startsWith("gs://"))

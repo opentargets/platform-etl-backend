@@ -1,10 +1,11 @@
 package io.opentargets.etl.preprocess.uniprot
 
-/** Specifies line identifiers used in UniportKB and used for parsing in this project. Not all Uniprot lines are supported.
+/** Specifies line identifiers used in UniportKB and used for parsing in this project. Not all
+  * Uniprot lines are supported.
   *
-  * Details of specific lines and their meaning can be found in the [[https://web.expasy.org/docs/userman.html user guide]]
-  * Uniprot uses line identifers to indicate which object field the subsequent string belongs to, as a single record
-  * can span multiple lines.
+  * Details of specific lines and their meaning can be found in the
+  * [[https://web.expasy.org/docs/userman.html user guide]] Uniprot uses line identifers to indicate
+  * which object field the subsequent string belongs to, as a single record can span multiple lines.
   *
   * The following lines are available on entries:
   *

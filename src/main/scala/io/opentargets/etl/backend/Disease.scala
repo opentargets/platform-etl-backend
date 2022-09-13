@@ -11,13 +11,12 @@ import org.apache.spark.sql._
 import io.opentargets.etl.backend.graph.GraphNode
 
 object Hpo extends Serializable with LazyLogging {
-  private def getEfoDataframe(rawEfoData: DataFrame): DataFrame = {
+  private def getEfoDataframe(rawEfoData: DataFrame): DataFrame =
     rawEfoData
       .selectExpr("id as disease", "name", "dbXRefs")
       .withColumn("dbXRefId", explode(col("dbXRefs")))
       .withColumnRenamed("id", "disease")
       .select("dbXRefId", "disease", "name")
-  }
 
   def getMondo(mondo: DataFrame, diseaseXRefs: DataFrame): DataFrame = {
     val mondoBase = mondo
@@ -79,8 +78,7 @@ object Hpo extends Serializable with LazyLogging {
     hpoDiseaseMapping
   }
 
-  def createEvidence(diseaseHpo: DataFrame): DataFrame = {
-
+  def createEvidence(diseaseHpo: DataFrame): DataFrame =
     diseaseHpo
       .groupBy("disease", "phenotype")
       .agg(
@@ -103,7 +101,6 @@ object Hpo extends Serializable with LazyLogging {
           )
         ).as("evidence")
       )
-  }
 
   def apply(diseasesRaw: DataFrame)(implicit context: ETLSessionContext): Map[String, DataFrame] = {
     implicit val ss: SparkSession = context.sparkSession

@@ -7,15 +7,20 @@ import org.apache.spark.sql.functions.{col, collect_list, explode, split, typedL
 import org.apache.spark.sql.types.{StringType, StructField, StructType}
 import org.apache.spark.sql.{DataFrame, Dataset, SparkSession}
 
-/** @param id        ensembl gene id eg. ENSGXXXX
-  * @param locations subcellular locations
+/** @param id
+  *   ensembl gene id eg. ENSGXXXX
+  * @param locations
+  *   subcellular locations
   */
 case class GeneWithLocation(id: String, locations: Seq[LocationAndSource])
 
 object GeneWithLocation extends LazyLogging {
 
-  /** @param df            file from HPA
-    * @param slLocationsDf file provided by data team with mappings from HPA location to subcellular location ontology IDs.
+  /** @param df
+    *   file from HPA
+    * @param slLocationsDf
+    *   file provided by data team with mappings from HPA location to subcellular location ontology
+    *   IDs.
     */
   def apply(df: DataFrame, slLocationsDf: DataFrame)(implicit
       sparkSession: SparkSession

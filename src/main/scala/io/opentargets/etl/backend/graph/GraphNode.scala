@@ -13,8 +13,8 @@ import org.jgrapht.Graphs._
 import org.jgrapht.util._
 import org.jgrapht.alg.shortestpath._
 
-/**  vertices must contain "id", "label" fields. The field label can be called in a flexible way.
-  *  edges must contain "src" and "dst" fields
+/** vertices must contain "id", "label" fields. The field label can be called in a flexible way.
+  * edges must contain "src" and "dst" fields
   */
 object GraphNode extends Serializable with LazyLogging {
 
@@ -35,14 +35,14 @@ object GraphNode extends Serializable with LazyLogging {
       new org.jgrapht.graph.DirectedAcyclicGraph[N, DefaultEdge](classOf[DefaultEdge])
 
     vertices.foreach(v => jgraph.addVertex(v))
-    edges.foreach(edge => {
+    edges.foreach { edge =>
       val (src, dst) = edge
-      try {
+      try
         jgraph.addEdge(src, dst)
-      } catch {
+      catch {
         case e: IllegalArgumentException => logger.error(e.getMessage)
       }
-    })
+    }
 
     jgraph
   }
@@ -54,7 +54,9 @@ object GraphNode extends Serializable with LazyLogging {
     makeGraph(v, e)
   }
 
-  /** given the graph and the vertices(id,label) it generates a dataframe with id, parents, children, ... */
+  /** given the graph and the vertices(id,label) it generates a dataframe with id, parents,
+    * children, ...
+    */
   def processGraph(vertices: DataFrame, graph: DAGT[String])(implicit
       ss: SparkSession
   ): DataFrame = {

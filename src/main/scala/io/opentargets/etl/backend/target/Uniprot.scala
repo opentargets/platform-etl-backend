@@ -8,12 +8,18 @@ import org.apache.spark.sql.functions._
 import org.apache.spark.sql.types.ArrayType
 import org.apache.spark.sql.{DataFrame, Dataset, SparkSession}
 
-/** @param uniprotId            current accession number
-  * @param synonyms             uniprot recommended and alternative names
-  * @param functionDescriptions from uniprot comments
-  * @param proteinIds           old accession numbers
-  * @param subcellularLocations from uniprot comments
-  * @param dbXrefs              references to other libraries.
+/** @param uniprotId
+  *   current accession number
+  * @param synonyms
+  *   uniprot recommended and alternative names
+  * @param functionDescriptions
+  *   from uniprot comments
+  * @param proteinIds
+  *   old accession numbers
+  * @param subcellularLocations
+  *   from uniprot comments
+  * @param dbXrefs
+  *   references to other libraries.
   */
 case class Uniprot(
     uniprotId: String,
@@ -30,8 +36,10 @@ object Uniprot extends LazyLogging {
 
   val id = "uniprotId"
 
-  /** @param dfRaw      uniprot 'raw' data as prepared from flat file using UniprotConverter.scala
-    * @param uniprotSsl mapping to subcellular location ontology
+  /** @param dfRaw
+    *   uniprot 'raw' data as prepared from flat file using UniprotConverter.scala
+    * @param uniprotSsl
+    *   mapping to subcellular location ontology
     */
   def apply(dfRaw: DataFrame, uniprotSsl: DataFrame)(implicit
       ss: SparkSession
