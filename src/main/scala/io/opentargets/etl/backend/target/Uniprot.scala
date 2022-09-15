@@ -112,7 +112,7 @@ object Uniprot extends LazyLogging {
 
     val subcellOntologyDf = sslDf.select(
       col("Subcellular location ID") as "termSL",
-      col("Alias") as "ssl_match",
+      col("Name") as "ssl_match",
       col("Category") as "labelSL"
     )
 
