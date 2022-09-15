@@ -88,7 +88,7 @@ class UniprotTest extends EtlSparkUnitTest {
     ).toDF("uniprotId", "locations")
     val uniprotSsl: DataFrame = Seq(
       ("SL1", "Cytoplasm", "Component")
-    ).toDF("Subcellular location ID", "Alias", "Category")
+    ).toDF("Subcellular location ID", "Name", "Category")
 
     // when
     val results = Uniprot invokePrivate methodUnderTest(uniprotSsl, uniprotDf)
