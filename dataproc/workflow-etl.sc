@@ -11,12 +11,12 @@ import scala.jdk.CollectionConverters.asJavaIterableConverter
 
 // RELEASE SPECIFIC CONFIGURATION
 val bucket = "open-targets-pre-data-releases"
-val release = "development"
-val etlJar = "etl-backend-6be94af.jar"
-val literatureJar = "etl-literature-465701c.jar"
+val release = "22.09"
+val etlJar = "etl-2209.jar"
+val literatureJar = "etl-literature-2209.jar"
 
 val etlConfiguration = "22_09_platform.conf"
-val literatureConfiguration = "2209_literature_parquet.conf"
+val literatureConfiguration = "2209-literature_json.conf"
 
 // RARELY CHANGED CONFIGURATION
 val projectId = "open-targets-eu-dev"
