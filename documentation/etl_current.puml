@@ -41,7 +41,6 @@ target --> associationOTF
 
 target --> drug
 disease --> drug
-evidence --> drug
 target --> evidence
 disease --> evidence
 
