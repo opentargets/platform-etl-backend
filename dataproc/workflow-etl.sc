@@ -91,7 +91,7 @@ class EtlWorkflowJobs(configEtl: String, configLiterature: String) {
     .build
   val evidenceIndex: OrderedJob = OrderedJob.newBuilder
     .setStepId(evidence)
-    .addAllPrerequisiteStepIds(Iterable(disease, target).asJava)
+    .addAllPrerequisiteStepIds(Iterable(disease, target, empc).asJava)
     .setSparkJob(sparkJob(evidence, etlJar, configEtl))
     .build
   val associationIndex: OrderedJob = OrderedJob.newBuilder
