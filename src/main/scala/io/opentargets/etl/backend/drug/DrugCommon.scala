@@ -223,22 +223,16 @@ object DrugCommon extends Serializable with LazyLogging {
 
   def getUniqTargetsAndDiseasesPerDrugId(evidenceDf: DataFrame): DataFrame =
     evidenceDf
-      .filter(col("sourceId") === "chembl")
       .groupBy(col("drugId"))
       .agg(
-        collect_set(col("targetId")).as("targets"),
-        collect_set(col("diseaseId")).as("diseases")
+        collect_set(col("targetFromSource")).as("targets"),
+        collect_set(col("diseaseFromSource")).as("diseases")
       )
       .withColumn("targetCount", size(col("targets")))
       .withColumn("diseaseCount", size(col("diseases")))
-      .withColumn(
-        "linkedTargets",
-        struct(col("targets").as("rows"), col("targetCount").as("count"))
+      .select(
+        col("drugId") as "id",
+        struct(col("targets").as("rows"), col("targetCount").as("count")) as "linkedTargets",
+        struct(col("diseases").as("rows"), col("diseaseCount").as("count")) as "linkedDiseases"
       )
-      .withColumn(
-        "linkedDiseases",
-        struct(col("diseases").as("rows"), col("diseaseCount").as("count"))
-      )
-      .select("drugId", "linkedTargets", "linkedDiseases")
-
 }

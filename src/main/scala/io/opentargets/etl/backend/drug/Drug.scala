@@ -31,7 +31,7 @@ object Drug extends Serializable with LazyLogging {
       "drugbankChemblMap" -> drugConfiguration.drugbankToChembl,
       "efo" -> drugConfiguration.diseaseEtl,
       "gene" -> drugConfiguration.targetEtl,
-      "evidence" -> drugConfiguration.evidenceEtl
+      "chembl_evidence" -> drugConfiguration.evidenceEtl
     )
 
     val inputDataFrames = IoHelpers.readFrom(mappedInputs)
@@ -46,7 +46,7 @@ object Drug extends Serializable with LazyLogging {
       .withColumnRenamed("From src:'1'", "id")
       .withColumnRenamed("To src:'2'", "drugbank_id")
     lazy val efoDf: DataFrame = inputDataFrames("efo").data
-    lazy val evidenceDf: DataFrame = inputDataFrames("evidence").data
+    lazy val evidenceDf: DataFrame = inputDataFrames("chembl_evidence").data
     lazy val warningRawDf: DataFrame = inputDataFrames("warnings").data
 
     // processed dataframes
@@ -58,7 +58,7 @@ object Drug extends Serializable with LazyLogging {
     val mechanismOfActionProcessedDf: DataFrame =
       MechanismOfAction(mechanismDf, targetDf, geneDf)
     val targetsAndDiseasesDf =
-      DrugCommon.getUniqTargetsAndDiseasesPerDrugId(evidenceDf).withColumnRenamed("drugId", "id")
+      DrugCommon.getUniqTargetsAndDiseasesPerDrugId(evidenceDf)
     val warningsDF = DrugWarning(warningRawDf)
 
     logger.whenTraceEnabled {
