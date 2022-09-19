@@ -52,13 +52,11 @@ object Drug extends Serializable with LazyLogging {
     // processed dataframes
     logger.info("Raw inputs for Drug loaded.")
     logger.info("Processing Drug transformations.")
-    val indicationProcessedDf = Indication(indicationDf, efoDf)
+    val indicationProcessedDf = Indication(indicationDf, efoDf).cache
     val moleculeProcessedDf =
       Molecule(moleculeDf, drugbank2ChemblMap, drugConfiguration.drugExtensions)
     val mechanismOfActionProcessedDf: DataFrame =
-      MechanismOfAction(mechanismDf, targetDf, geneDf)
-    val targetsAndDiseasesDf =
-      DrugCommon.getUniqTargetsAndDiseasesPerDrugId(evidenceDf)
+      MechanismOfAction(mechanismDf, targetDf, geneDf).cache
     val warningsDF = DrugWarning(warningRawDf)
 
     logger.whenTraceEnabled {
@@ -68,12 +66,10 @@ object Drug extends Serializable with LazyLogging {
              \n\t Molecule: ${columnString(moleculeProcessedDf)},
              \n\t Indications: ${columnString(indicationDf)},
              \n\t Mechanisms: ${columnString(mechanismOfActionProcessedDf)},
-             \n\t Linkages: ${columnString(targetsAndDiseasesDf)}
              Row counts:
              \n\t Molecule: ${moleculeProcessedDf.count},
              \n\t Indications: ${indicationDf.count},
              \n\t Mechanisms: ${mechanismOfActionProcessedDf.count},
-             \n\t Linkages: ${targetsAndDiseasesDf.count}
              """)
     }
 
@@ -91,7 +87,7 @@ object Drug extends Serializable with LazyLogging {
     val drugDf: DataFrame = moleculeProcessedDf
       .join(
         indicationProcessedDf
-          .select("id", "indications"),
+          .select("id", "indications", "linkedDiseases"),
         Seq("id"),
         "left_outer"
       )
@@ -103,7 +99,6 @@ object Drug extends Serializable with LazyLogging {
         Seq("id"),
         "left_outer"
       )
-      .join(targetsAndDiseasesDf, Seq("id"), "left_outer")
       .filter(isDrugMolecule)
       .transform(addDescription)
       .drop("indications", "mechanismsOfAction", "withdrawnNotice ")
@@ -112,7 +107,7 @@ object Drug extends Serializable with LazyLogging {
     val dataframesToSave: IOResources = Map(
       "drug" -> IOResource(drugDf, outputs.drug),
       "mechanism_of_action" -> IOResource(mechanismOfActionProcessedDf, outputs.mechanismOfAction),
-      "indication" -> IOResource(indicationProcessedDf, outputs.indications),
+      "indication" -> IOResource(indicationProcessedDf.drop("linkedDiseases"), outputs.indications),
       "drug_warnings" -> IOResource(warningsDF, outputs.warnings)
     )
 

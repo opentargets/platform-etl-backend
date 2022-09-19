@@ -5,12 +5,20 @@ import org.apache.spark.sql.{DataFrame, SparkSession}
 import org.apache.spark.sql.functions._
 
 /** Object to process ChEMBL indications for incorporation into Drug.
-  *
-  * \|-- id: string \|-- indications: array \| |-- element: struct \| | |-- disease: string \| | |--
-  * efoName: string \| | |-- disease: string \| | |-- references: array \| | | |-- element: struct
-  * \| | | | |-- ids: array \| | | | | |-- element: string \| | | | |-- source: string \| | |--
-  * maxPhaseForIndication: long \|-- approvedIndications: array \| |-- element: string \|--
-  * indicationCount: integer
+  * -- id: string
+  * -- indications: array
+  * ----- disease: string
+  * ----- efoName: string
+  * ----- disease: string
+  * ----- references: array
+  * ------- ids: array
+  * ------- source: string
+  * ----- maxPhaseForIndication: long
+  * -- approvedIndications: array
+  * -- indicationCount: integer
+  * -- linkedDiseases:
+  * ---- rows: array
+  * ---- count: int
   *
   * There is some duplication of results here as the same ChEMBL ID can have the same indication,
   * but this implementation is much faster in ES to serve the API.
@@ -44,6 +52,12 @@ object Indication extends Serializable with LazyLogging {
         ) as "approvedIndications"
       )
       .withColumn("indicationCount", size(col("indications")))
+      .withColumn("linkedDiseases",
+                  struct(
+                    col("indications.disease") as "rows",
+                    size(col("indications.disease")) as "count"
+                  )
+      )
   }
 
   /** @param rawEfoData
