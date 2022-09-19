@@ -30,8 +30,7 @@ object Drug extends Serializable with LazyLogging {
       "warnings" -> drugConfiguration.chemblWarning,
       "drugbankChemblMap" -> drugConfiguration.drugbankToChembl,
       "efo" -> drugConfiguration.diseaseEtl,
-      "gene" -> drugConfiguration.targetEtl,
-      "chembl_evidence" -> drugConfiguration.evidenceEtl
+      "gene" -> drugConfiguration.targetEtl
     )
 
     val inputDataFrames = IoHelpers.readFrom(mappedInputs)
@@ -58,6 +57,7 @@ object Drug extends Serializable with LazyLogging {
     val mechanismOfActionProcessedDf: DataFrame =
       MechanismOfAction(mechanismDf, targetDf, geneDf).cache
     val warningsDF = DrugWarning(warningRawDf)
+    val linkedTargetDf = computeLinkedTargets(mechanismOfActionProcessedDf)
 
     logger.whenTraceEnabled {
       val columnString: DataFrame => String = _.columns.mkString("Columns: [", ",", "]")
@@ -99,6 +99,7 @@ object Drug extends Serializable with LazyLogging {
         Seq("id"),
         "left_outer"
       )
+      .join(linkedTargetDf, Seq("id"), "left_outer")
       .filter(isDrugMolecule)
       .transform(addDescription)
       .drop("indications", "mechanismsOfAction", "withdrawnNotice ")
@@ -122,5 +123,22 @@ object Drug extends Serializable with LazyLogging {
     Seq("tradeNames", "synonyms").foldLeft(df) { (dataF, column) =>
       dataF.withColumn(column, coalesce(col(column), typedLit(Seq.empty)))
     }
+
+  /** @param dataFrame
+    *   precomputed MOA dataframe
+    * @return
+    *   dataframe of id, linkedTargets where the id is a ChEMBL ID and `linkedTargets` is a struct
+    *   of `row, count` where row is an array of Ensembl Gene IDs.
+    */
+  def computeLinkedTargets(dataFrame: DataFrame): DataFrame = dataFrame
+    .select(explode(col("chemblIds")) as "id", col("targets"))
+    .groupBy("id")
+    .agg(array_distinct(flatten(collect_list(col("targets")))) as "rows")
+    .select(col("id"),
+            struct(
+              col("rows"),
+              size(col("rows")) as "count"
+            ) as "linkedTargets"
+    )
 
 }
