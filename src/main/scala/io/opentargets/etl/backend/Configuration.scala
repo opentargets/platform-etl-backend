@@ -108,7 +108,6 @@ object Configuration extends LazyLogging {
       drugExtensions: Seq[InputExtension],
       diseaseEtl: IOResourceConfig,
       targetEtl: IOResourceConfig,
-      evidenceEtl: IOResourceConfig,
       outputs: DrugOutputs
   )
 

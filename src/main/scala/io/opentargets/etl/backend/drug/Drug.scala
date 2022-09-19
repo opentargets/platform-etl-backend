@@ -45,7 +45,6 @@ object Drug extends Serializable with LazyLogging {
       .withColumnRenamed("From src:'1'", "id")
       .withColumnRenamed("To src:'2'", "drugbank_id")
     lazy val efoDf: DataFrame = inputDataFrames("efo").data
-    lazy val evidenceDf: DataFrame = inputDataFrames("chembl_evidence").data
     lazy val warningRawDf: DataFrame = inputDataFrames("warnings").data
 
     // processed dataframes
