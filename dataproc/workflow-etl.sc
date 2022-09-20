@@ -39,7 +39,7 @@ class EtlWorkflowJobs(configEtl: String, configLiterature: String) {
   val reactome = "reactome"
   val expression = "expression"
   val go = "go-step"
-  val empc = "epmc-step"
+  val epmc = "epmc-step"
   val target = "target"
   val interaction = "interaction"
   val targetValidation = "targetValidation"
@@ -58,9 +58,9 @@ class EtlWorkflowJobs(configEtl: String, configLiterature: String) {
     .setSparkJob(sparkJob(disease, etlJar, configEtl))
     .build
   val empcEvidence: OrderedJob = OrderedJob.newBuilder
-    .setStepId(empc)
+    .setStepId(epmc)
     .addPrerequisiteStepIds(literature)
-    .setSparkJob(sparkJob(empc, etlJar, configEtl))
+    .setSparkJob(sparkJob(epmc, etlJar, configEtl))
     .build
   val reactomeIndex: OrderedJob = OrderedJob.newBuilder
     .setStepId(reactome)
@@ -91,7 +91,7 @@ class EtlWorkflowJobs(configEtl: String, configLiterature: String) {
     .build
   val evidenceIndex: OrderedJob = OrderedJob.newBuilder
     .setStepId(evidence)
-    .addAllPrerequisiteStepIds(Iterable(disease, target, empc).asJava)
+    .addAllPrerequisiteStepIds(Iterable(disease, target, epmc).asJava)
     .setSparkJob(sparkJob(evidence, etlJar, configEtl))
     .build
   val associationIndex: OrderedJob = OrderedJob.newBuilder
