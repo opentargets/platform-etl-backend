@@ -38,7 +38,7 @@ class EtlWorkflowJobs(configEtl: String, configLiterature: String) {
   val disease = "disease"
   val reactome = "reactome"
   val expression = "expression"
-  val go = "go"
+  val go = "go-step"
   val epmc = "epmc"
   val target = "target"
   val interaction = "interaction"
@@ -72,7 +72,7 @@ class EtlWorkflowJobs(configEtl: String, configLiterature: String) {
     .build
   val goIndex: OrderedJob = OrderedJob.newBuilder
     .setStepId(go)
-    .setSparkJob(sparkJob(go, etlJar, configEtl))
+    .setSparkJob(sparkJob("go", etlJar, configEtl))
     .build
   val targetIndex: OrderedJob = OrderedJob.newBuilder
     .setStepId(target)
