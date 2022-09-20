@@ -57,7 +57,7 @@ class EtlWorkflowJobs(configEtl: String, configLiterature: String) {
     .setStepId(disease)
     .setSparkJob(sparkJob(disease, etlJar, configEtl))
     .build
-  val empcEvidence: OrderedJob = OrderedJob.newBuilder
+  val epmcEvidence: OrderedJob = OrderedJob.newBuilder
     .setStepId(epmc)
     .addPrerequisiteStepIds(literature)
     .setSparkJob(sparkJob(epmc, etlJar, configEtl))
@@ -72,7 +72,7 @@ class EtlWorkflowJobs(configEtl: String, configLiterature: String) {
     .build
   val goIndex: OrderedJob = OrderedJob.newBuilder
     .setStepId(go)
-    .setSparkJob(sparkJob("go", etlJar, configEtl))
+    .setSparkJob(sparkJob(go, etlJar, configEtl))
     .build
   val targetIndex: OrderedJob = OrderedJob.newBuilder
     .setStepId(target)
@@ -223,7 +223,7 @@ class EtlWorkflow(jobs: EtlWorkflowJobs) {
     .addJobs(jobs.ebiSearchIndex)
     .addJobs(jobs.fdaIndex)
     .addJobs(jobs.literatureIndex)
-    .addJobs(jobs.empcEvidence)
+    .addJobs(jobs.epmcEvidence)
     .setPlacement(workflowTemplatePlacement)
     .build
 
