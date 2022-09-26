@@ -4,6 +4,7 @@ import io.opentargets.etl.backend.EtlSparkUnitTest
 import io.opentargets.etl.backend.target.EnsemblTest.ensemblRawDf
 import org.apache.spark.sql.functions.col
 import org.apache.spark.sql.{DataFrame, SparkSession}
+import org.scalatest.PrivateMethodTester
 import org.scalatest.matchers.should.Matchers.convertToAnyShouldWrapper
 import org.scalatest.matchers.should.Matchers._
 
@@ -14,7 +15,7 @@ object EnsemblTest {
 
 case class Exon(start: Int, end: Int)
 
-class EnsemblTest extends EtlSparkUnitTest {
+class EnsemblTest extends EtlSparkUnitTest with PrivateMethodTester {
 
   "Ensembl" should "convert raw dataframe into Ensembl objects without loss" in {
     // given
@@ -108,5 +109,26 @@ class EnsemblTest extends EtlSparkUnitTest {
       .getSeq[Integer](0)
     t1 should contain inOrderOnly (1, 2, 5, 6)
 
+  }
+
+  "Canonical Transcript" should "be on the same chromosome as the Gene" in {
+    // given
+    import sparkSession.implicits._
+    val addTranscript = PrivateMethod[DataFrame]('addCanonicalTranscriptId)
+    val ensemblDf = Seq(("ENSG00000228572", "X")).toDF("id", "chromosome")
+    val transcriptDf =
+      Seq(
+        GeneAndCanonicalTranscript("ENSG00000228572",
+                                   CanonicalTranscript("ENST00000431238", "X", 253743, 255091, "+")
+        ),
+        GeneAndCanonicalTranscript("ENSG00000228572",
+                                   CanonicalTranscript("ENST00000431238", "Y", 253743, 255091, "+")
+        )
+      ).toDS()
+
+    // when
+    val results = Ensembl invokePrivate addTranscript(ensemblDf, transcriptDf)
+    // then
+    results.count() should equal(1)
   }
 }
