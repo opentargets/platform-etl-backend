@@ -67,7 +67,14 @@ object Ensembl extends LazyLogging {
       dataFrame: DataFrame,
       canonicalTranscripts: Dataset[GeneAndCanonicalTranscript]
   ): DataFrame =
-    dataFrame.join(canonicalTranscripts, Seq("id"), "left_outer")
+    dataFrame
+      .join(
+        canonicalTranscripts.withColumnRenamed("id", "ctId"),
+        col("id") === col("ctId")
+          && col("chromosome") === col("canonicalTranscript.chromosome"),
+        "left_outer"
+      )
+      .drop("ctId")
 
   /** Adds canonicalExons to dataframe as an array of Array(e1_start, e1_end, ..., en_start,
     * en_end).
