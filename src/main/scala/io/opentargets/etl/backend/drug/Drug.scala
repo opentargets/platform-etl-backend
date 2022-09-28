@@ -30,8 +30,7 @@ object Drug extends Serializable with LazyLogging {
       "warnings" -> drugConfiguration.chemblWarning,
       "drugbankChemblMap" -> drugConfiguration.drugbankToChembl,
       "efo" -> drugConfiguration.diseaseEtl,
-      "gene" -> drugConfiguration.targetEtl,
-      "chembl_evidence" -> drugConfiguration.evidenceEtl
+      "gene" -> drugConfiguration.targetEtl
     )
 
     val inputDataFrames = IoHelpers.readFrom(mappedInputs)
@@ -46,20 +45,18 @@ object Drug extends Serializable with LazyLogging {
       .withColumnRenamed("From src:'1'", "id")
       .withColumnRenamed("To src:'2'", "drugbank_id")
     lazy val efoDf: DataFrame = inputDataFrames("efo").data
-    lazy val evidenceDf: DataFrame = inputDataFrames("chembl_evidence").data
     lazy val warningRawDf: DataFrame = inputDataFrames("warnings").data
 
     // processed dataframes
     logger.info("Raw inputs for Drug loaded.")
     logger.info("Processing Drug transformations.")
-    val indicationProcessedDf = Indication(indicationDf, efoDf)
+    val indicationProcessedDf = Indication(indicationDf, efoDf).cache
     val moleculeProcessedDf =
       Molecule(moleculeDf, drugbank2ChemblMap, drugConfiguration.drugExtensions)
     val mechanismOfActionProcessedDf: DataFrame =
-      MechanismOfAction(mechanismDf, targetDf, geneDf)
-    val targetsAndDiseasesDf =
-      DrugCommon.getUniqTargetsAndDiseasesPerDrugId(evidenceDf)
+      MechanismOfAction(mechanismDf, targetDf, geneDf).cache
     val warningsDF = DrugWarning(warningRawDf)
+    val linkedTargetDf = computeLinkedTargets(mechanismOfActionProcessedDf)
 
     logger.whenTraceEnabled {
       val columnString: DataFrame => String = _.columns.mkString("Columns: [", ",", "]")
@@ -68,12 +65,10 @@ object Drug extends Serializable with LazyLogging {
              \n\t Molecule: ${columnString(moleculeProcessedDf)},
              \n\t Indications: ${columnString(indicationDf)},
              \n\t Mechanisms: ${columnString(mechanismOfActionProcessedDf)},
-             \n\t Linkages: ${columnString(targetsAndDiseasesDf)}
              Row counts:
              \n\t Molecule: ${moleculeProcessedDf.count},
              \n\t Indications: ${indicationDf.count},
              \n\t Mechanisms: ${mechanismOfActionProcessedDf.count},
-             \n\t Linkages: ${targetsAndDiseasesDf.count}
              """)
     }
 
@@ -91,7 +86,7 @@ object Drug extends Serializable with LazyLogging {
     val drugDf: DataFrame = moleculeProcessedDf
       .join(
         indicationProcessedDf
-          .select("id", "indications"),
+          .select("id", "indications", "linkedDiseases"),
         Seq("id"),
         "left_outer"
       )
@@ -103,7 +98,7 @@ object Drug extends Serializable with LazyLogging {
         Seq("id"),
         "left_outer"
       )
-      .join(targetsAndDiseasesDf, Seq("id"), "left_outer")
+      .join(linkedTargetDf, Seq("id"), "left_outer")
       .filter(isDrugMolecule)
       .transform(addDescription)
       .drop("indications", "mechanismsOfAction", "withdrawnNotice ")
@@ -112,7 +107,7 @@ object Drug extends Serializable with LazyLogging {
     val dataframesToSave: IOResources = Map(
       "drug" -> IOResource(drugDf, outputs.drug),
       "mechanism_of_action" -> IOResource(mechanismOfActionProcessedDf, outputs.mechanismOfAction),
-      "indication" -> IOResource(indicationProcessedDf, outputs.indications),
+      "indication" -> IOResource(indicationProcessedDf.drop("linkedDiseases"), outputs.indications),
       "drug_warnings" -> IOResource(warningsDF, outputs.warnings)
     )
 
@@ -127,5 +122,22 @@ object Drug extends Serializable with LazyLogging {
     Seq("tradeNames", "synonyms").foldLeft(df) { (dataF, column) =>
       dataF.withColumn(column, coalesce(col(column), typedLit(Seq.empty)))
     }
+
+  /** @param dataFrame
+    *   precomputed MOA dataframe
+    * @return
+    *   dataframe of id, linkedTargets where the id is a ChEMBL ID and `linkedTargets` is a struct
+    *   of `row, count` where row is an array of Ensembl Gene IDs.
+    */
+  def computeLinkedTargets(dataFrame: DataFrame): DataFrame = dataFrame
+    .select(explode(col("chemblIds")) as "id", col("targets"))
+    .groupBy("id")
+    .agg(array_distinct(flatten(collect_list(col("targets")))) as "rows")
+    .select(col("id"),
+            struct(
+              col("rows"),
+              size(col("rows")) as "count"
+            ) as "linkedTargets"
+    )
 
 }

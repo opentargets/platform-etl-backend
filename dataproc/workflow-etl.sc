@@ -11,12 +11,12 @@ import scala.jdk.CollectionConverters.asJavaIterableConverter
 
 // RELEASE SPECIFIC CONFIGURATION
 val bucket = "open-targets-pre-data-releases"
-val release = "development"
-val etlJar = "etl-backend-6be94af.jar"
-val literatureJar = "etl-literature-465701c.jar"
+val release = "22.09"
+val etlJar = "etl-2209.jar"
+val literatureJar = "etl-literature-2209.jar"
 
 val etlConfiguration = "22_09_platform.conf"
-val literatureConfiguration = "2209_literature_parquet.conf"
+val literatureConfiguration = "2209-literature_json.conf"
 
 // RARELY CHANGED CONFIGURATION
 val projectId = "open-targets-eu-dev"
@@ -39,7 +39,7 @@ class EtlWorkflowJobs(configEtl: String, configLiterature: String) {
   val reactome = "reactome"
   val expression = "expression"
   val go = "go-step"
-  val empc = "epmc-step"
+  val epmc = "epmc"
   val target = "target"
   val interaction = "interaction"
   val targetValidation = "targetValidation"
@@ -57,10 +57,10 @@ class EtlWorkflowJobs(configEtl: String, configLiterature: String) {
     .setStepId(disease)
     .setSparkJob(sparkJob(disease, etlJar, configEtl))
     .build
-  val empcEvidence: OrderedJob = OrderedJob.newBuilder
-    .setStepId(empc)
+  val epmcEvidence: OrderedJob = OrderedJob.newBuilder
+    .setStepId(epmc)
     .addPrerequisiteStepIds(literature)
-    .setSparkJob(sparkJob(empc, etlJar, configEtl))
+    .setSparkJob(sparkJob(epmc, etlJar, configEtl))
     .build
   val reactomeIndex: OrderedJob = OrderedJob.newBuilder
     .setStepId(reactome)
@@ -91,7 +91,7 @@ class EtlWorkflowJobs(configEtl: String, configLiterature: String) {
     .build
   val evidenceIndex: OrderedJob = OrderedJob.newBuilder
     .setStepId(evidence)
-    .addAllPrerequisiteStepIds(Iterable(disease, target).asJava)
+    .addAllPrerequisiteStepIds(Iterable(disease, target, epmc).asJava)
     .setSparkJob(sparkJob(evidence, etlJar, configEtl))
     .build
   val associationIndex: OrderedJob = OrderedJob.newBuilder
@@ -223,7 +223,7 @@ class EtlWorkflow(jobs: EtlWorkflowJobs) {
     .addJobs(jobs.ebiSearchIndex)
     .addJobs(jobs.fdaIndex)
     .addJobs(jobs.literatureIndex)
-    .addJobs(jobs.empcEvidence)
+    .addJobs(jobs.epmcEvidence)
     .setPlacement(workflowTemplatePlacement)
     .build
 

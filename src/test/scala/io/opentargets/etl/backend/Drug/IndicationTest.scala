@@ -48,7 +48,7 @@ class IndicationTest extends EtlSparkUnitTest {
     val results: DataFrame = Indication(indicationDf, efoDf)(sparkSession)
     // then
     val expectedColumns: Set[String] =
-      Set("id", "indications", "approvedIndications", "indicationCount")
+      Set("id", "indications", "approvedIndications", "indicationCount", "linkedDiseases")
 
     assert(
       results.columns
