@@ -1,9 +1,7 @@
 package io.opentargets.etl.backend.openfda.stage
 
 import akka.actor.TypedActor.context
-import io.opentargets.etl.backend.spark.Helpers.IOResourceConfig
 import io.opentargets.etl.backend.spark.IoHelpers
-import io.opentargets.etl.backend.spark.IoHelpers.IOResourceConfigurations
 import io.opentargets.etl.backend.{
   Blacklisting,
   DrugData,

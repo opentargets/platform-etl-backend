@@ -10,7 +10,8 @@ object Dependencies {
     sparkDeps,
     testingDeps,
     gcp,
-    Seq(typeSafeConfig)
+    Seq(typeSafeConfig),
+    johnS
   ).flatten
 
   lazy val betterFiles = "com.github.pathikrit" %% "better-files-akka" % "3.9.1"
@@ -50,5 +51,10 @@ object Dependencies {
   lazy val gcp = Seq(
     "com.google.cloud" % "google-cloud-dataproc" % "2.3.2" % "provided",
     "com.google.cloud" % "google-cloud-storage" % "2.4.2"
+  )
+
+  lazy val johnSVersion = "3.3.4"
+  lazy val johnS = Seq(
+    "com.johnsnowlabs.nlp" % "spark-nlp_2.12" % johnSVersion
   )
 }

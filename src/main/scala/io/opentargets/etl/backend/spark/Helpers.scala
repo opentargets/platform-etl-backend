@@ -35,19 +35,6 @@ object Helpers extends LazyLogging {
     */
   def mkRandomPrefix(length: Int = 5): String =
     Random.alphanumeric.take(length).mkString("", "", "_")
-
-  type IOResourceConfigurations = Map[String, IOResourceConfig]
-  type IOResources = Map[String, IOResource]
-
-  case class IOResource(data: DataFrame, configuration: IOResourceConfig)
-  case class IOResourceConfigOption(k: String, v: String)
-  case class IOResourceConfig(
-      format: String,
-      path: String,
-      options: Option[Seq[IOResourceConfigOption]] = None,
-      partitionBy: Option[Seq[String]] = None
-  )
-
   case class IdAndSource(id: String, source: String)
   case class LabelAndSource(label: String, source: String)
 

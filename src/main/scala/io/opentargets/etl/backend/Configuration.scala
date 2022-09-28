@@ -297,6 +297,56 @@ object Configuration extends LazyLogging {
       sampling: OpenfdaSamplingSection,
       outputs: OpenfdaOutputsSection
   )
+
+  case class LiteratureProcessingOutputs(rawEvidence: IOResourceConfig,
+                                         cooccurrences: IOResourceConfig,
+                                         matches: IOResourceConfig,
+                                         literatureIndex: IOResourceConfig
+  )
+
+  case class LiteratureProcessing(epmcids: IOResourceConfig,
+                                  diseases: IOResourceConfig,
+                                  targets: IOResourceConfig,
+                                  drugs: IOResourceConfig,
+                                  epmc: IOResourceConfig,
+                                  outputs: LiteratureProcessingOutputs
+  )
+
+  case class LiteratureModelConfiguration(windowSize: Int,
+                                          numPartitions: Int,
+                                          maxIter: Int,
+                                          minCount: Int,
+                                          stepSize: Double
+  )
+
+  case class LiteratureEmbeddingOutputs(model: IOResourceConfig, trainingSet: IOResourceConfig)
+
+  case class LiteratureEmbedding(modelConfiguration: LiteratureModelConfiguration,
+                                 input: IOResourceConfig,
+                                 outputs: LiteratureEmbeddingOutputs
+  )
+
+  case class LiteratureVectors(input: String, output: IOResourceConfig)
+
+  case class LiteratureEvidenceInputs(matches: IOResourceConfig,
+                                      cooccurrences: IOResourceConfig,
+                                      model: IOResourceConfig
+  )
+
+  case class LiteratureEvidence(threshold: Option[Double],
+                                inputs: LiteratureEvidenceInputs,
+                                output: IOResourceConfig
+  )
+
+  case class LiteratureSectionRanks(section: String, rank: Long, weight: Double)
+
+  case class LiteratureSection(publicationSectionRanks: List[LiteratureSectionRanks],
+                               processing: LiteratureProcessing,
+                               embedding: LiteratureEmbedding,
+                               vectors: LiteratureVectors,
+                               evidence: LiteratureEvidence
+  )
+
   // --- END --- //
 
   case class EtlStep[T](step: T, dependencies: List[T])
@@ -324,6 +374,7 @@ object Configuration extends LazyLogging {
       openfda: OpenfdaSection,
       ebisearch: EBISearchSection,
       otarproject: OtarProjectSection,
+      literature: LiteratureSection,
       epmc: Epmc
   )
 }
