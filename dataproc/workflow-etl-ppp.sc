@@ -56,6 +56,7 @@ class EtlWorkflowJobs(configEtl: String) {
     .build
   val otarIndex: OrderedJob = OrderedJob.newBuilder
     .setStepId(otar)
+    .addPrerequisiteStepIds(disease)
     .setSparkJob(sparkJob(otar, etlJar, configEtl))
     .build
   val epmcEvidence: OrderedJob = OrderedJob.newBuilder
