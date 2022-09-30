@@ -43,7 +43,7 @@ object Evidence extends Serializable with LazyLogging {
     import etlSessionContext.sparkSession.implicits._
 
     val sectionImportances =
-      etlSessionContext.configuration.literature.publicationSectionRanks
+      etlSessionContext.configuration.literature.common.publicationSectionRanks
     val sectionRankTable =
       broadcast(
         sectionImportances

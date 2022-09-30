@@ -64,14 +64,27 @@ object Helpers extends LazyLogging {
     * @return
     *   a sparksession object
     */
-  def getOrCreateSparkSession(appName: String, sparkUri: Option[String]): SparkSession = {
+  def getOrCreateSparkSession(appName: String,
+                              configKeys: Seq[IOResourceConfigOption],
+                              sparkUri: Option[String]
+  ): SparkSession = {
+
+    val conf = getSparkSessionConfig(appName, configKeys, sparkUri)
+
+    SparkSession.builder
+      .config(conf)
+      .getOrCreate
+  }
+
+  def getSparkSessionConfig(appName: String,
+                            configKeys: Seq[IOResourceConfigOption],
+                            sparkUri: Option[String]
+  ): SparkConf = {
     logger.info(s"create spark session with uri:'${sparkUri.toString}'")
+    val keys = configKeys.map(va => (va.k, va.v))
     val sparkConf: SparkConf = new SparkConf()
       .setAppName(appName)
-      .set("spark.driver.maxResultSize", "0")
-      .set("spark.debug.maxToStringFields", "2000")
-      // TODO - Externalize this to a configuration parameter (put in here for literature pipeline)
-      .set("spark.sql.broadcastTimeout", "3000")
+      .setAll(keys)
 
     // if some uri then setmaster must be set otherwise
     // it tries to get from env if any yarn running
@@ -80,9 +93,7 @@ object Helpers extends LazyLogging {
       case _                         => sparkConf
     }
 
-    SparkSession.builder
-      .config(conf)
-      .getOrCreate
+    conf
   }
 
   /** apply to newNameFn() to the new name for the transformation and columnFn() to the inColumn it

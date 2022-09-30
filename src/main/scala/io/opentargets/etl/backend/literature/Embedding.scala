@@ -32,7 +32,7 @@ object Embedding extends Serializable with LazyLogging {
 
     logger.info("prepare matches regrouping the entities by ranked section")
     val sectionImportances =
-      etlSessionContext.configuration.literature.publicationSectionRanks
+      etlSessionContext.configuration.literature.common.publicationSectionRanks
     val sectionRankTable =
       broadcast(
         sectionImportances

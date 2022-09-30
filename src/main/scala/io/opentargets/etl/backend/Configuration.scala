@@ -2,7 +2,7 @@ package io.opentargets.etl.backend
 
 import com.typesafe.config.ConfigFactory
 import com.typesafe.scalalogging.LazyLogging
-import io.opentargets.etl.backend.spark.IOResourceConfig
+import io.opentargets.etl.backend.spark.{IOResourceConfig, IOResourceConfigOption}
 import pureconfig.ConfigReader.Result
 import pureconfig._
 import pureconfig.generic.auto._
@@ -236,7 +236,10 @@ object Configuration extends LazyLogging {
 
   case class TargetOutput(target: IOResourceConfig)
 
-  case class SparkSettings(writeMode: String, ignoreIfExists: Boolean) {
+  case class SparkSettings(writeMode: String,
+                           ignoreIfExists: Boolean,
+                           defaultSparkSessionConfig: Seq[IOResourceConfigOption]
+  ) {
     val validWriteModes = Set("error", "errorifexists", "append", "overwrite", "ignore")
     require(
       validWriteModes.contains(writeMode),
@@ -340,7 +343,11 @@ object Configuration extends LazyLogging {
 
   case class LiteratureSectionRanks(section: String, rank: Long, weight: Double)
 
-  case class LiteratureSection(publicationSectionRanks: List[LiteratureSectionRanks],
+  case class LiteratureCommon(publicationSectionRanks: List[LiteratureSectionRanks],
+                              sparkSessionConfig: Option[Seq[IOResourceConfigOption]] = None
+  )
+
+  case class LiteratureSection(common: LiteratureCommon,
                                processing: LiteratureProcessing,
                                embedding: LiteratureEmbedding,
                                vectors: LiteratureVectors,

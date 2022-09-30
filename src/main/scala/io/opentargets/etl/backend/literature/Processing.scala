@@ -54,7 +54,7 @@ object Processing extends Serializable with LazyLogging {
   private def filterMatchesForCH(df: DataFrame)(implicit context: ETLSessionContext): DataFrame = {
     import context.sparkSession.implicits._
 
-    val sectionImportances = context.configuration.literature.publicationSectionRanks
+    val sectionImportances = context.configuration.literature.common.publicationSectionRanks
     val titleWeight = sectionImportances.withFilter(_.section == "title").map(_.weight).head
 
     val sectionRankTable =
