@@ -11,6 +11,13 @@ object Literature extends LazyLogging {
 
   def apply()(implicit context: ETLSessionContext): Unit = {
 
+    val etlSessionContext: ETLSessionContext = createETLSession()
+
+    runSteps(etlSessionContext)
+
+  }
+
+  def createETLSession()(implicit context: ETLSessionContext) = {
     val config = context.configuration
 
     val configurations = config.sparkSettings.defaultSparkSessionConfig
@@ -22,9 +29,7 @@ object Literature extends LazyLogging {
       config,
       getOrCreateSparkSession(progName, litConfigurations, config.sparkUri)
     )
-
-    runSteps(etlSessionContext)
-
+    etlSessionContext
   }
 
   def runSteps(etlSessionContext: ETLSessionContext) = {
