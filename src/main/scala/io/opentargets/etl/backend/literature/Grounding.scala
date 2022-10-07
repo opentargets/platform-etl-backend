@@ -1,6 +1,6 @@
 package io.opentargets.etl.backend.literature
 
-import io.opentargets.etl.backend.literature.spark.Helpers.{normalise, replaceSpacesSchema}
+import io.opentargets.etl.backend.spark.Helpers.replaceSpacesSchema
 import io.opentargets.etl.backend.spark.IoHelpers.readFrom
 import com.typesafe.scalalogging.LazyLogging
 import org.apache.spark.sql.functions._
@@ -158,6 +158,10 @@ object Grounding extends Serializable with LazyLogging {
       B.withColumnRenamed(p._1, p._2)
     }
   }
+
+  def normalise(c: Column): Column =
+    // https://www.rapidtables.com/math/symbols/greek_alphabet.html
+    translate(c, "αβγδεζηικλμνξπτυω", "abgdezhiklmnxptuo")
 
   def mapEntities(entities: DataFrame,
                   luts: DataFrame,

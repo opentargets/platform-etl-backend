@@ -2,11 +2,12 @@ package io.opentargets.etl.backend.literature
 
 import com.typesafe.scalalogging.LazyLogging
 import io.opentargets.etl.backend.ETLSessionContext
-import io.opentargets.etl.backend.literature.spark.Helpers
-import io.opentargets.etl.backend.literature.spark.Helpers.{computeSimilarityScore, harmonicFn}
+import io.opentargets.etl.backend.spark.Helpers.harmonicFn
 import io.opentargets.etl.backend.spark.IOResource
-import io.opentargets.etl.backend.spark.IoHelpers.{IOResources, readFrom, writeTo}
+import io.opentargets.etl.backend.spark.IoHelpers.{readFrom, writeTo}
 import org.apache.spark.ml.feature.Word2VecModel
+import org.apache.spark.ml.linalg.Vector
+import org.apache.spark.ml.linalg.Vectors.norm
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql._
 import org.apache.spark.sql.types._
@@ -35,6 +36,18 @@ object Evidence extends Serializable with LazyLogging {
       StructField(name = "cooccurredPublicationCount", dataType = IntegerType, nullable = false)
     )
   )
+
+  def computeSimilarityScore(col1: Column, col2: Column): Column = {
+    val cossim = udf { (v1: Vector, v2: Vector) =>
+      val n1 = norm(v1, 2d)
+      val n2 = norm(v2, 2d)
+      val denom = n1 * n2
+      if (denom == 0.0) 0.0
+      else (v1 dot v2) / denom
+    }
+
+    cossim(col1, col2)
+  }
 
   def computeEvidenceFromMatches(model: Word2VecModel,
                                  matches: DataFrame,

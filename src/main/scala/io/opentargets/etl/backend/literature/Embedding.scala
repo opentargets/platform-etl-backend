@@ -1,15 +1,14 @@
 package io.opentargets.etl.backend.literature
 
 import com.typesafe.scalalogging.LazyLogging
-import io.opentargets.etl.backend.Configuration.OTConfig
+import io.opentargets.etl.backend.Configuration.{LiteratureModelConfiguration, OTConfig}
 import io.opentargets.etl.backend.ETLSessionContext
 import io.opentargets.etl.backend.spark.IOResource
 import io.opentargets.etl.backend.spark.IoHelpers.{readFrom, writeTo}
 import org.apache.spark.sql.SparkSession
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql._
-import io.opentargets.etl.backend.literature.spark.Helpers.makeWord2VecModel
-import org.apache.spark.ml.feature.Word2VecModel
+import org.apache.spark.ml.feature.{Word2Vec, Word2VecModel}
 import org.apache.spark.sql.expressions.Window
 
 object Embedding extends Serializable with LazyLogging {
@@ -67,6 +66,28 @@ object Embedding extends Serializable with LazyLogging {
 
     trDS
 
+  }
+
+  def makeWord2VecModel(
+      df: DataFrame,
+      modelConfiguration: LiteratureModelConfiguration,
+      inputColName: String,
+      outputColName: String = "prediction"
+  ): Word2VecModel = {
+    logger.info(s"compute Word2Vec model for input col $inputColName into $outputColName")
+
+    val w2vModel = new Word2Vec()
+      .setWindowSize(modelConfiguration.windowSize)
+      .setNumPartitions(modelConfiguration.numPartitions)
+      .setMaxIter(modelConfiguration.maxIter)
+      .setMinCount(modelConfiguration.minCount)
+      .setStepSize(modelConfiguration.stepSize)
+      .setInputCol(inputColName)
+      .setOutputCol(outputColName)
+
+    val model = w2vModel.fit(df)
+
+    model
   }
 
   def generateModel(

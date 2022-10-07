@@ -4,6 +4,7 @@ import com.typesafe.scalalogging.LazyLogging
 import org.apache.spark.SparkConf
 import org.apache.spark.sql._
 import org.apache.spark.sql.functions.{
+  aggregate,
   array,
   array_distinct,
   array_union,
@@ -14,11 +15,15 @@ import org.apache.spark.sql.functions.{
   filter,
   flatten,
   lit,
+  pow,
+  sequence,
+  size,
+  sort_array,
   struct,
   substring_index,
-  typedLit
+  typedLit,
+  zip_with
 }
-
 import org.apache.spark.sql.types.{ArrayType, DataType, StructField, StructType}
 
 import scala.language.postfixOps
@@ -253,6 +258,13 @@ object Helpers extends LazyLogging {
 
     newDF
   }
+
+  def harmonicFn(c: Column): Column =
+    aggregate(
+      zip_with(sort_array(c, asc = false), sequence(lit(1), size(c)), (e1, e2) => e1 / pow(e2, 2d)),
+      lit(0d),
+      (c1, c2) => c1 + c2
+    )
 
   def renameAllCols(schema: StructType, fn: String => String): StructType = {
 
