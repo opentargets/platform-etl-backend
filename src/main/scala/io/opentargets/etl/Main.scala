@@ -9,6 +9,7 @@ import scala.util._
 import io.opentargets.etl.backend._
 import io.opentargets.etl.backend.drug.Drug
 import io.opentargets.etl.backend.graph.EtlDag
+import io.opentargets.etl.backend.literature.Literature
 import io.opentargets.etl.common.GoogleStorageHelpers
 
 import scala.collection.JavaConverters
@@ -68,6 +69,9 @@ object ETL extends LazyLogging {
       case "targetvalidation" =>
         logger.info("run step targetValidation")
         TargetValidation()
+      case "literature" =>
+        logger.info("run step literature")
+        Literature()
       case _ => throw new IllegalArgumentException(s"step $step is unknown.")
     }
     logger.info(s"finished to run step ($step)")
