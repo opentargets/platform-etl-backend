@@ -7,18 +7,27 @@ val buildResolvers = Seq(
   "Bintray Repo" at "https://dl.bintray.com/spark-packages/maven/"
 )
 
+ThisBuild / organization := "io.opentargets"
+ThisBuild / version := "1.0.0"
+ThisBuild / scalaVersion := "2.12.12"
+
+lazy val workflow = (project in file("workflow")).settings(
+  name := "etl-workflow",
+  libraryDependencies ++= workflowDependencies,
+  scalacOptions ++= Seq("-feature",
+                        "-deprecation",
+                        "-unchecked",
+                        "-language:postfixOps",
+                        "-language:higherKinds",
+                        "-Ypartial-unification"
+  )
+)
+
 lazy val root = (project in file("."))
   .settings(
-    inThisBuild(
-      List(
-        organization := "io.opentargets",
-        scalaVersion := "2.12.12"
-      )
-    ),
     name := "io-opentargets-etl-backend",
-    version := "1.0.0",
     resolvers ++= buildResolvers,
-    libraryDependencies ++= dependencies,
+    libraryDependencies ++= etlDependencies,
     testFrameworks += new TestFramework("minitest.runner.Framework"),
     mainClass in (Compile, run) := Some("io.opentargets.etl.Main"),
     mainClass in (Compile, packageBin) := Some("io.opentargets.etl.Main"),

@@ -2,25 +2,41 @@ import sbt._
 
 object Dependencies {
 
-  lazy val dependencies: Seq[ModuleID] = Seq(
-    Seq(betterFiles),
+  lazy val workflowDependencies: Seq[ModuleID] = Seq(
+    configDeps,
+    cats,
+    gcp,
+    testingDeps,
+    loggingDeps
+  ).flatten
+
+  lazy val etlDependencies: Seq[ModuleID] = Seq(
+    betterFiles,
     configDeps,
     loggingDeps,
     graphDeps,
     sparkDeps,
     testingDeps,
     gcp,
-    Seq(typeSafeConfig)
+    typeSafeConfig
   ).flatten
 
-  lazy val betterFiles = "com.github.pathikrit" %% "better-files-akka" % "3.9.1"
+  lazy val catsVersion = "2.5.3"
+  lazy val cats = Seq(
+    "org.typelevel" %% "cats-effect" % catsVersion,
+    "org.typelevel" %% "log4cats-slf4j" % "2.5.0",
+    "com.github.pureconfig" %% "pureconfig-cats-effect" % "0.17.1",
+    "org.typelevel" %% "cats-effect-testing-scalatest" % "1.4.0" % Test
+  )
+
+  lazy val betterFiles = Seq("com.github.pathikrit" %% "better-files-akka" % "3.9.1")
 
   lazy val configDeps = Seq(
     "com.github.pureconfig" %% "pureconfig" % "0.14.1"
   )
 
   lazy val loggingDeps = Seq(
-    "ch.qos.logback" % "logback-classic" % "1.2.3",
+    "ch.qos.logback" % "logback-classic" % "1.4.1",
     "com.typesafe.scala-logging" %% "scala-logging" % "3.9.2"
   )
 
@@ -45,7 +61,7 @@ object Dependencies {
     "org.scalamock" %% "scalamock" % "5.1.0" % "test"
   )
 
-  lazy val typeSafeConfig = "com.typesafe" % "config" % "1.4.1"
+  lazy val typeSafeConfig = Seq("com.typesafe" % "config" % "1.4.1")
 
   lazy val gcp = Seq(
     "com.google.cloud" % "google-cloud-dataproc" % "2.3.2" % "provided",
