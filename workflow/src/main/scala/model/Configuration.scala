@@ -18,9 +18,23 @@ case class ClusterSettings(name: String,
                            machineType: String,
                            workerCount: Int
 )
-case class WorkflowConfiguration(wfResource: WorkflowResources,
+
+/** @param arg
+  *   name of step to execute and default job id for linking jobs.
+  * @param name
+  *   if arg is an invalid job name, this provides a fallback.
+  * @param deps
+  *   list of dependent step IDs (found in the arg field of other Job instances) which must be run
+  *   before this job.
+  */
+case class Job(arg: String, name: Option[String], deps: Option[Seq[String]]) {
+  def getJobId: String = name.getOrElse(arg)
+}
+
+case class WorkflowConfiguration(workflowResources: WorkflowResources,
                                  gcpSettings: GcpSettings,
-                                 cluster: ClusterSettings
+                                 cluster: ClusterSettings,
+                                 jobs: Seq[Job]
 )
 
 object Configuration {
