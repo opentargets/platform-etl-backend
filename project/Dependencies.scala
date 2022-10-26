@@ -32,7 +32,7 @@ object Dependencies {
   lazy val betterFiles = Seq("com.github.pathikrit" %% "better-files-akka" % "3.9.1")
 
   lazy val configDeps = Seq(
-    "com.github.pureconfig" %% "pureconfig" % "0.14.1"
+    "com.github.pureconfig" %% "pureconfig" % "0.17.1"
   )
 
   lazy val loggingDeps = Seq(
