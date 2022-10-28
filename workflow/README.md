@@ -53,3 +53,10 @@ is executed.
 
 The WorkflowTemplateServiceClient triggers the evaluation of a WorkflowTemplate with the method 
 `instantiateInlineWorkflowTemplateAsync(<location>, <WorkflowTemplate>)`
+
+## Setting up
+
+For information on setting up credentials see the [documentation](https://github.com/googleapis/google-cloud-java#authentication)
+
+Run `gcloud auth application-login login` (if you haven't already) to create an authentication environment variable 
+so that the workflow can be submitted.
