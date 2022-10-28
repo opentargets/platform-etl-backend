@@ -1,4 +1,4 @@
-package cluster
+package service
 
 import cats.data.Reader
 import com.google.cloud.dataproc.v1.{WorkflowTemplateServiceClient, WorkflowTemplateServiceSettings}

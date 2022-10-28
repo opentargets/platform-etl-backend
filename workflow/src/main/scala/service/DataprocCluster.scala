@@ -1,4 +1,4 @@
-package cluster
+package service
 
 import cats.data.Reader
 import com.google.cloud.dataproc.v1._
@@ -15,7 +15,6 @@ import model.ClusterSettings
 object DataprocCluster {
 
   type ClusterR[T] = Reader[ClusterSettings, T]
-
   private def createSoftwareConfig: ClusterR[SoftwareConfig] = Reader { cs =>
     SoftwareConfig.newBuilder
       .setImageVersion(cs.image)
