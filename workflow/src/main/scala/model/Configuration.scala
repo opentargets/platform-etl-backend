@@ -10,6 +10,14 @@ case class WfResource(path: String, file: String) {
   require(path.endsWith("/"))
   val resource: String = path + file
 }
+
+/** @param name
+  *   of workflow
+  * @param steps
+  *   to execute. Name of step must have a matching entry in `jobs.job.arg`. If no steps are
+  *   specified then all jobs will be run.
+  */
+case class Workflow(name: String, steps: Option[List[String]])
 case class GcpSettings(projectId: String, region: String, bucket: String, gcpUrl: String)
 case class ClusterSettings(name: String,
                            zone: String,
@@ -34,6 +42,7 @@ case class Job(arg: String, name: Option[String], deps: Option[Seq[String]]) {
 case class WorkflowConfiguration(workflowResources: WorkflowResources,
                                  gcpSettings: GcpSettings,
                                  cluster: ClusterSettings,
+                                 workflows: List[Workflow],
                                  jobs: Seq[Job]
 )
 

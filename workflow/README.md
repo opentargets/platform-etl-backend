@@ -4,6 +4,24 @@ This package provides an interface for executing Dataproc workflows.
 
 There are two workflows available: `public` and `ppp`. 
 
+## Available workflows
+
+A workflow is a sequence of ordered jobs which will be executed on a [GCP Dataproc cluster](https://cloud.google.com/dataproc/docs).
+
+There are two workflows available: 
+1. Public: Execute all of the steps in the ETL pipeline
+2. PPP: Run steps Evidence, Associations, Search, KnownDrugs, EbiSearch, AssociationsOTF
+
+### Partner Preview Platform
+
+The partner preview platform includes additional evidence sources, so the steps which are executed are the 
+Evidence step, those which are down-stream of the Evidence step so the new data can cascade. Steps above the 
+Evidence step do not need to be re-run. 
+
+Because they do not need to be re-run and some are expensive (notably Literature), the PPP workflow assumes that the 
+public workflow has already been run. The workflow attempts to copy all of the outputs upstream of Evidence to the 
+specified PPP output directory. If these files are unavailable the workflow will return an error. 
+
 ## Concept overview
 
 At the highest level, a Dataproc Workflow is a specification of:
