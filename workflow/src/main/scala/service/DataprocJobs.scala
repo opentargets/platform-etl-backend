@@ -27,7 +27,7 @@ object DataprocJobs {
   private def createJob(job: String): Reader[WorkflowResources, SparkJob] =
     createSparkJobFn.map(fn => fn(job))
 
-  private def createOrderedJob(job: Job): Reader[WorkflowResources, OrderedJob] = {
+  def createOrderedJob(job: Job): Reader[WorkflowResources, OrderedJob] = {
     val orderedJob = for {
       sparkJob <- createJob(job.getJobId)
     } yield OrderedJob.newBuilder

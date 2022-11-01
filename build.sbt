@@ -20,7 +20,8 @@ lazy val workflow = (project in file("workflow")).settings(
                         "-language:postfixOps",
                         "-language:higherKinds",
                         "-Ypartial-unification"
-  )
+  ),
+  coverageEnabled := true
 )
 
 lazy val root = (project in file("."))
