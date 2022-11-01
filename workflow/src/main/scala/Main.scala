@@ -11,10 +11,10 @@ object Main extends IOApp {
   ): IO[Unit] =
     IO(client.instantiateInlineWorkflowTemplateAsync(resourceLocationName, template).get())
 
-  val availableWorkflows = Set("public", "private")
-
   def run(args: List[String]): IO[ExitCode] =
     for {
+      config <- Configuration.load
+      availableWorkflows <- IO(config.workflows.map(_.name).toSet)
       workflowName <-
         if (args.isEmpty)
           IO.raiseError(
@@ -23,9 +23,8 @@ object Main extends IOApp {
             )
           )
         else IO(args.head)
-      config <- Configuration.load
       cluster <- IO(DataprocCluster.createWorkflowTemplatePlacement.run(config.cluster))
-      jobs <- IO(DataprocJobs.createdOrderedJobs.run(config))
+      jobs <- IO(DataprocJobs.createdOrderedJobs(workflowName).run(config))
       location <- IO(DataprocWorkflow.getGcpLocation.run(config))
       workflowClient <- IO(WorkflowTemplateService.getWorkflowTemplateServiceClient.run(config))
       workflow <- IO(DataprocWorkflow.createWorkflow(jobs, cluster))
