@@ -12,16 +12,18 @@ object WorkflowTemplateService {
   private def getGcpUrl: Reader[WorkflowConfiguration, String] =
     Reader(conf => s"${conf.gcpSettings.region}-dataproc.googleapis.com:443")
 
-  /**
-    * @return settings object with set endpoint to initialise workflow template service client.
+  /** @return
+    *   settings object with set endpoint to initialise workflow template service client.
     */
   private def getWorkflowTemplateServiceSettings
       : Reader[WorkflowConfiguration, WorkflowTemplateServiceSettings] =
     getGcpUrl.map(url => WorkflowTemplateServiceSettings.newBuilder.setEndpoint(url).build)
 
-  /**
-    * @return configured workflow template service client which can be used to run a workflow template.
+  /** @return
+    *   configured workflow template service client which can be used to run a workflow template.
     */
-  def getWorkflowTemplateServiceClient: Reader[WorkflowConfiguration, WorkflowTemplateServiceClient] = getWorkflowTemplateServiceSettings.map(WorkflowTemplateServiceClient.create)
+  def getWorkflowTemplateServiceClient
+      : Reader[WorkflowConfiguration, WorkflowTemplateServiceClient] =
+    getWorkflowTemplateServiceSettings.map(WorkflowTemplateServiceClient.create)
 
 }
