@@ -1,5 +1,5 @@
 import cats.effect.testing.scalatest.AsyncIOSpec
-import model.{Configuration, Job}
+import model.{Configuration, ExistingOutputs, Job}
 import org.scalatest.AppendedClues
 import org.scalatest.freespec.AsyncFreeSpec
 import org.scalatest.matchers.should.Matchers
@@ -26,6 +26,18 @@ class ConfigurationTest extends AsyncFreeSpec with Matchers with AsyncIOSpec {
       val job = Job("arg", None, None)
       // when/then
       job.getJobId shouldBe "arg"
+    }
+  }
+  "Existing outputs should" - {
+    "create pairs of to / from paths" in {
+      // given
+      val a = ExistingOutputs("old/", "new/", List("d1", "d2"))
+      // when
+      val results = a.toFrom
+      // then
+      results.size shouldBe 2
+      results.head._1 shouldBe "old/d1"
+      results.head._2 shouldBe "new/d1"
     }
   }
 }

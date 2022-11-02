@@ -22,6 +22,10 @@ Because they do not need to be re-run and some are expensive (notably Literature
 public workflow has already been run. The workflow attempts to copy all of the outputs upstream of Evidence to the 
 specified PPP output directory. If these files are unavailable the workflow will return an error. 
 
+It is necessary to specify where the existing ETL outputs are located, and where they are to be copied to. These are 
+configured using the configuration variables `existing-outputs.path` (public ETL outputs) and `existing-outputs.
+copy-to` (path to copy files to).
+
 ## Concept overview
 
 At the highest level, a Dataproc Workflow is a specification of:
