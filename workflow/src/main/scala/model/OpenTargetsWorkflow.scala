@@ -14,20 +14,22 @@ import service.DataprocJobs
   * @param resourcesToMove
   *   pairs of in/out paths which should be copied.
   */
-case class OpenTargetsWorkflow(jobs: List[OrderedJob], resourcesToMove: ResourcesToMove = List.empty) {
+case class OpenTargetsWorkflow(jobs: List[OrderedJob],
+                               resourcesToMove: ResourcesToMove = List.empty
+) {
 
   def logOpenTargetsWorkflow: String = {
-    def mkString[T](s: List[T]): String = s.mkString("[", ",\n", "]")
+    def mkString[T](s: List[T]): String = s.mkString("[", ",", "]\n")
     val jobStr = mkString(jobs)
     val resStr = mkString(resourcesToMove.map(r => s"From: ${r._1} -- To: ${r._2}"))
     s"""
-      |Open Targets Workflow
-      |===
-      |Jobs: $jobStr
-      |===
-      |Resources to move: $resStr
-      |===
-      |""".stripMargin
+       |Open Targets Workflow
+       |===
+       |Jobs: $jobStr
+       |===
+       |Resources to move: $resStr
+       |===
+       |""".stripMargin
   }
 }
 
