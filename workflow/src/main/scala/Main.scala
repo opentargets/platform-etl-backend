@@ -1,44 +1,36 @@
 import cats.effect.{ExitCode, IO, IOApp}
-import service.{DataprocCluster, DataprocJobs, DataprocWorkflow, WorkflowTemplateService}
+import service.{DataprocCluster, DataprocWorkflow, ResourceTransfer, WorkflowTemplateService}
 import com.google.cloud.dataproc.v1.{WorkflowTemplate, WorkflowTemplateServiceClient}
-import model.{Configuration, WorkflowConfiguration}
+import model.{Configuration, OpenTargetsWorkflow}
 import org.typelevel.log4cats.{LoggerFactory, SelfAwareStructuredLogger}
 import org.typelevel.log4cats.slf4j.loggerFactoryforSync
-// todo: add logging
 
+// todo: when private workflow selected, move files first
+
+// todo: create necessary configuration for PPP based on simplified config
+
+// todo: call sbt assembly and push jar to specified location
 object Main extends IOApp {
 
   val logger: SelfAwareStructuredLogger[IO] = LoggerFactory[IO].getLogger
-  val defaultWorkflow = "public"
   def executeWorkflow(resourceLocationName: String,
                       template: WorkflowTemplate,
                       client: WorkflowTemplateServiceClient
   ): IO[Unit] =
     IO(client.instantiateInlineWorkflowTemplateAsync(resourceLocationName, template).get())
 
-  def getWorkflowArg(args: List[String], conf: WorkflowConfiguration): String = {
-    val workflows = conf.workflows.map(_.name).toSet
-    if (args.isEmpty) defaultWorkflow
-    else {
-      if (workflows.contains(args.head)) args.head else defaultWorkflow
-    }
-  }
   def run(args: List[String]): IO[ExitCode] =
     for {
       _ <- logger.info("Starting workflow application.")
       config <- Configuration.load
-      workflowName <- IO(getWorkflowArg(args, config)).flatTap(wf =>
-        logger.info(s"Workflow selected: $wf")
-      )
+      otWorkflow <- IO(OpenTargetsWorkflow.getWorkflow(args).run(config)).flatTap(otwf => logger.info(otwf.logOpenTargetsWorkflow))
+      _ <- ResourceTransfer.moveResources(config, otWorkflow.resourcesToMove)
       cluster <- IO(DataprocCluster.createWorkflowTemplatePlacement.run(config.cluster))
-      jobs <- IO(DataprocJobs.createdOrderedJobs(workflowName).run(config)).flatTap(js =>
-        logger.info(s"Jobs selected: ${js.mkString("[", ",", "]")}")
-      )
       location <- IO(DataprocWorkflow.getGcpLocation.run(config)).flatTap(loc =>
         logger.info(s"Location selected: $loc")
       )
       workflowClient <- IO(WorkflowTemplateService.getWorkflowTemplateServiceClient.run(config))
-      workflow <- IO(DataprocWorkflow.createWorkflow(jobs, cluster))
+      workflow <- IO(DataprocWorkflow.createWorkflow(otWorkflow.jobs, cluster))
       _ <- executeWorkflow(location, workflow, workflowClient)
     } yield ExitCode.Success
 }
