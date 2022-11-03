@@ -21,9 +21,34 @@ lazy val workflow = (project in file("workflow")).settings(
                         "-language:higherKinds",
                         "-Ypartial-unification"
   ),
-  coverageEnabled := true
+  coverageEnabled := true,
+  logLevel in assembly := Level.Debug,
+  assemblyMergeStrategy in assembly := {
+    case PathList("META-INF", "io.netty.versions.properties") =>
+      MergeStrategy.discard
+    case PathList(ps @ _*) if Assembly.isReadme(ps.last) || Assembly.isLicenseFile(ps.last) =>
+      MergeStrategy.rename
+    case PathList("META-INF", xs @ _*) =>
+      (xs map {
+        _.toLowerCase
+      }) match {
+        case ("manifest.mf" :: Nil) | ("index.list" :: Nil) | ("dependencies" :: Nil) =>
+          MergeStrategy.discard
+        case ps @ (x :: xs) if ps.last.endsWith(".sf") || ps.last.endsWith(".dsa") =>
+          MergeStrategy.discard
+        case "plexus" :: xs =>
+          MergeStrategy.discard
+        case "versions" :: xs => MergeStrategy.discard
+        case "services" :: xs =>
+          MergeStrategy.filterDistinctLines
+        case ("spring.schemas" :: Nil) | ("spring.handlers" :: Nil) =>
+          MergeStrategy.filterDistinctLines
+        case _ => MergeStrategy.deduplicate
+      }
+    case "module-info.class" => MergeStrategy.filterDistinctLines
+    case _                   => MergeStrategy.deduplicate
+  }
 )
-
 lazy val root = (project in file("."))
   .settings(
     name := "io-opentargets-etl-backend",

@@ -56,15 +56,19 @@ object Dependencies {
 
   lazy val testVersion = "3.2.2"
   lazy val testingDeps = Seq(
-    "org.scalactic" %% "scalactic" % testVersion,
-    "org.scalatest" %% "scalatest" % testVersion % "test",
-    "org.scalamock" %% "scalamock" % "5.1.0" % "test"
+    "org.scalactic" %% "scalactic" % testVersion % Test,
+    "org.scalatest" %% "scalatest" % testVersion % Test,
+    "org.scalamock" %% "scalamock" % "5.1.0" % Test
   )
 
   lazy val typeSafeConfig = Seq("com.typesafe" % "config" % "1.4.1")
 
   lazy val gcp = Seq(
-    "com.google.cloud" % "google-cloud-dataproc" % "4.0.8" % "provided",
-    "com.google.cloud" % "google-cloud-storage" % "2.4.2"
+    "com.google.cloud" % "google-cloud-dataproc" % "4.2.0",
+    "com.google.cloud" % "google-cloud-storage" % "2.14.0",
+    // https://storage.googleapis.com/cloud-opensource-java-dashboard/com.google.cloud/libraries-bom/26.1.4/index.html
+    "io.grpc" % "grpc-netty-shaded" % "1.50.2", // needed for workflow to communicate with GCP
+    "io.grpc" % "grpc-netty" % "1.50.2", // needed for workflow to communicate with GCP
+    "io.grpc" % "grpc-okhttp" % "1.50.2" // needed for workflow to communicate with GCP
   )
 }
