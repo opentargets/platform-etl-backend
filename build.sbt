@@ -23,6 +23,7 @@ lazy val workflow = (project in file("workflow")).settings(
   ),
   coverageEnabled := true,
   logLevel in assembly := Level.Debug,
+  mainClass in assembly := Some("io.opentargets.workflow.cli.CommandLine"),
   assemblyMergeStrategy in assembly := {
     case PathList("META-INF", "io.netty.versions.properties") =>
       MergeStrategy.discard

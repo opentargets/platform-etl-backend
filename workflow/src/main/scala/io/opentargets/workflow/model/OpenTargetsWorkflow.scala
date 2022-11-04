@@ -1,8 +1,9 @@
-package model
+package io.opentargets.workflow.model
 
 import cats.data.Reader
 import com.google.cloud.dataproc.v1.OrderedJob
-import model.OpenTargetsWorkflow.ResourcesToMove
+import OpenTargetsWorkflow.ResourcesToMove
+import cats.implicits.catsSyntaxEq
 import service.DataprocJobs
 
 /** An Open Targets workflow contains the metadata necessary to run the ETL for either the public or
@@ -32,11 +33,32 @@ case class OpenTargetsWorkflow(jobs: List[OrderedJob],
        |""".stripMargin
   }
 }
+sealed trait WorkFlowError
+case class StepNotFound(msg: String) extends WorkFlowError
 
 object OpenTargetsWorkflow {
 
   type ResourcesToMove = List[(String, String)]
   val defaultWorkflow = "public"
+
+  /** @param stepName
+    *   from conf.jobs.arg specifying ETL step to run.
+    * @return
+    *   ordered job with no dependencies
+    */
+  def getOrderedJob(
+      stepName: String
+  ): Reader[WorkflowConfiguration, Either[StepNotFound, OrderedJob]] = Reader { conf =>
+    val steps = conf.jobs.filter(j => j.arg === stepName)
+    if (steps.nonEmpty) {
+      Right(DataprocJobs.createOrderedJob(steps.head.copy(deps = None)).run(conf.workflowResources))
+    } else
+      Left(
+        StepNotFound(
+          s"$stepName not a valid job. Valid jobs are ${conf.jobs.map(_.arg).mkString("[,", ",", "]")}"
+        )
+      )
+  }
 
   /** @param args
     *   from command line

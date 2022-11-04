@@ -1,5 +1,5 @@
 import cats.effect.testing.scalatest.AsyncIOSpec
-import model.{Configuration, OpenTargetsWorkflow}
+import io.opentargets.workflow.model.{Configuration, OpenTargetsWorkflow}
 import org.scalatest.AppendedClues
 import org.scalatest.freespec.AsyncFreeSpec
 import org.scalatest.matchers.should.Matchers

@@ -3,11 +3,12 @@ package service
 import com.google.cloud.dataproc.v1.{OrderedJob, SparkJob}
 import cats.data.Reader
 import cats.implicits.catsSyntaxOptionId
-import model.{Job, WorkflowConfiguration, WorkflowResources}
+import io.opentargets.workflow.model.{Job, WorkflowConfiguration, WorkflowResources}
 
 import scala.collection.JavaConverters._
 
 object DataprocJobs {
+
 
   /** @return
     *   a Spark job template which needs to be parameterised with a job name. The job name is the

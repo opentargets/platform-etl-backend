@@ -2,7 +2,7 @@ package service
 
 import cats.data.Reader
 import com.google.cloud.dataproc.v1.{WorkflowTemplateServiceClient, WorkflowTemplateServiceSettings}
-import model.WorkflowConfiguration
+import io.opentargets.workflow.model.WorkflowConfiguration
 
 object WorkflowTemplateService {
 

@@ -2,7 +2,7 @@ package service
 
 import cats.effect.IO
 import cats.implicits.toTraverseOps
-import model.OpenTargetsWorkflow.ResourcesToMove
+import io.opentargets.workflow.model.OpenTargetsWorkflow.ResourcesToMove
 import org.typelevel.log4cats.slf4j.loggerFactoryforSync
 import org.typelevel.log4cats.{LoggerFactory, SelfAwareStructuredLogger}
 

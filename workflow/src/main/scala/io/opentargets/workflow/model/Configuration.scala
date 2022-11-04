@@ -1,10 +1,12 @@
-package model
+package io.opentargets.workflow.model
 
 import cats.effect.IO
 import cats.implicits.catsSyntaxSemigroup
 import pureconfig._
 import pureconfig.generic.auto._
 import pureconfig.module.catseffect.syntax.CatsEffectConfigSource
+
+import java.nio.file.Path
 
 case class ExistingOutputs(path: String, copyTo: String, sharedOutputs: List[String]) {
   def toFrom: List[(String, String)] = for {
@@ -62,5 +64,10 @@ object Configuration {
 
   def load: IO[WorkflowConfiguration] =
     ConfigSource.default.loadF[IO, WorkflowConfiguration]
+
+  def load(path: Option[Path]): IO[WorkflowConfiguration] = path match {
+    case Some(conf) => ConfigSource.file(conf).withFallback(ConfigSource.default).loadF[IO, WorkflowConfiguration]
+    case None => load
+  }
 
 }

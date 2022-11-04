@@ -1,10 +1,10 @@
 package service
 
 import cats.effect.testing.scalatest.AsyncIOSpec
-import model.{Configuration, Job}
 import org.scalatest.freespec.AsyncFreeSpec
 import org.scalatest.matchers.should.Matchers
 import cats.syntax.option._
+import io.opentargets.workflow.model.{Configuration, Job}
 import org.scalatest.AppendedClues
 
 class DataprocJobsSpec extends AsyncFreeSpec with Matchers with AsyncIOSpec with AppendedClues {

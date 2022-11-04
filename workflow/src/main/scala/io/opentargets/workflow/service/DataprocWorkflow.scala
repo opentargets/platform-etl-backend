@@ -7,7 +7,7 @@ import com.google.cloud.dataproc.v1.{
   WorkflowTemplate,
   WorkflowTemplatePlacement
 }
-import model.WorkflowConfiguration
+import io.opentargets.workflow.model.WorkflowConfiguration
 
 object DataprocWorkflow {
 

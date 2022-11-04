@@ -2,7 +2,7 @@ package service
 
 import cats.data.Reader
 import com.google.cloud.dataproc.v1._
-import model.ClusterSettings
+import io.opentargets.workflow.model.ClusterSettings
 
 /** Create a new 'cluster' to run Dataproc jobs.
   *
