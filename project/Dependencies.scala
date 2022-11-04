@@ -7,7 +7,8 @@ object Dependencies {
     cats,
     gcp,
     testingDeps,
-    loggingDeps
+    loggingDeps,
+    cli
   ).flatten
 
   lazy val etlDependencies: Seq[ModuleID] = Seq(
@@ -21,12 +22,15 @@ object Dependencies {
     typeSafeConfig
   ).flatten
 
-  lazy val catsVersion = "2.5.3"
+  lazy val catsVersion = "3.3.14"
   lazy val cats = Seq(
     "org.typelevel" %% "cats-effect" % catsVersion,
     "org.typelevel" %% "log4cats-slf4j" % "2.5.0",
     "com.github.pureconfig" %% "pureconfig-cats-effect" % "0.17.1",
     "org.typelevel" %% "cats-effect-testing-scalatest" % "1.4.0" % Test
+  )
+  lazy val cli = Seq(
+    "com.monovore" %% "decline-effect" % "2.3.1"
   )
 
   lazy val betterFiles = Seq("com.github.pathikrit" %% "better-files-akka" % "3.9.1")
@@ -36,7 +40,7 @@ object Dependencies {
   )
 
   lazy val loggingDeps = Seq(
-    "ch.qos.logback" % "logback-classic" % "1.4.1",
+    "ch.qos.logback" % "logback-classic" % "1.4.4",
     "com.typesafe.scala-logging" %% "scala-logging" % "3.9.2"
   )
 

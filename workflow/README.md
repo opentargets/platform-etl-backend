@@ -1,10 +1,43 @@
 # Dataproc workflow utility
 
-This package provides an interface for executing Dataproc workflows. 
+This package provides an interface for executing Open Targets ETL workflows and jobs on Dataproc. 
 
 There are two workflows available: `public` and `ppp`. 
 
-## Available workflows
+```
+ot-etl workflow --help
+
+Usage:
+    ot-etl workflow
+    ot-etl step
+
+Runs one or more Open Targets ETL jobs on GCP Dataproc.
+
+Options and flags:
+    --help
+        Display this help text.
+    --version, -v
+        Print the version number and exit.
+
+Subcommands:
+    workflow
+        Runs an Open Targets ETL workflow
+    step
+        Runs an Open Targets ETL step
+```
+
+## Requirements
+
+This utility works on Unix systems and requires the utilities `which` and `gsutil` to be on the `PATH`.
+
+## Running
+
+1. Create fat jar using SBT. From the repository base directory with `sbt workflow/assembly`. This will create a jar 
+   file in `<repository>/workflow/target/scala-2.12`
+2. Execute the jar parameterised with a config file and [available workflow](#workflows): `java -Dconfig.
+   file=path/to/config-file jar path/to/jar <workflow>`
+
+## <a name="workflows"></a>Available workflows
 
 A workflow is a sequence of ordered jobs which will be executed on a [GCP Dataproc cluster](https://cloud.google.com/dataproc/docs).
 
