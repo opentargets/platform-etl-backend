@@ -11,7 +11,7 @@ import java.nio.file.Path
 case class ExistingOutputs(path: String, copyTo: String, sharedOutputs: List[String]) {
   def toFrom: List[(String, String)] = for {
     file <- sharedOutputs
-  } yield (path |+| file |+| "/*", copyTo |+| file)
+  } yield (path |+| file, copyTo |+| file)
 }
 case class WorkflowResources(jar: WfResource, config: WfResource)
 case class WfResource(path: String, file: String) {
