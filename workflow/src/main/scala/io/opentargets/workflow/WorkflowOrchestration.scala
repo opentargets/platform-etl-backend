@@ -1,6 +1,7 @@
 package io.opentargets.workflow
 
-import cats.effect.{ExitCode, IO, IOApp}
+import cats.effect.IO.fromEither
+import cats.effect.{ExitCode, IO}
 import com.google.cloud.dataproc.v1.{WorkflowTemplate, WorkflowTemplateServiceClient}
 import io.opentargets.workflow.model.{Configuration, OpenTargetsWorkflow}
 import org.typelevel.log4cats.slf4j.loggerFactoryforSync
@@ -26,7 +27,8 @@ object WorkflowOrchestration {
   def runSingleStep(stepName: String, config: Option[Path]): IO[ExitCode] = for {
     _ <- logger.info(s"Running step $stepName.")
     config <- logger.info("Loading configuration") >> Configuration.load(config)
-    step <- IO(OpenTargetsWorkflow.getOrderedJob(stepName).run(config))
+    stepMaybe <- IO(OpenTargetsWorkflow.getOrderedJob(stepName).run(config)).map(s => fromEither(s))
+    step <- stepMaybe
     cluster <- IO(DataprocCluster.createWorkflowTemplatePlacement.run(config.cluster))
     location <- IO(DataprocWorkflow.getGcpLocation.run(config)).flatTap(loc =>
       logger.info(s"Location selected: $loc")
@@ -39,8 +41,8 @@ object WorkflowOrchestration {
   def runWorkflow(workflowName: String, config: Option[Path]): IO[ExitCode] = for {
     _ <- logger.info("Starting workflow application.")
     config <- logger.info("Loading configuration") >> Configuration.load(config)
-    otWorkflow <- IO(OpenTargetsWorkflow.getWorkflow(List(workflowName)).run(config)).flatTap(
-      otwf => logger.info(otwf.logOpenTargetsWorkflow)
+    otWorkflow <- IO(OpenTargetsWorkflow.getWorkflow(workflowName).run(config)).flatTap(otwf =>
+      logger.info(otwf.logOpenTargetsWorkflow)
     )
     _ <- ResourceTransfer.execute(otWorkflow.resourcesToMove)
     cluster <- IO(DataprocCluster.createWorkflowTemplatePlacement.run(config.cluster))

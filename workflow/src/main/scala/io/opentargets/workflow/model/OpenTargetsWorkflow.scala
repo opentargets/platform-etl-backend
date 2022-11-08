@@ -4,7 +4,7 @@ import cats.data.Reader
 import com.google.cloud.dataproc.v1.OrderedJob
 import OpenTargetsWorkflow.ResourcesToMove
 import cats.implicits.catsSyntaxEq
-import service.DataprocJobs
+import io.opentargets.workflow.service.DataprocJobs
 
 /** An Open Targets workflow contains the metadata necessary to run the ETL for either the public or
   * private version. In the private version we want to use most of the outputs of the public
@@ -33,13 +33,12 @@ case class OpenTargetsWorkflow(jobs: List[OrderedJob],
        |""".stripMargin
   }
 }
-sealed trait WorkFlowError
+sealed trait WorkFlowError extends Throwable
 case class StepNotFound(msg: String) extends WorkFlowError
 
 object OpenTargetsWorkflow {
 
   type ResourcesToMove = List[(String, String)]
-  val defaultWorkflow = "public"
 
   /** @param stepName
     *   from conf.jobs.arg specifying ETL step to run.
@@ -60,25 +59,25 @@ object OpenTargetsWorkflow {
       )
   }
 
-  /** @param args
+  /** @param wfName
     *   from command line
     * @return
     *   OpenTargetsWorkflow configured with a list of ordered jobs and
     */
-  def getWorkflow(args: List[String]): Reader[WorkflowConfiguration, OpenTargetsWorkflow] = Reader {
+  def getWorkflow(wfName: String): Reader[WorkflowConfiguration, OpenTargetsWorkflow] = Reader {
     conf =>
-      val wf: String = getWorkflowArg(args, conf)
+      val wf: Workflow = getWorkflow(wfName, conf)
       val jobs: List[OrderedJob] = DataprocJobs.createdOrderedJobs(wf).run(conf)
-      val files: List[(String, String)] = conf.existingOutputs.toFrom
+      val files: List[(String, String)] = if (wf.copyExisting) {
+        conf.existingOutputs.toFrom
+      } else List.empty
       OpenTargetsWorkflow(jobs, files)
   }
 
-  def getWorkflowArg(args: List[String], conf: WorkflowConfiguration): String = {
-    val workflows = conf.workflows.map(_.name).toSet
-    if (args.isEmpty) defaultWorkflow
-    else {
-      if (workflows.contains(args.head)) args.head else defaultWorkflow
+  def getWorkflow(arg: String, conf: WorkflowConfiguration): Workflow =
+    conf.workflows.filter(_.name === arg) match {
+      case Nil         => conf.getDefaultWorkflow
+      case ::(head, _) => head
     }
-  }
 
 }

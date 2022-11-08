@@ -1,4 +1,4 @@
-package service
+package io.opentargets.workflow.service
 
 import cats.data.Reader
 import com.google.cloud.dataproc.v1.{WorkflowTemplateServiceClient, WorkflowTemplateServiceSettings}

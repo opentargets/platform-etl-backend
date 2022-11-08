@@ -5,6 +5,7 @@ import org.scalatest.freespec.AsyncFreeSpec
 import org.scalatest.matchers.should.Matchers
 import cats.syntax.option._
 import io.opentargets.workflow.model.{Configuration, Job}
+import io.opentargets.workflow.service.DataprocJobs
 import org.scalatest.AppendedClues
 
 class DataprocJobsSpec extends AsyncFreeSpec with Matchers with AsyncIOSpec with AppendedClues {
@@ -69,7 +70,9 @@ class DataprocJobsSpec extends AsyncFreeSpec with Matchers with AsyncIOSpec with
       val expectedStepCount = expectedSteps.size
       val workflow = for {
         conf <- Configuration.load
-      } yield DataprocJobs.createdOrderedJobs("private").run(conf)
+      } yield DataprocJobs
+        .createdOrderedJobs(conf.workflows.filter(_.name == "private").head)
+        .run(conf)
       // then
       workflow asserting (wf => wf.size shouldBe expectedStepCount)
     }
@@ -79,7 +82,7 @@ class DataprocJobsSpec extends AsyncFreeSpec with Matchers with AsyncIOSpec with
       // given
       val results = for {
         conf <- Configuration.load
-      } yield (conf, DataprocJobs.createdOrderedJobs("public").run(conf))
+      } yield (conf, DataprocJobs.createdOrderedJobs(conf.getDefaultWorkflow).run(conf))
       // when
       // then
       results asserting (r => {

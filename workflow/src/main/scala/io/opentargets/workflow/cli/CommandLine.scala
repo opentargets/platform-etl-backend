@@ -1,8 +1,8 @@
-package cli
+package io.opentargets.workflow.cli
 
 import cats.effect._
 import cats.implicits._
-import cli.CommandLine.{stepOptsCmd, workflowOptsCmd}
+import io.opentargets.workflow.cli.CommandLine.{stepOptsCmd, workflowOptsCmd}
 import com.monovore.decline._
 import com.monovore.decline.effect._
 import io.opentargets.workflow.WorkflowOrchestration
@@ -46,6 +46,6 @@ object OpenTargetsCliApp
   override def main: Opts[IO[ExitCode]] =
     (workflowOptsCmd orElse stepOptsCmd).map {
       case Workflow(name, config) => WorkflowOrchestration.runWorkflow(name, config)
-      case Step(name, config) => WorkflowOrchestration.runSingleStep(name, config)
+      case Step(name, config)     => WorkflowOrchestration.runSingleStep(name, config)
     }
 }

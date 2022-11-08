@@ -36,7 +36,7 @@ class ConfigurationTest extends AsyncFreeSpec with Matchers with AsyncIOSpec {
       val results = a.toFrom
       // then
       results.size shouldBe 2
-      results.head._1 shouldBe "old/d1"
+      results.head._1 shouldBe "old/d1/*"
       results.head._2 shouldBe "new/d1"
     }
   }

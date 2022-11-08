@@ -13,24 +13,23 @@ class OpenTargetsWorkflowSpec
     "return the default workflow when no argument provide" in {
       // when
       val workflow =
-        Configuration.load.map(conf => OpenTargetsWorkflow.getWorkflowArg(List.empty, conf))
+        Configuration.load.map(conf => OpenTargetsWorkflow.getWorkflow("public", conf))
       // then
-      workflow asserting (_ shouldBe OpenTargetsWorkflow.defaultWorkflow)
+      workflow asserting (_.name shouldBe "public")
     }
     "return the default workflow when unknown argument provide" in {
       // when
-      val workflow = Configuration.load.map(conf =>
-        OpenTargetsWorkflow.getWorkflowArg(List("opentargets"), conf)
-      )
+      val workflow =
+        Configuration.load.map(conf => OpenTargetsWorkflow.getWorkflow("opentargets", conf))
       // then
-      workflow asserting (_ shouldBe OpenTargetsWorkflow.defaultWorkflow)
+      workflow asserting (_.name shouldBe "public")
     }
     "return the selected workflow when valid (known workflow) argument provide" in {
       // when
       val workflow =
-        Configuration.load.map(conf => OpenTargetsWorkflow.getWorkflowArg(List("private"), conf))
+        Configuration.load.map(conf => OpenTargetsWorkflow.getWorkflow("private", conf))
       // then
-      workflow asserting (_ shouldBe "private")
+      workflow asserting (_.name shouldBe "private")
     }
   }
 }

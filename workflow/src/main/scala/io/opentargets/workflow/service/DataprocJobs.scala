@@ -1,14 +1,13 @@
-package service
+package io.opentargets.workflow.service
 
 import com.google.cloud.dataproc.v1.{OrderedJob, SparkJob}
 import cats.data.Reader
 import cats.implicits.catsSyntaxOptionId
-import io.opentargets.workflow.model.{Job, WorkflowConfiguration, WorkflowResources}
+import io.opentargets.workflow.model.{Job, Workflow, WorkflowConfiguration, WorkflowResources}
 
 import scala.collection.JavaConverters._
 
 object DataprocJobs {
-
 
   /** @return
     *   a Spark job template which needs to be parameterised with a job name. The job name is the
@@ -84,10 +83,10 @@ object DataprocJobs {
     )
   }
 
-  def createdOrderedJobs(workflow: String): Reader[WorkflowConfiguration, List[OrderedJob]] =
+  def createdOrderedJobs(workflow: Workflow): Reader[WorkflowConfiguration, List[OrderedJob]] =
     Reader { conf =>
       val workflowMap = getWorkflowsMap(conf)
-      val selectedWorkflow: Seq[Job] = workflowMap.get(workflow) match {
+      val selectedWorkflow: Seq[Job] = workflowMap.get(workflow.name) match {
         case Some(wf) => filterJobs(wf, conf.jobs)
         case None     => conf.jobs
       }

@@ -1,4 +1,4 @@
-package service
+package io.opentargets.workflow.service
 
 import cats.effect.IO
 import cats.implicits.toTraverseOps
