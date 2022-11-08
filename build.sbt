@@ -22,8 +22,8 @@ lazy val workflow = (project in file("workflow")).settings(
                         "-Ypartial-unification"
   ),
   coverageEnabled := true,
-  logLevel in assembly := Level.Debug,
-  mainClass in assembly := Some("io.opentargets.workflow.cli.CommandLine"),
+  logLevel in assembly := Level.Info,
+  mainClass in assembly := Some("io.opentargets.workflow.cli.OpenTargetsCliApp"),
   assemblyMergeStrategy in assembly := {
     case PathList("META-INF", "io.netty.versions.properties") =>
       MergeStrategy.discard
