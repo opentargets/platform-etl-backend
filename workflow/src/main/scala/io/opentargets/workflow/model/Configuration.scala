@@ -11,7 +11,7 @@ import java.nio.file.Path
 case class ExistingOutputs(path: String, copyTo: String, sharedOutputs: List[String]) {
   def toFrom: List[(String, String)] = for {
     file <- sharedOutputs
-  } yield (path |+| file, copyTo |+| file)
+  } yield (path |+| file |+| "/*", copyTo |+| file)
 }
 case class WorkflowResources(jar: WfResource, config: WfResource)
 case class WfResource(path: String, file: String) {
@@ -58,7 +58,12 @@ case class WorkflowConfiguration(workflowResources: WorkflowResources,
                                  workflows: List[Workflow],
                                  jobs: Seq[Job],
                                  existingOutputs: ExistingOutputs
-)
+) {
+  import cats.implicits.catsSyntaxEq
+  require(workflows.exists(filterForPublic))
+  def getDefaultWorkflow: Workflow = workflows.filter(filterForPublic).head
+  private def filterForPublic(wf: Workflow): Boolean = wf.name === "public"
+}
 
 object Configuration {
 
@@ -66,7 +71,8 @@ object Configuration {
     ConfigSource.default.loadF[IO, WorkflowConfiguration]
 
   def load(path: Option[Path]): IO[WorkflowConfiguration] = path match {
-    case Some(conf) => ConfigSource.file(conf).withFallback(ConfigSource.default).loadF[IO, WorkflowConfiguration]
+    case Some(conf) =>
+      ConfigSource.file(conf).withFallback(ConfigSource.default).loadF[IO, WorkflowConfiguration]
     case None => load
   }
 
