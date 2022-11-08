@@ -307,11 +307,14 @@ object Configuration extends LazyLogging {
                                          literatureIndex: IOResourceConfig
   )
 
+  case class LiteraturePreProcessing(abstracts: IOResourceConfig, fullTexts: IOResourceConfig)
+
   case class LiteratureProcessing(epmcids: IOResourceConfig,
                                   diseases: IOResourceConfig,
                                   targets: IOResourceConfig,
                                   drugs: IOResourceConfig,
-                                  epmc: IOResourceConfig,
+                                  abstracts: IOResourceConfig,
+                                  fullTexts: IOResourceConfig,
                                   outputs: LiteratureProcessingOutputs
   )
 
@@ -348,6 +351,7 @@ object Configuration extends LazyLogging {
   )
 
   case class LiteratureSection(common: LiteratureCommon,
+                               preProcessing: LiteraturePreProcessing,
                                processing: LiteratureProcessing,
                                embedding: LiteratureEmbedding,
                                vectors: LiteratureVectors,

@@ -1,14 +1,14 @@
 package io.opentargets.etl.backend.literature
 
 import io.opentargets.etl.backend.spark.Helpers.replaceSpacesSchema
-import io.opentargets.etl.backend.spark.IoHelpers.readFrom
+import io.opentargets.etl.backend.spark.IoHelpers.{readFrom}
 import com.typesafe.scalalogging.LazyLogging
 import org.apache.spark.sql.functions._
 import org.apache.spark.ml.Pipeline
 import org.apache.spark.sql._
 import com.johnsnowlabs.nlp.{DocumentAssembler, Finisher}
 import com.johnsnowlabs.nlp.annotator._
-import io.opentargets.etl.backend.Configuration.LiteratureProcessing
+import io.opentargets.etl.backend.Configuration.{LiteraturePreProcessing, LiteratureProcessing}
 import io.opentargets.etl.backend.ETLSessionContext
 import org.apache.spark.sql.types._
 import org.apache.spark.sql.expressions.Window
@@ -567,8 +567,8 @@ object Grounding extends Serializable with LazyLogging {
   }
 
   def compute(
-      empcConfiguration: LiteratureProcessing
-  )(implicit context: ETLSessionContext): Map[String, DataFrame] = {
+               empcConfiguration: LiteratureProcessing
+             )(implicit context: ETLSessionContext): Map[String, DataFrame] = {
     implicit val ss: SparkSession = context.sparkSession
 
     logger.info("Grounding step")
@@ -581,7 +581,8 @@ object Grounding extends Serializable with LazyLogging {
       "targets" -> empcConfiguration.targets,
       "diseases" -> empcConfiguration.diseases,
       "drugs" -> empcConfiguration.drugs,
-      "epmc" -> empcConfiguration.epmc
+      "abstracts" -> empcConfiguration.abstracts,
+      "fullTexts" -> empcConfiguration.fullTexts
     )
 
     val inputDataFrames = readFrom(mappedInputs)
@@ -598,10 +599,15 @@ object Grounding extends Serializable with LazyLogging {
       )
     )
 
-    val epmcDf = replaceSpacesSchema(inputDataFrames("epmc").data)
+    //merge dataframe and take latest version when duplicates
+    //TODO: join back all info
+    val fullEpmcDf = inputDataFrames("abstracts").data.unionByName(inputDataFrames("fullTexts").data, true)
+    val epmcDf = PreProcessing.process(fullEpmcDf)
+
+    val epmcDfNoSpaces = replaceSpacesSchema(epmcDf)
 
     logger.info("load and preprocess EPMC data")
-    val sentences = loadEntities(epmcDf, idLUT).transform(filterEntities)
+    val sentences = loadEntities(epmcDfNoSpaces, idLUT).transform(filterEntities)
 
     logger.info("producing grounding dataset")
     val mappedLabels =
@@ -614,4 +620,23 @@ object Grounding extends Serializable with LazyLogging {
 
     resolvedEntities
   }
+
+  def readPreProcessFiles(
+               empcConfiguration: LiteraturePreProcessing
+             )(implicit context: ETLSessionContext) = {
+    implicit val ss: SparkSession = context.sparkSession
+
+    logger.info("Grounding step")
+
+    val pipeline = generatePipeline("text", pipelineColumns)
+
+    val mappedInputs = Map(
+      "abstracts" -> empcConfiguration.abstracts,
+      "fullTexts" -> empcConfiguration.fullTexts
+    )
+
+    readFrom(mappedInputs)
+
+  }
+
 }

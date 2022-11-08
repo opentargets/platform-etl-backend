@@ -115,7 +115,10 @@ object Embedding extends Serializable with LazyLogging {
     val matchesModels = generateModel(matches)
 
     // The matchesModel is a W2VModel and the output is parquet.
-    matchesModels.save(output.path)
+    configuration.sparkSettings.writeMode match {
+      case "overwrite" => matchesModels.write.overwrite().save(output.path)
+      case _ => matchesModels.save(output.path)
+    }
 
     val dataframesToSave = Map.empty[String, IOResource]
     dataframesToSave
