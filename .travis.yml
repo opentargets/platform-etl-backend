@@ -1,15 +1,14 @@
-dist: xenial
+dist: precise
 language: scala
   - 2.12.12
 jdk:
-  - openjdk8
+  - openjdk11
 script:
   - sbt ++$TRAVIS_SCALA_VERSION scalafmtCheckAll
   - sbt ++$TRAVIS_SCALA_VERSION clean compile
   - sbt ++$TRAVIS_SCALA_VERSION coverage test coverageReport
   - sbt ++$TRAVIS_SCALA_VERSION 'set test in assembly := {}' assembly
 before_deploy:
-  # Set up git user name and tag this commit
   - git config --local user.name "opentargets-admin"
   - git config --local user.email "administrator@opentargets.org"
 deploy:
@@ -23,5 +22,4 @@ deploy:
     repo: opentargets/platform-etl-backend
     tags: true
     all_branches: false
-#after_success:
-#  - bash <(curl -s https://codecov.io/bash)
+
