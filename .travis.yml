@@ -1,8 +1,9 @@
-dist: precise
+dist: trusty
 language: scala
+scala:
   - 2.12.12
 jdk:
-  - openjdk11
+  - oraclejdk11
 script:
   - sbt ++$TRAVIS_SCALA_VERSION scalafmtCheckAll
   - sbt ++$TRAVIS_SCALA_VERSION clean compile
