@@ -151,3 +151,9 @@ For information on setting up credentials see the [documentation](https://github
 
 Run `gcloud auth application-login login` (if you haven't already) to create an authentication environment variable 
 so that the workflow can be submitted.
+
+## Working with SBT
+
+This utility is a [submodule](https://www.scala-sbt.org/1.x/docs/Multi-Project.html) within the ETL `sbt` project. 
+To run tests, etc preface your sbt commands with `<project / sbtTask`. To run the tests for instance, use `sbt 
+workflow / test`
