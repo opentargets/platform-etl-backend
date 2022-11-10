@@ -15,7 +15,7 @@ case class ExistingOutputs(path: String, copyTo: String, sharedOutputs: List[Str
 }
 case class WorkflowResources(jar: WfResource, config: WfResource)
 case class WfResource(path: String, file: String) {
-  require(path.endsWith("/"))
+  require(path.endsWith("/"), "Path must end in \"/\"")
   val resource: String = path + file
 }
 
