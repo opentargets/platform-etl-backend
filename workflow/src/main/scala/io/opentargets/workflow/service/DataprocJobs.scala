@@ -29,7 +29,7 @@ object DataprocJobs {
 
   def createOrderedJob(job: Job): Reader[WorkflowResources, OrderedJob] = {
     val orderedJob = for {
-      sparkJob <- createJob(job.getJobId)
+      sparkJob <- createJob(job.arg)
     } yield OrderedJob.newBuilder
       .setStepId(job.getJobId)
       .setSparkJob(sparkJob)
