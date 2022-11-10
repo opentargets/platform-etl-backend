@@ -3,6 +3,7 @@ package io.opentargets.etl.backend.spark
 import com.typesafe.scalalogging.LazyLogging
 import io.opentargets.etl.backend.ETLSessionContext
 import io.opentargets.etl.backend.spark.MetadataHelper.getContentPath
+import org.apache.spark.sql.DataFrame
 import org.apache.spark.sql.functions.current_timestamp
 
 trait MetadataWriter {
@@ -37,12 +38,16 @@ class MetadataHelper(context: ETLSessionContext) extends MetadataWriter with Laz
 
   def create(ioResource: IOResource): IOResource = {
     import context.sparkSession.implicits._
-    val metadata =
-      List(prepareMetadata(ioResource)).toDF
+    val metadata = prepareMetadata(ioResource)
+    val metadataDf: DataFrame =
+      List(metadata).toDF
         .withColumn("timeStamp", current_timestamp())
         .coalesce(numPartitions = 1)
 
-    val metadataIOResource = IOResource(metadata, metadataSettings.output)
+    val metadataIOResource = IOResource(
+      metadataDf,
+      metadataSettings.output.copy(path = s"${metadataSettings.output.path}/${metadata.id}")
+    )
 
     metadataIOResource
   }
