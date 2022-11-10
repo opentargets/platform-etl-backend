@@ -53,6 +53,8 @@ object IoHelpers extends LazyLogging {
   type IOResourceConfigurations = Map[String, IOResourceConfig]
   type IOResources = Map[String, IOResource]
 
+  lazy val metadataHelper: ETLSessionContext => MetadataWriter = new MetadataHelper(_)
+
   /** It creates an hashmap of dataframes. Es. inputsDataFrame {"disease", Dataframe} , {"target",
     * Dataframe} Reading is the first step in the pipeline
     */
@@ -149,8 +151,7 @@ object IoHelpers extends LazyLogging {
           resource.configuration
             .copy(
               format = additionalFormat,
-              path = resourceName,
-              generateMetadata = false
+              path = resourceName
             )
         )
         key -> value
@@ -190,58 +191,12 @@ object IoHelpers extends LazyLogging {
 
       if (out._2.configuration.generateMetadata) {
         logger.info(s"save metadata for dataset ${out._1}")
-        val md = generateMetadata(out._2, context.configuration.common.metadata)
-        writeTo(md)
+        val metadata = metadataHelper(context).create(out._2)
+        metadataHelper(context).write(metadata)
       }
     }
 
     outputs
-  }
-
-  /** Given an IOResource ior and the metadata config section it generates a one-line DF that will
-    * be saved coalesced to 1 into a folder inside the metadata output folder. This will make easier
-    * to collect the matadata of the created resources
-    *
-    * @param ior
-    *   the IOResource from which generates the metadata
-    * @param withConfig
-    *   the metadata Config section
-    * @param context
-    *   ETL context object
-    * @return
-    *   a new IOResource with all needed information and data ready to be saved
-    */
-  private def generateMetadata(ior: IOResource, withConfig: IOResourceConfig)(implicit
-      context: ETLSessionContext
-  ): IOResource = {
-    require(withConfig.path.nonEmpty, "metadata resource path cannot be empty")
-    implicit val session: SparkSession = context.sparkSession
-    import session.implicits._
-
-    val serialisedSchema = ior.data.schema.json
-    val iores = ior.configuration.copy(
-      path = ior.configuration.path
-        .replace(context.configuration.common.output, "")
-        .split("/")
-        .filter(_.nonEmpty)
-        .mkString("/", "/", "")
-    )
-
-    val cols = ior.data.columns.toList
-    val id = ior.configuration.path.split("/").filter(_.nonEmpty).last
-    val newPath = withConfig.path + s"/$id"
-    val metadataConfig = withConfig.copy(path = newPath)
-
-    val metadata =
-      List(Metadata(id, iores, serialisedSchema, cols)).toDF
-        .withColumn("timeStamp", current_timestamp())
-        .coalesce(numPartitions = 1)
-
-    val metadataIOResource = IOResource(metadata, metadataConfig)
-
-    logger.info(s"generate metadata info for $id in path $newPath")
-
-    metadataIOResource
   }
 
 }
