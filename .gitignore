@@ -34,3 +34,4 @@ application.xml
 /scripts/.idea
 /.classpath
 /.project
+workflow/target
