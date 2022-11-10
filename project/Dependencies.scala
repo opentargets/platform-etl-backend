@@ -19,7 +19,8 @@ object Dependencies {
     sparkDeps,
     testingDeps,
     gcp,
-    typeSafeConfig
+    Seq(typeSafeConfig),
+    johnS
   ).flatten
 
   lazy val catsVersion = "3.3.14"
@@ -74,5 +75,10 @@ object Dependencies {
     "io.grpc" % "grpc-netty-shaded" % "1.50.2", // needed for workflow to communicate with GCP
     "io.grpc" % "grpc-netty" % "1.50.2", // needed for workflow to communicate with GCP
     "io.grpc" % "grpc-okhttp" % "1.50.2" // needed for workflow to communicate with GCP
+  )
+
+  lazy val johnSVersion = "3.3.4"
+  lazy val johnS = Seq(
+    "com.johnsnowlabs.nlp" % "spark-nlp_2.12" % johnSVersion
   )
 }

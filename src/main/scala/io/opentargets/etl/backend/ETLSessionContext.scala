@@ -23,9 +23,12 @@ object ETLSessionContext extends LazyLogging {
         )
         config.evidences.copy(dataSources = ds)
       } else config.evidences
+
+      val configurations = config.sparkSettings.defaultSparkSessionConfig
+
       ETLSessionContext(
         config.copy(evidences = evidence),
-        getOrCreateSparkSession(progName, config.sparkUri)
+        getOrCreateSparkSession(progName, configurations, config.sparkUri)
       )
     }
 }

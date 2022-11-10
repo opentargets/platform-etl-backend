@@ -4,6 +4,7 @@ import com.typesafe.scalalogging.LazyLogging
 import org.apache.spark.SparkConf
 import org.apache.spark.sql._
 import org.apache.spark.sql.functions.{
+  aggregate,
   array,
   array_distinct,
   array_union,
@@ -14,11 +15,15 @@ import org.apache.spark.sql.functions.{
   filter,
   flatten,
   lit,
+  pow,
+  sequence,
+  size,
+  sort_array,
   struct,
   substring_index,
-  typedLit
+  typedLit,
+  zip_with
 }
-
 import org.apache.spark.sql.types.{ArrayType, DataType, StructField, StructType}
 
 import scala.language.postfixOps
@@ -35,19 +40,6 @@ object Helpers extends LazyLogging {
     */
   def mkRandomPrefix(length: Int = 5): String =
     Random.alphanumeric.take(length).mkString("", "", "_")
-
-  type IOResourceConfigurations = Map[String, IOResourceConfig]
-  type IOResources = Map[String, IOResource]
-
-  case class IOResource(data: DataFrame, configuration: IOResourceConfig)
-  case class IOResourceConfigOption(k: String, v: String)
-  case class IOResourceConfig(
-      format: String,
-      path: String,
-      options: Option[Seq[IOResourceConfigOption]] = None,
-      partitionBy: Option[Seq[String]] = None
-  )
-
   case class IdAndSource(id: String, source: String)
   case class LabelAndSource(label: String, source: String)
 
@@ -77,14 +69,27 @@ object Helpers extends LazyLogging {
     * @return
     *   a sparksession object
     */
-  def getOrCreateSparkSession(appName: String, sparkUri: Option[String]): SparkSession = {
+  def getOrCreateSparkSession(appName: String,
+                              configKeys: Seq[IOResourceConfigOption],
+                              sparkUri: Option[String]
+  ): SparkSession = {
+
+    val conf = getSparkSessionConfig(appName, configKeys, sparkUri)
+
+    SparkSession.builder
+      .config(conf)
+      .getOrCreate
+  }
+
+  def getSparkSessionConfig(appName: String,
+                            configKeys: Seq[IOResourceConfigOption],
+                            sparkUri: Option[String]
+  ): SparkConf = {
     logger.info(s"create spark session with uri:'${sparkUri.toString}'")
+    val keys = configKeys.map(va => (va.k, va.v))
     val sparkConf: SparkConf = new SparkConf()
       .setAppName(appName)
-      .set("spark.driver.maxResultSize", "0")
-      .set("spark.debug.maxToStringFields", "2000")
-      // TODO - Externalize this to a configuration parameter (put in here for literature pipeline)
-      .set("spark.sql.broadcastTimeout", "3000")
+      .setAll(keys)
 
     // if some uri then setmaster must be set otherwise
     // it tries to get from env if any yarn running
@@ -93,9 +98,7 @@ object Helpers extends LazyLogging {
       case _                         => sparkConf
     }
 
-    SparkSession.builder
-      .config(conf)
-      .getOrCreate
+    conf
   }
 
   /** apply to newNameFn() to the new name for the transformation and columnFn() to the inColumn it
@@ -255,6 +258,13 @@ object Helpers extends LazyLogging {
 
     newDF
   }
+
+  def harmonicFn(c: Column): Column =
+    aggregate(
+      zip_with(sort_array(c, asc = false), sequence(lit(1), size(c)), (e1, e2) => e1 / pow(e2, 2d)),
+      lit(0d),
+      (c1, c2) => c1 + c2
+    )
 
   def renameAllCols(schema: StructType, fn: String => String): StructType = {
 

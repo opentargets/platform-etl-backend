@@ -2,7 +2,7 @@ package io.opentargets.etl.backend
 
 import com.typesafe.config.ConfigFactory
 import com.typesafe.scalalogging.LazyLogging
-import io.opentargets.etl.backend.spark.IOResourceConfig
+import io.opentargets.etl.backend.spark.{IOResourceConfig, IOResourceConfigOption}
 import pureconfig.ConfigReader.Result
 import pureconfig._
 import pureconfig.generic.auto._
@@ -238,7 +238,10 @@ object Configuration extends LazyLogging {
 
   case class TargetOutput(target: IOResourceConfig)
 
-  case class SparkSettings(writeMode: String, ignoreIfExists: Boolean) {
+  case class SparkSettings(writeMode: String,
+                           ignoreIfExists: Boolean,
+                           defaultSparkSessionConfig: Seq[IOResourceConfigOption]
+  ) {
     val validWriteModes = Set("error", "errorifexists", "append", "overwrite", "ignore")
     require(
       validWriteModes.contains(writeMode),
@@ -299,6 +302,61 @@ object Configuration extends LazyLogging {
       sampling: OpenfdaSamplingSection,
       outputs: OpenfdaOutputsSection
   )
+
+  case class LiteratureProcessingOutputs(rawEvidence: IOResourceConfig,
+                                         cooccurrences: IOResourceConfig,
+                                         matches: IOResourceConfig,
+                                         literatureIndex: IOResourceConfig
+  )
+
+  case class LiteratureProcessing(epmcids: IOResourceConfig,
+                                  diseases: IOResourceConfig,
+                                  targets: IOResourceConfig,
+                                  drugs: IOResourceConfig,
+                                  abstracts: IOResourceConfig,
+                                  fullTexts: IOResourceConfig,
+                                  outputs: LiteratureProcessingOutputs
+  )
+
+  case class LiteratureModelConfiguration(windowSize: Int,
+                                          numPartitions: Int,
+                                          maxIter: Int,
+                                          minCount: Int,
+                                          stepSize: Double
+  )
+
+  case class LiteratureEmbeddingOutputs(model: IOResourceConfig, trainingSet: IOResourceConfig)
+
+  case class LiteratureEmbedding(modelConfiguration: LiteratureModelConfiguration,
+                                 input: IOResourceConfig,
+                                 outputs: LiteratureEmbeddingOutputs
+  )
+
+  case class LiteratureVectors(input: String, output: IOResourceConfig)
+
+  case class LiteratureEvidenceInputs(matches: IOResourceConfig,
+                                      cooccurrences: IOResourceConfig,
+                                      model: IOResourceConfig
+  )
+
+  case class LiteratureEvidence(threshold: Option[Double],
+                                inputs: LiteratureEvidenceInputs,
+                                output: IOResourceConfig
+  )
+
+  case class LiteratureSectionRanks(section: String, rank: Long, weight: Double)
+
+  case class LiteratureCommon(publicationSectionRanks: List[LiteratureSectionRanks],
+                              sparkSessionConfig: Option[Seq[IOResourceConfigOption]] = None
+  )
+
+  case class LiteratureSection(common: LiteratureCommon,
+                               processing: LiteratureProcessing,
+                               embedding: LiteratureEmbedding,
+                               vectors: LiteratureVectors,
+                               evidence: LiteratureEvidence
+  )
+
   // --- END --- //
 
   case class EtlStep[T](step: T, dependencies: List[T])
@@ -326,6 +384,7 @@ object Configuration extends LazyLogging {
       openfda: OpenfdaSection,
       ebisearch: EBISearchSection,
       otarproject: OtarProjectSection,
+      literature: LiteratureSection,
       epmc: Epmc
   )
 }
