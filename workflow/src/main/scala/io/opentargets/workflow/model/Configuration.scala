@@ -36,6 +36,7 @@ case class ClusterSettings(name: String,
                            zone: String,
                            image: String,
                            bootDiskSize: Int,
+                           diskType: String,
                            machineType: String,
                            workerCount: Int
 )

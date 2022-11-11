@@ -25,7 +25,9 @@ object DataprocCluster {
     Reader(cs => GceClusterConfig.newBuilder.setZoneUri(cs.zone).build)
 
   private def createDiskConfig: ClusterR[DiskConfig] =
-    Reader(cs => DiskConfig.newBuilder.setBootDiskSizeGb(cs.bootDiskSize).build)
+    Reader(cs =>
+      DiskConfig.newBuilder.setBootDiskSizeGb(cs.bootDiskSize).setBootDiskType(cs.diskType).build
+    )
 
   private def createInstanceGroupConfig(disk: DiskConfig): ClusterR[InstanceGroupConfig] = Reader {
     cs =>
