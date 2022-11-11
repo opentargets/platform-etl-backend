@@ -29,25 +29,28 @@ object DataprocCluster {
       DiskConfig.newBuilder.setBootDiskSizeGb(cs.bootDiskSize).setBootDiskType(cs.diskType).build
     )
 
-  private def createInstanceGroupConfig(disk: DiskConfig): ClusterR[InstanceGroupConfig] = Reader {
-    cs =>
-      InstanceGroupConfig.newBuilder
-        .setNumInstances(1)
-        .setMachineTypeUri(cs.machineType)
-        .setDiskConfig(disk)
-        .build
+  private def createInstanceGroupConfig(disk: DiskConfig,
+                                        instances: Int = 1
+  ): ClusterR[InstanceGroupConfig] = Reader { cs =>
+    InstanceGroupConfig.newBuilder
+      .setNumInstances(instances)
+      .setMachineTypeUri(cs.machineType)
+      .setDiskConfig(disk)
+      .build
   }
 
   private def createClusterConfig: ClusterR[ClusterConfig] =
     for {
       gceConf <- createGceClusterConfig
       diskConf <- createDiskConfig
-      igConf <- createInstanceGroupConfig(diskConf)
+      masterConf <- createInstanceGroupConfig(diskConf)
+      workerConf <- createInstanceGroupConfig(diskConf, 2)
       softwareConf <- createSoftwareConfig
     } yield ClusterConfig.newBuilder
       .setGceClusterConfig(gceConf)
-      .setMasterConfig(igConf)
+      .setMasterConfig(masterConf)
       .setSoftwareConfig(softwareConf)
+      .setWorkerConfig(workerConf)
       .build
 
   private def getClusterName: ClusterR[String] = Reader(sc => sc.name)
