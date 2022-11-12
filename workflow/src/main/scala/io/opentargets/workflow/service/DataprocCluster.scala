@@ -29,27 +29,30 @@ object DataprocCluster {
       DiskConfig.newBuilder.setBootDiskSizeGb(cs.bootDiskSize).setBootDiskType(cs.diskType).build
     )
 
-  private def createInstanceGroupConfig(disk: DiskConfig,
-                                        instances: Int = 1
-  ): ClusterR[InstanceGroupConfig] = Reader { cs =>
-    InstanceGroupConfig.newBuilder
-      .setNumInstances(instances)
-      .setMachineTypeUri(cs.machineType)
-      .setDiskConfig(disk)
-      .build
+  private def createInstanceGroupConfig(disk: DiskConfig): ClusterR[InstanceGroupConfig.Builder] =
+    Reader { cs =>
+      InstanceGroupConfig.newBuilder
+        .setMachineTypeUri(cs.machineType)
+        .setDiskConfig(disk)
+    }
+  private def createMasterConfig(disk: DiskConfig): ClusterR[InstanceGroupConfig] =
+    createInstanceGroupConfig(disk).map(igc => igc.setNumInstances(1).build)
+  private def createWorkerConfig(disk: DiskConfig): ClusterR[InstanceGroupConfig] = Reader { conf =>
+    val igc = createInstanceGroupConfig(disk)
+    igc.map(igcb => igcb.setNumInstances(conf.workerCount).build).run(conf)
   }
 
   private def createClusterConfig: ClusterR[ClusterConfig] =
     for {
       gceConf <- createGceClusterConfig
       diskConf <- createDiskConfig
-      masterConf <- createInstanceGroupConfig(diskConf)
-      workerConf <- createInstanceGroupConfig(diskConf, 2)
+      masterConf <- createMasterConfig(diskConf)
+      workerConf <- createWorkerConfig(diskConf)
       softwareConf <- createSoftwareConfig
     } yield ClusterConfig.newBuilder
       .setGceClusterConfig(gceConf)
-      .setMasterConfig(masterConf)
       .setSoftwareConfig(softwareConf)
+      .setMasterConfig(masterConf)
       .setWorkerConfig(workerConf)
       .build
 
