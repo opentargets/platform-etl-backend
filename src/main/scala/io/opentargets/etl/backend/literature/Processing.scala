@@ -189,7 +189,7 @@ object Processing extends Serializable with LazyLogging {
     logger.info("Processing raw evidences and persist matches and cooccurrences")
 
     ("matches" :: "cooccurrences" :: Nil) foreach { l =>
-      grounding(l).persist(StorageLevel.DISK_ONLY)
+      grounding(l).persist(StorageLevel.MEMORY_AND_DISK)
     }
 
     val failedMatches = grounding("matchesFailed")
@@ -218,6 +218,7 @@ object Processing extends Serializable with LazyLogging {
       "matches" -> IOResource(matches, outputs.matches),
       "literatureIndex" -> IOResource(literatureIndexAlt, outputs.literatureIndex)
     )
+    logger.info(s"Write literatures outputs: ${dataframesToSave.keySet}")
 
     writeTo(dataframesToSave)
     dataframesToSave

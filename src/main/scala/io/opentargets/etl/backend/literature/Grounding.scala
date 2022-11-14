@@ -612,7 +612,7 @@ object Grounding extends Serializable with LazyLogging {
     logger.info("producing grounding dataset")
     val mappedLabels =
       mapEntities(sentences, luts, pipeline, pipelineColumns)
-        .persist(StorageLevel.DISK_ONLY)
+        .persist(StorageLevel.MEMORY_AND_DISK)
         .orderBy(col("type"), col("label"))
 
     logger.info("resolve entities with the produced grounded labels")
