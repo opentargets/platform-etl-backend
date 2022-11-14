@@ -42,6 +42,11 @@ object DataprocCluster {
     igc.map(igcb => igcb.setNumInstances(conf.workerCount).build).run(conf)
   }
 
+  /** Enabling endpoint-config allows us to access the Spark UI from without Dataproc without having
+    * to set up ssh tunnels.
+    */
+  private def endpointConfig =
+    EndpointConfig.newBuilder.setEnableHttpPortAccess(true).build
   private def createClusterConfig: ClusterR[ClusterConfig] =
     for {
       gceConf <- createGceClusterConfig
@@ -54,6 +59,7 @@ object DataprocCluster {
       .setSoftwareConfig(softwareConf)
       .setMasterConfig(masterConf)
       .setWorkerConfig(workerConf)
+      .setEndpointConfig(endpointConfig)
       .build
 
   private def getClusterName: ClusterR[String] = Reader(sc => sc.name)
