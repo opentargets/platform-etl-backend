@@ -16,9 +16,15 @@ object DataprocCluster {
 
   type ClusterR[T] = Reader[ClusterSettings, T]
   private def createSoftwareConfig: ClusterR[SoftwareConfig] = Reader { cs =>
-    SoftwareConfig.newBuilder
+    val sc = SoftwareConfig.newBuilder
       .setImageVersion(cs.image)
-      .build
+    cs.workerCount match {
+      case 0 =>
+        sc
+          .putProperties("dataproc:dataproc.allow.zero.workers", "true")
+          .build()
+      case _ => sc.build()
+    }
   }
 
   private def createGceClusterConfig: ClusterR[GceClusterConfig] =
@@ -34,6 +40,7 @@ object DataprocCluster {
       InstanceGroupConfig.newBuilder
         .setMachineTypeUri(cs.machineType)
         .setDiskConfig(disk)
+        .setIsPreemptible(false)
     }
   private def createMasterConfig(disk: DiskConfig): ClusterR[InstanceGroupConfig] =
     createInstanceGroupConfig(disk).map(igc => igc.setNumInstances(1).build)
