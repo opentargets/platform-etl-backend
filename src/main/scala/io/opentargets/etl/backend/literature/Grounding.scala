@@ -14,6 +14,7 @@ import org.apache.spark.sql.types._
 import org.apache.spark.sql.expressions.Window
 import org.apache.spark.storage.StorageLevel
 
+import scala.collection.immutable
 import scala.util.Random
 
 object Grounding extends Serializable with LazyLogging {
@@ -35,11 +36,7 @@ object Grounding extends Serializable with LazyLogging {
   private val labelT = "LT"
   private val tokenT = "TT"
 
-  val pipelineColumns = List(
-    //    "document",
-    //    "token",
-    //    "stop",
-    //    "clean",
+  val pipelineColumns: List[String] = List(
     tokenT,
     labelT
   )
@@ -355,7 +352,7 @@ object Grounding extends Serializable with LazyLogging {
       .withColumn("failed_sentence", $"text".rlike("[^\\x20-\\x7e]"))
   }
 
-  def filterEntities(df: DataFrame)(implicit sparkSession: SparkSession): DataFrame = {
+  def dropFailedColumns(df: DataFrame)(implicit sparkSession: SparkSession): DataFrame = {
     import sparkSession.implicits._
 
     val failedColumns = df.columns.filter(_.startsWith("failed_"))
@@ -392,6 +389,9 @@ object Grounding extends Serializable with LazyLogging {
     ).filter(col(keyColumnName).isNotNull and length(col(keyColumnName)) > 0)
   }
 
+  /** @return
+    *   Dataframe of keywordId, text, factor, keyType,
+    */
   private def transformDiseases(diseases: DataFrame,
                                 pipeline: Pipeline,
                                 pipelineCols: List[String]
@@ -534,29 +534,29 @@ object Grounding extends Serializable with LazyLogging {
       "factor"
     )
 
-    val D = transformDiseases(diseases, pipeline, pipelineColumns)
+    val diseaseDf: DataFrame = transformDiseases(diseases, pipeline, pipelineColumns)
       .withColumn("type", lit("DS"))
       .selectExpr(cols: _*)
 
-    val T = transformTargets(targets, pipeline, pipelineColumns)
+    val targetDf: DataFrame = transformTargets(targets, pipeline, pipelineColumns)
       .withColumn("type", lit("GP"))
       .selectExpr(cols: _*)
 
-    val DR = transformDrugs(drugs, pipeline, pipelineColumns)
+    val drugDf: DataFrame = transformDrugs(drugs, pipeline, pipelineColumns)
       .withColumn("type", lit("CD"))
       .selectExpr(cols: _*)
 
-    val w = Window.partitionBy(col("type"), col("labelN"))
-    val lut = D
-      .unionByName(T)
-      .unionByName(DR)
-      .distinct()
+    val windowByTypeAndLabel = Window.partitionBy(col("type"), col("labelN"))
+
+    diseaseDf
+      .unionByName(targetDf)
+      .unionByName(drugDf)
+      .distinct() // fixme: can this have any effect? We're taking the union of target, disease and drug, what crossover could there be?
       .withColumn("uniqueKeywordIdsPerLabelN",
-                  approx_count_distinct(col("keywordId"), 0.01).over(w)
+                  approx_count_distinct(col("keywordId"), 0.01).over(windowByTypeAndLabel)
       )
       .orderBy(col("type"), col("labelN"))
 
-    lut
   }
 
   def loadEPMCIDs(df: DataFrame)(implicit sparkSession: SparkSession): DataFrame = {
@@ -588,8 +588,8 @@ object Grounding extends Serializable with LazyLogging {
     val inputDataFrames = readFrom(mappedInputs)
 
     logger.info("Load PMCID-PMID lut and OT entity lut")
-    val idLUT = loadEPMCIDs(inputDataFrames("epmcids").data)
-    val luts = broadcast(
+    val idLUT: DataFrame = loadEPMCIDs(inputDataFrames("epmcids").data)
+    val luts: DataFrame = broadcast(
       loadEntityLUT(
         inputDataFrames("targets").data,
         inputDataFrames("diseases").data,
@@ -601,13 +601,14 @@ object Grounding extends Serializable with LazyLogging {
 
     // merge dataframe and take latest version when duplicatess
     val fullEpmcDf =
-      inputDataFrames("abstracts").data.unionByName(inputDataFrames("fullTexts").data, true)
+      inputDataFrames("abstracts").data
+        .unionByName(inputDataFrames("fullTexts").data, allowMissingColumns = true)
     val epmcDf = PreProcessing.process(fullEpmcDf)
 
     val epmcDfNoSpaces = replaceSpacesSchema(epmcDf)
 
     logger.info("load and preprocess EPMC data")
-    val sentences = loadEntities(epmcDfNoSpaces, idLUT).transform(filterEntities)
+    val sentences = loadEntities(epmcDfNoSpaces, idLUT).transform(dropFailedColumns)
 
     logger.info("producing grounding dataset")
     val mappedLabels =

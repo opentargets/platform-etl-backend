@@ -1,6 +1,7 @@
 package io.opentargets.etl.backend.literature
 
 import com.typesafe.scalalogging.LazyLogging
+import io.opentargets.etl.backend.Configuration.LiteratureProcessing
 import io.opentargets.etl.backend.ETLSessionContext
 import io.opentargets.etl.backend.spark.IoHelpers.writeTo
 import io.opentargets.etl.backend.spark.IOResource
@@ -51,7 +52,9 @@ object Processing extends Serializable with LazyLogging {
       .filter($"isMapped" === isMapped)
   }
 
-  private def filterMatchesForCH(df: DataFrame)(implicit context: ETLSessionContext): DataFrame = {
+  private def filterMatchesForCH(
+      matchesDF: DataFrame
+  )(implicit context: ETLSessionContext): DataFrame = {
     import context.sparkSession.implicits._
 
     val sectionImportances = context.configuration.literature.common.publicationSectionRanks
@@ -80,11 +83,11 @@ object Processing extends Serializable with LazyLogging {
       "sentences"
     )
 
-    val fdf = df
+    val matchesDF2 = matchesDF
       .withColumn("pmid", $"pmid".cast(LongType))
       .withColumnRenamed("type", "keywordType")
 
-    val sentencesDF = fdf
+    val sentencesDF = matchesDF2
       .filter($"section".isInCollection(Seq("title", "abstract")))
       .groupBy($"pmid", $"section")
       .agg(
@@ -105,7 +108,7 @@ object Processing extends Serializable with LazyLogging {
       .groupBy($"pmid")
       .agg(to_json(collect_list($"sentencesBySection")).as("sentences"))
 
-    fdf
+    matchesDF2
       .join(sectionRankTable, Seq("section"), "left_outer")
       .na
       .fill(100, "rank" :: Nil)
@@ -183,8 +186,8 @@ object Processing extends Serializable with LazyLogging {
 
     logger.info("Processing step")
 
-    val empcConfiguration = context.configuration.literature.processing
-    val grounding = Grounding.compute(empcConfiguration)
+    val empcConfiguration: LiteratureProcessing = context.configuration.literature.processing
+    val grounding: Map[String, DataFrame] = Grounding.compute(empcConfiguration)
 
     logger.info("Processing raw evidences and persist matches and cooccurrences")
 
@@ -204,7 +207,6 @@ object Processing extends Serializable with LazyLogging {
     val literatureIndexAlt = matches.transform(filterMatchesForCH)
 
     val outputs = empcConfiguration.outputs
-    logger.info(s"write to ${context.configuration.common.output}/matches")
     val dataframesToSave = Map(
       "failedMatches" -> IOResource(
         failedMatches,
