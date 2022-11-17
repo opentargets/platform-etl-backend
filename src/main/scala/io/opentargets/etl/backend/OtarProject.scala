@@ -33,7 +33,7 @@ object OtarProject extends LazyLogging {
             col("otar_code").as("otar_code"),
             col("project_status").as("status"),
             col("project_name").as("project_name"),
-            col("integrates_data_PPP_Boolean").as("integrates_data_PPP"),
+            col("integrates_data_PPP_Boolean").as("integrates_in_PPP"),
             concat(lit("http://home.opentargets.org/"), col("otar_code")).as("reference")
           )
         ).as("projects")
