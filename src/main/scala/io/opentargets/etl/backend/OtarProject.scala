@@ -5,6 +5,7 @@ import io.opentargets.etl.backend.spark.{IOResource, IOResourceConfig, IoHelpers
 import io.opentargets.etl.backend.spark.IoHelpers.IOResources
 import org.apache.spark.sql.{DataFrame, SparkSession}
 import org.apache.spark.sql.functions._
+import org.apache.spark.sql.types.BooleanType
 
 object OtarProject extends LazyLogging {
 
@@ -22,6 +23,7 @@ object OtarProject extends LazyLogging {
     val df = otarMeta.join(efoLookup, Seq("otar_code"), "left_outer")
 
     df.withColumnRenamed("efo_disease_id", "efo_code")
+      .withColumn("integrates_data_PPP_Boolean", col("integrates_data_PPP").cast(BooleanType))
       .join(disease, col("efo_code") === col("id"), "inner")
       .withColumn("ancestor", explode(concat(array(col("id")), col("ancestors"))))
       .groupBy(col("ancestor").as("efo_id"))
@@ -31,7 +33,7 @@ object OtarProject extends LazyLogging {
             col("otar_code").as("otar_code"),
             col("project_status").as("status"),
             col("project_name").as("project_name"),
-            col("integrates_data_PPP").as("integrates_data_PPP"),
+            col("integrates_data_PPP_Boolean").as("integrates_data_PPP"),
             concat(lit("http://home.opentargets.org/"), col("otar_code")).as("reference")
           )
         ).as("projects")
