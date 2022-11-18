@@ -13,7 +13,7 @@ case class ExistingOutputs(path: String, copyTo: String, sharedOutputs: List[Str
     file <- sharedOutputs
   } yield (path |+| file, copyTo |+| file)
 }
-case class WorkflowResources(jar: WfResource, config: WfResource)
+case class WorkflowResources(jar: WfResource, config: WfResource, javaSettings: List[String])
 case class WfResource(path: String, file: String) {
   require(path.endsWith("/"), "Path must end in \"/\"")
   val resource: String = path + file

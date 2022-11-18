@@ -9,18 +9,22 @@ import scala.collection.JavaConverters._
 
 object DataprocJobs {
 
+  private def spaceSeparatedList[A](ls: List[A]): String = ls.mkString("", " ", "")
+
   /** @return
     *   a Spark job template which needs to be parameterised with a job name. The job name is the
     *   argument passed to the job.
     */
   private def createSparkJobFn: Reader[WorkflowResources, String => SparkJob] = Reader {
     conf => (jobArgument: String) =>
+      val javaOptions =
+        s"-Dconfig.file=${conf.config.file} ${spaceSeparatedList(conf.javaSettings)}"
       SparkJob.newBuilder
         .setMainJarFileUri(conf.jar.resource)
         .addArgs(jobArgument)
         .addFileUris(conf.config.resource)
-        .putProperties("spark.executor.extraJavaOptions", s"-Dconfig.file=${conf.config.file}")
-        .putProperties("spark.driver.extraJavaOptions", s"-Dconfig.file=${conf.config.file}")
+        .putProperties("spark.executor.extraJavaOptions", javaOptions)
+        .putProperties("spark.driver.extraJavaOptions", javaOptions)
         .build
   }
 
