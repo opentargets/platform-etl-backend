@@ -5,6 +5,7 @@ import io.opentargets.etl.backend.spark.{IOResource, IOResourceConfig, IoHelpers
 import io.opentargets.etl.backend.spark.IoHelpers.IOResources
 import org.apache.spark.sql.{DataFrame, SparkSession}
 import org.apache.spark.sql.functions._
+import org.apache.spark.sql.types.BooleanType
 
 object OtarProject extends LazyLogging {
 
@@ -31,6 +32,7 @@ object OtarProject extends LazyLogging {
             col("otar_code").as("otar_code"),
             col("project_status").as("status"),
             col("project_name").as("project_name"),
+            col("integrates_data_PPP").cast(BooleanType).as("integrates_in_PPP"),
             concat(lit("http://home.opentargets.org/"), col("otar_code")).as("reference")
           )
         ).as("projects")
