@@ -18,11 +18,11 @@ class OtarProjectTest extends EtlSparkUnitTest {
   ).toDF("id", "ancestors")
 
   lazy val inputOtarMeta: DataFrame = Seq(
-    ("OTAR_x01", "Project Alfa", "Active"),
-    ("OTAR_x02", "Project Beta", "Closed"),
-    ("OTAR_x04", "Project Gamma", "Active"),
-    ("OTAR_x07", "Project Delta", "Closed")
-  ).toDF("otar_code", "project_name", "project_status")
+    ("OTAR_x01", "Project Alfa", "Active", "true"),
+    ("OTAR_x02", "Project Beta", "Closed", "true"),
+    ("OTAR_x04", "Project Gamma", "Active", "true"),
+    ("OTAR_x07", "Project Delta", "Closed", "true")
+  ).toDF("otar_code", "project_name", "project_status", "integrates_in_ppp")
 
   lazy val inputOtarLookup: DataFrame = Seq(
     ("OTAR_x01", "EFO_0000729"),
