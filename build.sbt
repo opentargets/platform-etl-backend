@@ -58,6 +58,9 @@ lazy val root = (project in file("."))
     testFrameworks += new TestFramework("minitest.runner.Framework"),
     mainClass in (Compile, run) := Some("io.opentargets.etl.Main"),
     mainClass in (Compile, packageBin) := Some("io.opentargets.etl.Main"),
+    assemblyShadeRules in assembly := Seq(
+      ShadeRule.rename("shapeless.**" -> "new_shapeless.@1").inAll
+    ),
     assemblyMergeStrategy in assembly := {
       case PathList("META-INF", "services", "org.apache.hadoop.fs.FileSystem") =>
         MergeStrategy.filterDistinctLines

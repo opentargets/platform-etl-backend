@@ -17,7 +17,7 @@ object PreProcessing {
   def addGroupingColumns(epmc: DataFrame): DataFrame =
     epmc
       .select(col("*"), input_file_name)
-      .select(col("*"), regexp_extract(input_file_name, "full-text|abstracts", 0) as "kind")
+      .select(col("*"), regexp_extract(input_file_name, "Full-text|Abstracts", 0) as "kind")
       .withColumn("int_timestamp", unix_timestamp(col("timestamp")))
 
   def mergeInformationBackToUniques(uniqueDfRows: DataFrame, fullDF: DataFrame): DataFrame =

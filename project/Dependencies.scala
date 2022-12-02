@@ -5,7 +5,7 @@ object Dependencies {
   lazy val workflowDependencies: Seq[ModuleID] = Seq(
     configDeps,
     cats,
-    gcp,
+    gcpWorkflow,
     testingDeps,
     loggingDeps,
     cli
@@ -18,8 +18,8 @@ object Dependencies {
     graphDeps,
     sparkDeps,
     testingDeps,
-    gcp,
-    Seq(typeSafeConfig),
+    gcpEtl,
+    typeSafeConfig,
     johnS
   ).flatten
 
@@ -68,9 +68,13 @@ object Dependencies {
 
   lazy val typeSafeConfig = Seq("com.typesafe" % "config" % "1.4.1")
 
-  lazy val gcp = Seq(
+  lazy val gcpEtl = Seq(
+    "com.google.cloud" % "google-cloud-dataproc" % "4.2.0" % "provided",
+    "com.google.cloud" % "google-cloud-storage" % "2.4.2"
+  )
+  lazy val gcpWorkflow = Seq(
     "com.google.cloud" % "google-cloud-dataproc" % "4.2.0",
-    "com.google.cloud" % "google-cloud-storage" % "2.14.0",
+    "com.google.cloud" % "google-cloud-storage" % "2.4.2",
     // https://storage.googleapis.com/cloud-opensource-java-dashboard/com.google.cloud/libraries-bom/26.1.4/index.html
     "io.grpc" % "grpc-netty-shaded" % "1.50.2", // needed for workflow to communicate with GCP
     "io.grpc" % "grpc-netty" % "1.50.2", // needed for workflow to communicate with GCP

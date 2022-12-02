@@ -17,7 +17,7 @@ object Literature extends LazyLogging {
 
   }
 
-  def createETLSession()(implicit context: ETLSessionContext) = {
+  def createETLSession()(implicit context: ETLSessionContext): ETLSessionContext = {
     val config = context.configuration
 
     val configurations = config.sparkSettings.defaultSparkSessionConfig
@@ -32,12 +32,16 @@ object Literature extends LazyLogging {
     etlSessionContext
   }
 
-  def runSteps(etlSessionContext: ETLSessionContext) = {
+  def runSteps(etlSessionContext: ETLSessionContext): Unit = {
     implicit val context: ETLSessionContext = etlSessionContext
 
+    logger.info("Run processing step")
     Processing()
+    logger.info("Run literature embedding")
     Embedding()
+    logger.info("Run literature vectors")
     Vectors()
+    logger.info("Run literature evidence")
     Evidence()
 
   }

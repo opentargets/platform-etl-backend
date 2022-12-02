@@ -16,36 +16,57 @@ object DataprocCluster {
 
   type ClusterR[T] = Reader[ClusterSettings, T]
   private def createSoftwareConfig: ClusterR[SoftwareConfig] = Reader { cs =>
-    SoftwareConfig.newBuilder
+    val sc = SoftwareConfig.newBuilder
       .setImageVersion(cs.image)
-      .build
+    cs.workerCount match {
+      case 0 =>
+        sc
+          .putProperties("dataproc:dataproc.allow.zero.workers", "true")
+          .build()
+      case _ => sc.build()
+    }
   }
 
   private def createGceClusterConfig: ClusterR[GceClusterConfig] =
     Reader(cs => GceClusterConfig.newBuilder.setZoneUri(cs.zone).build)
 
   private def createDiskConfig: ClusterR[DiskConfig] =
-    Reader(cs => DiskConfig.newBuilder.setBootDiskSizeGb(cs.bootDiskSize).build)
+    Reader(cs =>
+      DiskConfig.newBuilder.setBootDiskSizeGb(cs.bootDiskSize).setBootDiskType(cs.diskType).build
+    )
 
-  private def createInstanceGroupConfig(disk: DiskConfig): ClusterR[InstanceGroupConfig] = Reader {
-    cs =>
+  private def createInstanceGroupConfig(disk: DiskConfig): ClusterR[InstanceGroupConfig.Builder] =
+    Reader { cs =>
       InstanceGroupConfig.newBuilder
-        .setNumInstances(1)
         .setMachineTypeUri(cs.machineType)
         .setDiskConfig(disk)
-        .build
+        .setIsPreemptible(false)
+    }
+  private def createMasterConfig(disk: DiskConfig): ClusterR[InstanceGroupConfig] =
+    createInstanceGroupConfig(disk).map(igc => igc.setNumInstances(1).build)
+  private def createWorkerConfig(disk: DiskConfig): ClusterR[InstanceGroupConfig] = Reader { conf =>
+    val igc = createInstanceGroupConfig(disk)
+    igc.map(igcb => igcb.setNumInstances(conf.workerCount).build).run(conf)
   }
 
+  /** Enabling endpoint-config allows us to access the Spark UI from without Dataproc without having
+    * to set up ssh tunnels.
+    */
+  private def endpointConfig =
+    EndpointConfig.newBuilder.setEnableHttpPortAccess(true).build
   private def createClusterConfig: ClusterR[ClusterConfig] =
     for {
       gceConf <- createGceClusterConfig
       diskConf <- createDiskConfig
-      igConf <- createInstanceGroupConfig(diskConf)
+      masterConf <- createMasterConfig(diskConf)
+      workerConf <- createWorkerConfig(diskConf)
       softwareConf <- createSoftwareConfig
     } yield ClusterConfig.newBuilder
       .setGceClusterConfig(gceConf)
-      .setMasterConfig(igConf)
       .setSoftwareConfig(softwareConf)
+      .setMasterConfig(masterConf)
+      .setWorkerConfig(workerConf)
+      .setEndpointConfig(endpointConfig)
       .build
 
   private def getClusterName: ClusterR[String] = Reader(sc => sc.name)
