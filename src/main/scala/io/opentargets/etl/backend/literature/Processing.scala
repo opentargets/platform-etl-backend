@@ -95,7 +95,7 @@ object Processing extends Serializable with LazyLogging {
             "labelN"
       )
 
-    val litDF = matchesDF
+    val litDF = matchesDF2
       .join(sectionRankTable, Seq("section"), "left_outer")
       .na
       .fill(100, "rank" :: Nil)
