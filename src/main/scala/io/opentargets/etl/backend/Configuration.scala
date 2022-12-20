@@ -316,7 +316,8 @@ object Configuration extends LazyLogging {
                                   drugs: IOResourceConfig,
                                   abstracts: IOResourceConfig,
                                   fullTexts: IOResourceConfig,
-                                  outputs: LiteratureProcessingOutputs
+                                  outputs: LiteratureProcessingOutputs,
+                                  writeFailures: Boolean
   )
 
   case class LiteratureModelConfiguration(windowSize: Int,

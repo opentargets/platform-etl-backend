@@ -12,6 +12,8 @@ import org.apache.spark.sql.expressions.Window
 import org.apache.spark.sql.types.LongType
 import org.apache.spark.storage.StorageLevel
 
+import scala.language.postfixOps
+
 object Processing extends Serializable with LazyLogging {
 
   private def harmonicFn(v: Column, s: Column): Column =
@@ -130,9 +132,6 @@ object Processing extends Serializable with LazyLogging {
       grounding(l).persist(StorageLevel.MEMORY_AND_DISK)
     }
 
-    val failedMatches = grounding("matchesFailed")
-    val failedCoocs = grounding("cooccurrencesFailed")
-
     logger.info("Processing matches calculate done")
     val matches = filterMatches(grounding("matches"), isMapped = true)
 
@@ -143,19 +142,26 @@ object Processing extends Serializable with LazyLogging {
 
     val outputs = empcConfiguration.outputs
     val dataframesToSave = Map(
-      "failedMatches" -> IOResource(
-        failedMatches,
-        outputs.matches.copy(path = context.configuration.common.output + "/failedMatches")
-      ),
-      "failedCoocs" -> IOResource(
-        failedCoocs,
-        outputs.matches.copy(path = context.configuration.common.output + "/failedCooccurrences")
-      ),
       "cooccurrences" -> IOResource(coocs, outputs.cooccurrences),
       "matches" -> IOResource(matches, outputs.matches),
       "literatureIndex" -> IOResource(literatureIndexAlt._1, outputs.literatureIndex),
       "publicationSentences" -> IOResource(literatureIndexAlt._2, outputs.literatureSentences)
-    )
+    ) ++ {
+      if (context.configuration.literature.processing.writeFailures) {
+        Map(
+          "failedMatches" -> IOResource(
+            grounding("matchesFailed"),
+            outputs.matches.copy(path = context.configuration.common.output + "/failedMatches")
+          ),
+          "failedCoocs" -> IOResource(
+            grounding("cooccurrencesFailed"),
+            outputs.matches.copy(path =
+              context.configuration.common.output + "/failedCooccurrences"
+            )
+          )
+        )
+      } else Map.empty
+    }
     logger.info(s"Write literatures outputs: ${dataframesToSave.keySet}")
 
     writeTo(dataframesToSave)
