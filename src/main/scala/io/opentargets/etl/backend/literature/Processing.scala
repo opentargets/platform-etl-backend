@@ -9,16 +9,12 @@ import org.apache.spark.sql.SparkSession
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql._
 import org.apache.spark.sql.expressions.Window
-import org.apache.spark.sql.types.{DoubleType, LongType}
+import org.apache.spark.sql.types.LongType
 import org.apache.spark.storage.StorageLevel
 
+import scala.language.postfixOps
+
 object Processing extends Serializable with LazyLogging {
-  private def maxHarmonicFn(s: Column): Column =
-    aggregate(
-      zip_with(sequence(lit(1), s), sequence(lit(1), s), (e1, e2) => e1 / pow(e2, 2d)),
-      lit(0d),
-      (c1, c2) => c1 + c2
-    )
 
   private def harmonicFn(v: Column, s: Column): Column =
     aggregate(
@@ -54,7 +50,7 @@ object Processing extends Serializable with LazyLogging {
 
   private def filterMatchesForCH(
       matchesDF: DataFrame
-  )(implicit context: ETLSessionContext): DataFrame = {
+  )(implicit context: ETLSessionContext): (DataFrame, DataFrame) = {
     import context.sparkSession.implicits._
 
     val sectionImportances = context.configuration.literature.common.publicationSectionRanks
@@ -79,8 +75,7 @@ object Processing extends Serializable with LazyLogging {
       "day",
       "keywordId",
       "relevance",
-      "keywordType",
-      "sentences"
+      "keywordType"
     )
 
     val matchesDF2 = matchesDF
@@ -89,26 +84,20 @@ object Processing extends Serializable with LazyLogging {
 
     val sentencesDF = matchesDF2
       .filter($"section".isInCollection(Seq("title", "abstract")))
-      .groupBy($"pmid", $"section")
-      .agg(
-        struct(
-          $"section",
-          collect_list(
-            struct($"label",
-                   $"keywordType",
-                   $"keywordId",
-                   $"startInSentence",
-                   $"endInSentence",
-                   $"sectionStart",
-                   $"sectionEnd"
-            )
-          ).as("matches")
-        ).as("sentencesBySection")
+      .filter(col("pmid") isNotNull)
+      .drop("date",
+            "year",
+            "month",
+            "day",
+            "isMapped",
+            "organisms",
+            "pubDate",
+            "text",
+            "trace_source",
+            "labelN"
       )
-      .groupBy($"pmid")
-      .agg(to_json(collect_list($"sentencesBySection")).as("sentences"))
 
-    matchesDF2
+    val litDF = matchesDF2
       .join(sectionRankTable, Seq("section"), "left_outer")
       .na
       .fill(100, "rank" :: Nil)
@@ -124,61 +113,9 @@ object Processing extends Serializable with LazyLogging {
       )
       .withColumn("relevance", harmonicFn($"relevanceV", size($"relevanceV")))
       .dropDuplicates("pmid", "keywordId")
-      .join(sentencesDF, Seq("pmid"), "left_outer")
       .selectExpr(cols: _*)
-  }
 
-  private def aggregateMatches(df: DataFrame)(implicit sparkSession: SparkSession): DataFrame = {
-    import sparkSession.implicits._
-
-    val countsPerKey = df
-      .filter($"section".isNotNull and $"isMapped" === true)
-      .withColumn("pubDate", $"date")
-      .select($"pmid", $"pmcid", $"keywordId", $"pubDate", $"organisms")
-      .groupBy($"pmid", $"keywordId")
-      .agg(
-        first($"pmcid").as("pmcid"),
-        first($"pubDate").as("pubDate"),
-        first($"organisms").as("organisms"),
-        count($"keywordId").as("countsPerKey")
-      )
-      .groupBy($"pmid")
-      .agg(
-        first($"pmcid").as("pmcid"),
-        first($"pubDate").as("pubDate"),
-        first($"organisms").as("organisms"),
-        collect_set(struct($"keywordId", $"countsPerKey")).as("countsPerTerm"),
-        collect_set($"keywordId").as("terms")
-      )
-
-    logger.info(s"create literature-etl index for ETL")
-    val aggregated = df
-      .filter(
-        $"section".isNotNull and
-          $"isMapped" === true and
-          $"section".isInCollection(Seq("title", "abstract"))
-      )
-      .withColumn("match",
-                  struct($"endInSentence",
-                         $"label",
-                         $"sectionEnd",
-                         $"sectionStart",
-                         $"startInSentence",
-                         $"type",
-                         $"keywordId",
-                         $"isMapped"
-                  )
-      )
-      .groupBy($"pmid", $"section")
-      .agg(
-        array_distinct(collect_list($"match")).as("matches")
-      )
-      .groupBy($"pmid")
-      .agg(
-        collect_list(struct($"section", $"matches")).as("sentences")
-      )
-
-    countsPerKey.join(aggregated, Seq("pmid"), "left_outer")
+    (litDF, sentencesDF)
   }
 
   def apply()(implicit context: ETLSessionContext): Map[String, IOResource] = {
@@ -195,31 +132,36 @@ object Processing extends Serializable with LazyLogging {
       grounding(l).persist(StorageLevel.MEMORY_AND_DISK)
     }
 
-    val failedMatches = grounding("matchesFailed")
-    val failedCoocs = grounding("cooccurrencesFailed")
-
     logger.info("Processing matches calculate done")
     val matches = filterMatches(grounding("matches"), isMapped = true)
 
     logger.info("Processing coOccurences calculate done")
     val coocs = filterCooccurrences(grounding("cooccurrences"), isMapped = true)
 
-    val literatureIndexAlt = matches.transform(filterMatchesForCH)
+    val literatureIndexAlt: (DataFrame, DataFrame) = filterMatchesForCH(matches)
 
     val outputs = empcConfiguration.outputs
     val dataframesToSave = Map(
-      "failedMatches" -> IOResource(
-        failedMatches,
-        outputs.matches.copy(path = context.configuration.common.output + "/failedMatches")
-      ),
-      "failedCoocs" -> IOResource(
-        failedCoocs,
-        outputs.matches.copy(path = context.configuration.common.output + "/failedCooccurrences")
-      ),
       "cooccurrences" -> IOResource(coocs, outputs.cooccurrences),
       "matches" -> IOResource(matches, outputs.matches),
-      "literatureIndex" -> IOResource(literatureIndexAlt, outputs.literatureIndex)
-    )
+      "literatureIndex" -> IOResource(literatureIndexAlt._1, outputs.literatureIndex),
+      "publicationSentences" -> IOResource(literatureIndexAlt._2, outputs.literatureSentences)
+    ) ++ {
+      if (context.configuration.literature.processing.writeFailures) {
+        Map(
+          "failedMatches" -> IOResource(
+            grounding("matchesFailed"),
+            outputs.matches.copy(path = context.configuration.common.output + "/failedMatches")
+          ),
+          "failedCoocs" -> IOResource(
+            grounding("cooccurrencesFailed"),
+            outputs.matches.copy(path =
+              context.configuration.common.output + "/failedCooccurrences"
+            )
+          )
+        )
+      } else Map.empty
+    }
     logger.info(s"Write literatures outputs: ${dataframesToSave.keySet}")
 
     writeTo(dataframesToSave)

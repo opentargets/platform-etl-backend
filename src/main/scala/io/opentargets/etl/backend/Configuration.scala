@@ -306,7 +306,8 @@ object Configuration extends LazyLogging {
   case class LiteratureProcessingOutputs(rawEvidence: IOResourceConfig,
                                          cooccurrences: IOResourceConfig,
                                          matches: IOResourceConfig,
-                                         literatureIndex: IOResourceConfig
+                                         literatureIndex: IOResourceConfig,
+                                         literatureSentences: IOResourceConfig
   )
 
   case class LiteratureProcessing(epmcids: IOResourceConfig,
@@ -315,7 +316,8 @@ object Configuration extends LazyLogging {
                                   drugs: IOResourceConfig,
                                   abstracts: IOResourceConfig,
                                   fullTexts: IOResourceConfig,
-                                  outputs: LiteratureProcessingOutputs
+                                  outputs: LiteratureProcessingOutputs,
+                                  writeFailures: Boolean
   )
 
   case class LiteratureModelConfiguration(windowSize: Int,
