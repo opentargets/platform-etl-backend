@@ -41,7 +41,7 @@ object Epmc extends LazyLogging {
 
     val evidence = cooccurencesDf
       .select(
-        lit("europeepmc") as "datasourceId",
+        lit("europepmc") as "datasourceId",
         lit("literature") as "datatypeId",
         col("targetFromSourceId"),
         col("diseaseFromSourceMappedId"),
