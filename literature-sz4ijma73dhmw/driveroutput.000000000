@@ -1,0 +1,47 @@
+22/11/15 13:57:30 INFO io.opentargets.etl.backend.Configuration$: load configuration from file
+22/11/15 13:57:30 INFO io.opentargets.etl.backend.ETLSessionContext$: Generating ETL Session Context
+22/11/15 13:57:30 INFO io.opentargets.etl.backend.ETLSessionContext$: Excluding data sources for evidence: List(ot_crispr, encore, ot_crispr_validation)
+22/11/15 13:57:33 INFO io.opentargets.etl.backend.spark.Helpers$: create spark session with uri:'None'
+22/11/15 13:57:33 INFO org.apache.spark.SparkEnv: Registering MapOutputTracker
+22/11/15 13:57:33 INFO org.apache.spark.SparkEnv: Registering BlockManagerMaster
+22/11/15 13:57:33 INFO org.apache.spark.SparkEnv: Registering BlockManagerMasterHeartbeat
+22/11/15 13:57:33 INFO org.apache.spark.SparkEnv: Registering OutputCommitCoordinator
+22/11/15 13:57:34 INFO org.sparkproject.jetty.util.log: Logging initialized @6694ms to org.sparkproject.jetty.util.log.Slf4jLog
+22/11/15 13:57:34 INFO org.sparkproject.jetty.server.Server: jetty-9.4.40.v20210413; built: 2021-04-13T20:42:42.668Z; git: b881a572662e1943a14ae12e7e1207989f218b74; jvm 1.8.0_352-b08
+22/11/15 13:57:34 INFO org.sparkproject.jetty.server.Server: Started @6832ms
+22/11/15 13:57:34 INFO org.sparkproject.jetty.server.AbstractConnector: Started ServerConnector@44a1da1d{HTTP/1.1, (http/1.1)}{0.0.0.0:33595}
+22/11/15 13:57:34 INFO org.apache.hadoop.yarn.client.RMProxy: Connecting to ResourceManager at open-targets-etl-cluster-sz4ijma73dhmw-m/10.132.0.15:8032
+22/11/15 13:57:35 INFO org.apache.hadoop.yarn.client.AHSProxy: Connecting to Application History server at open-targets-etl-cluster-sz4ijma73dhmw-m/10.132.0.15:10200
+22/11/15 13:57:35 INFO org.apache.hadoop.conf.Configuration: resource-types.xml not found
+22/11/15 13:57:35 INFO org.apache.hadoop.yarn.util.resource.ResourceUtils: Unable to find 'resource-types.xml'.
+22/11/15 13:57:37 INFO org.apache.hadoop.yarn.client.api.impl.YarnClientImpl: Submitted application application_1668520596677_0001
+22/11/15 13:57:39 INFO org.apache.hadoop.yarn.client.RMProxy: Connecting to ResourceManager at open-targets-etl-cluster-sz4ijma73dhmw-m/10.132.0.15:8030
+22/11/15 13:57:40 INFO com.google.cloud.hadoop.repackaged.gcs.com.google.cloud.hadoop.gcsio.GoogleCloudStorageImpl: Ignoring exception of type GoogleJsonResponseException; verified object already exists with desired state.
+22/11/15 13:57:41 INFO io.opentargets.etl.ETL$: Steps already completed and not to be executed again: Set(interaction, fda, go, expression, disease, evidence, target, reactome, drug)
+22/11/15 13:57:41 INFO io.opentargets.etl.ETL$: Steps to execute: WrappedArray(literature)
+22/11/15 13:57:41 INFO io.opentargets.etl.ETL$: Steps to execute after filtering: WrappedArray(literature)
+22/11/15 13:57:41 INFO io.opentargets.etl.ETL$: run step literature
+22/11/15 13:57:41 INFO io.opentargets.etl.backend.spark.Helpers$: create spark session with uri:'None'
+22/11/15 13:57:42 WARN org.apache.spark.sql.SparkSession$Builder: Using an existing SparkSession; the static sql configurations will not take effect.
+22/11/15 13:57:42 WARN org.apache.spark.sql.SparkSession$Builder: Using an existing SparkSession; some spark core configurations may not take effect.
+22/11/15 13:57:42 INFO io.opentargets.etl.backend.literature.Processing$: Processing step
+22/11/15 13:57:42 INFO io.opentargets.etl.backend.literature.Grounding$: Grounding step
+22/11/15 13:57:42 INFO io.opentargets.etl.backend.spark.IoHelpers$: Load files into a Map of names and IOResource
+22/11/15 13:57:42 INFO io.opentargets.etl.backend.spark.IoHelpers$: load dataset gs://open-targets-pre-data-releases/22.11/output/etl/json/targets with IOResourceConfig(json,gs://open-targets-pre-data-releases/22.11/output/etl/json/targets,None,None,true)
+22/11/15 13:58:02 INFO io.opentargets.etl.backend.spark.IoHelpers$: load dataset gs://open-targets-pre-data-releases/22.11/output/etl/json/diseases with IOResourceConfig(json,gs://open-targets-pre-data-releases/22.11/output/etl/json/diseases,None,None,true)
+22/11/15 13:58:08 INFO io.opentargets.etl.backend.spark.IoHelpers$: load dataset gs://otar025-epmc/Abstracts/27_05_2022/*.jsonl with IOResourceConfig(json,gs://otar025-epmc/Abstracts/27_05_2022/*.jsonl,None,None,true)
+22/11/15 13:58:35 INFO io.opentargets.etl.backend.spark.IoHelpers$: load dataset gs://otar025-epmc/Full-text/23_03_2022/*.jsonl with IOResourceConfig(json,gs://otar025-epmc/Full-text/23_03_2022/*.jsonl,None,None,true)
+22/11/15 13:59:11 INFO io.opentargets.etl.backend.spark.IoHelpers$: load dataset gs://open-targets-pre-data-releases/22.11/input/literature-inputs/PMID_PMCID_DOI.csv.gz with IOResourceConfig(csv,gs://open-targets-pre-data-releases/22.11/input/literature-inputs/PMID_PMCID_DOI.csv.gz,Some(Vector(IOResourceConfigOption(header,true), IOResourceConfigOption(inferSchema,true))),None,true)
+22/11/15 14:00:03 INFO io.opentargets.etl.backend.spark.IoHelpers$: load dataset gs://open-targets-pre-data-releases/22.11/output/etl/json/molecule with IOResourceConfig(json,gs://open-targets-pre-data-releases/22.11/output/etl/json/molecule,None,None,true)
+22/11/15 14:00:04 INFO io.opentargets.etl.backend.literature.Grounding$: Load PMCID-PMID lut and OT entity lut
+22/11/15 14:02:12 INFO io.opentargets.etl.backend.literature.Grounding$: load and preprocess EPMC data
+22/11/15 14:02:12 INFO io.opentargets.etl.backend.literature.Grounding$: producing grounding dataset
+22/11/15 14:02:12 INFO io.opentargets.etl.backend.literature.Grounding$: ground and take rank 1 from the mapped ones
+22/11/15 14:02:13 INFO io.opentargets.etl.backend.literature.Grounding$: resolve entities with the produced grounded labels
+22/11/15 14:02:13 INFO io.opentargets.etl.backend.literature.Grounding$: resolve matches and cooccurrences with the grounded and filtered labels
+22/11/15 14:02:14 INFO io.opentargets.etl.backend.literature.Processing$: Processing raw evidences and persist matches and cooccurrences
+22/11/15 14:02:14 INFO io.opentargets.etl.backend.literature.Processing$: Processing matches calculate done
+22/11/15 14:02:14 INFO io.opentargets.etl.backend.literature.Processing$: Write literatures outputs: Set(literatureIndex)
+22/11/15 14:02:14 INFO io.opentargets.etl.backend.spark.IoHelpers$: write datasets (literatureIndex)
+22/11/15 14:02:14 INFO io.opentargets.etl.backend.spark.IoHelpers$: save dataset literatureIndex
+22/11/15 14:02:14 INFO io.opentargets.etl.backend.spark.IoHelpers$: save IOResource IOResource([pmid: bigint, pmcid: string ... 8 more fields],IOResourceConfig(json,gs://open-targets-pre-data-releases/22.11/output/etl/json/literatureIndex,None,None,true))

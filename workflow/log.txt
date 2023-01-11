@@ -1,0 +1,205 @@
+INFO Main - Starting workflow application.
+INFO Main - Loading configuration
+INFO Main - 
+Open Targets Workflow
+===
+Jobs: [step_id: "evidence"
+spark_job {
+  main_jar_file_uri: "gs://open-targets-pre-data-releases/jar/something.jar"
+  args: "evidence"
+  file_uris: "gs://open-targets-pre-data-releases/conf/2211.conf"
+  properties {
+    key: "spark.driver.extraJavaOptions"
+    value: "-Dconfig.file=2211.conf"
+  }
+  properties {
+    key: "spark.executor.extraJavaOptions"
+    value: "-Dconfig.file=2211.conf"
+  }
+}
+,step_id: "association"
+spark_job {
+  main_jar_file_uri: "gs://open-targets-pre-data-releases/jar/something.jar"
+  args: "association"
+  file_uris: "gs://open-targets-pre-data-releases/conf/2211.conf"
+  properties {
+    key: "spark.driver.extraJavaOptions"
+    value: "-Dconfig.file=2211.conf"
+  }
+  properties {
+    key: "spark.executor.extraJavaOptions"
+    value: "-Dconfig.file=2211.conf"
+  }
+}
+prerequisite_step_ids: "evidence"
+,step_id: "associationOTF"
+spark_job {
+  main_jar_file_uri: "gs://open-targets-pre-data-releases/jar/something.jar"
+  args: "associationOTF"
+  file_uris: "gs://open-targets-pre-data-releases/conf/2211.conf"
+  properties {
+    key: "spark.driver.extraJavaOptions"
+    value: "-Dconfig.file=2211.conf"
+  }
+  properties {
+    key: "spark.executor.extraJavaOptions"
+    value: "-Dconfig.file=2211.conf"
+  }
+}
+prerequisite_step_ids: "evidence"
+,step_id: "search"
+spark_job {
+  main_jar_file_uri: "gs://open-targets-pre-data-releases/jar/something.jar"
+  args: "search"
+  file_uris: "gs://open-targets-pre-data-releases/conf/2211.conf"
+  properties {
+    key: "spark.driver.extraJavaOptions"
+    value: "-Dconfig.file=2211.conf"
+  }
+  properties {
+    key: "spark.executor.extraJavaOptions"
+    value: "-Dconfig.file=2211.conf"
+  }
+}
+prerequisite_step_ids: "evidence"
+prerequisite_step_ids: "association"
+,step_id: "knownDrug"
+spark_job {
+  main_jar_file_uri: "gs://open-targets-pre-data-releases/jar/something.jar"
+  args: "knownDrug"
+  file_uris: "gs://open-targets-pre-data-releases/conf/2211.conf"
+  properties {
+    key: "spark.driver.extraJavaOptions"
+    value: "-Dconfig.file=2211.conf"
+  }
+  properties {
+    key: "spark.executor.extraJavaOptions"
+    value: "-Dconfig.file=2211.conf"
+  }
+}
+prerequisite_step_ids: "evidence"
+,step_id: "ebiSearch"
+spark_job {
+  main_jar_file_uri: "gs://open-targets-pre-data-releases/jar/something.jar"
+  args: "ebiSearch"
+  file_uris: "gs://open-targets-pre-data-releases/conf/2211.conf"
+  properties {
+    key: "spark.driver.extraJavaOptions"
+    value: "-Dconfig.file=2211.conf"
+  }
+  properties {
+    key: "spark.executor.extraJavaOptions"
+    value: "-Dconfig.file=2211.conf"
+  }
+}
+prerequisite_step_ids: "evidence"
+prerequisite_step_ids: "association"
+]
+
+===
+Resources to move: []
+
+===
+
+/home/jarrod/programs/google-cloud-sdk/bin/gsutil
+INFO s.ResourceTransfer - No resources to move
+INFO Main - Location selected: projects/open-targets-eu-dev/regions/europe-west1
+Nov 03, 2022 9:22:41 PM com.google.auth.oauth2.DefaultCredentialsProvider warnAboutProblematicCredentials
+WARNING: Your application has authenticated using end user credentials from Google Cloud SDK. We recommend that most server applications use service accounts instead. If your application continues to use end user credentials from Cloud SDK, you might receive a "quota exceeded" or "API not enabled" error. For more information about service accounts, see https://cloud.google.com/docs/authentication/.
+DEBUG i.n.u.i.l.InternalLoggerFactory - Using SLF4J as the default logging framework
+DEBUG i.n.u.i.PlatformDependent0 - -Dio.netty.noUnsafe: false
+DEBUG i.n.u.i.PlatformDependent0 - Java version: 11
+DEBUG i.n.u.i.PlatformDependent0 - sun.misc.Unsafe.theUnsafe: available
+DEBUG i.n.u.i.PlatformDependent0 - sun.misc.Unsafe.copyMemory: available
+DEBUG i.n.u.i.PlatformDependent0 - sun.misc.Unsafe.storeFence: available
+DEBUG i.n.u.i.PlatformDependent0 - java.nio.Buffer.address: available
+DEBUG i.n.u.i.PlatformDependent0 - direct buffer constructor: unavailable: Reflective setAccessible(true) disabled
+DEBUG i.n.u.i.PlatformDependent0 - java.nio.Bits.unaligned: available, true
+DEBUG i.n.u.i.PlatformDependent0 - jdk.internal.misc.Unsafe.allocateUninitializedArray(int): unavailable: class io.netty.util.internal.PlatformDependent0$7 cannot access class jdk.internal.misc.Unsafe (in module java.base) because module java.base does not export jdk.internal.misc to unnamed module @1838efe1
+DEBUG i.n.u.i.PlatformDependent0 - java.nio.DirectByteBuffer.<init>(long, int): unavailable
+DEBUG i.n.u.i.PlatformDependent - sun.misc.Unsafe: available
+DEBUG i.n.u.i.PlatformDependent - maxDirectMemory: 4085252096 bytes (maybe)
+DEBUG i.n.u.i.PlatformDependent - -Dio.netty.tmpdir: /tmp (java.io.tmpdir)
+DEBUG i.n.u.i.PlatformDependent - -Dio.netty.bitMode: 64 (sun.arch.data.model)
+DEBUG i.n.u.i.PlatformDependent - -Dio.netty.maxDirectMemory: -1 bytes
+DEBUG i.n.u.i.PlatformDependent - -Dio.netty.uninitializedArrayAllocationThreshold: -1
+DEBUG i.n.u.i.CleanerJava9 - java.nio.ByteBuffer.cleaner(): available
+DEBUG i.n.u.i.PlatformDependent - -Dio.netty.noPreferDirect: false
+java.util.concurrent.ExecutionException: com.google.api.gax.rpc.AbortedException: Operation with name "projects/open-targets-eu-dev/regions/europe-west1/operations/4581bc44-cff3-4084-bb33-e943dd5c32d2" failed with status = GrpcStatusCode{transportCode=ABORTED} and message = Step 'evidence' (evidence-hj6tmvuq2k46e) failed
+	at com.google.common.util.concurrent.AbstractFuture.getDoneValue(AbstractFuture.java:588)
+	at com.google.common.util.concurrent.AbstractFuture.get(AbstractFuture.java:567)
+	at com.google.common.util.concurrent.FluentFuture$TrustedFuture.get(FluentFuture.java:91)
+	at com.google.common.util.concurrent.ForwardingFuture.get(ForwardingFuture.java:66)
+	at com.google.api.gax.longrunning.OperationFutureImpl.get(OperationFutureImpl.java:125)
+	at Main$.$anonfun$executeWorkflow$1(Main.scala:20)
+	at apply @ Main$.executeWorkflow(Main.scala:20)
+	at map @ Main$.$anonfun$run$20(Main.scala:36)
+	at apply @ Main$.$anonfun$run$18(Main.scala:35)
+	at flatMap @ Main$.$anonfun$run$18(Main.scala:35)
+	at apply @ Main$.$anonfun$run$16(Main.scala:34)
+	at flatMap @ Main$.$anonfun$run$16(Main.scala:34)
+	at delay @ org.typelevel.log4cats.slf4j.internal.Slf4jLoggerInternal$Slf4jLogger.$anonfun$info$4(Slf4jLoggerInternal.scala:91)
+	at delay @ org.typelevel.log4cats.slf4j.internal.Slf4jLoggerInternal$Slf4jLogger.isInfoEnabled(Slf4jLoggerInternal.scala:66)
+	at ifM$extension @ org.typelevel.log4cats.slf4j.internal.Slf4jLoggerInternal$Slf4jLogger.info(Slf4jLoggerInternal.scala:91)
+	at apply @ Main$.$anonfun$run$12(Main.scala:31)
+	at flatTap @ Main$.$anonfun$run$5(Main.scala:26)
+	at flatMap @ Main$.$anonfun$run$12(Main.scala:31)
+	at apply @ Main$.$anonfun$run$10(Main.scala:30)
+	at flatMap @ Main$.$anonfun$run$10(Main.scala:30)
+	at apply @ service.ResourceTransfer$.$anonfun$moveResources$2(ResourceTransfer.scala:58)
+Caused by: com.google.api.gax.rpc.AbortedException: Operation with name "projects/open-targets-eu-dev/regions/europe-west1/operations/4581bc44-cff3-4084-bb33-e943dd5c32d2" failed with status = GrpcStatusCode{transportCode=ABORTED} and message = Step 'evidence' (evidence-hj6tmvuq2k46e) failed
+	at com.google.api.gax.rpc.ApiExceptionFactory.createException(ApiExceptionFactory.java:64)
+	at com.google.api.gax.grpc.ProtoOperationTransformers$ResponseTransformer.apply(ProtoOperationTransformers.java:55)
+	at com.google.api.gax.grpc.ProtoOperationTransformers$ResponseTransformer.apply(ProtoOperationTransformers.java:44)
+	at com.google.api.core.ApiFutures$ApiFunctionToGuavaFunction.apply(ApiFutures.java:239)
+	at com.google.common.util.concurrent.AbstractTransformFuture$TransformFuture.doTransform(AbstractTransformFuture.java:250)
+	at com.google.common.util.concurrent.AbstractTransformFuture$TransformFuture.doTransform(AbstractTransformFuture.java:240)
+	at com.google.common.util.concurrent.AbstractTransformFuture.run(AbstractTransformFuture.java:122)
+	at com.google.common.util.concurrent.DirectExecutor.execute(DirectExecutor.java:31)
+	at com.google.common.util.concurrent.AbstractFuture.executeListener(AbstractFuture.java:1270)
+	at com.google.common.util.concurrent.AbstractFuture.complete(AbstractFuture.java:1038)
+	at com.google.common.util.concurrent.AbstractFuture.set(AbstractFuture.java:783)
+	at com.google.api.gax.retrying.BasicRetryingFuture.handleAttempt(BasicRetryingFuture.java:203)
+	at com.google.api.gax.retrying.CallbackChainRetryingFuture$AttemptCompletionListener.handle(CallbackChainRetryingFuture.java:135)
+	at com.google.api.gax.retrying.CallbackChainRetryingFuture$AttemptCompletionListener.run(CallbackChainRetryingFuture.java:115)
+	at com.google.common.util.concurrent.DirectExecutor.execute(DirectExecutor.java:31)
+	at com.google.common.util.concurrent.AbstractFuture.executeListener(AbstractFuture.java:1270)
+	at com.google.common.util.concurrent.AbstractFuture.complete(AbstractFuture.java:1038)
+	at com.google.common.util.concurrent.AbstractFuture.set(AbstractFuture.java:783)
+	at com.google.common.util.concurrent.AbstractTransformFuture$TransformFuture.setResult(AbstractTransformFuture.java:255)
+	at com.google.common.util.concurrent.AbstractTransformFuture.run(AbstractTransformFuture.java:167)
+	at com.google.common.util.concurrent.DirectExecutor.execute(DirectExecutor.java:31)
+	at com.google.common.util.concurrent.AbstractFuture.executeListener(AbstractFuture.java:1270)
+	at com.google.common.util.concurrent.AbstractFuture.complete(AbstractFuture.java:1038)
+	at com.google.common.util.concurrent.AbstractFuture.set(AbstractFuture.java:783)
+	at com.google.api.gax.retrying.BasicRetryingFuture.handleAttempt(BasicRetryingFuture.java:203)
+	at com.google.api.gax.retrying.CallbackChainRetryingFuture$AttemptCompletionListener.handle(CallbackChainRetryingFuture.java:135)
+	at com.google.api.gax.retrying.CallbackChainRetryingFuture$AttemptCompletionListener.run(CallbackChainRetryingFuture.java:115)
+	at com.google.common.util.concurrent.DirectExecutor.execute(DirectExecutor.java:31)
+	at com.google.common.util.concurrent.AbstractFuture.executeListener(AbstractFuture.java:1270)
+	at com.google.common.util.concurrent.AbstractFuture.complete(AbstractFuture.java:1038)
+	at com.google.common.util.concurrent.AbstractFuture.set(AbstractFuture.java:783)
+	at com.google.api.core.AbstractApiFuture$InternalSettableFuture.set(AbstractApiFuture.java:89)
+	at com.google.api.core.AbstractApiFuture.set(AbstractApiFuture.java:72)
+	at com.google.api.gax.grpc.GrpcExceptionCallable$ExceptionTransformingFuture.onSuccess(GrpcExceptionCallable.java:88)
+	at com.google.api.core.ApiFutures$1.onSuccess(ApiFutures.java:72)
+	at com.google.common.util.concurrent.Futures$CallbackListener.run(Futures.java:1138)
+	at com.google.common.util.concurrent.DirectExecutor.execute(DirectExecutor.java:31)
+	at com.google.common.util.concurrent.AbstractFuture.executeListener(AbstractFuture.java:1270)
+	at com.google.common.util.concurrent.AbstractFuture.complete(AbstractFuture.java:1038)
+	at com.google.common.util.concurrent.AbstractFuture.set(AbstractFuture.java:783)
+	at io.grpc.stub.ClientCalls$GrpcFuture.set(ClientCalls.java:569)
+	at io.grpc.stub.ClientCalls$UnaryStreamToFuture.onClose(ClientCalls.java:542)
+	at io.grpc.PartialForwardingClientCallListener.onClose(PartialForwardingClientCallListener.java:39)
+	at io.grpc.ForwardingClientCallListener.onClose(ForwardingClientCallListener.java:23)
+	at io.grpc.ForwardingClientCallListener$SimpleForwardingClientCallListener.onClose(ForwardingClientCallListener.java:40)
+	at com.google.api.gax.grpc.ChannelPool$ReleasingClientCall$1.onClose(ChannelPool.java:535)
+	at io.grpc.internal.ClientCallImpl.closeObserver(ClientCallImpl.java:563)
+	at io.grpc.internal.ClientCallImpl.access$300(ClientCallImpl.java:70)
+	at io.grpc.internal.ClientCallImpl$ClientStreamListenerImpl$1StreamClosed.runInternal(ClientCallImpl.java:744)
+	at io.grpc.internal.ClientCallImpl$ClientStreamListenerImpl$1StreamClosed.runInContext(ClientCallImpl.java:723)
+	at io.grpc.internal.ContextRunnable.run(ContextRunnable.java:37)
+	at io.grpc.internal.SerializingExecutor.run(SerializingExecutor.java:133)
+	at java.base/java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1128)
+	at java.base/java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:628)
+	at java.base/java.lang.Thread.run(Thread.java:829)
