@@ -40,17 +40,16 @@ object Epmc extends LazyLogging {
     )
 
     val evidence = cooccurencesDf
-      .withColumn("datasourceId", lit("europepmc"))
-      .withColumn("datatypeId", lit("literature"))
       .select(
-        "datasourceId",
-        "datatypeId",
-        "targetFromSourceId",
-        "diseaseFromSourceMappedId",
-        "resourceScore",
-        "literature",
-        "textMiningSentences",
-        "pmcIds"
+        lit("europepmc") as "datasourceId",
+        lit("literature") as "datatypeId",
+        col("targetFromSourceId"),
+        col("diseaseFromSourceMappedId"),
+        col("resourceScore"),
+        col("literature"),
+        col("textMiningSentences"),
+        col("pmcIds"),
+        col("year") as "publicationYear"
       )
       .cache()
 
@@ -103,7 +102,7 @@ object Epmc extends LazyLogging {
       )
       .withColumnRenamed("keywordId1", "targetFromSourceId")
       .withColumnRenamed("keywordId2", "diseaseFromSourceMappedId")
-      .groupBy("publicationIdentifier", "targetFromSourceId", "diseaseFromSourceMappedId")
+      .groupBy("publicationIdentifier", "targetFromSourceId", "diseaseFromSourceMappedId", "year")
       .agg(
         collect_set(col("pmcid")).alias("pmcIds"),
         collect_set(col("pmid")).alias("literature"),
