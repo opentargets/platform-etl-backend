@@ -336,9 +336,7 @@ object Target extends LazyLogging {
       dataFrame: DataFrame
   )(implicit sparkSession: SparkSession): DataFrame = {
     val tsDS: Dataset[TargetSafety] = Safety(
-      inputDataFrames("safetyAE").data,
-      inputDataFrames("safetySR").data,
-      inputDataFrames("safetyTox").data,
+      inputDataFrames("safetyEvidence").data,
       geneToEnsemblLookup
     )
     logger.info("Adding target safety to dataframe")
@@ -422,14 +420,7 @@ object Target extends LazyLogging {
       "projectScoresEssentialityMatrix" -> targetInputs.psEssentialityMatrix,
       "reactomeEtl" -> targetInputs.reactomeEtl,
       "reactomePathways" -> targetInputs.reactomePathways,
-      "safetyAE" -> targetInputs.safetyAdverseEvent,
-      "safetySR" -> targetInputs.safetySafetyRisk,
-      "safetyTox" -> targetInputs.safetyToxicity.copy(
-        options = targetInputs.safetyToxicity.options match {
-          case Some(value) => Option(value)
-          case None        => CsvHelpers.tsvWithHeader
-        }
-      ),
+      "safetyEvidence" -> targetInputs.safetyEvidence,
       "tep" -> targetInputs.tep,
       "tractability" -> targetInputs.tractability,
       "uniprotSsl" -> targetInputs.uniprotSsl
