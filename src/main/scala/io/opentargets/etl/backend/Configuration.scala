@@ -229,9 +229,7 @@ object Configuration extends LazyLogging {
       homologyCodingProteins: IOResourceConfig,
       homologyGeneDictionary: IOResourceConfig,
       tractability: IOResourceConfig,
-      safetyToxicity: IOResourceConfig,
-      safetySafetyRisk: IOResourceConfig,
-      safetyAdverseEvent: IOResourceConfig,
+      safetyEvidence: IOResourceConfig,
       reactomeEtl: IOResourceConfig,
       reactomePathways: IOResourceConfig
   )

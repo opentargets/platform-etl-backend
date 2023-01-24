@@ -5,6 +5,7 @@ import io.opentargets.etl.backend.spark.Helpers.unionDataframeDifferentSchema
 import org.apache.spark.sql.functions.{
   array_contains,
   broadcast,
+  coalesce,
   col,
   collect_set,
   element_at,
@@ -25,161 +26,83 @@ case class TargetSafetyEvidence(
     event: String,
     eventId: String,
     effects: Array[(String, String)],
-    biosample: Array[Biosample],
+    isHumanApplicable: Boolean,
+    biosamples: Array[Biosample],
     datasource: String,
     literature: String,
     url: String,
-    study: Array[TargetSafetyStudy]
+    studies: Array[TargetSafetyStudy]
 )
 
 case class Biosample(
     tissueLabel: String,
     tissueId: String,
     cellLabel: String,
-    cellFormat: String,
-    cellId: String
+    cellFormat: String
 )
 
 object Safety extends LazyLogging {
 
   def apply(
-      adverseEventsDF: DataFrame,
-      safetyRiskDF: DataFrame,
-      toxicityDF: DataFrame,
+      safetyEvidence: DataFrame,
       geneToEnsgLookup: DataFrame
   )(implicit sparkSession: SparkSession): Dataset[TargetSafety] = {
     import sparkSession.implicits._
 
     logger.info("Computing target safety information.")
 
-    // transform raw data frames into desired format
-    val aeDF: DataFrame = transformAdverseEvents(adverseEventsDF)
-    val tsDF: DataFrame = transformTargetSafety(safetyRiskDF)
-    val toxDF: DataFrame =
-      transformToxCast(toxicityDF, geneToEnsgLookup)
+    val safetyWithEnsgIds: DataFrame =
+      addMissingGeneIdsToSafetyEvidence(safetyEvidence, geneToEnsgLookup)
 
-    // combine into single dataframe and group by Ensembl id.
-    // The data is relatively sparse, so expect lots of nulls.
-    val combinedDF = unionDataframeDifferentSchema(Seq(aeDF, tsDF, toxDF))
-      .groupBy(
-        col("event"),
-        col("eventId"),
-        col("datasource"),
-        col("id"),
-        col("effects"),
-        col("literature"),
-        col("url")
-      )
-      .agg(collect_set(col("study")) as "study", collect_set(col("biosample")) as "biosample")
+    val safetyGroupedById = safetyWithEnsgIds
       .transform(groupByEvidence)
 
-    combinedDF.as[TargetSafety]
+    safetyGroupedById.as[TargetSafety]
   }
 
-  private def transformAdverseEvents(df: DataFrame): DataFrame = {
-    logger.debug("Transforming target safety adverse events data.")
-    val aeDF = df
-      .select(
-        col("ensemblId") as "id",
-        col("symptom") as "event",
-        col("efoId") as "eventId",
-        col("ref") as "datasource",
-        col("pmid") as "literature",
-        col("url"),
-        struct(
-          col("biologicalSystem") as "tissueLabel",
-          col("uberonCode") as "tissueId",
-          typedLit[String](null) as "cellLabel",
-          typedLit[String](null) as "cellFormat",
-          typedLit[String](null) as "cellId"
-        ) as "biosample",
-        split(col("effect"), "_") as "effects"
-      )
-      .withColumn(
-        "effects",
-        struct(
-          element_at(col("effects"), 1) as "direction",
-          element_at(col("effects"), 2) as "dosing"
-        )
-      )
-
-    val effectsDF = aeDF
-      .groupBy("id", "event", "datasource")
-      .agg(collect_set(col("effects")) as "effects")
-
-    aeDF.drop("effects").join(effectsDF, Seq("id", "event", "datasource"), "left_outer")
-  }
-
-  private def transformTargetSafety(df: DataFrame): DataFrame = {
-    logger.debug("Transforming target safety safety risk data.")
-    df.select(
-      col("ensemblId") as "id",
-      when(col("ref").contains("Force"), "heart disease")
-        .when(col("ref").contains("Lamore"), "cardiac arrhythmia") as "event",
-      when(col("ref").contains("Force"), "EFO_0003777")
-        .when(col("ref").contains("Lamore"), "EFO_0004269") as "eventId",
-      struct(
-        col("biologicalSystem") as "tissueLabel",
-        col("uberonId") as "tissueId",
-        typedLit[String](null) as "cellLabel",
-        typedLit[String](null) as "cellFormat",
-        typedLit[String](null) as "cellId"
-      ) as "biosample",
-      col("ref") as "datasource",
-      col("pmid") as "literature",
-      struct(
-        typedLit[String](null) as "name",
-        col("liability") as "description",
-        typedLit[String](null) as "type"
-      ) as "study"
-    )
-  }
-
-  def transformToxCast(toxDF: DataFrame, geneIdLookup: DataFrame): DataFrame = {
-    logger.debug("Transforming target safety toxcast data.")
-    val tDf = broadcast(
-      toxDF.select(
-        col("biological_process_target") as "event",
-        col("eventId"),
-        struct(
-          col("tissue") as "tissueLabel",
-          typedLit[String](null) as "tissueId",
-          col("cell_short_name") as "cellLabel",
-          col("cell_format") as "cellFormat",
-          lit("") as "cellId"
-        ) as "biosample",
-        trim(col("official_symbol")) as "official_symbol",
-        lit("ToxCast") as "datasource",
-        lit(
-          "https://www.epa.gov/chemical-research/exploring-toxcast-data-downloadable-data"
-        ) as "url",
-        struct(
-          col("assay_component_endpoint_name") as "name",
-          col("assay_component_desc") as "description",
-          col("assay_format_type") as "type"
-        ) as "study"
-      )
-    ).join(geneIdLookup, array_contains(col("name"), col("official_symbol")), "left_outer")
+  /** The safety dataset is provided by the data team: entries for Toxcast do not have a valid ENSG
+    * ID and cannot be mapped to the correct target object. The gene name is included in the field
+    * `targetFromSourceId` and can be used to correctly map the toxcast evidence to the correct
+    * target.
+    * @param safetyDf
+    *   provided raw from the data team.
+    * @param geneIdLookup
+    * @return
+    *   dataframe with each evidence string mapped to a valid target.
+    */
+  def addMissingGeneIdsToSafetyEvidence(safetyDf: DataFrame, geneIdLookup: DataFrame): DataFrame = {
+    logger.debug("Adding missing ENSG IDs to toxcast entries.")
+    // join on name, merge ensgId from lookup with id from df
+    val tDf = safetyDf
+      .join(geneIdLookup, array_contains(col("name"), col("targetFromSourceId")), "left_outer")
       .drop(geneIdLookup.columns.filter(_ != "ensgId"): _*)
-      .withColumnRenamed("ensgId", "id")
+      .withColumn("temp_id", coalesce(col("id"), col("ensgId")))
+      .drop("id", "ensgId")
+      .withColumnRenamed("temp_id", "id")
+
+    logger.whenDebugEnabled({
+      val unmappedToxcastCount =
+        tDf.filter(col("datasource") === "ToxCast" && col("id").isNull).count
+      logger.debug(s"There were $unmappedToxcastCount with no valid target mapping.")
+    })
 
     tDf
   }
 
   private def groupByEvidence(df: DataFrame): DataFrame = {
     logger.debug("Grouping target safety by ensembl id.")
-
     df.select(
       col("id"),
       struct(
         col("event"),
         col("eventId"),
         col("effects"),
-        col("biosample"),
+        col("biosamples"),
+        col("isHumanApplicable"),
         col("datasource"),
         col("literature"),
         col("url"),
-        col("study")
+        col("studies")
       ) as "safety"
     ).groupBy("id")
       .agg(collect_set("safety") as "safetyLiabilities")
