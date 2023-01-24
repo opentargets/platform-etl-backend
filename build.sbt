@@ -1,4 +1,5 @@
 import Dependencies._
+import scala.sys.process.Process
 
 val buildResolvers = Seq(
   "Typesafe Repo" at "https://repo.typesafe.com/typesafe/releases/",
@@ -10,6 +11,11 @@ val buildResolvers = Seq(
 ThisBuild / organization := "io.opentargets"
 ThisBuild / version := "1.0.0"
 ThisBuild / scalaVersion := "2.12.12"
+
+def jarName(name: String): String = {
+  val commit = Process(s"git log --oneline").lineStream.head.take(7)
+  s"$name-$commit.jar"
+}
 
 lazy val workflow = (project in file("workflow")).settings(
   name := "etl-workflow",
@@ -48,7 +54,8 @@ lazy val workflow = (project in file("workflow")).settings(
       }
     case "module-info.class" => MergeStrategy.filterDistinctLines
     case _                   => MergeStrategy.deduplicate
-  }
+  },
+  assembly / assemblyJarName := jarName("workflow")
 )
 lazy val root = (project in file("."))
   .settings(
@@ -68,5 +75,6 @@ lazy val root = (project in file("."))
         MergeStrategy.concat
       case PathList("META-INF", xs @ _*) => MergeStrategy.discard
       case _                             => MergeStrategy.first
-    }
+    },
+    assembly / assemblyJarName := jarName("etl-backend")
   )
