@@ -357,6 +357,18 @@ object Configuration extends LazyLogging {
                                evidence: LiteratureEvidence
   )
 
+  case class TargetEngineInputs(targets: IOResourceConfig,
+                                molecule: IOResourceConfig,
+                                mechanismOfAction: IOResourceConfig,
+                                mousePhenotypes: IOResourceConfig,
+                                hpaData: IOResourceConfig,
+                                uniprotSlterms: IOResourceConfig
+  )
+
+  case class TargetEngineOutputs(targetEngine: IOResourceConfig)
+
+  case class TargetEngineSection(inputs: TargetEngineInputs, outputs: TargetEngineOutputs)
+
   // --- END --- //
 
   case class EtlStep[T](step: T, dependencies: List[T])
@@ -385,6 +397,7 @@ object Configuration extends LazyLogging {
       ebisearch: EBISearchSection,
       otarproject: OtarProjectSection,
       literature: LiteratureSection,
-      epmc: Epmc
+      epmc: Epmc,
+      targetEngine: TargetEngineSection
   )
 }
