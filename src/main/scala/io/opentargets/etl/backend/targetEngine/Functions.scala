@@ -5,16 +5,6 @@ import org.apache.spark.sql.DataFrame
 import org.apache.spark.sql.functions._
 
 object Functions extends LazyLogging {
-  def biotypeQuery(targetsDF: DataFrame): DataFrame =
-    targetsDF
-      .select(col("id").as("targetid"),
-              col("biotype"),
-              when(col("biotype") === "protein_coding", 1)
-                otherwise (0)
-                as ("Nr_biotype")
-      )
-      .dropDuplicates() // is this necessary?
-
   def targetMembraneQuery(
       biotypeDF: DataFrame,
       targetsDF: DataFrame,
@@ -31,8 +21,8 @@ object Functions extends LazyLogging {
         .toSeq
 
     val exploded = targetsDF
-      .select(col("id").as("loc_id"), explode_outer(col("subcellularLocations")))
-      .select(col("loc_id"), col("col.*"))
+      .select(col("id").as("targetid"), explode_outer(col("subcellularLocations")))
+      .select(col("targetid"), col("col.*"))
 
     val selectNrMb = exploded
       .select(
@@ -61,9 +51,9 @@ object Functions extends LazyLogging {
       .filter(col("Nr_mb").isin(sourceList: _*))
 
     val grouping = selectNrMb
-      .select("loc_id", "Nr_mb", "source")
-      .dropDuplicates(Seq("loc_id", "Nr_mb"))
-      .groupBy("loc_id")
+      .select("targetid", "Nr_mb", "source")
+      .dropDuplicates(Seq("targetid", "Nr_mb"))
+      .groupBy("targetid")
       .agg(
         array_distinct(collect_list("Nr_mb")).alias("mb"),
         count("source").alias("counted")
@@ -83,8 +73,8 @@ object Functions extends LazyLogging {
           .otherwise(lit("inMembrane")) as "loc"
       )
 
-    grouping
-      .join(biotypeDF, col("loc_id") === biotypeDF.col("targetid"))
+    biotypeDF
+      .join(grouping, Seq("targetid"), "left")
       .select(
         col("*"),
         when((col("loc") === "secreted&inMembrane"), lit(1))
@@ -96,11 +86,28 @@ object Functions extends LazyLogging {
       )
   }
 
+  def biotypeQuery(biotypeDF: DataFrame, targetsDF: DataFrame): DataFrame = {
+    val prDF = targetsDF
+      .select(
+        col("id").as("targetid"),
+        col("biotype"),
+        when(col("biotype") === "protein_coding", lit("Yes"))
+          otherwise (lit("No"))
+          as ("isProteinCoding"),
+        when(col("biotype") === "protein_coding", 1)
+          otherwise (0)
+          as ("Nr_biotype")
+      )
+      .dropDuplicates() // is this necessary?
+
+    prDF.join(biotypeDF, Seq("targetid"), "left")
+  }
+
   def ligandPocketQuery(querySetDF: DataFrame, targetsDF: DataFrame): DataFrame = {
     val filteredTargetsDF = targetsDF
       .select(
-        col("id").as("target_id"),
-        explode_outer(col("tractability")).as("new_struct")
+        col("id").as("targetid"),
+        explode_outer(col("tractability")).as("new_struct") // this turns into multiple rows
       )
       .filter(
         (
@@ -112,10 +119,10 @@ object Functions extends LazyLogging {
               && (col("new_struct.value") === true)
           )
       )
-
-    val joinedDF = filteredTargetsDF
       .select(col("*"), col("new_struct").getItem("id").as("type"))
-      .join(querySetDF, col("target_id") === querySetDF.col("targetid"))
+
+    val joinedDF = querySetDF
+      .join(filteredTargetsDF, Seq("targetid"), "left")
 
     joinedDF.select(
       col("*"),
@@ -133,8 +140,8 @@ object Functions extends LazyLogging {
           .otherwise(lit("noReported"))
           .as("info")
       )
-      .select(col("id").as("saf_id"), col("col.*"), col("info"))
-      .groupBy(col("saf_id"), col("info"))
+      .select(col("id").as("targetid"), col("col.*"), col("info"))
+      .groupBy(col("targetid"), col("info"))
       .agg(
         count(col("event")).as("nEvents"),
         array_distinct(collect_list("event")).as("events")
@@ -153,26 +160,26 @@ object Functions extends LazyLogging {
           .as("Nr_Event")
       )
 
-    eventsDF.join(querySetDF, col("saf_id") === querySetDF.col("targetid"))
+    querySetDF.join(eventsDF, Seq("targetid"), "left")
   }
 
   def constraintQuery(querySetDF: DataFrame, targetsDF: DataFrame): DataFrame = {
-    val test01 = targetsDF
-      .select(col("id").as("constr_id"), explode(col("constraint")))
-      .select(col("constr_id"), col("col.*"))
+    val contraintsDF = targetsDF
+      .select(col("id").as("targetid"), explode(col("constraint")))
+      .select(col("targetid"), col("col.*"))
       .filter(col("constraintType") === "lof")
-      .select(col("constr_id"),
+      .select(col("targetid"),
               ((col("upperRank") - 9456) / 19196).as("cal_score"),
               col("constraintType")
       )
 
-    test01.join(querySetDF, querySetDF.col("targetid") === test01.col("constr_id"))
+    querySetDF.join(contraintsDF, Seq("targetid"), "left")
   }
 
   def paralogsQuery(querySetDF: DataFrame, targetsDF: DataFrame): DataFrame = {
     val homoTypesDF = targetsDF
-      .select(col("id").as("paralog_id"), explode(col("homologues")))
-      .select(col("paralog_id"), col("col.*"))
+      .select(col("id").as("targetid"), explode(col("homologues")))
+      .select(col("targetid"), col("col.*"))
       .select(col("*"),
               split(col("homologyType"), "_").getItem(0).as("homoType"),
               split(col("homologyType"), "_").getItem(1).as("howmany")
@@ -181,14 +188,14 @@ object Functions extends LazyLogging {
                   regexp_replace(col("homoType"), "other", "paralog_other")
       ) // refactoring opp
       .withColumn("homoType", regexp_replace(col("homoType"), "within", "paralog_intrasp"))
-      .select(col("paralog_id"), col("homologyType"), col("homoType"), col("howmany"))
+      .select(col("targetid"), col("homologyType"), col("homoType"), col("howmany"))
       .filter(col("homoType").contains("paralog"))
-      .groupBy("paralog_id")
+      .groupBy("targetid")
       .pivot("homoType")
       .agg(count("homoType"))
 
-    homoTypesDF
-      .join(querySetDF, querySetDF.col("targetid") === col("paralog_id"))
+    querySetDF
+      .join(homoTypesDF, Seq("targetid"), "left")
       .select(col("*"),
               when(col("paralog_intrasp") > 0 || col("paralog_other") > 0, lit(1))
                 .otherwise(lit(0))
@@ -198,8 +205,8 @@ object Functions extends LazyLogging {
 
   def orthologsMouseQuery(querySetDF: DataFrame, targetsDF: DataFrame): DataFrame = {
     val orthologsDF = targetsDF
-      .select(col("id").as("ortholog_id"), explode(col("homologues")))
-      .select(col("ortholog_id"), col("col.*"))
+      .select(col("id").as("targetid"), explode(col("homologues")))
+      .select(col("targetid"), col("col.*"))
       .select(col("*"),
               split(col("homologyType"), "_").getItem(0).as("homoType"),
               split(col("homologyType"), "_").getItem(1).as("howmany")
@@ -209,14 +216,14 @@ object Functions extends LazyLogging {
           && (col("speciesName") === "Mouse")
       )
       .select(
-        "ortholog_id",
+        "targetid",
         "homoType",
         "howmany",
         "targetGeneid",
         "targetPercentageIdentity",
         "queryPercentageIdentity"
       )
-      .groupBy("ortholog_id")
+      .groupBy("targetid")
       .agg(
         max("queryPercentageIdentity").as("max")
       )
@@ -227,7 +234,7 @@ object Functions extends LazyLogging {
           .as("Nr_ortholog")
       )
 
-    orthologsDF.join(querySetDF, querySetDF.col("targetid") === orthologsDF.col("ortholog_id"))
+    querySetDF.join(orthologsDF, Seq("targetid"), "left")
   }
 
   def driverGeneQuery(querySetDF: DataFrame, targetsDF: DataFrame): DataFrame = {
@@ -242,24 +249,24 @@ object Functions extends LazyLogging {
     )
 
     val oncoTargetsDF = targetsDF
-      .select(col("id").as("driver_id"), explode_outer(col("hallmarks.attributes")))
+      .select(col("id").as("targetid"), explode_outer(col("hallmarks.attributes")))
       .select(
-        col("driver_id"),
+        col("targetid"),
         col("col.description"),
         when(col("col.description").isin(oncotsgList: _*), lit(-1)).otherwise(lit(0)).as("Nr_CDG")
       )
 
-    oncoTargetsDF.join(querySetDF, querySetDF.col("targetid") === col("driver_id"))
+    querySetDF.join(oncoTargetsDF, Seq("targetid"), "left")
   }
 
   def tepQuery(querySetDF: DataFrame, targetsDF: DataFrame): DataFrame = {
     val tepDF = targetsDF.select(
-      col("id").as("tep_id"),
+      col("id").as("targetid"),
       col("tep.*"),
       when(col("tep.description") =!= null, lit("Yes")).otherwise(lit("No")).as("hasTEP"),
       when(col("tep.description") =!= null, lit(1)).otherwise(lit(0)).as("Nr_TEP")
     )
-    tepDF.join(querySetDF, querySetDF.col("targetid") === tepDF.col("tep_id"))
+    querySetDF.join(tepDF, Seq("targetid"), "left")
   }
 
   def mousemodQuery(querySetDF: DataFrame, mouseDF: DataFrame): DataFrame = {
@@ -279,8 +286,8 @@ object Functions extends LazyLogging {
         collect_set("label").as("Different_PhenoClasses")
       )
 
-    mouseModelsDF
-      .join(querySetDF, querySetDF.col("targetid") === mouseModelsDF.col("target_id_"))
+    querySetDF
+      .join(mouseModelsDF, col("target_id_") === querySetDF.col("targetid"), "left")
       .select(col("*"),
               when(col("Nr_mouse_models") =!= "0", lit(1)).otherwise(0).as("Nr_Mousemodels")
       )
@@ -313,8 +320,8 @@ object Functions extends LazyLogging {
         count("counts").as("count_chprob")
       )
 
-    test01
-      .join(querySetDF, querySetDF.col("targetid") === test01.col("chemid"))
+    querySetDF
+      .join(test01, col("targetid") === test01.col("chemid"), "left")
       .select(
         col("*"),
         when(col("count_chprob") =!= 0, lit(1)).otherwise(lit(0)).as("Nr_chprob")
@@ -372,9 +379,10 @@ object Functions extends LazyLogging {
           collect_list("actionType").as("App_drug_actionType"),
           max("Nr_ClinTrial").as("maxClinTrialPhase")
         )
-        .join(querySetDF, querySetDF.col("targetid") === col("targets"))
 
-    appdrugTargetsDF
+    querySetDF
+      .join(appdrugTargetsDF, col("targetid") === appdrugTargetsDF.col("targets"), "left")
+
   }
 
   def tissueSpecificQuery(querySetDF: DataFrame, hpaDataDF: DataFrame): DataFrame = {
@@ -399,7 +407,7 @@ object Functions extends LazyLogging {
             .as("Nr_distribution")
         )
 
-    hpaDF.join(querySetDF, querySetDF.col("targetid") === hpaDF.col("Ensembl"))
+    querySetDF.join(hpaDF, col("targetid") === hpaDF.col("Ensembl"), "left")
 
   }
 }

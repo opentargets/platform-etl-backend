@@ -6,6 +6,8 @@ import io.opentargets.etl.backend.spark.IOResource
 import io.opentargets.etl.backend.spark.IoHelpers.{IOResources, readFrom, writeTo}
 import io.opentargets.etl.backend.targetEngine.Functions._
 import io.opentargets.etl.backend.targetEngine.UniprotLocationFunctions.FindParentChidCousins
+import org.apache.spark.sql.functions.{col, struct, to_json}
+import org.apache.spark.sql.types.StringType
 import org.apache.spark.sql.{DataFrame, SparkSession}
 
 object TargetEngine extends LazyLogging {
@@ -49,8 +51,11 @@ object TargetEngine extends LazyLogging {
 
     val parentChildCousinsDF = FindParentChidCousins(uniprotDF)
 
-    targetsDF
-      .transform(biotypeQuery)
+    val querysetDF = targetsDF
+      .select(col("id").as("targetid"))
+
+    val fullTable = querysetDF
+      .transform(biotypeQuery(_, targetsDF))
       .transform(targetMembraneQuery(_, targetsDF, parentChildCousinsDF))
       .transform(ligandPocketQuery(_, targetsDF))
       .transform(safetyQuery(_, targetsDF))
@@ -63,6 +68,14 @@ object TargetEngine extends LazyLogging {
       .transform(chemicalProbesQuery(_, targetsDF))
       .transform(clinTrialsQuery(_, moleculeDF, moleculeMecDF))
       .transform(tissueSpecificQuery(_, hpaDataDF))
+
+    val valueColumns = fullTable.columns.filter(c => !c.equals("targetid")).map(c => col(c))
+
+    fullTable
+      .select(
+        col("targetid"),
+        to_json(struct(valueColumns: _*)).cast(StringType).alias("prioritisations")
+      )
   }
 
   def writeOutput(targetEngineDF: DataFrame)(implicit context: ETLSessionContext): Unit = {
