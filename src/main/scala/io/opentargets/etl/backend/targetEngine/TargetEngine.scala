@@ -69,9 +69,28 @@ object TargetEngine extends LazyLogging {
       .transform(clinTrialsQuery(_, moleculeDF, moleculeMecDF))
       .transform(tissueSpecificQuery(_, hpaDataDF))
 
-    val valueColumns = fullTable.columns.filter(c => !c.equals("targetid")).map(c => col(c))
+    val targetEngineDF = fullTable.select(
+      col("targetid"),
+      col("Nr_mb").as("isInMembrane"),
+      col("Nr_secreted").as("isSecreted"),
+      col("Nr_Pocket").as("hasPocket"),
+      col("Nr_Ligand").as("hasLigand"),
+      col("Nr_Event").as("hasSafetyEvent"),
+      col("cal_score").as("geneticConstraint"),
+      col("Nr_paralogs").as("paralogMaxIdentityPercentage"),
+      col("Nr_ortholog").as("mouseOrthologMaxIdentityPercentage"),
+      col("Nr_CDG").as("isCancerDriverGene"),
+      col("Nr_TEP").as("hasTEP"),
+      col("Nr_Mousemodels").as("hasMouseKO"),
+      col("Nr_chprob").as("hasHighQualityChemicalProbes"),
+      col("maxClinTrialPhase").as("maxClinicalTrialPhase"),
+      col("Nr_specificity").as("tissueSpecificity"),
+      col("Nr_distribution").as("tissueDistribution")
+    )
 
-    fullTable
+    val valueColumns = targetEngineDF.columns.filter(c => !c.equals("targetid")).map(c => col(c))
+
+    targetEngineDF
       .select(
         col("targetid"),
         to_json(struct(valueColumns: _*)).cast(StringType).alias("prioritisations")
