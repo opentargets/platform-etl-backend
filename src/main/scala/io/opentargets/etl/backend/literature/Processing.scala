@@ -79,7 +79,7 @@ object Processing extends Serializable with LazyLogging {
     )
 
     val matchesDF2 = matchesDF
-      .withColumn("pmid", $"pmid".cast(LongType))
+      //.withColumn("pmid", $"pmid".cast(LongType))
       .withColumnRenamed("type", "keywordType")
 
     val sentencesDF = matchesDF2
