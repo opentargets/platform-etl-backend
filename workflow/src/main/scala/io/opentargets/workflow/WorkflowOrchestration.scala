@@ -44,7 +44,6 @@ object WorkflowOrchestration {
     otWorkflow <- IO(OpenTargetsWorkflow.getWorkflow(workflowName).run(config)).flatTap(otwf =>
       logger.info(otwf.logOpenTargetsWorkflow)
     )
-    _ <- ResourceTransfer.execute(otWorkflow.resourcesToMove)
     cluster <- IO(DataprocCluster.createWorkflowTemplatePlacement.run(config.cluster))
     location <- IO(DataprocWorkflow.getGcpLocation.run(config)).flatTap(loc =>
       logger.info(s"Location selected: $loc")

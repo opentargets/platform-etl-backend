@@ -30,7 +30,7 @@ case class WfResource(path: String, file: String) {
   *   run a series of downstream steps will not be required to re-run upstream steps to satisfy
   *   their dependencies.
   */
-case class Workflow(name: String, steps: Option[List[String]], copyExisting: Boolean = false)
+case class Workflow(name: String, steps: Option[List[String]])
 case class GcpSettings(projectId: String, region: String, bucket: String, gcpUrl: String)
 case class ClusterSettings(name: String,
                            zone: String,
