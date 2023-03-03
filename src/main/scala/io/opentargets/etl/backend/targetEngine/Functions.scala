@@ -1,7 +1,7 @@
 package io.opentargets.etl.backend.targetEngine
 
 import com.typesafe.scalalogging.LazyLogging
-import org.apache.spark.sql.DataFrame
+import org.apache.spark.sql.{Column, DataFrame}
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.types.IntegerType
 
@@ -158,10 +158,10 @@ object Functions extends LazyLogging {
         col("id").as("targetid"),
         col("biotype"),
         when(col("biotype") === "protein_coding", 1)
+          .when(col("biotype") === "", null)
           otherwise (0)
           as ("Nr_biotype")
       )
-      .dropDuplicates() // is this necessary?
 
     prDF.join(biotypeDF, Seq("targetid"), "left")
   }
@@ -202,81 +202,93 @@ object Functions extends LazyLogging {
   def safetyQuery(querySetDF: DataFrame, targetsDF: DataFrame): DataFrame = {
     val aggEventsDF = targetsDF
       .select(
-        col("*"),
+        col("id").as("targetid"),
         explode_outer(col("safetyLiabilities")),
-        when(col("safetyLiabilities") =!= array(), lit("conInfo"))
+        when(size(col("safetyLiabilities")) > lit(0), lit("conInfo"))
           .otherwise(lit("noReported"))
           .as("info")
       )
-      .select(col("id").as("targetid"), col("col.*"), col("info"))
       .groupBy(col("targetid"), col("info"))
       .agg(
-        count(col("event")).as("nEvents"),
-        array_distinct(collect_list("event")).as("events")
+        count(col("col.event")).as("nEvents"),
+        array_distinct(collect_list("col.event")).as("events")
       )
 
-    val hasInfo = (col("nEvents") > 0) && (col("info") === "conInfo")
-
-    val eventsDF =
-      aggEventsDF.select(
-        col("*"),
-        when(hasInfo, lit(-1))
-          .otherwise(lit(null))
-          .as("Nr_Event")
-      )
-
-    querySetDF.join(eventsDF, Seq("targetid"), "left")
+    querySetDF.join(aggEventsDF, Seq("targetid"), "left")
   }
 
   def constraintQuery(querySetDF: DataFrame, targetsDF: DataFrame): DataFrame = {
+
+    val constraints = (
+      targetsDF
+        .select(col("id").as("constr_id"), explode(col("constraint")))
+        .select(col("col.*"))
+        .filter(col("constraintType") === "lof")
+        .groupBy("constraintType")
+        .agg(
+          min("upperRank").as("lowerRank"),
+          max("upperRank").as("upperRank")
+        )
+        .select(
+          col("lowerRank").cast(IntegerType),
+          col("upperRank").cast(IntegerType)
+        )
+      )
+      .first()
+
+    val minUpperRank = constraints.getInt(0)
+    val maxUpperRank = constraints.getInt(1)
+
     val contraintsDF = targetsDF
       .select(col("id").as("targetid"), explode(col("constraint")))
       .select(col("targetid"), col("col.*"))
       .filter(col("constraintType") === "lof")
-      .select(col("targetid"),
-              ((col("upperRank") - 9456) / 19196).as("cal_score"),
-              col("constraintType")
+      .select(
+        col("targetid"),
+        lit((lit(2) * ((col("upperRank") - minUpperRank) / (maxUpperRank - minUpperRank))) - lit(1))
+          .as("cal_score"),
+        col("constraintType")
       )
 
     querySetDF.join(contraintsDF, Seq("targetid"), "left")
   }
 
   def paralogsQuery(querySetDF: DataFrame, targetsDF: DataFrame): DataFrame = {
+
+    def replaceOther: Column => Column = (homoType) =>
+      regexp_replace(homoType, "other", "paralog_other")
+    def replaceWithin: Column => Column = (homoType) =>
+      regexp_replace(homoType, "within", "paralog_intrasp")
+
     val explodedDF = targetsDF
       .select(col("id").as("targetid"),
-              when(col("homologues") =!= array(), lit("hasInfo"))
+              when(size(col("homologues")) > lit(0), lit("hasInfo"))
                 .otherwise("noInfo/null")
                 .as("hasInfo"),
               explode(col("homologues"))
       )
-      .withColumn("homoType", split(col("col.homologyType"), "_").getItem(0))
-      .withColumn("howmany", split(col("col.homologyType"), "_").getItem(1))
-      .withColumn("homoType", regexp_replace(col("homoType"), "other", "paralog_other"))
-      .withColumn(
-        "homoType",
-        regexp_replace(col("homoType"), "within", "paralog_intrasp")
+      .select(
+        col("targetid"),
+        replaceWithin(replaceOther(split(col("col.homologyType"), "_").getItem(0)))
+          .as("homoType"),
+        split(col("col.homologyType"), "_")
+          .getItem(1)
+          .as("howmany"),
+        col("hasInfo"),
+        col("col.queryPercentageIdentity")
       )
 
+    val overSixty = lit(-((col("max") - lit(60)) / lit(40)))
+
     val paralogDF = explodedDF
-      .select("targetid", "homoType", "howmany", "hasInfo", "col.queryPercentageIdentity")
       .filter(col("homoType").contains("paralog"))
       .groupBy("targetid")
       .agg(
         max("queryPercentageIdentity").as("max")
       )
       .select(col("*"),
-              when(col("max") <
-                     60,
-                   lit(0)
-              )
-                .when(col("max") >=
-                        60,
-                      lit(
-                        -(((col("max") - 60) *
-                          100) /
-                          40)
-                      )
-                )
+              when(col("max") < lit(60), lit(0))
+                .when(col("max") >= lit(60), overSixty)
                 .as("Nr_paralogs")
       )
 
@@ -310,7 +322,7 @@ object Functions extends LazyLogging {
       .select(
         col("*"),
         when(col("max") < 80, lit(0))
-          .when(col("max") >= 80, lit(((col("max") - 80) * 100) / 20))
+          .when(col("max") >= 80, lit((col("max") - 80) / 20))
           .as("Nr_ortholog")
       )
 
@@ -354,7 +366,9 @@ object Functions extends LazyLogging {
     val tepDF = targetsDF.select(
       col("id").as("targetid"),
       col("tep.*"),
-      when(col("tep.description") =!= null, lit(1)).otherwise(lit(null)).as("Nr_TEP")
+      when(col("tep.description") =!= null, lit(1))
+        .otherwise(lit(null))
+        .as("Nr_TEP")
     )
     querySetDF.join(tepDF, Seq("targetid"), "left")
   }
@@ -391,7 +405,7 @@ object Functions extends LazyLogging {
       .select(
         col("id").as("targetid"),
         explode_outer(col("chemicalProbes")),
-        when(size(col("chemicalProbes")) > 0, lit("hasInfo"))
+        when(size(col("chemicalProbes")) > lit(0), lit("hasInfo"))
           .otherwise(lit("noInfo"))
           .as("info")
       )
@@ -421,55 +435,26 @@ object Functions extends LazyLogging {
                       moleculeMecDF: DataFrame
   ): DataFrame = {
 
-    val clinTrials = Seq(0, 1, 2, 3)
-
     val drugApprovedDF = moleculeDF
       .select(
         col("id").as("drug_id"),
-        col("maximumClinicalTrialPhase"),
-        col("linkedTargets"),
-        when(col("maximumClinicalTrialPhase") === 4, lit(1))
-          .when(col("maximumClinicalTrialPhase").isin(clinTrials: _*), lit(0))
-          .otherwise(lit(null))
-          .as("Nr_ClinTrial")
+        explode_outer(col("linkedTargets.rows")).as("targets"),
+        col("maximumClinicalTrialPhase")
+      )
+      .dropDuplicates("targets", "maximumClinicalTrialPhase")
+      .groupBy("targets")
+      .agg(
+        max("maximumClinicalTrialPhase").as("maxClinTrialPhase")
+      )
+      .select(
+        col("*"),
+        when(col("maxClinTrialPhase") >= 0, col("maxClinTrialPhase") / 4)
+          .otherwise(null)
+          .as("inClinicalTrials")
       )
 
-    val drugActionDF = moleculeMecDF.select(
-      col("actionType"),
-      explode_outer(col("chemblIds")).as("chembl")
-    )
-
-    val appdrugTargetsDF =
-      drugApprovedDF
-        .join(drugActionDF, drugActionDF.col("chembl") === drugApprovedDF.col("drug_id"), "left")
-        .withColumn(
-          "ClinTrials",
-          concat_ws(
-            "_",
-            col("chembl"),
-            lit("ClinTrialPhase"),
-            col("maximumClinicalTrialPhase")
-          )
-        )
-        .withColumn("targets", explode_outer(col("linkedTargets.rows")))
-        .select(
-          "targets",
-          "chembl",
-          "actionType",
-          "maximumClinicalTrialPhase",
-          "ClinTrials",
-          "Nr_ClinTrial"
-        )
-        .dropDuplicates(Seq("targets", "chembl"))
-        .groupBy("targets")
-        .agg(
-          collect_list("ClinTrials").as("ChEMBL&ClinTrialPhase"),
-          collect_list("actionType").as("App_drug_actionType"),
-          max("Nr_ClinTrial").as("maxClinTrialPhase")
-        )
-
     querySetDF
-      .join(appdrugTargetsDF, col("targetid") === appdrugTargetsDF.col("targets"), "left")
+      .join(drugApprovedDF, col("targetid") === drugApprovedDF.col("targets"), "left")
 
   }
 
@@ -482,8 +467,8 @@ object Functions extends LazyLogging {
           col("RNA tissue specificity").as("Tissue_specificity_RNA"),
           col("RNA tissue distribution").as("Tissue_distribution_RNA"),
           when(col("RNA tissue specificity") === "Tissue enriched", lit(1))
-            .when(col("RNA tissue specificity") === "Group enriched", lit(0.5))
-            .when(col("RNA tissue specificity") === "Tissue enhanced", lit(0))
+            .when(col("RNA tissue specificity") === "Group enriched", lit(0.75))
+            .when(col("RNA tissue specificity") === "Tissue enhanced", lit(0.5))
             .when(col("RNA tissue specificity") === "Low tissue specificity", lit(-1))
             .when(col("RNA tissue specificity") === "Not detected", lit(null))
             .as("Nr_specificity"),

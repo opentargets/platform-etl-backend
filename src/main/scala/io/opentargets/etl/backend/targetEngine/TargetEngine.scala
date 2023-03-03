@@ -75,7 +75,6 @@ object TargetEngine extends LazyLogging {
       col("Nr_secreted").as("isSecreted"),
       col("Nr_Pocket").as("hasPocket"),
       col("Nr_Ligand").as("hasLigand"),
-      col("Nr_Event").as("hasSafetyEvent"),
       col("cal_score").as("geneticConstraint"),
       col("Nr_paralogs").as("paralogMaxIdentityPercentage"),
       col("Nr_ortholog").as("mouseOrthologMaxIdentityPercentage"),
