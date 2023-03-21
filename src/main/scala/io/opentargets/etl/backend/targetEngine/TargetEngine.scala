@@ -69,10 +69,11 @@ object TargetEngine extends LazyLogging {
       .transform(clinTrialsQuery(_, moleculeDF, moleculeMecDF))
       .transform(tissueSpecificQuery(_, hpaDataDF))
 
-    val targetEngineDF = fullTable.select(
+    fullTable.select(
       col("targetid"),
       col("Nr_mb").as("isInMembrane"),
       col("Nr_secreted").as("isSecreted"),
+      col("Nr_Event").as("hasSafetyEvent"),
       col("Nr_Pocket").as("hasPocket"),
       col("Nr_Ligand").as("hasLigand"),
       col("cal_score").as("geneticConstraint"),
@@ -86,14 +87,6 @@ object TargetEngine extends LazyLogging {
       col("Nr_specificity").as("tissueSpecificity"),
       col("Nr_distribution").as("tissueDistribution")
     )
-
-    val valueColumns = targetEngineDF.columns.filter(c => !c.equals("targetid")).map(c => col(c))
-
-    targetEngineDF
-      .select(
-        col("targetid"),
-        to_json(struct(valueColumns: _*)).cast(StringType).alias("prioritisations")
-      )
   }
 
   def writeOutput(targetEngineDF: DataFrame)(implicit context: ETLSessionContext): Unit = {

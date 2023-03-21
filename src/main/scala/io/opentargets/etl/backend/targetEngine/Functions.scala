@@ -213,6 +213,12 @@ object Functions extends LazyLogging {
         count(col("col.event")).as("nEvents"),
         array_distinct(collect_list("col.event")).as("events")
       )
+      .select(
+        col("*"),
+        when(col("nEvents") =!= 0, lit(-1))
+          .otherwise(lit(0))
+          .as("Nr_Event")
+      )
 
     querySetDF.join(aggEventsDF, Seq("targetid"), "left")
   }
@@ -366,7 +372,7 @@ object Functions extends LazyLogging {
     val tepDF = targetsDF.select(
       col("id").as("targetid"),
       col("tep.*"),
-      when(col("tep.description") =!= null, lit(1))
+      when((col("tep.description") isNotNull) or col("tep.description") =!= "", lit(1))
         .otherwise(lit(null))
         .as("Nr_TEP")
     )
