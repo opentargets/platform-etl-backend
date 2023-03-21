@@ -53,10 +53,10 @@ object Dependencies {
   lazy val sparkDeps = Seq(
     "com.github.fommil.netlib" % "all" % "1.1.2" pomOnly (),
     "com.databricks" %% "spark-xml" % "0.11.0",
-    "org.apache.spark" %% "spark-core" % sparkVersion % "provided",
-    "org.apache.spark" %% "spark-sql" % sparkVersion % "provided",
-    "org.apache.spark" %% "spark-graphx" % sparkVersion % "provided",
-    "org.apache.spark" %% "spark-mllib" % sparkVersion % "provided"
+    "org.apache.spark" %% "spark-core" % sparkVersion,
+    "org.apache.spark" %% "spark-sql" % sparkVersion ,
+    "org.apache.spark" %% "spark-mllib" % sparkVersion ,
+    "org.apache.spark" %% "spark-graphx" % sparkVersion
   )
 
   lazy val testVersion = "3.2.2"
@@ -69,7 +69,7 @@ object Dependencies {
   lazy val typeSafeConfig = Seq("com.typesafe" % "config" % "1.4.1")
 
   lazy val gcpEtl = Seq(
-    "com.google.cloud" % "google-cloud-dataproc" % "4.2.0" % "provided",
+    "com.google.cloud" % "google-cloud-dataproc" % "4.2.0",
     "com.google.cloud" % "google-cloud-storage" % "2.4.2"
   )
   lazy val gcpWorkflow = Seq(
