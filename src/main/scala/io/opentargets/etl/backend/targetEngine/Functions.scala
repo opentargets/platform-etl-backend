@@ -40,8 +40,8 @@ object Functions extends LazyLogging {
       .dropDuplicates()
 
     val membraneGroupedDF = targetsDF
-      .select(col("*"), explode_outer(col("subcellularLocations")))
-      .select(col("id"), col("col.*"))
+      .select(col("id").as("targetid"), explode_outer(col("subcellularLocations")))
+      .select(col("targetid"), col("col.*"))
       .select(
         col("*"),
         when(
@@ -72,7 +72,7 @@ object Functions extends LazyLogging {
           .as("Count_mb")
       )
       .filter(col("Count_mb").isin(sourceList: _*))
-      .select(col("id").as("targetid"), col("Count_mb"), col("source"))
+      .select(col("targetid"), col("Count_mb"), col("source"))
       .dropDuplicates(Seq("targetid", "Count_mb"))
       .groupBy("targetid")
       .agg(
@@ -80,75 +80,94 @@ object Functions extends LazyLogging {
         count(col("source")).as("counted")
       )
 
-    val membraneWithLocDF = membraneGroupedDF
+    val proteinClassificationDF = membraneGroupedDF
+      .withColumnRenamed("mb", "mb2")
+      .withColumn("mb", concat_ws(",", col("mb2")))
+      .select(
+        col("*"),
+        when(col("mb").rlike("HPA_1") || col("mb").rlike("HPA_add_1"), lit("yes"))
+          .otherwise(lit("no"))
+          .as("HPA_membrane"),
+        when(col("mb").rlike("HPA_secreted"), lit("yes"))
+          .otherwise("no")
+          .as("HPA_secreted"),
+        when(col("mb").rlike("uniprot_1"), lit("yes"))
+          .otherwise(lit("no"))
+          .as("uniprot_membrane"),
+        when(col("mb").rlike("uniprot_secreted"), lit("yes"))
+          .otherwise(lit("no"))
+          .as("uniprot_secreted")
+      )
+
+    val membraneWithLocDF = proteinClassificationDF
       .select(
         col("*"),
         when(
-          ((array_contains(col("mb"), "HPA_secreted")
-            && array_contains(col("mb"), "uniprot_secreted")))
-            && (col("counted") == 2),
-          lit("onlySecreted")
+          (col("HPA_membrane") === "yes") && (col("HPA_secreted") === "no"),
+          lit("inMembrane")
         )
           .when(
-            ((array_contains(col("mb"), "HPA_secreted")
-              || array_contains(col("mb"), "uniprot_secreted")))
-              && (col("counted") == 1),
+            (col("HPA_membrane") === "no") && (col("HPA_secreted") === "yes"),
             lit("onlySecreted")
-          ) // refactor to merge with prev cond
-          .when(((array_contains(col("mb"), "HPA_secreted")
-                  && array_contains(col("mb"), "uniprot_secreted")))
-                  && (col("counted") > 2),
-                lit("secreted&inMembrane")
           )
-          .otherwise(lit("inMembrane"))
+          .when(
+            (col("HPA_membrane") === "yes") && (col("HPA_secreted") === "yes"),
+            lit("secreted&inMembrane")
+          )
+          .when(
+            (col("HPA_membrane") === "no") && (col("HPA_secreted") === "no"),
+            when(
+              (col("uniprot_membrane") === "yes")
+                && (col("uniprot_secreted") === "no"),
+              lit("inMembrane")
+            )
+              .when(
+                (col("uniprot_membrane") === "no")
+                  && (col("uniprot_secreted") === "yes"),
+                lit("onlySecreted")
+              )
+              .when(
+                (col("uniprot_membrane") === "yes")
+                  && (col("uniprot_secreted") === "yes"),
+                lit("secreted&inMembrane")
+              )
+          )
           .as("loc")
       )
 
-    val membraneJoinLoc = membraneWithLocDF
-      .join(locationInfoDF, Seq("targetid"), "right")
+    val joinedDF = membraneWithLocDF
+      .join(querysetDF, Seq("targetid"), "right")
+      .join(locationInfoDF, Seq("targetid"), "left")
 
-    val ligandDF = membraneJoinLoc
-      .select(
-        col("*"),
-        when((col("loc") === "secreted&inMembrane") ||
-               (col("loc") === "inMembrane"),
-             lit(1)
-        )
-          .when(
-            (
-              (col("loc") =!= "inMembrane") ||
-                (col("loc") =!= "secreted&inMembrane")
-            ) &&
-              (col("result") ===
-                "hasInfo"),
-            lit(0)
-          )
-          .when(col("result") === "noInfo", lit(null))
-          .otherwise(lit(0))
-          .as("Nr_mb")
-      )
-
-    val secretedDF = ligandDF.select(
+    joinedDF.select(
       col("*"),
-      when((col("loc") === "secreted&inMembrane") ||
-             (col("loc") === "onlySecreted"),
-           lit(1)
+      when(
+        (col("loc") === "secreted&inMembrane") || (col("loc") === "inMembrane"),
+        lit(1)
       )
         .when(
-          (
-            (col("loc") =!= "onlySecreted") ||
-              (col("loc") =!= "secreted&inMembrane")
-          ) &&
-            (col("result") ===
-              "hasInfo"),
+          (col("loc") =!= "secreted&inMembrane") || (col("loc") =!= "inMembrane"),
+          lit(0)
+        )
+        .when(col("loc").isNull && (col("result") === "hasInfo"), lit(0))
+        .as("Nr_mb"),
+      when(
+        (col("loc") === "secreted&inMembrane") || (col("loc") === "onlySecreted"),
+        lit(1)
+      )
+        .when(
+          (col("loc") === "inMembrane") && (col("result") === "hasInfo"),
+          lit(0)
+        )
+        .when(
+          ((col("loc") =!= "onlySecreted") || (col("loc") =!= "secreted&inMembrane"))
+            && (col("result") === "hasInfo"),
           lit(0)
         )
         .when(col("result") === "noInfo", lit(null))
         .otherwise(lit(0))
         .as("Nr_secreted")
     )
-
-    querysetDF.join(secretedDF, Seq("targetid"), "left")
 
   }
 

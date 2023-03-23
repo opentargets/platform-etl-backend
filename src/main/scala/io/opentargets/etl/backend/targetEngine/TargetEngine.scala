@@ -70,7 +70,7 @@ object TargetEngine extends LazyLogging {
       .transform(tissueSpecificQuery(_, hpaDataDF))
 
     fullTable.select(
-      col("targetid"),
+      col("targetid").as("targetId"),
       col("Nr_mb").as("isInMembrane"),
       col("Nr_secreted").as("isSecreted"),
       col("Nr_Event").as("hasSafetyEvent"),
@@ -83,7 +83,7 @@ object TargetEngine extends LazyLogging {
       col("Nr_TEP").as("hasTEP"),
       col("Nr_Mousemodels").as("hasMouseKO"),
       col("Nr_chprob").as("hasHighQualityChemicalProbes"),
-      col("maxClinTrialPhase").as("maxClinicalTrialPhase"),
+      col("inClinicalTrials").as("maxClinicalTrialPhase"),
       col("Nr_specificity").as("tissueSpecificity"),
       col("Nr_distribution").as("tissueDistribution")
     )
