@@ -51,7 +51,20 @@ object Ortholog extends LazyLogging {
           when(col("a")(1) =!= "", col("a")(1)).otherwise(col("a")(0)) as "targetGeneSymbol"
         )
 
+    val interestingSpecies = "homo_sapiens"
     val homoDF = codingProteins
+      .where('species === interestingSpecies)
+      .union(codingProteins.where('species =!= 'homology_species and 'homology_species === interestingSpecies)
+        .select('homology_gene_stable_id.alias("gene_stable_id"),
+          'homology_protein_stable_id.alias("protein_stable_id"),
+          'homology_species.alias("species"),
+          'homology_identity.alias("identity"),
+          'homology_type,
+          'gene_stable_id.alias("homology_gene_stable_id"),
+          'protein_stable_id.alias("homology_protein_stable_id"),
+          'species.alias("homology_species"),
+          'identity.alias("homology_identity"),
+          'dn, 'ds, 'goc_score, 'wga_coverage, 'is_high_confidence, 'homology_id))
       .join(homoDict, col("homology_species") === homoDict("speciesName"))
       .join(homoGeneDictDf, Seq("homology_gene_stable_id"), "left_outer")
       .select(
