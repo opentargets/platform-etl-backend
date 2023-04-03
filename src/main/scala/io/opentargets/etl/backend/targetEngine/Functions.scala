@@ -12,7 +12,6 @@ object Functions extends LazyLogging {
       targetsDF: DataFrame,
       parentChildCousinsDF: DataFrame
   ): DataFrame = {
-    val sourceList = Seq("HPA_1", "HPA_secreted", "HPA_add_1", "uniprot_1", "uniprot_secreted")
 
     val membraneTerms =
       parentChildCousinsDF
@@ -30,8 +29,10 @@ object Functions extends LazyLogging {
         .map(va => va.getString(0))
         .toSeq
 
-    val locationInfoDF = targetsDF
+    val subcellularLocationsDF = targetsDF
       .select(col("id").as("targetid"), explode_outer(col("subcellularLocations")))
+
+    val locationInfoDF = subcellularLocationsDF
       .select(col("targetid"),
               when(col("col.location").isNull, lit("noInfo"))
                 .otherwise("hasInfo")
@@ -39,8 +40,11 @@ object Functions extends LazyLogging {
       )
       .dropDuplicates()
 
-    val membraneGroupedDF = targetsDF
-      .select(col("id").as("targetid"), explode_outer(col("subcellularLocations")))
+    // TODO: Evaluate deleting this list and change the filter to exclude everything no info
+    val sourceList =
+      Seq("HPA_1", "HPA_secreted", "HPA_add_1", "uniprot_1", "uniprot_secreted", "HPA_dif")
+
+    val membraneGroupedDF = subcellularLocationsDF
       .select(col("targetid"), col("col.*"))
       .select(
         col("*"),
@@ -50,13 +54,23 @@ object Functions extends LazyLogging {
           lit("HPA_1")
         )
           .when(
+            (col("source") === "HPA_main")
+              && not(col("termSL").isin(membraneTerms: _*)),
+            lit("HPA_dif")
+          )
+          .when(
             col("source") === "HPA_extracellular_location",
             lit("HPA_secreted")
           )
           .when(
             (col("source") === "HPA_additional")
-              && (col("termSL").isin(membraneTerms: _*)),
+              && col("termSL").isin(membraneTerms: _*),
             lit("HPA_add_1")
+          )
+          .when(
+            (col("source") === "HPA_additional")
+              && not(col("termSL").isin(membraneTerms: _*)),
+            lit("HPA_dif")
           )
           .when(
             (col("source") === "uniprot")
@@ -76,62 +90,69 @@ object Functions extends LazyLogging {
       .dropDuplicates(Seq("targetid", "Count_mb"))
       .groupBy("targetid")
       .agg(
-        array_distinct(collect_list("Count_mb")).as("mb"),
+        collect_set("Count_mb").as("mb"),
         count(col("source")).as("counted")
       )
 
     val proteinClassificationDF = membraneGroupedDF
-      .withColumnRenamed("mb", "mb2")
-      .withColumn("mb", concat_ws(",", col("mb2")))
       .select(
         col("*"),
-        when(col("mb").rlike("HPA_1") || col("mb").rlike("HPA_add_1"), lit("yes"))
+        when(array_contains(col("mb"), "HPA_1")
+               || array_contains(col("mb"), "HPA_add_1"),
+             lit("yes")
+        )
+          .when(array_contains(col("mb"), "HPA_dif"), lit("dif"))
           .otherwise(lit("no"))
           .as("HPA_membrane"),
-        when(col("mb").rlike("HPA_secreted"), lit("yes"))
-          .otherwise("no")
+        when(array_contains(col("mb"), "HPA_secreted"), lit("yes"))
+          .otherwise(lit("no"))
           .as("HPA_secreted"),
-        when(col("mb").rlike("uniprot_1"), lit("yes"))
+        when(array_contains(col("mb"), "uniprot_1"), lit("yes"))
           .otherwise(lit("no"))
           .as("uniprot_membrane"),
-        when(col("mb").rlike("uniprot_secreted"), lit("yes"))
+        when(array_contains(col("mb"), "uniprot_secreted"), lit("yes"))
           .otherwise(lit("no"))
           .as("uniprot_secreted")
       )
 
+    // TODO: Improve DF name
     val membraneWithLocDF = proteinClassificationDF
       .select(
         col("*"),
-        when(
-          (col("HPA_membrane") === "yes") && (col("HPA_secreted") === "no"),
-          lit("inMembrane")
+        when((col("HPA_membrane") === "yes")
+               && (col("HPA_secreted") === "no"),
+             lit("inMembrane")
         )
           .when(
-            (col("HPA_membrane") === "no") && (col("HPA_secreted") === "yes"),
+            (col("HPA_membrane") === "no" || col("HPA_membrane") === "dif")
+              && col("HPA_secreted") === "yes",
             lit("onlySecreted")
           )
           .when(
-            (col("HPA_membrane") === "yes") && (col("HPA_secreted") === "yes"),
+            (col("HPA_membrane") === "yes")
+              && (col("HPA_secreted") === "yes"),
             lit("secreted&inMembrane")
           )
           .when(
-            (col("HPA_membrane") === "no") && (col("HPA_secreted") === "no"),
+            col("HPA_membrane") === "no"
+              && col("HPA_secreted") === "no",
             when(
-              (col("uniprot_membrane") === "yes")
-                && (col("uniprot_secreted") === "no"),
+              col("uniprot_membrane") === "yes"
+                && col("uniprot_secreted") === "no",
               lit("inMembrane")
             )
               .when(
-                (col("uniprot_membrane") === "no")
-                  && (col("uniprot_secreted") === "yes"),
+                col("uniprot_membrane") === "no"
+                  && col("uniprot_secreted") === "yes",
                 lit("onlySecreted")
               )
               .when(
-                (col("uniprot_membrane") === "yes")
-                  && (col("uniprot_secreted") === "yes"),
+                col("uniprot_membrane") === "yes"
+                  && col("uniprot_secreted") === "yes",
                 lit("secreted&inMembrane")
               )
           )
+          .when(col("HPA_membrane") === "dif", lit("noMembraneHPA"))
           .as("loc")
       )
 
@@ -142,25 +163,33 @@ object Functions extends LazyLogging {
     joinedDF.select(
       col("*"),
       when(
-        (col("loc") === "secreted&inMembrane") || (col("loc") === "inMembrane"),
+        (col("loc") === "secreted&inMembrane")
+          || (col("loc") === "inMembrane"),
         lit(1)
       )
         .when(
-          (col("loc") =!= "secreted&inMembrane") || (col("loc") =!= "inMembrane"),
+          (col("loc") =!= "secreted&inMembrane")
+            || (col("loc") =!= "inMembrane"),
           lit(0)
         )
-        .when(col("loc").isNull && (col("result") === "hasInfo"), lit(0))
+        .when(col("loc").isNull
+                && (col("result") === "hasInfo"),
+              lit(0)
+        )
         .as("Nr_mb"),
       when(
-        (col("loc") === "secreted&inMembrane") || (col("loc") === "onlySecreted"),
+        (col("loc") === "secreted&inMembrane")
+          || (col("loc") === "onlySecreted"),
         lit(1)
       )
         .when(
-          (col("loc") === "inMembrane") && (col("result") === "hasInfo"),
+          col("loc") === "inMembrane"
+            && col("result") === "hasInfo",
           lit(0)
         )
         .when(
-          ((col("loc") =!= "onlySecreted") || (col("loc") =!= "secreted&inMembrane"))
+          (col("loc") =!= "onlySecreted"
+            || col("loc") =!= "secreted&inMembrane")
             && (col("result") === "hasInfo"),
           lit(0)
         )
