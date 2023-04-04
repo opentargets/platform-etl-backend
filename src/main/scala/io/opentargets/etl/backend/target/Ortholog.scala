@@ -50,11 +50,16 @@ object Ortholog extends LazyLogging {
           // when no gene symbol use gene id
           when(col("a")(1) =!= "", col("a")(1)).otherwise(col("a")(0)) as "targetGeneSymbol"
         )
-
+//
     val speciesOfReference = "homo_sapiens"
+
+    //
     val homoDF = codingProteins
       .where('species === speciesOfReference)
-      .union(codingProteins.where('species =!= 'homology_species and 'homology_species === speciesOfReference)
+      .union(codingProteins
+        .where(('species === speciesOfReference
+          and ('homology_type === "other_paralog" or 'homology_type === "within_species_paralog"))
+          or ('species =!= speciesOfReference and 'homology_species === speciesOfReference))
         .select('homology_gene_stable_id.alias("gene_stable_id"),
           'homology_protein_stable_id.alias("protein_stable_id"),
           'homology_species.alias("species"),
