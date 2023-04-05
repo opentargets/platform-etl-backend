@@ -53,25 +53,32 @@ object Ortholog extends LazyLogging {
 
     val speciesOfReference = "homo_sapiens"
 
-    // get the paralogs: 'homology_type === "other_paralog" or 'homology_type === "within_species_paralog"
-    // get all homologies: 'species =!= speciesOfReference and 'homology_species === speciesOfReference
-    // swap related columns
-    val homoDF = codingProteins
-      .where('species === speciesOfReference)
-      .union(codingProteins
-        .where(('species === speciesOfReference
-          and ('homology_type === "other_paralog" or 'homology_type === "within_species_paralog"))
-          or ('species =!= speciesOfReference and 'homology_species === speciesOfReference))
-        .select('homology_gene_stable_id.alias("gene_stable_id"),
-          'homology_protein_stable_id.alias("protein_stable_id"),
-          'homology_species.alias("species"),
-          'homology_identity.alias("identity"),
-          'homology_type,
-          'gene_stable_id.alias("homology_gene_stable_id"),
-          'protein_stable_id.alias("homology_protein_stable_id"),
-          'species.alias("homology_species"),
-          'identity.alias("homology_identity"),
-          'dn, 'ds, 'goc_score, 'wga_coverage, 'is_high_confidence, 'homology_id))
+    // get the ones for homo_sapiens
+    val homoSapiensHomologies = codingProteins.where('species === speciesOfReference)
+
+    // Add missed homologies to homoSapiens homologies
+    val allHomologies =
+      homoSapiensHomologies
+        .union(codingProteins
+          .where(
+            // get the paralogs
+            ('species === speciesOfReference
+              and ('homology_type === "other_paralog" or 'homology_type === "within_species_paralog"))
+              // get all homologies
+              or ('species =!= speciesOfReference and 'homology_species === speciesOfReference))
+          // swap related columns
+          .select('homology_gene_stable_id.alias("gene_stable_id"),
+            'homology_protein_stable_id.alias("protein_stable_id"),
+            'homology_species.alias("species"),
+            'homology_identity.alias("identity"),
+            'homology_type,
+            'gene_stable_id.alias("homology_gene_stable_id"),
+            'protein_stable_id.alias("homology_protein_stable_id"),
+            'species.alias("homology_species"),
+            'identity.alias("homology_identity"),
+            'dn, 'ds, 'goc_score, 'wga_coverage, 'is_high_confidence, 'homology_id))
+
+    val homoDF = allHomologies
       .join(homoDict, col("homology_species") === homoDict("speciesName"))
       .join(homoGeneDictDf, Seq("homology_gene_stable_id"), "left_outer")
       .select(
