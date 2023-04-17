@@ -27,6 +27,7 @@ artifact target <<dependencies>>
 artifact openfda <<dependencies>>
 artifact ebiSearch <<dependencies>>
 artifact otar <<dependencies>>
+artifact targetengine <<dependencies>>
 
 disease --> otar
 reactome --> target
@@ -56,10 +57,11 @@ drug --> search
 associations --> search
 
 target --> interactions
-
+target --> targetengine
 target --> targetValidation
 
 drug --> openfda
+drug --> targetengine
 
 disease --> ebiSearch
 target --> ebiSearch

@@ -10,6 +10,7 @@ import io.opentargets.etl.backend._
 import io.opentargets.etl.backend.drug.Drug
 import io.opentargets.etl.backend.graph.EtlDag
 import io.opentargets.etl.backend.literature.Literature
+import io.opentargets.etl.backend.targetEngine.TargetEngine
 import io.opentargets.etl.common.GoogleStorageHelpers
 
 import scala.collection.JavaConverters
@@ -72,6 +73,9 @@ object ETL extends LazyLogging {
       case "literature" =>
         logger.info("run step literature")
         Literature()
+      case "targetengine" =>
+        logger.info("run step target engine")
+        TargetEngine()
       case _ => throw new IllegalArgumentException(s"step $step is unknown.")
     }
     logger.info(s"finished to run step ($step)")
@@ -96,7 +100,8 @@ object ETL extends LazyLogging {
       "knownDrug" -> ctx.configuration.knownDrugs.output.path,
       "ebisearch" -> ctx.configuration.ebisearch.outputs.ebisearchEvidence.path,
       "fda" -> ctx.configuration.openfda.stepRootOutputPath,
-      "literature" -> ctx.configuration.literature.processing.outputs.literatureIndex.path
+      "literature" -> ctx.configuration.literature.processing.outputs.literatureIndex.path,
+      "targetengine" -> ctx.configuration.targetEngine.outputs.targetEngine.path
     )
 
     val storage: Storage = StorageOptions.getDefaultInstance.getService
