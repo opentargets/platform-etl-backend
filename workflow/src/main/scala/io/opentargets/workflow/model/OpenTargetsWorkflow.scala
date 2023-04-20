@@ -15,20 +15,16 @@ import io.opentargets.workflow.service.DataprocJobs
   * @param resourcesToMove
   *   pairs of in/out paths which should be copied.
   */
-case class OpenTargetsWorkflow(jobs: List[OrderedJob],
-                               resourcesToMove: ResourcesToMove = List.empty
+case class OpenTargetsWorkflow(jobs: List[OrderedJob]
 ) {
 
   def logOpenTargetsWorkflow: String = {
     def mkString[T](s: List[T]): String = s.mkString("[", ",", "]\n")
     val jobStr = mkString(jobs)
-    val resStr = mkString(resourcesToMove.map(r => s"From: ${r._1} -- To: ${r._2}"))
     s"""
        |Open Targets Workflow
        |===
        |Jobs: $jobStr
-       |===
-       |Resources to move: $resStr
        |===
        |""".stripMargin
   }
@@ -68,10 +64,7 @@ object OpenTargetsWorkflow {
     conf =>
       val wf: Workflow = getWorkflow(wfName, conf)
       val jobs: List[OrderedJob] = DataprocJobs.createdOrderedJobs(wf).run(conf)
-      val files: List[(String, String)] = if (wf.copyExisting) {
-        conf.existingOutputs.toFrom
-      } else List.empty
-      OpenTargetsWorkflow(jobs, files)
+      OpenTargetsWorkflow(jobs)
   }
 
   def getWorkflow(arg: String, conf: WorkflowConfiguration): Workflow =

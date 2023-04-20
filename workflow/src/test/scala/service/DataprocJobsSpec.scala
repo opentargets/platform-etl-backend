@@ -63,10 +63,10 @@ class DataprocJobsSpec extends AsyncFreeSpec with Matchers with AsyncIOSpec with
     }
   }
   "The private workflow should" - {
-    "have 6 steps" in {
+    "have 7 steps" in {
       // given
       val expectedSteps =
-        Seq("evidence", "associations", "search", "knownDrugs", "ebiSearch", "associationOTF")
+        Seq("otar", "evidence", "associations", "search", "knownDrugs", "ebiSearch", "associationOTF")
       val expectedStepCount = expectedSteps.size
       val workflow = for {
         conf <- Configuration.load
