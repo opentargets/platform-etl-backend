@@ -263,8 +263,8 @@ object Functions extends LazyLogging {
       )
       .select(
         col("*"),
-        when(col("nEvents") =!= 0, lit(-1))
-          .otherwise(lit(0))
+        when((col("nEvents") > 0) && (col("info") == "conInfo"), lit(-1))
+          .otherwise(lit(null))
           .as("Nr_Event")
       )
 
