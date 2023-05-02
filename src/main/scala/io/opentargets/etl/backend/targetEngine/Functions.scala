@@ -249,23 +249,32 @@ object Functions extends LazyLogging {
 
   def safetyQuery(querySetDF: DataFrame, targetsDF: DataFrame): DataFrame = {
     val aggEventsDF = targetsDF
+      .withColumn(
+        "info",
+        when(size(col("safetyLiabilities")) > 0, lit("conInfo"))
+          .otherwise(lit("noReported"))
+      )
       .select(
         col("id").as("targetid"),
         explode_outer(col("safetyLiabilities")),
-        when(size(col("safetyLiabilities")) > lit(0), lit("conInfo"))
-          .otherwise(lit("noReported"))
-          .as("info")
+        col("info")
       )
-      .groupBy(col("targetid"), col("info"))
+      .groupBy("targetid", "info")
       .agg(
         count(col("col.event")).as("nEvents"),
         array_distinct(collect_list("col.event")).as("events")
       )
-      .select(
-        col("*"),
-        when((col("nEvents") > 0) && (col("info") == "conInfo"), lit(-1))
+      .withColumn(
+        "hasSafetyEvent",
+        when(
+          (col("nEvents") > 0) && (col("info") === "conInfo"),
+          lit("Yes")
+        ).otherwise(lit(null))
+      )
+      .withColumn(
+        "Nr_Event",
+        when(col("hasSafetyEvent") === "Yes", lit(-1))
           .otherwise(lit(null))
-          .as("Nr_Event")
       )
 
     querySetDF.join(aggEventsDF, Seq("targetid"), "left")
@@ -517,21 +526,47 @@ object Functions extends LazyLogging {
     val hpaDF =
       hpaDataDF
         .select(
-          col("Ensembl"),
-          col("RNA tissue specificity").as("Tissue_specificity_RNA"),
-          col("RNA tissue distribution").as("Tissue_distribution_RNA"),
-          when(col("RNA tissue specificity") === "Tissue enriched", lit(1))
-            .when(col("RNA tissue specificity") === "Group enriched", lit(0.75))
-            .when(col("RNA tissue specificity") === "Tissue enhanced", lit(0.5))
-            .when(col("RNA tissue specificity") === "Low tissue specificity", lit(-1))
-            .when(col("RNA tissue specificity") === "Not detected", lit(null))
-            .as("Nr_specificity"),
-          when(col("RNA tissue distribution") === "Detected in single", lit(1))
-            .when(col("RNA tissue distribution") === "Detected in some", lit(0.5))
-            .when(col("RNA tissue distribution") === "Detected in many", lit(0))
-            .when(col("RNA tissue distribution") === "Detected in all", lit(-1))
-            .when(col("RNA tissue distribution") === "Not detected", lit(null))
-            .as("Nr_distribution")
+          "Ensembl",
+          "RNA tissue distribution",
+          "RNA tissue specificity",
+          "Antibody"
+        )
+        .withColumnRenamed("RNA tissue distribution", "Tissue_distribution_RNA")
+        .withColumnRenamed("RNA tissue specificity", "Tissue_specificity_RNA")
+        .select("Ensembl", "Tissue_specificity_RNA", "Tissue_distribution_RNA")
+        .withColumn(
+          "Nr_specificity",
+          when(
+            col("Tissue_specificity_RNA") === "Tissue enriched",
+            lit(1)
+          )
+            .when(
+              col("Tissue_specificity_RNA") === "Group enriched",
+              lit(0.75)
+            )
+            .when(col("Tissue_specificity_RNA") === "Tissue enhanced", lit(0.5))
+            .when(
+              col("Tissue_specificity_RNA") === "Low tissue specificity",
+              lit(-1)
+            )
+            .when(col("Tissue_specificity_RNA") === "Not detected", lit(null))
+        )
+        .withColumn(
+          "Nr_distribution",
+          when(
+            col("Tissue_distribution_RNA") === "Detected in single",
+            lit(1)
+          )
+            .when(
+              col("Tissue_distribution_RNA") === "Detected in some",
+              lit(0.5)
+            )
+            .when(
+              col("Tissue_distribution_RNA") === "Detected in many",
+              lit(0)
+            )
+            .when(col("Tissue_distribution_RNA") === "Detected in all", lit(-1))
+            .when(col("Tissue_distribution_RNA") === "Not detected", lit(null))
         )
 
     querySetDF.join(hpaDF, col("targetid") === hpaDF.col("Ensembl"), "left")
