@@ -87,7 +87,7 @@ class DataprocJobsSpec extends AsyncFreeSpec with Matchers with AsyncIOSpec with
       // then
       results asserting (r => {
         val (conf, wf) = r
-        wf.size shouldBe conf.jobs.size
+        wf.size shouldBe conf.jobs.filter(_.arg != "otar").size
       })
     }
   }
