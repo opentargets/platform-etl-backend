@@ -78,19 +78,39 @@ object Molecule extends LazyLogging {
         col("molecule_synonyms.molecule_synonym").as("mol_synonyms"),
         col("molecule_synonyms.syn_type").as("synonym_type"),
         col("withdrawn_flag").as("hasBeenWithdrawn"),
+        col("withdrawn_year"),
+        col("withdrawn_reason"),
+        col("withdrawn_country"),
+        col("withdrawn_class")
       )
       .withColumn("isApproved", col("maximumClinicalTrialPhase") === 4)
       .withColumn("blackBoxWarning", col("blackBoxWarning") === 1)
+      .withColumn("withdrawn_reason", split(col("withdrawn_reason"), ";"))
+      .withColumn("withdrawn_country", split(col("withdrawn_country"), ";"))
+      .withColumn("withdrawn_class", split(col("withdrawn_class"), ";"))
       .withColumn("syns", arrays_zip(col("mol_synonyms"), col("synonym_type")))
       // this removes circular references so if we look up by parent we don't recurse.
       .withColumn(
         "parentId",
         when(col("parentId") === col("id"), typedLit(null)).otherwise(col("parentId"))
       )
-      .drop("mol_synonyms", "synonym_type")
+      .drop("mol_synonyms", "synonym_type", "withdrawn_reason")
+      .transform(processWithdrawnNotices)
       .join(drugbank, Seq("id"), "full_outer")
 
     columnsOfInterest
+  }
+
+  private def processWithdrawnNotices(dataFrame: DataFrame): DataFrame = {
+    val df = dataFrame
+      .withColumnRenamed("withdrawn_country", "countries")
+      .withColumnRenamed("withdrawn_class", "classes")
+      .withColumnRenamed("withdrawn_year", "year")
+    nest(df, List("countries", "classes", "year"), "withdrawnNotice")
+      .withColumn(
+        "withdrawnNotice",
+        when(col("hasBeenWithdrawn") === false, null).otherwise(col("withdrawnNotice"))
+      )
   }
 
   /** Method to group synonyms into sorted sets of trade names and others synonyms.
