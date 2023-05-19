@@ -32,7 +32,7 @@ object ProteinClassification extends LazyLogging {
       )
       .select(col("s.accession"), col("s.protein_classification.*"))
 
-    val columns = 1 to 8 map { i =>
+    val columns = 1 to 6 map { i =>
       s"l$i"
     }
     val toStruct = (column: String) =>
