@@ -46,7 +46,10 @@ object DrugWarning extends LazyLogging {
       "warning_id as id",
       "warning_refs as references",
       "warning_type as warningType",
-      "warning_year as year"
+      "warning_year as year",
+      "efo_term",
+      "efo_id",
+      "efo_id_for_warning_class"
     )
 
     warningsDF.join(publicationClassificationsDF, Seq("toxicityClass"), "left_outer")
