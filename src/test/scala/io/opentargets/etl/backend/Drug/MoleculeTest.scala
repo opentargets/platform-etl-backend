@@ -364,12 +364,4 @@ class MoleculeTest extends EtlSparkUnitTest {
 
   }
 
-  it should "only include a withdrawn notice struct when the drug is withdrawn" in {
-    // given
-    val df = getSampleWithdrawnNoticeData(sparkSession)
-    // when
-    val results = Molecule invokePrivate processWithdrawnNotice(df)
-    // then
-    assertResult(2L)(results.filter(col("withdrawnNotice").isNull).count())
-  }
 }
