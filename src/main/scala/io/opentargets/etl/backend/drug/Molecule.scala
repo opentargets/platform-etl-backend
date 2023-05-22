@@ -93,18 +93,6 @@ object Molecule extends LazyLogging {
     columnsOfInterest
   }
 
-  private def processWithdrawnNotices(dataFrame: DataFrame): DataFrame = {
-    val df = dataFrame
-      .withColumnRenamed("withdrawn_country", "countries")
-      .withColumnRenamed("withdrawn_class", "classes")
-      .withColumnRenamed("withdrawn_year", "year")
-    nest(df, List("countries", "classes", "year"), "withdrawnNotice")
-      .withColumn(
-        "withdrawnNotice",
-        when(col("hasBeenWithdrawn") === false, null).otherwise(col("withdrawnNotice"))
-      )
-  }
-
   /** Method to group synonyms into sorted sets of trade names and others synonyms.
     *
     * @param preProcessedMolecules
