@@ -17,4 +17,6 @@ class DrugWarningTest extends EtlSparkUnitTest {
     results.count should be(30)
     results.filter(col("toxicityClass").isNotNull && col("meddraSocCode").isNull).count should be(0)
   }
+
+  //TODO: add test to validate withdrawn notice
 }

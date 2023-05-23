@@ -57,7 +57,7 @@ object DrugCommon extends Serializable with LazyLogging {
         drugType: String,
         maxPhase: Int,
         firstApproval: Int,
-        indicationPhases: Seq[Long],
+        indicationPhases: Seq[String],
         indicationLabels: Seq[String],
         withdrawnYear: Int,
         withdrawnCountries: Seq[String],
@@ -131,7 +131,7 @@ object DrugCommon extends Serializable with LazyLogging {
       drugType: String,
       maxPhase: Option[Int],
       firstApproval: Option[Int],
-      indicationPhases: Seq[Long],
+      indicationPhases: Seq[String],
       indicationLabels: Seq[String],
       withdrawnYear: Option[Int],
       withdrawnCountries: Seq[String],
@@ -157,8 +157,8 @@ object DrugCommon extends Serializable with LazyLogging {
       .map(y => s" that was first approved in $y")
 
     val indications = (indicationPhases zip indicationLabels).distinct
-    val approvedIndications = indications.filter(_._1 == 4)
-    val investigationalIndicationsCount = indications.view.count(_._1 < 4)
+    val approvedIndications = indications.filter(_._1.toDouble == 4.0)
+    val investigationalIndicationsCount = indications.view.count(_._1.toDouble < 4.0)
 
     val indicationsSentence =
       (approvedIndications.size, investigationalIndicationsCount) match {

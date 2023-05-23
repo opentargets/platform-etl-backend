@@ -81,9 +81,15 @@ object Drug extends Serializable with LazyLogging {
       col("indications").isNotNull ||
       col("mechanismsOfAction").isNotNull
 
+    val withdrawnNoticeDf = warningRawDf
+      .transform(DrugWarning.processWithdrawnNotices)
+
+    val moleculeWithWithdrawnNoticeDf = moleculeProcessedDf
+      .join(withdrawnNoticeDf, Seq("id"), "left")
+
     // using left_outer joins as we want to keep all molecules until the filter clause which defines a 'drug' for the
     // purposes of the index.
-    val drugDf: DataFrame = moleculeProcessedDf
+    val drugDf: DataFrame = moleculeWithWithdrawnNoticeDf
       .join(
         indicationProcessedDf
           .select("id", "indications", "linkedDiseases"),
