@@ -161,7 +161,7 @@ object Target extends LazyLogging {
       .transform(addTargetSafety(inputDataFrames, ensemblIdLookupDf))
       .transform(addReactome(reactome))
       .transform(removeDuplicatedSynonyms)
-      .transform(addTargetEssentiality(inputDataFrames("targetEssentiality").data, ensemblIdLookupDf))
+      .transform(addGeneEssentiality(inputDataFrames("geneEssentiality").data, ensemblIdLookupDf))
   }
 
   /** for all alternative names or symbols a target can take is worth cleaning them up from
@@ -263,7 +263,7 @@ object Target extends LazyLogging {
     dataFrame.join(tepWithEnsgId, Seq("id"), "left_outer")
   }
 
-  private def addTargetEssentiality(targetEssentiality: DataFrame, ensemblIdLookupDF: DataFrame)(targetDf: DataFrame): DataFrame = {
+  private def addGeneEssentiality(geneEssentiality: DataFrame, ensemblIdLookupDF: DataFrame)(targetDf: DataFrame): DataFrame = {
     val lookup_table =
       ensemblIdLookupDF
         .select(col("ensgId").as("id"), col("symbols"))
@@ -271,20 +271,21 @@ object Target extends LazyLogging {
         .drop("symbols")
         .orderBy(col("symbol").asc)
 
-    val targetEssentialityWithEnsgId = targetEssentiality
-      .join(lookup_table, lookup_table("symbol") === targetEssentiality("targetSymbol"), "inner")
+    val targetEssentialityWithEnsgId = geneEssentiality
+      .join(lookup_table, lookup_table("symbol") === geneEssentiality("targetSymbol"), "inner")
       .drop(lookup_table.columns.filter(_ != "ensgId"): _*)
+      .drop("targetSymbol")
 
     val targetEssentialityGroupById = targetEssentialityWithEnsgId
       .select(
         col("ensgId") as "id",
         struct(
-          targetEssentiality.columns.map(col): _*
+          geneEssentiality.columns.map(col): _*
         ) as "ts"
       )
           .groupBy(col("id"))
           .agg(
-            collect_list(col("ts")) as "targetEssentiality"
+            collect_list(col("ts")) as "geneEssentiality"
           )
     targetDf.join(targetEssentialityGroupById, Seq("id"), "left_outer")
   }
@@ -451,7 +452,7 @@ object Target extends LazyLogging {
       "tep" -> targetInputs.tep,
       "tractability" -> targetInputs.tractability,
       "uniprotSsl" -> targetInputs.uniprotSsl,
-      "targetEssentiality" -> targetInputs.targetEssentiality
+      "geneEssentiality" -> targetInputs.geneEssentiality
     )
 
     IoHelpers
