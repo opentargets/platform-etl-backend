@@ -161,6 +161,7 @@ object Target extends LazyLogging {
       .transform(addTargetSafety(inputDataFrames, ensemblIdLookupDf))
       .transform(addReactome(reactome))
       .transform(removeDuplicatedSynonyms)
+      .transform(addTargetEssentiality(inputDataFrames("targetEssentiality").data, ensemblIdLookupDf))
   }
 
   /** for all alternative names or symbols a target can take is worth cleaning them up from
@@ -260,6 +261,32 @@ object Target extends LazyLogging {
       .cache()
 
     dataFrame.join(tepWithEnsgId, Seq("id"), "left_outer")
+  }
+
+  private def addTargetEssentiality(targetEssentiality: DataFrame, ensemblIdLookupDF: DataFrame)(targetDf: DataFrame): DataFrame = {
+    val lookup_table =
+      ensemblIdLookupDF
+        .select(col("ensgId").as("id"), col("symbols"))
+        .withColumn("symbol", explode(col("symbols")))
+        .drop("symbols")
+        .orderBy(col("symbol").asc)
+
+    val targetEssentialityWithEnsgId = targetEssentiality
+      .join(lookup_table, lookup_table("symbol") === targetEssentiality("targetSymbol"), "inner")
+      .drop(lookup_table.columns.filter(_ != "ensgId"): _*)
+
+    val targetEssentialityGroupById = targetEssentialityWithEnsgId
+      .select(
+        col("ensgId") as "id",
+        struct(
+          targetEssentiality.columns.map(col): _*
+        ) as "ts"
+      )
+          .groupBy(col("id"))
+          .agg(
+            collect_list(col("ts")) as "targetEssentiality"
+          )
+    targetDf.join(targetEssentialityGroupById, Seq("id"), "left_outer")
   }
 
   private def addOrthologue(
@@ -423,7 +450,8 @@ object Target extends LazyLogging {
       "safetyEvidence" -> targetInputs.safetyEvidence,
       "tep" -> targetInputs.tep,
       "tractability" -> targetInputs.tractability,
-      "uniprotSsl" -> targetInputs.uniprotSsl
+      "uniprotSsl" -> targetInputs.uniprotSsl,
+      "targetEssentiality" -> targetInputs.targetEssentiality
     )
 
     IoHelpers
