@@ -79,7 +79,6 @@ object IoHelpers extends LazyLogging {
         .load(pathInfo.path)
     } catch {
       case e: Exception =>
-        println(s"Error loading file ${pathInfo.path} with ${pathInfo.toString}, ${e.getMessage}")
         logger.error(s"Error loading file ${pathInfo.path} with ${pathInfo.toString}")
         throw e
     }
