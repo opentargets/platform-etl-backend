@@ -15,14 +15,13 @@ import org.apache.spark.sql.functions.{
   explode,
   lit,
   map_concat,
-  split,
   typedLit,
   udf,
   upper,
   when
 }
 import org.apache.spark.sql.{DataFrame, SparkSession, functions}
-import io.opentargets.etl.backend.spark.Helpers.nest
+import org.apache.spark.sql.types.DoubleType
 
 object Molecule extends LazyLogging {
 
@@ -73,7 +72,7 @@ object Molecule extends LazyLogging {
         col("pref_name").as("name"),
         col("cross_references"),
         col("first_approval").as("yearOfFirstApproval"),
-        col("max_phase").as("maximumClinicalTrialPhase"),
+        col("max_phase").cast(DoubleType).as("maximumClinicalTrialPhase"),
         col("molecule_hierarchy.parent_chembl_id").as("parentId"),
         col("molecule_synonyms.molecule_synonym").as("mol_synonyms"),
         col("molecule_synonyms.syn_type").as("synonym_type"),
