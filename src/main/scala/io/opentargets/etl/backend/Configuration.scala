@@ -211,6 +211,7 @@ object Configuration extends LazyLogging {
       ensembl: IOResourceConfig,
       uniprot: IOResourceConfig,
       uniprotSsl: IOResourceConfig,
+      geneEssentiality: IOResourceConfig,
       genCode: IOResourceConfig,
       geneOntology: IOResourceConfig,
       geneOntologyRna: IOResourceConfig,
