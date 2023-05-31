@@ -264,6 +264,7 @@ object Target extends LazyLogging {
   }
 
   private def addGeneEssentiality(geneEssentiality: DataFrame, ensemblIdLookupDF: DataFrame)(targetDf: DataFrame): DataFrame = {
+    logger.info("Adding gene essentiality to target dataframe.")
     val lookup_table =
       ensemblIdLookupDF
         .select(col("ensgId").as("id"), col("symbols"))
