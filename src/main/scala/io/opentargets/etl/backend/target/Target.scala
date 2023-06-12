@@ -263,11 +263,13 @@ object Target extends LazyLogging {
     dataFrame.join(tepWithEnsgId, Seq("id"), "left_outer")
   }
 
-  private def addGeneEssentiality(geneEssentiality: DataFrame, ensemblIdLookupDF: DataFrame)(targetDf: DataFrame): DataFrame = {
+  private def addGeneEssentiality(geneEssentiality: DataFrame, ensemblIdLookupDF: DataFrame)(
+      targetDf: DataFrame
+  ): DataFrame = {
     logger.info("Adding gene essentiality to target dataframe.")
     val lookup_table =
       ensemblIdLookupDF
-        .select(col("ensgId").as("id"), col("symbols"))
+        .select(col("ensgId"), col("symbols"))
         .withColumn("symbol", explode(col("symbols")))
         .drop("symbols")
         .orderBy(col("symbol").asc)
@@ -281,13 +283,13 @@ object Target extends LazyLogging {
       .select(
         col("ensgId") as "id",
         struct(
-          geneEssentiality.columns.map(col): _*
+          geneEssentiality.columns.filter(_ != "targetSymbol").map(col): _*
         ) as "ts"
       )
-          .groupBy(col("id"))
-          .agg(
-            collect_list(col("ts")) as "geneEssentiality"
-          )
+      .groupBy(col("id"))
+      .agg(
+        collect_list(col("ts")) as "geneEssentiality"
+      )
     targetDf.join(targetEssentialityGroupById, Seq("id"), "left_outer")
   }
 

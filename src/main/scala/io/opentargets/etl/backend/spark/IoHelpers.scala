@@ -78,14 +78,14 @@ object IoHelpers extends LazyLogging {
   def loadFileToDF(pathInfo: IOResourceConfig)(implicit session: SparkSession): DataFrame = {
     logger.info(s"load dataset ${pathInfo.path} with ${pathInfo.toString}")
 
-    try {
+    try
       pathInfo.options
         .foldLeft(session.read.format(pathInfo.format)) { case ops =>
           val options = ops._2.map(c => c.k -> c.v).toMap
           ops._1.options(options)
         }
         .load(pathInfo.path)
-    } catch {
+    catch {
       case e: Exception =>
         logger.error(s"Error loading file ${pathInfo.path} with ${pathInfo.toString}")
         throw e
