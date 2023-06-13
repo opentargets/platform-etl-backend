@@ -73,6 +73,7 @@ interface ortholog <<input>>
 interface psGeneIdentifier <<input>>
 interface psEssentialityMatrix <<input>>
 interface tep <<input>>
+interface targetEssentiality <<input>>
 interface tractability <<input>>
 interface uniprot <<input>>
 interface reactomePathways <<input>>
@@ -250,6 +251,7 @@ safetyToxicity --> target
 safetyAdverseEvent --> target
 safetySafetyRisk --> target
 tep --> target
+targetEssentiality --> target
 tractability --> target
 uniprot --> target
 

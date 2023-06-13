@@ -35,10 +35,11 @@ object DrugCommon extends Serializable with LazyLogging {
       "description",
       DrugCommon.generateDescriptionFieldUdf(
         col("drugType"),
-        col("maximumClinicalTrialPhase"),
+        when(col("maximumClinicalTrialPhase").isNotNull, col("maximumClinicalTrialPhase"))
+          .otherwise(-1),
         when(col("yearOfFirstApproval").isNotNull, col("yearOfFirstApproval")).otherwise(0),
         when(col("_indication_phases").isNotNull, col("_indication_phases"))
-          .otherwise(typedLit(Seq.empty[Long])),
+          .otherwise(typedLit(Seq.empty[Double])),
         when(col("_indication_labels").isNotNull, col("_indication_labels"))
           .otherwise(typedLit(Seq.empty[String])),
         when(col("withdrawnNotice.year").isNotNull, col("withdrawnNotice.year")).otherwise(0),
@@ -55,9 +56,9 @@ object DrugCommon extends Serializable with LazyLogging {
   val generateDescriptionFieldUdf: UserDefinedFunction = udf(
     (
         drugType: String,
-        maxPhase: Int,
+        maxPhase: Double,
         firstApproval: Int,
-        indicationPhases: Seq[Long],
+        indicationPhases: Seq[Double],
         indicationLabels: Seq[String],
         withdrawnYear: Int,
         withdrawnCountries: Seq[String],
@@ -129,9 +130,9 @@ object DrugCommon extends Serializable with LazyLogging {
     */
   def generateDescriptionField(
       drugType: String,
-      maxPhase: Option[Int],
+      maxPhase: Option[Double],
       firstApproval: Option[Int],
-      indicationPhases: Seq[Long],
+      indicationPhases: Seq[Double],
       indicationLabels: Seq[String],
       withdrawnYear: Option[Int],
       withdrawnCountries: Seq[String],
@@ -140,11 +141,13 @@ object DrugCommon extends Serializable with LazyLogging {
       minIndicationsToShow: Int = 2
   ): String = {
 
-    val romanNumbers = Map[Int, String](4 -> "IV", 3 -> "III", 2 -> "II", 1 -> "I", 0 -> "I")
-      .withDefaultValue("")
+    val romanNumbers =
+      Map[Double, String](4.0 -> "IV", 3.0 -> "III", 2.0 -> "II", 1.0 -> "I", 0.5 -> "I (Early)")
+        .withDefaultValue("")
 
     val mainNote = Some(s"${drugType.capitalize} drug")
     val phase = maxPhase match {
+      case Some(-1) => None
       case Some(p) =>
         Some(
           s" with a maximum clinical trial phase of ${romanNumbers(p)}${if (indicationLabels.size > 1) " (across all indications)"
@@ -157,8 +160,8 @@ object DrugCommon extends Serializable with LazyLogging {
       .map(y => s" that was first approved in $y")
 
     val indications = (indicationPhases zip indicationLabels).distinct
-    val approvedIndications = indications.filter(_._1 == 4)
-    val investigationalIndicationsCount = indications.view.count(_._1 < 4)
+    val approvedIndications = indications.filter(_._1 == 4.0)
+    val investigationalIndicationsCount = indications.view.count(_._1 < 4.0)
 
     val indicationsSentence =
       (approvedIndications.size, investigationalIndicationsCount) match {

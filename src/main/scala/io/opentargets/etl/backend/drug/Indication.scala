@@ -3,6 +3,7 @@ package io.opentargets.etl.backend.drug
 import com.typesafe.scalalogging.LazyLogging
 import org.apache.spark.sql.{DataFrame, SparkSession}
 import org.apache.spark.sql.functions._
+import org.apache.spark.sql.types.DoubleType
 
 /** Object to process ChEMBL indications for incorporation into Drug.
   * -- id: string
@@ -42,7 +43,11 @@ object Indication extends Serializable with LazyLogging {
       .withColumn("id", explode(col("ids")))
       .withColumn(
         "indications",
-        struct(col("disease"), col("efoName"), col("references"), col("maxPhaseForIndication"))
+        struct(col("disease"),
+               col("efoName"),
+               col("references"),
+               col("maxPhaseForIndication").cast(DoubleType).as("maxPhaseForIndication")
+        )
       )
       .groupBy(col("id"))
       .agg(

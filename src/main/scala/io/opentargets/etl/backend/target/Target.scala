@@ -161,6 +161,7 @@ object Target extends LazyLogging {
       .transform(addTargetSafety(inputDataFrames, ensemblIdLookupDf))
       .transform(addReactome(reactome))
       .transform(removeDuplicatedSynonyms)
+      .transform(addGeneEssentiality(inputDataFrames("geneEssentiality").data, ensemblIdLookupDf))
   }
 
   /** for all alternative names or symbols a target can take is worth cleaning them up from
@@ -260,6 +261,36 @@ object Target extends LazyLogging {
       .cache()
 
     dataFrame.join(tepWithEnsgId, Seq("id"), "left_outer")
+  }
+
+  private def addGeneEssentiality(geneEssentiality: DataFrame, ensemblIdLookupDF: DataFrame)(
+      targetDf: DataFrame
+  ): DataFrame = {
+    logger.info("Adding gene essentiality to target dataframe.")
+    val lookup_table =
+      ensemblIdLookupDF
+        .select(col("ensgId"), col("symbols"))
+        .withColumn("symbol", explode(col("symbols")))
+        .drop("symbols")
+        .orderBy(col("symbol").asc)
+
+    val targetEssentialityWithEnsgId = geneEssentiality
+      .join(lookup_table, lookup_table("symbol") === geneEssentiality("targetSymbol"), "inner")
+      .drop(lookup_table.columns.filter(_ != "ensgId"): _*)
+      .drop("targetSymbol")
+
+    val targetEssentialityGroupById = targetEssentialityWithEnsgId
+      .select(
+        col("ensgId") as "id",
+        struct(
+          geneEssentiality.columns.filter(_ != "targetSymbol").map(col): _*
+        ) as "ts"
+      )
+      .groupBy(col("id"))
+      .agg(
+        collect_list(col("ts")) as "geneEssentiality"
+      )
+    targetDf.join(targetEssentialityGroupById, Seq("id"), "left_outer")
   }
 
   private def addOrthologue(
@@ -423,7 +454,8 @@ object Target extends LazyLogging {
       "safetyEvidence" -> targetInputs.safetyEvidence,
       "tep" -> targetInputs.tep,
       "tractability" -> targetInputs.tractability,
-      "uniprotSsl" -> targetInputs.uniprotSsl
+      "uniprotSsl" -> targetInputs.uniprotSsl,
+      "geneEssentiality" -> targetInputs.geneEssentiality
     )
 
     IoHelpers

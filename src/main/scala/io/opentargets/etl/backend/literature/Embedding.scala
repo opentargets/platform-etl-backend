@@ -3,7 +3,7 @@ package io.opentargets.etl.backend.literature
 import com.typesafe.scalalogging.LazyLogging
 import io.opentargets.etl.backend.Configuration.{LiteratureModelConfiguration, OTConfig}
 import io.opentargets.etl.backend.ETLSessionContext
-import io.opentargets.etl.backend.spark.IOResource
+import io.opentargets.etl.backend.spark.{IOResource, IOResourceML}
 import io.opentargets.etl.backend.spark.IoHelpers.{readFrom, writeTo}
 import org.apache.spark.sql.SparkSession
 import org.apache.spark.sql.functions._
@@ -94,6 +94,10 @@ object Embedding extends Serializable with LazyLogging {
       matches: DataFrame
   )(implicit etlSessionContext: ETLSessionContext): Word2VecModel = {
     val modelConfiguration = etlSessionContext.configuration.literature.embedding.modelConfiguration
+
+    logger.info("CPUs available: " + Runtime.getRuntime().availableProcessors().toString())
+    logger.info(s"Model configuration: ${modelConfiguration.toString}")
+
     val df = matches
       .transform(filterMatches)
       .transform(regroupMatches("pmid" :: "terms" :: Nil))
@@ -104,24 +108,14 @@ object Embedding extends Serializable with LazyLogging {
 
   def compute(matches: DataFrame, configuration: OTConfig)(implicit
       etlSessionContext: ETLSessionContext
-  ): Map[String, IOResource] = {
-
-    val output = configuration.literature.embedding.outputs.model
-    val modelConf = configuration.literature.embedding.modelConfiguration
-
-    logger.info("CPUs available: " + Runtime.getRuntime().availableProcessors().toString())
-    logger.info(s"Model configuration: ${modelConf.toString}")
+  ): IOResourceML = {
 
     val matchesModels = generateModel(matches)
 
-    // The matchesModel is a W2VModel and the output is parquet.
-    configuration.sparkSettings.writeMode match {
-      case "overwrite" => matchesModels.write.overwrite().save(output.path)
-      case _           => matchesModels.save(output.path)
-    }
+    val configuration = etlSessionContext.configuration.literature.embedding.outputs.model
+    val output = IOResourceML(matchesModels, configuration)
 
-    val dataframesToSave = Map.empty[String, IOResource]
-    dataframesToSave
+    writeTo(output)
   }
 
   def apply()(implicit context: ETLSessionContext): Unit = {

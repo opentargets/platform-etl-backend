@@ -211,6 +211,7 @@ object Configuration extends LazyLogging {
       ensembl: IOResourceConfig,
       uniprot: IOResourceConfig,
       uniprotSsl: IOResourceConfig,
+      geneEssentiality: IOResourceConfig,
       genCode: IOResourceConfig,
       geneOntology: IOResourceConfig,
       geneOntologyRna: IOResourceConfig,
@@ -312,11 +313,13 @@ object Configuration extends LazyLogging {
                                   diseases: IOResourceConfig,
                                   targets: IOResourceConfig,
                                   drugs: IOResourceConfig,
-                                  abstracts: IOResourceConfig,
-                                  fullTexts: IOResourceConfig,
+                                  abstracts: EPMCInput,
+                                  fullTexts: EPMCInput,
                                   outputs: LiteratureProcessingOutputs,
                                   writeFailures: Boolean
   )
+
+  case class EPMCInput(kind: String, input: IOResourceConfig)
 
   case class LiteratureModelConfiguration(windowSize: Int,
                                           numPartitions: Int,

@@ -581,8 +581,8 @@ object Grounding extends Serializable with LazyLogging {
       "targets" -> empcConfiguration.targets,
       "diseases" -> empcConfiguration.diseases,
       "drugs" -> empcConfiguration.drugs,
-      "abstracts" -> empcConfiguration.abstracts,
-      "fullTexts" -> empcConfiguration.fullTexts
+      "abstracts" -> empcConfiguration.abstracts.input,
+      "fullTexts" -> empcConfiguration.fullTexts.input
     )
 
     val inputDataFrames = readFrom(mappedInputs)
@@ -599,10 +599,15 @@ object Grounding extends Serializable with LazyLogging {
       )
     )
 
+    val abstractsDF = inputDataFrames("abstracts").data
+      .select(col("*"), lit(empcConfiguration.abstracts.kind).as("kind"))
+    val fullTextsDF = inputDataFrames("fullTexts").data
+      .select(col("*"), lit(empcConfiguration.fullTexts.kind).as("kind"))
+
     // merge dataframe and take latest version when duplicatess
     val fullEpmcDf =
-      inputDataFrames("abstracts").data
-        .unionByName(inputDataFrames("fullTexts").data, allowMissingColumns = true)
+      abstractsDF
+        .unionByName(fullTextsDF, allowMissingColumns = true)
     val epmcDf = PreProcessing.process(fullEpmcDf)
 
     val epmcDfNoSpaces = replaceSpacesSchema(epmcDf)
