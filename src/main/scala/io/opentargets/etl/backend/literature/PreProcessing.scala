@@ -19,10 +19,11 @@ object PreProcessing {
       .withColumn("int_timestamp", unix_timestamp(col("timestamp")))
 
   def mergeInformationBackToUniques(uniqueDfRows: DataFrame, fullDF: DataFrame): DataFrame =
-    uniqueDfRows.join(fullDF,
+    uniqueDfRows.join(
+      fullDF,
       uniqueDfRows.col("pmcid") <=> fullDF.col("pmcid")
-                        && uniqueDfRows.col("pmid") <=> fullDF.col("pmid")
-                        && uniqueDfRows.col("int_timestamp") <=> fullDF.col("int_timestamp")
+        && uniqueDfRows.col("pmid") <=> fullDF.col("pmid")
+        && uniqueDfRows.col("int_timestamp") <=> fullDF.col("int_timestamp")
     )
 
   def removeDuplicateColumns(df: DataFrame, uniqueDfRows: DataFrame): DataFrame =
