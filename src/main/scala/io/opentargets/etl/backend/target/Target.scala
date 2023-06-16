@@ -294,7 +294,7 @@ object Target extends LazyLogging {
       .drop(lookup_table.columns.filter(_ != "ensgId"): _*)
       .drop("targetSymbol")
 
-    val test01 = targetEssentialityWithEnsgId
+    targetEssentialityWithEnsgId
       .select(
         col("ensgId") as "id",
         struct(
@@ -307,7 +307,6 @@ object Target extends LazyLogging {
       .agg(
         collect_list(col("ts")) as "geneEssentiality"
       )
-    test01
   }
 
   private def addOrthologue(
