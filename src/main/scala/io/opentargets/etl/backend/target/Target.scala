@@ -7,30 +7,7 @@ import io.opentargets.etl.backend.spark.IoHelpers.IOResources
 import io.opentargets.etl.backend.spark.{CsvHelpers, IOResource, IOResourceConfig, IoHelpers}
 import io.opentargets.etl.preprocess.uniprot.UniprotConverter
 import org.apache.spark.sql.expressions.UserDefinedFunction
-import org.apache.spark.sql.functions.{
-  array,
-  array_contains,
-  array_distinct,
-  array_join,
-  array_union,
-  broadcast,
-  coalesce,
-  col,
-  collect_list,
-  collect_set,
-  explode,
-  expr,
-  filter,
-  flatten,
-  lit,
-  size,
-  split,
-  struct,
-  trim,
-  typedLit,
-  udf,
-  when
-}
+import org.apache.spark.sql.functions.{array, array_contains, array_distinct, array_join, array_union, broadcast, coalesce, col, collect_list, collect_set, count, explode, explode_outer, expr, filter, flatten, lit, size, split, struct, trim, typedLit, udf, when}
 import org.apache.spark.sql.{Column, DataFrame, Dataset, SparkSession}
 import org.apache.spark.storage.StorageLevel
 
@@ -40,17 +17,18 @@ object Target extends LazyLogging {
   def apply()(implicit context: ETLSessionContext): IOResources = {
     implicit val ss: SparkSession = context.sparkSession
 
-    val targetDF = compute(context)
+    val targetsDF = compute(context)
 
     val dataframesToSave: IOResources = Map(
-      "target" -> IOResource(targetDF, context.configuration.target.outputs.target)
+      "target" -> IOResource(targetsDF("target"), context.configuration.target.outputs.target),
+    "targetEssentiality" -> IOResource(targetsDF("targetEssentiality"), context.configuration.target.outputs.geneEssentiality)
     )
 
     IoHelpers.writeTo(dataframesToSave)
 
   }
 
-  def compute(context: ETLSessionContext)(implicit ss: SparkSession): DataFrame = {
+  def compute(context: ETLSessionContext)(implicit ss: SparkSession): Map[String, DataFrame] = {
 
     // 1. get input data frames
     val inputDataFrames = getMappedInputs(context.configuration.target)
@@ -149,7 +127,7 @@ object Target extends LazyLogging {
 
     val ensemblIdLookupDf = generateEnsgToSymbolLookup(targetInterim)
 
-    targetInterim
+    val targetsDF = targetInterim
       .join(geneticConstraints, Seq("id"), "left_outer")
       .transform(addTep(tep.toDF, ensemblIdLookupDf))
       .transform(filterAndSortProteinIds)
@@ -161,7 +139,14 @@ object Target extends LazyLogging {
       .transform(addTargetSafety(inputDataFrames, ensemblIdLookupDf))
       .transform(addReactome(reactome))
       .transform(removeDuplicatedSynonyms)
+
+    val targetEssentialityDF = targetsDF
       .transform(addGeneEssentiality(inputDataFrames("geneEssentiality").data, ensemblIdLookupDf))
+
+    Map(
+      "target" -> targetsDF,
+      "targetEssentiality" -> targetEssentialityDF
+    )
   }
 
   /** for all alternative names or symbols a target can take is worth cleaning them up from
@@ -269,28 +254,30 @@ object Target extends LazyLogging {
     logger.info("Adding gene essentiality to target dataframe.")
     val lookup_table =
       ensemblIdLookupDF
-        .select(col("ensgId"), col("symbols"))
-        .withColumn("symbol", explode(col("symbols")))
-        .drop("symbols")
-        .orderBy(col("symbol").asc)
+        .select(col("ensgId"), col("name"))
+        .withColumn("approvedTarget", explode(col("name")))
+        .drop("name")
+        .orderBy(col("approvedTarget").asc)
 
     val targetEssentialityWithEnsgId = geneEssentiality
-      .join(lookup_table, lookup_table("symbol") === geneEssentiality("targetSymbol"), "inner")
+      .join(lookup_table, lookup_table("approvedTarget") === geneEssentiality("targetSymbol"), "inner")
       .drop(lookup_table.columns.filter(_ != "ensgId"): _*)
       .drop("targetSymbol")
 
-    val targetEssentialityGroupById = targetEssentialityWithEnsgId
+    val test01 =targetEssentialityWithEnsgId
       .select(
         col("ensgId") as "id",
         struct(
-          geneEssentiality.columns.filter(_ != "targetSymbol").map(col): _*
+          geneEssentiality.columns
+            .filter(_ != "targetSymbol")
+            .map(col): _*
         ) as "ts"
       )
       .groupBy(col("id"))
       .agg(
         collect_list(col("ts")) as "geneEssentiality"
       )
-    targetDf.join(targetEssentialityGroupById, Seq("id"), "left_outer")
+    test01
   }
 
   private def addOrthologue(
