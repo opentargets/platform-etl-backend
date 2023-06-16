@@ -7,7 +7,32 @@ import io.opentargets.etl.backend.spark.IoHelpers.IOResources
 import io.opentargets.etl.backend.spark.{CsvHelpers, IOResource, IOResourceConfig, IoHelpers}
 import io.opentargets.etl.preprocess.uniprot.UniprotConverter
 import org.apache.spark.sql.expressions.UserDefinedFunction
-import org.apache.spark.sql.functions.{array, array_contains, array_distinct, array_join, array_union, broadcast, coalesce, col, collect_list, collect_set, count, explode, explode_outer, expr, filter, flatten, lit, size, split, struct, trim, typedLit, udf, when}
+import org.apache.spark.sql.functions.{
+  array,
+  array_contains,
+  array_distinct,
+  array_join,
+  array_union,
+  broadcast,
+  coalesce,
+  col,
+  collect_list,
+  collect_set,
+  count,
+  explode,
+  explode_outer,
+  expr,
+  filter,
+  flatten,
+  lit,
+  size,
+  split,
+  struct,
+  trim,
+  typedLit,
+  udf,
+  when
+}
 import org.apache.spark.sql.{Column, DataFrame, Dataset, SparkSession}
 import org.apache.spark.storage.StorageLevel
 
@@ -21,7 +46,9 @@ object Target extends LazyLogging {
 
     val dataframesToSave: IOResources = Map(
       "target" -> IOResource(targetsDF("target"), context.configuration.target.outputs.target),
-    "targetEssentiality" -> IOResource(targetsDF("targetEssentiality"), context.configuration.target.outputs.geneEssentiality)
+      "targetEssentiality" -> IOResource(targetsDF("targetEssentiality"),
+                                         context.configuration.target.outputs.geneEssentiality
+      )
     )
 
     IoHelpers.writeTo(dataframesToSave)
@@ -260,11 +287,14 @@ object Target extends LazyLogging {
         .orderBy(col("approvedTarget").asc)
 
     val targetEssentialityWithEnsgId = geneEssentiality
-      .join(lookup_table, lookup_table("approvedTarget") === geneEssentiality("targetSymbol"), "inner")
+      .join(lookup_table,
+            lookup_table("approvedTarget") === geneEssentiality("targetSymbol"),
+            "inner"
+      )
       .drop(lookup_table.columns.filter(_ != "ensgId"): _*)
       .drop("targetSymbol")
 
-    val test01 =targetEssentialityWithEnsgId
+    val test01 = targetEssentialityWithEnsgId
       .select(
         col("ensgId") as "id",
         struct(
