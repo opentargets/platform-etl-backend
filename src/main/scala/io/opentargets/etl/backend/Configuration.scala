@@ -235,7 +235,7 @@ object Configuration extends LazyLogging {
       reactomePathways: IOResourceConfig
   )
 
-  case class TargetOutput(target: IOResourceConfig)
+  case class TargetOutput(target: IOResourceConfig, geneEssentiality: IOResourceConfig)
 
   case class SparkSettings(writeMode: String,
                            ignoreIfExists: Boolean,
