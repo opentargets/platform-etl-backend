@@ -2,7 +2,7 @@ package io.opentargets.etl.backend.drug
 
 import com.typesafe.scalalogging.LazyLogging
 import io.opentargets.etl.backend.spark.Helpers.nest
-import org.apache.spark.sql.functions.{col, split, when}
+import org.apache.spark.sql.functions.{col, collect_list, collect_set, flatten, lit, split, when}
 import org.apache.spark.sql.{DataFrame, SparkSession}
 
 /** Drug warnings as produced by ChEMBL. Available since ChEMBL release 28.
@@ -61,13 +61,12 @@ object DrugWarning extends LazyLogging {
       .withColumn("warning_country", split(col("warning_country"), ";"))
       .withColumn("warning_class", split(col("warning_class"), ";"))
 
-    val df = withdrawnDf
-      .withColumnRenamed("warning_country", "countries")
-      .withColumnRenamed("warning_class", "classes")
-      .withColumnRenamed("warning_year", "year")
-
-    nest(df, List("countries", "classes", "year"), "withdrawnNotice")
-      .select(col("molecule_chembl_id").as("id"), col("withdrawnNotice"))
+    withdrawnDf
+      .select(
+        col("molecule_chembl_id") as "id",
+        lit(true) as "isWithdrawn"
+      )
+      .distinct()
   }
 
 }

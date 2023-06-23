@@ -42,11 +42,7 @@ object DrugCommon extends Serializable with LazyLogging {
           .otherwise(typedLit(Seq.empty[Double])),
         when(col("_indication_labels").isNotNull, col("_indication_labels"))
           .otherwise(typedLit(Seq.empty[String])),
-        when(col("withdrawnNotice.year").isNotNull, col("withdrawnNotice.year")).otherwise(0),
-        when(col("withdrawnNotice.countries").isNotNull, col("withdrawnNotice.countries"))
-          .otherwise(typedLit(Seq.empty[String])),
-        when(col("withdrawnNotice.classes").isNotNull, col("withdrawnNotice.classes"))
-          .otherwise(typedLit(Seq.empty[String])),
+        when(col("isWithdrawn").isNotNull, col("isWithdrawn")).otherwise(false),
         col("blackBoxWarning")
       )
     )
@@ -60,9 +56,7 @@ object DrugCommon extends Serializable with LazyLogging {
         firstApproval: Int,
         indicationPhases: Seq[Double],
         indicationLabels: Seq[String],
-        withdrawnYear: Int,
-        withdrawnCountries: Seq[String],
-        withdrawnReasons: Seq[String],
+        isWithdrawn: Boolean,
         blackBoxWarning: Boolean
     ) =>
       generateDescriptionField(
@@ -71,9 +65,7 @@ object DrugCommon extends Serializable with LazyLogging {
         if (firstApproval > 0) Some(firstApproval) else None,
         indicationPhases,
         indicationLabels,
-        if (withdrawnYear > 0) Some(withdrawnYear) else None,
-        withdrawnCountries,
-        withdrawnReasons,
+        isWithdrawn,
         blackBoxWarning
       )
   )
@@ -134,9 +126,7 @@ object DrugCommon extends Serializable with LazyLogging {
       firstApproval: Option[Int],
       indicationPhases: Seq[Double],
       indicationLabels: Seq[String],
-      withdrawnYear: Option[Int],
-      withdrawnCountries: Seq[String],
-      withdrawnReasons: Seq[String],
+      isWithdrawn: Boolean,
       blackBoxWarning: Boolean,
       minIndicationsToShow: Int = 2
   ): String = {
@@ -198,16 +188,9 @@ object DrugCommon extends Serializable with LazyLogging {
           .mkString
       )
 
-    val year = withdrawnYear.map(y =>
-      s" ${if (withdrawnCountries.size > 1) "initially" else ""} in ${y.toString}"
-    )
-    val countries = DrugCommon.mkStringSemantic(Option(withdrawnCountries), " in ")
-    val reasons = DrugCommon.mkStringSemantic(Option(withdrawnReasons), " due to ")
-    val wdrawnNoteList = List(Some(" It was withdrawn"), countries, year, reasons, Some("."))
-
-    val wdrawnNote = wdrawnNoteList.count(_.isDefined) match {
-      case n if n > 2 =>
-        Some(wdrawnNoteList.withFilter(_.isDefined).map(_.get).mkString)
+    val wdrawnNote = isWithdrawn match {
+      case true =>
+        Some(" It was withdrawn in at least one region.")
       case _ => None
     }
 
