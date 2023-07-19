@@ -223,6 +223,7 @@ object Functions extends LazyLogging {
       .filter(
         col("new_struct.id") === "High-Quality Ligand"
           || col("new_struct.id") === "High-Quality Pocket"
+          || col("new_struct.id") === "Small Molecule Binder"
       )
       .select(col("*"),
               col("new_struct").getItem("id").as("type"),
@@ -238,7 +239,10 @@ object Functions extends LazyLogging {
           .as("Nr_Ligand"),
         when(col("High-Quality Pocket") === 1, lit(1))
           .otherwise(lit(0))
-          .as("Nr_Pocket")
+          .as("Nr_Pocket"),
+        when(col("Small Molecule Binder") === 1, lit(1))
+          .otherwise(lit(0))
+          .as("Nr_sMBinder")
       )
 
     val joinedDF = querySetDF
