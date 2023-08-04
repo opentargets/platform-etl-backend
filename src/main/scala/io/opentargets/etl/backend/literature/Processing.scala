@@ -146,17 +146,15 @@ object Processing extends Serializable with LazyLogging {
       "literatureIndex" -> IOResource(literatureIndexAlt._1, outputs.literatureIndex),
       "publicationSentences" -> IOResource(literatureIndexAlt._2, outputs.literatureSentences)
     ) ++ {
-      if (context.configuration.literature.processing.writeFailures) {
+      if (empcConfiguration.writeFailures) {
         Map(
           "failedMatches" -> IOResource(
             grounding("matchesFailed"),
-            outputs.matches.copy(path = context.configuration.common.output + "/failedMatches")
+            outputs.matches.copy(path = outputs.failedMatches.path)
           ),
           "failedCoocs" -> IOResource(
             grounding("cooccurrencesFailed"),
-            outputs.matches.copy(path =
-              context.configuration.common.output + "/failedCooccurrences"
-            )
+            outputs.matches.copy(path = outputs.failedCooccurrences.path)
           )
         )
       } else Map.empty
