@@ -122,8 +122,8 @@ object Processing extends Serializable with LazyLogging {
 
     logger.info("Processing step")
 
-    val empcConfiguration: LiteratureProcessing = context.configuration.literature.processing
-    val grounding: Map[String, DataFrame] = Grounding.compute(empcConfiguration)
+    val processingConfiguration: LiteratureProcessing = context.configuration.literature.processing
+    val grounding: Map[String, DataFrame] = Grounding.compute(processingConfiguration)
 
     logger.info("Processing raw evidences and persist matches and cooccurrences")
 
@@ -139,14 +139,14 @@ object Processing extends Serializable with LazyLogging {
 
     val literatureIndexAlt: (DataFrame, DataFrame) = filterMatchesForCH(matches)
 
-    val outputs = empcConfiguration.outputs
+    val outputs = processingConfiguration.outputs
     val dataframesToSave = Map(
       "cooccurrences" -> IOResource(coocs, outputs.cooccurrences),
       "matches" -> IOResource(matches, outputs.matches),
       "literatureIndex" -> IOResource(literatureIndexAlt._1, outputs.literatureIndex),
       "publicationSentences" -> IOResource(literatureIndexAlt._2, outputs.literatureSentences)
     ) ++ {
-      if (empcConfiguration.writeFailures) {
+      if (processingConfiguration.writeFailures) {
         Map(
           "failedMatches" -> IOResource(
             grounding("matchesFailed"),
