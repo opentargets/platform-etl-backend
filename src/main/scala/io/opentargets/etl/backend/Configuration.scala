@@ -305,6 +305,8 @@ object Configuration extends LazyLogging {
   case class LiteratureProcessingOutputs(rawEvidence: IOResourceConfig,
                                          cooccurrences: IOResourceConfig,
                                          matches: IOResourceConfig,
+                                         failedCooccurrences: IOResourceConfig,
+                                         failedMatches: IOResourceConfig,
                                          literatureIndex: IOResourceConfig,
                                          literatureSentences: IOResourceConfig
   )
@@ -353,11 +355,14 @@ object Configuration extends LazyLogging {
                               sparkSessionConfig: Option[Seq[IOResourceConfigOption]] = None
   )
 
-  case class LiteratureSection(common: LiteratureCommon,
-                               processing: LiteratureProcessing,
-                               embedding: LiteratureEmbedding,
-                               vectors: LiteratureVectors,
-                               evidence: LiteratureEvidence
+  case class LiteratureSection(
+      input: String,
+      output: String,
+      common: LiteratureCommon,
+      processing: LiteratureProcessing,
+      embedding: LiteratureEmbedding,
+      vectors: LiteratureVectors,
+      evidence: LiteratureEvidence
   )
 
   case class TargetEngineInputs(targets: IOResourceConfig,
