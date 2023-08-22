@@ -55,13 +55,11 @@ object MechanismOfAction extends LazyLogging {
       .filter(
         """
           |mechanismOfAction is not null
-          |or references is not null
-          |or targetName is not null
-          |or targets is not null
-          |""".stripMargin
+          |and targets is not null and size(targets) > 0
+          |and chemblIds is not null and size(chemblIds) > 0
+        """.stripMargin
       )
       .drop("id")
-      .filter("chemblIds is not null")
       .distinct
       .transform(consolidateDuplicateReferences)
 
