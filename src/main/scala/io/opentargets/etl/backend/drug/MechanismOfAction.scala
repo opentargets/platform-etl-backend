@@ -55,7 +55,7 @@ object MechanismOfAction extends LazyLogging {
       .filter(
         """
           |mechanismOfAction is not null
-          |and targets is not null and size(targets) > 0
+          |and (targets is not null or targetName is not null)
           |and chemblIds is not null and size(chemblIds) > 0
         """.stripMargin
       )
