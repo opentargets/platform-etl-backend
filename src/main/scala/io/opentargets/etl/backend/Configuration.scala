@@ -43,7 +43,9 @@ object Configuration extends LazyLogging {
   case class EvidenceInputsSection(
       rawEvidences: IOResourceConfig,
       diseases: IOResourceConfig,
-      targets: IOResourceConfig
+      targets: IOResourceConfig,
+      mechanismOfAction: IOResourceConfig,
+      geneBurden: IOResourceConfig
   )
 
   case class SucceedFailedOutputs(succeeded: IOResourceConfig, failed: IOResourceConfig)
@@ -55,7 +57,17 @@ object Configuration extends LazyLogging {
       datatypeId: String,
       dataSourcesExclude: List[String],
       dataSources: List[EvidenceEntry],
+      directionOfEffect: DirectionOfEffectSection,
       outputs: SucceedFailedOutputs
+  )
+
+  case class DirectionOfEffectSection(
+      varFilterLof: List[String],
+      gof: List[String],
+      lof: List[String],
+      oncotsgList: List[String],
+      inhibitors: List[String],
+      activators: List[String]
   )
 
   case class AssociationInputsSection(evidences: IOResourceConfig, diseases: IOResourceConfig)
