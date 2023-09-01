@@ -1,6 +1,7 @@
 package io.opentargets.etl.backend.stringProtein
 
 import com.typesafe.scalalogging.LazyLogging
+import io.opentargets.etl.backend.ETLSessionContext
 import org.apache.spark._
 import org.apache.spark.sql._
 import org.apache.spark.sql.functions.col
@@ -46,8 +47,12 @@ root
  */
 object StringProtein extends Serializable with LazyLogging {
 
-  def apply(stringDataset: DataFrame, scorethreshold: Int)(implicit ss: SparkSession): DataFrame = {
-    import ss.implicits._
+  def apply(stringDataset: DataFrame, scorethreshold: Int)(implicit
+      context: ETLSessionContext
+  ): DataFrame = {
+    import context.sparkSession.implicits._
+
+    val configuration = context.configuration.interactions
 
     logger.info("Compute string protein dataset threshold: " + scorethreshold.toString)
 
@@ -114,7 +119,9 @@ object StringProtein extends Serializable with LazyLogging {
       )
       .withColumn(
         "source_info",
-        struct(lit("11") as "database_version", lit("string") as "source_database")
+        struct(lit(configuration.stringVersion) as "database_version",
+               lit("string") as "source_database"
+        )
       )
       .withColumn("causal_interaction", lit("False").cast(BooleanType))
       .drop("protein1", "protein2", "id_source_p1", "id_source_p2", "biological_role", "id_source")

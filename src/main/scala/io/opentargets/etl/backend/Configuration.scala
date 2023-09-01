@@ -132,6 +132,7 @@ object Configuration extends LazyLogging {
 
   case class InteractionsSection(
       scorethreshold: Int,
+      stringVersion: String,
       targetEtl: IOResourceConfig,
       rnacentral: IOResourceConfig,
       humanmapping: IOResourceConfig,
