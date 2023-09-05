@@ -79,7 +79,7 @@ object Drug extends Serializable with LazyLogging {
       "Joining molecules, indications, mechanisms of action, and target and disease linkages."
     )
 
-    // We define a drug as having either a drugbank id, a mechanism of action, or an indication.
+    // We define a drug as having either a drugbank id, a mechanism of action, an indication, or if it is a chemical probe.
     val isDrugMolecule: Column = array_contains(map_keys(col("crossReferences")), "drugbank") ||
       col("indications").isNotNull ||
       col("mechanismsOfAction").isNotNull ||
