@@ -88,8 +88,7 @@ object Molecule extends LazyLogging {
         when(col("parentId") === col("id"), typedLit(null)).otherwise(col("parentId"))
       )
       .drop("mol_synonyms", "synonym_type")
-      .join(probes.filter(col("drugId").isNotNull).select(col("drugId").as("chemicalProbeDrugId")).distinct(),
-        col("id") === col("chemicalProbeDrugId"), "left_outer")
+      .join(probes, col("id") === col("chemicalProbeDrugId"), "left_outer")
       .join(drugbank, Seq("id"), "full_outer")
 
     columnsOfInterest

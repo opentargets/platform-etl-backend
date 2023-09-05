@@ -38,6 +38,8 @@ object Drug extends Serializable with LazyLogging {
 
     // raw input dataframes
     lazy val probesDf: DataFrame = inputDataFrames("chemicalProbes").data
+      .filter(col("drugId").isNotNull)
+      .select(col("drugId").as("chemicalProbeDrugId")).distinct()
     lazy val moleculeDf: DataFrame = inputDataFrames("molecule").data
     lazy val mechanismDf: DataFrame = inputDataFrames("mechanism").data
     lazy val indicationDf: DataFrame = inputDataFrames("indication").data
@@ -111,7 +113,7 @@ object Drug extends Serializable with LazyLogging {
       .join(linkedTargetDf, Seq("id"), "left_outer")
       .filter(isDrugMolecule)
       .transform(addDescription)
-      .drop("indications", "mechanismsOfAction", "isWithdrawn")
+      .drop("indications", "mechanismsOfAction", "isWithdrawn", "chemicalProbeDrugId")
       .transform(cleanup)
 
     val dataframesToSave: IOResources = Map(
