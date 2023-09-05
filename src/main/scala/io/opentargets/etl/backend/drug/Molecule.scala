@@ -30,10 +30,11 @@ object Molecule extends LazyLogging {
   def apply(
       moleculeRaw: DataFrame,
       drugbankChemblIdLookup: DataFrame,
-      drugExtensions: Seq[InputExtension]
+      drugExtensions: Seq[InputExtension],
+      chemicalProbes: DataFrame
   )(implicit sparkSession: SparkSession): DataFrame = {
     logger.info("Processing molecules.")
-    val mols: DataFrame = moleculePreprocess(moleculeRaw, drugbankChemblIdLookup)
+    val mols: DataFrame = moleculePreprocess(moleculeRaw, drugbankChemblIdLookup, chemicalProbes)
     val synonyms: DataFrame = processMoleculeSynonyms(mols)
     val crossReferences: DataFrame = processMoleculeCrossReferences(mols)
     val hierarchy: DataFrame = processMoleculeHierarchy(mols)
@@ -59,7 +60,7 @@ object Molecule extends LazyLogging {
     * @return
     *   dataframe with unwanted fields removed, and basic preprocessing completed.
     */
-  private def moleculePreprocess(chemblMoleculeRaw: DataFrame, drugbank: DataFrame): DataFrame = {
+  private def moleculePreprocess(chemblMoleculeRaw: DataFrame, drugbank: DataFrame, probes: DataFrame): DataFrame = {
     //      logger.info("Processing molecule data.")
     val columnsOfInterest = chemblMoleculeRaw
       .select(
@@ -87,6 +88,8 @@ object Molecule extends LazyLogging {
         when(col("parentId") === col("id"), typedLit(null)).otherwise(col("parentId"))
       )
       .drop("mol_synonyms", "synonym_type")
+      .join(probes.filter(col("drugId").isNotNull).select(col("drugId").as("chemicalProbeDrugId")).distinct(),
+        col("id") === col("chemicalProbeDrugId"), "left_outer")
       .join(drugbank, Seq("id"), "full_outer")
 
     columnsOfInterest
