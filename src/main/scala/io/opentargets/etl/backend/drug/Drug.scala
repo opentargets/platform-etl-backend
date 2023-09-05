@@ -39,7 +39,8 @@ object Drug extends Serializable with LazyLogging {
     // raw input dataframes
     lazy val probesDf: DataFrame = inputDataFrames("chemicalProbes").data
       .filter(col("drugId").isNotNull)
-      .select(col("drugId").as("chemicalProbeDrugId")).distinct()
+      .select(col("drugId").as("chemicalProbeDrugId"))
+      .distinct()
     lazy val moleculeDf: DataFrame = inputDataFrames("molecule").data
     lazy val mechanismDf: DataFrame = inputDataFrames("mechanism").data
     lazy val indicationDf: DataFrame = inputDataFrames("indication").data
@@ -61,7 +62,6 @@ object Drug extends Serializable with LazyLogging {
       MechanismOfAction(mechanismDf, targetDf, geneDf).cache
     val warningsDF = DrugWarning(warningRawDf)
     val linkedTargetDf = computeLinkedTargets(mechanismOfActionProcessedDf)
-
 
     logger.whenTraceEnabled {
       val columnString: DataFrame => String = _.columns.mkString("Columns: [", ",", "]")

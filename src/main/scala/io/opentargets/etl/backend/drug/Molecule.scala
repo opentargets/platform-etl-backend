@@ -60,7 +60,10 @@ object Molecule extends LazyLogging {
     * @return
     *   dataframe with unwanted fields removed, and basic preprocessing completed.
     */
-  private def moleculePreprocess(chemblMoleculeRaw: DataFrame, drugbank: DataFrame, probes: DataFrame): DataFrame = {
+  private def moleculePreprocess(chemblMoleculeRaw: DataFrame,
+                                 drugbank: DataFrame,
+                                 probes: DataFrame
+  ): DataFrame = {
     //      logger.info("Processing molecule data.")
     val columnsOfInterest = chemblMoleculeRaw
       .select(
