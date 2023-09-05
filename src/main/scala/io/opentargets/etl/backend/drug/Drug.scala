@@ -23,6 +23,7 @@ object Drug extends Serializable with LazyLogging {
 
     logger.info("Loading raw inputs for Drug beta step.")
     val mappedInputs = Map(
+      "chemicalProbes" -> drugConfiguration.chemicalProbes,
       "indication" -> drugConfiguration.chemblIndication,
       "mechanism" -> drugConfiguration.chemblMechanism,
       "molecule" -> drugConfiguration.chemblMolecule,
@@ -36,6 +37,10 @@ object Drug extends Serializable with LazyLogging {
     val inputDataFrames = IoHelpers.readFrom(mappedInputs)
 
     // raw input dataframes
+    lazy val probesDf: DataFrame = inputDataFrames("chemicalProbes").data
+      .filter(col("drugId").isNotNull)
+      .select(col("drugId").as("chemicalProbeDrugId"))
+      .distinct()
     lazy val moleculeDf: DataFrame = inputDataFrames("molecule").data
     lazy val mechanismDf: DataFrame = inputDataFrames("mechanism").data
     lazy val indicationDf: DataFrame = inputDataFrames("indication").data
@@ -52,7 +57,7 @@ object Drug extends Serializable with LazyLogging {
     logger.info("Processing Drug transformations.")
     val indicationProcessedDf = Indication(indicationDf, efoDf).cache
     val moleculeProcessedDf =
-      Molecule(moleculeDf, drugbank2ChemblMap, drugConfiguration.drugExtensions)
+      Molecule(moleculeDf, drugbank2ChemblMap, drugConfiguration.drugExtensions, probesDf)
     val mechanismOfActionProcessedDf: DataFrame =
       MechanismOfAction(mechanismDf, targetDf, geneDf).cache
     val warningsDF = DrugWarning(warningRawDf)
@@ -76,10 +81,11 @@ object Drug extends Serializable with LazyLogging {
       "Joining molecules, indications, mechanisms of action, and target and disease linkages."
     )
 
-    // We define a drug as having either a drugbank id, a mechanism of action, or an indication.
+    // We define a drug as having either a drugbank id, a mechanism of action, an indication, or if it is a chemical probe.
     val isDrugMolecule: Column = array_contains(map_keys(col("crossReferences")), "drugbank") ||
       col("indications").isNotNull ||
-      col("mechanismsOfAction").isNotNull
+      col("mechanismsOfAction").isNotNull ||
+      col("chemicalProbeDrugId").isNotNull
 
     val withdrawnNoticeDf = warningRawDf
       .transform(DrugWarning.processWithdrawnNotices)
@@ -107,7 +113,7 @@ object Drug extends Serializable with LazyLogging {
       .join(linkedTargetDf, Seq("id"), "left_outer")
       .filter(isDrugMolecule)
       .transform(addDescription)
-      .drop("indications", "mechanismsOfAction", "isWithdrawn")
+      .drop("indications", "mechanismsOfAction", "isWithdrawn", "chemicalProbeDrugId")
       .transform(cleanup)
 
     val dataframesToSave: IOResources = Map(
