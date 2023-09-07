@@ -326,7 +326,6 @@ object Grounding extends Serializable with LazyLogging {
       .withColumn("failed_pmid", $"pmid".isNull)
       .withColumn("failed_pmcid", $"pmcid".isNull)
       .withColumn("failed_pmcid_and_pmid", $"pmcid".isNull and $"pmid".isNull)
-      .withColumn("failed_recover_pmid_not_pmcid", $"failed_pmid_not_pmcid" and $"pmid".isNotNull)
       .withColumn("date",
                   when($"pubDate".isNotNull and $"pubDate" =!= "", $"pubDate".cast(DateType))
       )
@@ -601,7 +600,10 @@ object Grounding extends Serializable with LazyLogging {
     val eIds = broadcast(idLUT.orderBy($"pmcid_lut".asc))
 
     val completeFullTextDf = fullTextsDF
-      .join(eIds, $"pmcid" === $"pmcid_lut", "left_outer")
+      .join(
+        eIds,
+        $"pmcid" === $"pmcid_lut" and ($"pmid".isNull || ($"pmid".isNotNull && $"pmid" === $"pmid_lut"))
+      )
       .withColumn("pmid", coalesce($"pmid", $"pmid_lut"))
       .drop(idLUT.columns.filter(_.endsWith("_lut")): _*)
     // TODO: left-anti join abs ft
