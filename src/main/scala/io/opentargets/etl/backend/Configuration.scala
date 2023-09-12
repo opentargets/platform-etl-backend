@@ -99,6 +99,7 @@ object Configuration extends LazyLogging {
       warnings: IOResourceConfig
   )
   case class DrugSection(
+      chemicalProbes: IOResourceConfig,
       chemblMolecule: IOResourceConfig,
       chemblIndication: IOResourceConfig,
       chemblMechanism: IOResourceConfig,
@@ -132,6 +133,7 @@ object Configuration extends LazyLogging {
 
   case class InteractionsSection(
       scorethreshold: Int,
+      stringVersion: String,
       targetEtl: IOResourceConfig,
       rnacentral: IOResourceConfig,
       humanmapping: IOResourceConfig,
