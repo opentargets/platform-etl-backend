@@ -14,7 +14,6 @@ import org.apache.spark.sql.types._
 import org.apache.spark.sql.expressions.Window
 import org.apache.spark.storage.StorageLevel
 
-import scala.collection.immutable
 import scala.util.Random
 
 object Grounding extends Serializable with LazyLogging {
@@ -319,9 +318,6 @@ object Grounding extends Serializable with LazyLogging {
   ): DataFrame = {
     import sparkSession.implicits._
 
-    val eIds = broadcast(epmcids.orderBy($"pmcid_lut".asc))
-    val pmIds = broadcast(epmcids.orderBy($"pmid_lut"))
-
     df.withColumn("trace_source", input_file_name())
       .withColumn("pmid", when($"pmid".isNotNull and $"pmid" =!= "" and $"pmid" =!= "0", $"pmid"))
       .withColumn("pmcid",
@@ -330,12 +326,6 @@ object Grounding extends Serializable with LazyLogging {
       .withColumn("failed_pmid", $"pmid".isNull)
       .withColumn("failed_pmcid", $"pmcid".isNull)
       .withColumn("failed_pmcid_and_pmid", $"pmcid".isNull and $"pmid".isNull)
-      .join(pmIds, $"pmid_lut" === $"pmid" and $"pmcid".isNull, "left_anti")
-      .withColumn("failed_pmid_not_pmcid", $"pmid".isNull and $"pmcid".isNotNull)
-      .join(eIds, $"pmcid" === $"pmcid_lut", "left_outer")
-      .withColumn("pmid", coalesce($"pmid", $"pmid_lut"))
-      .drop(epmcids.columns.filter(_.endsWith("_lut")): _*)
-      .withColumn("failed_recover_pmid_not_pmcid", $"failed_pmid_not_pmcid" and $"pmid".isNotNull)
       .withColumn("date",
                   when($"pubDate".isNotNull and $"pubDate" =!= "", $"pubDate".cast(DateType))
       )
@@ -350,6 +340,7 @@ object Grounding extends Serializable with LazyLogging {
       .withColumn("section", lower($"section"))
       .withColumn("failed_section", $"section".isNull)
       .withColumn("failed_sentence", $"text".rlike("[^\\x20-\\x7e]"))
+
   }
 
   def dropFailedColumns(df: DataFrame)(implicit sparkSession: SparkSession): DataFrame = {
@@ -604,10 +595,23 @@ object Grounding extends Serializable with LazyLogging {
     val fullTextsDF = inputDataFrames("fullTexts").data
       .select(col("*"), lit(empcConfiguration.fullTexts.kind).as("kind"))
 
+    import context.sparkSession.implicits._
+
+    val eIds = broadcast(idLUT.orderBy($"pmcid_lut".asc))
+
+    val completeFullTextDf = fullTextsDF
+      .join(
+        eIds,
+        $"pmcid" === $"pmcid_lut" and ($"pmid".isNull || ($"pmid".isNotNull && $"pmid" === $"pmid_lut"))
+      )
+      .withColumn("pmid", coalesce($"pmid", $"pmid_lut"))
+      .drop(idLUT.columns.filter(_.endsWith("_lut")): _*)
+    // TODO: left-anti join abs ft
+    val abstractsWithNoFullText = abstractsDF.join(completeFullTextDf, Seq("pmid"), "left_anti")
+
     // merge dataframe and take latest version when duplicatess
     val fullEpmcDf =
-      abstractsDF
-        .unionByName(fullTextsDF, allowMissingColumns = true)
+      abstractsWithNoFullText.unionByName(completeFullTextDf, allowMissingColumns = true)
     val epmcDf = PreProcessing.process(fullEpmcDf)
 
     val epmcDfNoSpaces = replaceSpacesSchema(epmcDf)
