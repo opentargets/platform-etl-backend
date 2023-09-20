@@ -41,8 +41,8 @@ object Literature extends LazyLogging {
     Embedding()
     logger.info("Run literature vectors")
     Vectors()
-    logger.info("Run literature evidence")
-    Evidence()
+    logger.info("Run literature evidence, NO MORE, HAHAHA!")
+    //Evidence()
 
   }
 
