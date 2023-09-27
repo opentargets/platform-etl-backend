@@ -304,8 +304,7 @@ object Configuration extends LazyLogging {
       outputs: OpenfdaOutputsSection
   )
 
-  case class LiteratureProcessingOutputs(rawEvidence: IOResourceConfig,
-                                         cooccurrences: IOResourceConfig,
+  case class LiteratureProcessingOutputs(cooccurrences: IOResourceConfig,
                                          matches: IOResourceConfig,
                                          failedCooccurrences: IOResourceConfig,
                                          failedMatches: IOResourceConfig,
