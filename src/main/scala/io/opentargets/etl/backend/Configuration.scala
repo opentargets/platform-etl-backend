@@ -352,7 +352,7 @@ object Configuration extends LazyLogging {
       common: LiteratureCommon,
       processing: LiteratureProcessing,
       embedding: LiteratureEmbedding,
-      vectors: LiteratureVectors,
+      vectors: LiteratureVectors
   )
 
   case class TargetEngineInputs(targets: IOResourceConfig,
