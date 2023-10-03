@@ -22,16 +22,6 @@ object Configuration extends LazyLogging {
 
   case class DataSource(id: String, weight: Double, dataType: String, propagate: Boolean)
 
-  case class EpmcInputs(cooccurences: IOResourceConfig)
-
-  case class Epmc(
-      input: EpmcInputs,
-      output: IOResourceConfig,
-      excludedTargetTerms: List[String],
-      sectionsOfInterest: List[String],
-      printMetrics: Boolean
-  )
-
   case class EvidenceEntry(
       id: String,
       uniqueFields: List[String],
@@ -304,6 +294,7 @@ object Configuration extends LazyLogging {
       outputs: OpenfdaOutputsSection
   )
 
+  // --- Literature configuration --- //
   case class LiteratureProcessingOutputs(cooccurrences: IOResourceConfig,
                                          matches: IOResourceConfig,
                                          failedCooccurrences: IOResourceConfig,
@@ -352,8 +343,20 @@ object Configuration extends LazyLogging {
       common: LiteratureCommon,
       processing: LiteratureProcessing,
       embedding: LiteratureEmbedding,
-      vectors: LiteratureVectors
+      vectors: LiteratureVectors,
+      epmc: Epmc
   )
+
+  // --- EPMC configuration --- //
+  case class EpmcInputs(cooccurences: IOResourceConfig)
+
+  case class Epmc(
+                   input: EpmcInputs,
+                   output: IOResourceConfig,
+                   excludedTargetTerms: List[String],
+                   sectionsOfInterest: List[String],
+                   printMetrics: Boolean
+                 )
 
   case class TargetEngineInputs(targets: IOResourceConfig,
                                 molecule: IOResourceConfig,
@@ -395,7 +398,6 @@ object Configuration extends LazyLogging {
       ebisearch: EBISearchSection,
       otarproject: OtarProjectSection,
       literature: LiteratureSection,
-      epmc: Epmc,
       targetEngine: TargetEngineSection
   )
 }

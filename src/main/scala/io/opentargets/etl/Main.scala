@@ -40,9 +40,6 @@ object ETL extends LazyLogging {
       case "ebisearch" =>
         logger.info("Running EBI Search step")
         EBISearch()
-      case "epmc" =>
-        logger.info("Running EPMC step")
-        Epmc()
       case "fda" =>
         logger.info("Running OpenFDA FAERS step")
         OpenFda()
