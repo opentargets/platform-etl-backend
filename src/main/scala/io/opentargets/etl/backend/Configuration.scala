@@ -351,12 +351,12 @@ object Configuration extends LazyLogging {
   case class EpmcInputs(cooccurences: IOResourceConfig)
 
   case class Epmc(
-                   input: EpmcInputs,
-                   output: IOResourceConfig,
-                   excludedTargetTerms: List[String],
-                   sectionsOfInterest: List[String],
-                   printMetrics: Boolean
-                 )
+      input: EpmcInputs,
+      output: IOResourceConfig,
+      excludedTargetTerms: List[String],
+      sectionsOfInterest: List[String],
+      printMetrics: Boolean
+  )
 
   case class TargetEngineInputs(targets: IOResourceConfig,
                                 molecule: IOResourceConfig,
