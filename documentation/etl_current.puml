@@ -14,7 +14,6 @@ artifact associations <<dependencies>>
 artifact associationOTF <<dependencies>>
 artifact disease <<noDependency>>
 artifact drug <<dependencies>>
-artifact epmc <<dependencies>>
 artifact evidence <<dependencies>>
 artifact expression <<noDependency>>
 artifact go <<noDependency>>
@@ -68,8 +67,7 @@ target --> ebiSearch
 evidence --> ebiSearch
 associations --> ebiSearch
 
-epmc --> evidence
-literature --> epmc
+literature --> evidence
 target --> literature
 drug --> literature
 disease --> literature
