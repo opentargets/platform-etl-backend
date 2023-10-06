@@ -42,7 +42,7 @@ object Literature extends LazyLogging {
     logger.info("Run literature vectors")
     Vectors()
     logger.info("Run literature evidence, NO MORE, HAHAHA!")
-    //Evidence()
+    // Evidence()
 
   }
 
