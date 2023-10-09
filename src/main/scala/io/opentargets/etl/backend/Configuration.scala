@@ -111,6 +111,7 @@ object Configuration extends LazyLogging {
       warnings: IOResourceConfig
   )
   case class DrugSection(
+      chemicalProbes: IOResourceConfig,
       chemblMolecule: IOResourceConfig,
       chemblIndication: IOResourceConfig,
       chemblMechanism: IOResourceConfig,
@@ -144,6 +145,7 @@ object Configuration extends LazyLogging {
 
   case class InteractionsSection(
       scorethreshold: Int,
+      stringVersion: String,
       targetEtl: IOResourceConfig,
       rnacentral: IOResourceConfig,
       humanmapping: IOResourceConfig,
@@ -314,8 +316,7 @@ object Configuration extends LazyLogging {
       outputs: OpenfdaOutputsSection
   )
 
-  case class LiteratureProcessingOutputs(rawEvidence: IOResourceConfig,
-                                         cooccurrences: IOResourceConfig,
+  case class LiteratureProcessingOutputs(cooccurrences: IOResourceConfig,
                                          matches: IOResourceConfig,
                                          failedCooccurrences: IOResourceConfig,
                                          failedMatches: IOResourceConfig,
@@ -351,16 +352,6 @@ object Configuration extends LazyLogging {
 
   case class LiteratureVectors(input: String, output: IOResourceConfig)
 
-  case class LiteratureEvidenceInputs(matches: IOResourceConfig,
-                                      cooccurrences: IOResourceConfig,
-                                      model: IOResourceConfig
-  )
-
-  case class LiteratureEvidence(threshold: Option[Double],
-                                inputs: LiteratureEvidenceInputs,
-                                output: IOResourceConfig
-  )
-
   case class LiteratureSectionRanks(section: String, rank: Long, weight: Double)
 
   case class LiteratureCommon(publicationSectionRanks: List[LiteratureSectionRanks],
@@ -373,8 +364,7 @@ object Configuration extends LazyLogging {
       common: LiteratureCommon,
       processing: LiteratureProcessing,
       embedding: LiteratureEmbedding,
-      vectors: LiteratureVectors,
-      evidence: LiteratureEvidence
+      vectors: LiteratureVectors
   )
 
   case class TargetEngineInputs(targets: IOResourceConfig,

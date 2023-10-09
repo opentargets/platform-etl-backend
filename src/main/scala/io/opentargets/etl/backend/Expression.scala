@@ -298,7 +298,7 @@ object Expression extends LazyLogging {
     logger.info("transform Baseline Expression dataset")
     val dataframesToSave = compute()
 
-    logger.info(s"write to ${context.configuration.common.output}/baselineExpression")
+    logger.info(s"Expression output data folder at '${context.configuration.expression.output}'")
     val outputs = Map(
       "baselineExpression" -> IOResource(dataframesToSave, context.configuration.expression.output)
     )
