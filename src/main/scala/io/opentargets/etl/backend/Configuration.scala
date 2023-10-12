@@ -24,9 +24,14 @@ object Configuration extends LazyLogging {
 
   case class EpmcInputs(cooccurences: IOResourceConfig)
 
+  case class EpmcOutputs(
+      output: IOResourceConfig,
+      epmcCooccurrences: IOResourceConfig
+                        )
+
   case class Epmc(
       input: EpmcInputs,
-      output: IOResourceConfig,
+      outputs: EpmcOutputs,
       excludedTargetTerms: List[String],
       sectionsOfInterest: List[String],
       printMetrics: Boolean
