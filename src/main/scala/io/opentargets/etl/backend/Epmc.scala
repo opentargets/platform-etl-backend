@@ -22,8 +22,10 @@ object Epmc extends LazyLogging {
       )
     )
 
+    val inputDf = inputDataFrames("cooccurences").data
+
     val cooccurencesDf = compute(
-      inputDataFrames("cooccurences").data,
+      inputDf,
       conf.excludedTargetTerms,
       conf.sectionsOfInterest
     )
@@ -42,7 +44,7 @@ object Epmc extends LazyLogging {
       )
       .cache()
 
-    val epmcCooccurrencesDf = epmcCooccurrences(cooccurencesDf)
+    val epmcCooccurrencesDf = epmcCooccurrences(inputDf)
 
     logger.info("EPMC disease target evidence saved.")
     if (conf.printMetrics) {
