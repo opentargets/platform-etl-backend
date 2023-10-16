@@ -2,6 +2,7 @@ package io.opentargets.etl.backend.evidence
 
 import io.opentargets.etl.backend.ETLSessionContext
 import org.apache.spark.sql.DataFrame
+import org.apache.spark.sql.expressions.Window
 import org.apache.spark.sql.functions._
 
 object DirectionOfEffect {
@@ -25,7 +26,10 @@ object DirectionOfEffect {
         col("actionType"),
         col("mechanismOfAction")
       )
-      .dropDuplicates()
+      .groupBy("targetId2", "drugId2")
+      .agg(
+        collect_set("actionType").as("actionType")
+      )
 
     val oncotsgList = evidenceConfig.directionOfEffect.oncotsgList;
 
@@ -75,8 +79,15 @@ object DirectionOfEffect {
     val filterLof = evidenceConfig.directionOfEffect.varFilterLof;
     val inhibitors = evidenceConfig.directionOfEffect.inhibitors;
     val activators = evidenceConfig.directionOfEffect.activators;
+    val sources = evidenceConfig.directionOfEffect.sources;
 
-    val joinedDF = evidencesDF
+    val validEvidencesDF = evidencesDF.filter(col("datasourceId").isin(sources: _*))
+
+    val conditionCol = when(col("datasourceId") === "intogen", 1).otherwise(0)
+
+    val windowSpec = Window.partitionBy("targetId", "diseaseId").orderBy(conditionCol.desc())
+
+    val joinedDF = validEvidencesDF
       .withColumn(
         "beta",
         col("beta").cast("float")
@@ -104,6 +115,19 @@ object DirectionOfEffect {
 
     // variant Effect Column
     joinedDF
+      .withColumn("inhibitors_list", array(inhibitors map lit: _*))
+      .withColumn("activators_list", array(activators map lit: _*))
+      .withColumn("nullColumn", array(lit(null)))
+      .withColumn(
+        "intogenAnnot",
+        size(
+          flatten(
+            collect_set(
+              array_except(col("mutatedSamples.functionalConsequenceId"), col("nullColumn"))
+            ).over(windowSpec)
+          )
+        )
+      )
       .withColumn(
         "variantEffect",
         when(
@@ -253,18 +277,20 @@ object DirectionOfEffect {
           .when(
             col("datasourceId") === "intogen",
             when(
-              arrays_overlap(col("mutatedSamples.functionalConsequenceId"),
-                             array(gof.map(lit): _*)
-              ),
-              lit("GoF")
-            )
-              .when(
-                arrays_overlap(
-                  col("mutatedSamples.functionalConsequenceId"),
-                  array(lof.map(lit): _*)
-                ),
-                lit("LoF")
+              col("intogenAnnot") === 1,
+              when(arrays_overlap(
+                     array_union(col("mutatedSamples.functionalConsequenceId"), array()),
+                     array(gof map lit: _*)
+                   ),
+                   lit("GoF")
+              ).when(arrays_overlap(
+                       array_union(col("mutatedSamples.functionalConsequenceId"), array()),
+                       array(lof map lit: _*)
+                     ),
+                     lit("LoF")
               )
+            )
+              .when(col("intogenAnnot") > 1, lit("bivalentIntogen"))
               .otherwise(lit("noEvaluable"))
           )
           // # impc
@@ -277,8 +303,10 @@ object DirectionOfEffect {
           // chembl
           .when(
             col("datasourceId") === "chembl",
-            when(col("actionType").isin(inhibitors: _*), lit("LoF"))
-              .when(col("actionType").isin(activators: _*), lit("GoF"))
+            when(size(array_intersect(col("actionType"), col("inhibitors_list"))) >== 1, lit("LoF"))
+              .when(size(array_intersect(col("actionType"), col("activators_list"))) >== 1,
+                    lit("GoF")
+              )
               .otherwise(lit("noEvaluable"))
           )
       )

@@ -67,7 +67,8 @@ object Configuration extends LazyLogging {
       lof: List[String],
       oncotsgList: List[String],
       inhibitors: List[String],
-      activators: List[String]
+      activators: List[String],
+      sources: List[String]
   )
 
   case class AssociationInputsSection(evidences: IOResourceConfig, diseases: IOResourceConfig)
