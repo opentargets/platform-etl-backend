@@ -27,12 +27,12 @@ object Configuration extends LazyLogging {
   case class EpmcOutputs(
       output: IOResourceConfig,
       epmcCooccurrences: IOResourceConfig
-                        )
+  )
 
   case class EpmcUris(ensembl: String, chembl: String, ontologies: String)
 
   case class Epmc(
-                   uris: EpmcUris,
+      uris: EpmcUris,
       input: EpmcInputs,
       outputs: EpmcOutputs,
       excludedTargetTerms: List[String],
