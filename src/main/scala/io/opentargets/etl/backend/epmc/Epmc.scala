@@ -1,9 +1,10 @@
-package io.opentargets.etl.backend
+package io.opentargets.etl.backend.epmc
 
 import com.typesafe.scalalogging.LazyLogging
-import io.opentargets.etl.backend.spark.{IOResource, IoHelpers}
+import io.opentargets.etl.backend.ETLSessionContext
 import io.opentargets.etl.backend.spark.IoHelpers.IOResources
-import org.apache.spark.sql.functions.{array, coalesce, col, collect_set, concat, length, lit, size, struct, sum, trim, when}
+import io.opentargets.etl.backend.spark.{IOResource, IoHelpers}
+import org.apache.spark.sql.functions._
 import org.apache.spark.sql.types.StringType
 import org.apache.spark.sql.{Column, DataFrame, SparkSession}
 
@@ -44,7 +45,7 @@ object Epmc extends LazyLogging {
       )
       .cache()
 
-    val epmcCooccurrencesDf = epmcCooccurrences(inputDf)
+    val epmcCooccurrencesDf = EpmcCooccurrences(inputDf)
 
     logger.info("EPMC disease target evidence saved.")
     if (conf.printMetrics) {
@@ -78,62 +79,6 @@ object Epmc extends LazyLogging {
     )
 
     IoHelpers.writeTo(dataframesToSave)
-  }
-
-  def generateUri(keywordId: Column): Column =
-    when(keywordId.startsWith("ENSG"),
-      concat(lit("https://www.ensembl.org/Homo_sapiens/Gene/Summary?db=core;g="), keywordId))
-      .when(keywordId.startsWith("CHEMBL"),
-      concat(lit("https://www.ebi.ac.uk/chembl/compound_report_card/"), keywordId))
-      .otherwise(
-      concat(lit("https://www.ebi.ac.uk/ols/ontologies/efo/terms?short_form="), keywordId))
-
-
-  private def mapCoocurrenceType(cType: Column): Column =
-    when(cType === "DS-CD",
-      lit("Disease Drug Relationship"))
-      .when(cType === "GP-CD",
-        lit("Gene Drug Relationship"))
-      .when(cType === "GP-DS",
-        lit("Gene Disease Relationship"))
-
-  private def epmcCooccurrences(cooccurences: DataFrame): DataFrame = {
-    cooccurences
-      .select(
-        when(col("pmcid").isNotNull,
-          lit("PMC"))
-          .otherwise(lit("MED"))
-          .as("src"),
-        when(col("pmcid").isNotNull,
-          col("pmcid"))
-          .otherwise(col("pmid"))
-          .as("id"),
-        mapCoocurrenceType(col("type")).as("type"),
-        col("text").as("exact"),
-        col("section").as("section"),
-        array(
-          struct(
-            col("label1").as("name"),
-            generateUri(col("keywordId1")).as("uri")),
-          struct(
-            col("label2").as("name"),
-            generateUri(col("keywordId2")).as("uri")),
-        ).as("tags")
-      )
-      .groupBy("src", "id")
-      .agg(
-        collect_set(
-          struct(
-            col("type"),
-            col("exact"),
-            col("section"),
-            col("tags")
-          )
-        ).as("anns")
-      )
-      .withColumn("provider", lit("OpenTargets"))
-      .repartition(1)
-      .persist()
   }
 
   private def compute(
