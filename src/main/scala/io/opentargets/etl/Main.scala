@@ -8,6 +8,7 @@ import com.typesafe.scalalogging.LazyLogging
 import scala.util._
 import io.opentargets.etl.backend._
 import io.opentargets.etl.backend.drug.Drug
+import io.opentargets.etl.backend.expressions.BaselineExpression
 import io.opentargets.etl.backend.graph.EtlDag
 import io.opentargets.etl.backend.literature.Literature
 import io.opentargets.etl.backend.targetEngine.TargetEngine
@@ -37,6 +38,9 @@ object ETL extends LazyLogging {
       case "expression" =>
         logger.info("run step expression")
         Expression()
+      case "baselineexpression" =>
+        logger.info("run step baselineExpression")
+        BaselineExpression()
       case "ebisearch" =>
         logger.info("Running EBI Search step")
         EBISearch()
@@ -88,6 +92,7 @@ object ETL extends LazyLogging {
       "disease" -> ctx.configuration.disease.outputs.diseases.path,
       "reactome" -> ctx.configuration.reactome.output.path,
       "expression" -> ctx.configuration.expression.output.path,
+      "baselineExpression" -> ctx.configuration.baselineExpression.output.path,
       "go" -> ctx.configuration.geneOntology.output.path,
       "target" -> ctx.configuration.target.outputs.target.path,
       "interaction" -> ctx.configuration.interactions.outputs.interactions.path,
