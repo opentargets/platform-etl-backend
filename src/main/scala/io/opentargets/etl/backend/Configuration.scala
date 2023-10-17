@@ -145,7 +145,9 @@ object Configuration extends LazyLogging {
 
   case class ExpressionInputs(target: IOResourceConfig, baseline: IOResourceConfig)
 
-  case class BaselineExpressionSection(inputs: ExpressionInputs, output: IOResourceConfig)
+  case class ExpressionOutputs(baseline: IOResourceConfig, invalidBaseline: IOResourceConfig)
+
+  case class BaselineExpressionSection(inputs: ExpressionInputs, outputs: ExpressionOutputs)
 
   case class ExpressionSection(
       rna: IOResourceConfig,

@@ -37,7 +37,10 @@ object BaselineExpression extends LazyLogging {
       .drop("id")
 
     val mappedOutputs: IOResources = Map(
-      "baselineExpression" -> IOResource(validExpressionsDf, config.output)
+      "baselineExpression" -> IOResource(validExpressionsDf, config.outputs.baseline),
+      "invalidBaselineExpression" -> IOResource(invalidExpressionsDf,
+                                                config.outputs.invalidBaseline
+      )
     )
 
     IoHelpers.writeTo(mappedOutputs)
