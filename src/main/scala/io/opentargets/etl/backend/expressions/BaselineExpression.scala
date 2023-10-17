@@ -4,12 +4,13 @@ import com.typesafe.scalalogging.LazyLogging
 import io.opentargets.etl.backend.ETLSessionContext
 import io.opentargets.etl.backend.spark.{IOResource, IoHelpers}
 import io.opentargets.etl.backend.spark.IoHelpers.IOResources
+import org.apache.spark.sql.SparkSession
 import org.apache.spark.sql.functions._
 
 object BaselineExpression extends LazyLogging {
 
   def apply()(implicit context: ETLSessionContext): Unit = {
-    implicit val sparkSession = context.sparkSession
+    implicit val sparkSession: SparkSession = context.sparkSession
 
     val config = context.configuration.baselineExpression
 
