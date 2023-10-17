@@ -17,6 +17,7 @@ artifact drug <<dependencies>>
 artifact epmc <<dependencies>>
 artifact evidence <<dependencies>>
 artifact expression <<noDependency>>
+artifact baselineExpression <<dependencies>>
 artifact go <<noDependency>>
 artifact interactions <<dependencies>>
 artifact knownDrugs <<dependencies>>
@@ -59,6 +60,8 @@ associations --> search
 target --> interactions
 target --> targetengine
 target --> targetValidation
+
+target --> baselineExpression
 
 drug --> openfda
 drug --> targetengine

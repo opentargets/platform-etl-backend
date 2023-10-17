@@ -15,6 +15,7 @@ artifact disease <<noDependency>>
 artifact drug <<dependencies>>
 artifact evidence <<dependencies>>
 artifact expression <<noDependency>>
+artifact baselineExpression <<dependencies>>
 artifact go <<noDependency>>
 artifact interactions <<dependencies>>
 artifact knownDrugs <<dependencies>>
@@ -46,6 +47,8 @@ interface drugbankToChembl <<input>>
 interface rawEvidences <<input>>
 ' expression
 interface expressionData <<input>>
+' baselineExpression
+interface baselineExpressionData <<input>>
 ' interactions
 interface ensproteins <<input>>
 interface rnaCentral <<input>>
@@ -109,6 +112,9 @@ interface WarningsOutput <<output>>
 interface evidenceOutput <<output>>
   ' expression
 interface expressionOutput <<output>>
+  ' baselineExpression
+interface validBaselineExpressionOutput <<output>>
+interface invalidBaselineExpressionOutput <<output>>
   ' interactions
 interface interactionsOutput <<output>>
 interface interactionsEvidenceOutput <<output>>
@@ -189,6 +195,12 @@ evidence --> evidenceOutput
   ' expression
 expressionData --> expression
 expression --> expressionOutput
+
+  ' baselineExpression
+baselineExpressionData --> baselineExpression
+targetOutput --> baselineExpression
+baselineExpression --> validBaselineExpressionOutput
+baselineExpression --> invalidBaselineExpressionOutput
 
   ' interactions
 targetOutput --> interactions
