@@ -92,7 +92,7 @@ object ETL extends LazyLogging {
       "disease" -> ctx.configuration.disease.outputs.diseases.path,
       "reactome" -> ctx.configuration.reactome.output.path,
       "expression" -> ctx.configuration.expression.output.path,
-      "baselineExpression" -> ctx.configuration.baselineExpression.output.path,
+      "baselineExpression" -> ctx.configuration.baselineExpression.outputs.baseline.path,
       "go" -> ctx.configuration.geneOntology.output.path,
       "target" -> ctx.configuration.target.outputs.target.path,
       "interaction" -> ctx.configuration.interactions.outputs.interactions.path,
