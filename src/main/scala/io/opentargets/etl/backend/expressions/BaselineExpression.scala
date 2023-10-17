@@ -6,7 +6,7 @@ import io.opentargets.etl.backend.spark.{IOResource, IoHelpers}
 import io.opentargets.etl.backend.spark.IoHelpers.IOResources
 import org.apache.spark.sql.functions._
 
-object BaselineExpression extends LazyLogging{
+object BaselineExpression extends LazyLogging {
 
   def apply()(implicit context: ETLSessionContext): Unit = {
     implicit val sparkSession = context.sparkSession
