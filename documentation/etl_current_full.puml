@@ -114,7 +114,6 @@ interface evidenceOutput <<output>>
 interface expressionOutput <<output>>
   ' baselineExpression
 interface validBaselineExpressionOutput <<output>>
-interface invalidBaselineExpressionOutput <<output>>
   ' interactions
 interface interactionsOutput <<output>>
 interface interactionsEvidenceOutput <<output>>
@@ -200,7 +199,6 @@ expression --> expressionOutput
 baselineExpressionData --> baselineExpression
 targetOutput --> baselineExpression
 baselineExpression --> validBaselineExpressionOutput
-baselineExpression --> invalidBaselineExpressionOutput
 
   ' interactions
 targetOutput --> interactions
