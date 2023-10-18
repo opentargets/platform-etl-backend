@@ -48,7 +48,5 @@ object EpmcCooccurrences extends LazyLogging {
         ).as("anns")
       )
       .withColumn("provider", lit("OpenTargets"))
-      .repartition(1)
-      .persist()
 
 }
