@@ -54,11 +54,8 @@ object Hpo extends Serializable with LazyLogging {
       xRefs
         .join(diseaseHpoDF, col("dbXRefId") === col("databaseId"))
         .withColumn("qualifierNOT", when(col("qualifier").isNull, false).otherwise(true))
-        .withColumn("modifiers", expr("IFNULL(modifiers, array())"))
-        .withColumn("onset", expr("IFNULL(onset, array())"))
-        .withColumn("references", expr("IFNULL(references, array())"))
-        .withColumn("phenotypeId", regexp_replace(col("HPOId"), ":", "_"))
         .distinct
+        .withColumn("phenotypeId", regexp_replace(col("HPOId"), ":", "_"))
         .selectExpr(
           "phenotypeId as phenotype",
           "aspect",
@@ -93,11 +90,13 @@ object Hpo extends Serializable with LazyLogging {
             col("diseaseName"),
             col("evidenceType"),
             col("frequency"),
-            col("modifiers"),
-            col("onset"),
+            when(col("modifiers").isNull, array()).otherwise(col("modifiers")).alias("modifiers"),
+            when(col("onset").isNull, array()).otherwise(col("onset")).alias("onset"),
             col("qualifier"),
             col("qualifierNot"),
-            col("references"),
+            when(col("references").isNull, array())
+              .otherwise(col("references"))
+              .alias("references"),
             col("sex"),
             col("resource")
           )
