@@ -1,7 +1,7 @@
 package io.opentargets.etl.backend
 
 import com.typesafe.scalalogging.LazyLogging
-import io.opentargets.etl.backend.spark.Helpers.{columnExpr, unionDataframeDifferentSchema}
+import io.opentargets.etl.backend.spark.Helpers.{unionDataframeDifferentSchema}
 import io.opentargets.etl.backend.spark.{IOResource, IoHelpers}
 import io.opentargets.etl.backend.spark.IoHelpers.{IOResources, writeTo}
 import org.apache.spark.sql.functions._
