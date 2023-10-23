@@ -83,9 +83,7 @@ object DirectionOfEffect {
 
     val validEvidencesDF = evidencesDF.filter(col("datasourceId").isin(sources: _*))
 
-    val conditionCol = when(col("datasourceId") === "intogen", 1).otherwise(0)
-
-    val windowSpec = Window.partitionBy("targetId", "diseaseId").orderBy(conditionCol.desc())
+    val windowSpec = Window.partitionBy("targetId", "diseaseId")
 
     val joinedDF = validEvidencesDF
       .withColumn(
@@ -117,16 +115,25 @@ object DirectionOfEffect {
     joinedDF
       .withColumn("inhibitors_list", array(inhibitors map lit: _*))
       .withColumn("activators_list", array(activators map lit: _*))
-      .withColumn("nullColumn", array(lit(null)))
+      .withColumn(
+        "intogen_function",
+        when(
+          arrays_overlap(
+            col("mutatedSamples.functionalConsequenceId"),
+            array(gof map lit: _*)
+          ),
+          lit("GoF")
+        ).when(
+          arrays_overlap(
+            col("mutatedSamples.functionalConsequenceId"),
+            array(lof map lit: _*)
+          ),
+          lit("LoF")
+        )
+      )
       .withColumn(
         "intogenAnnot",
-        size(
-          flatten(
-            collect_set(
-              array_except(col("mutatedSamples.functionalConsequenceId"), col("nullColumn"))
-            ).over(windowSpec)
-          )
-        )
+        size(collect_set(col("intogen_function")).over(windowSpec))
       )
       .withColumn(
         "variantEffect",
@@ -279,12 +286,12 @@ object DirectionOfEffect {
             when(
               col("intogenAnnot") === 1,
               when(arrays_overlap(
-                     array_union(col("mutatedSamples.functionalConsequenceId"), array()),
+                     col("mutatedSamples.functionalConsequenceId"),
                      array(gof map lit: _*)
                    ),
                    lit("GoF")
               ).when(arrays_overlap(
-                       array_union(col("mutatedSamples.functionalConsequenceId"), array()),
+                       col("mutatedSamples.functionalConsequenceId"),
                        array(lof map lit: _*)
                      ),
                      lit("LoF")
@@ -303,8 +310,8 @@ object DirectionOfEffect {
           // chembl
           .when(
             col("datasourceId") === "chembl",
-            when(size(array_intersect(col("actionType"), col("inhibitors_list"))) >== 1, lit("LoF"))
-              .when(size(array_intersect(col("actionType"), col("activators_list"))) >== 1,
+            when(size(array_intersect(col("actionType"), col("inhibitors_list"))) >= 1, lit("LoF"))
+              .when(size(array_intersect(col("actionType"), col("activators_list"))) >= 1,
                     lit("GoF")
               )
               .otherwise(lit("noEvaluable"))
