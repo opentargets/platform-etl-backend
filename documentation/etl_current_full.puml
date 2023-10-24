@@ -17,6 +17,8 @@ artifact evidence <<dependencies>>
 artifact expression <<noDependency>>
 artifact baselineExpression <<dependencies>>
 artifact go <<noDependency>>
+artifact epmc <<dependencies>>
+artifact literature <<dependencies>>
 artifact interactions <<dependencies>>
 artifact knownDrugs <<dependencies>>
 artifact reactome <<noDependency>>
@@ -87,6 +89,11 @@ interface safetyToxicity <<input>>
 interface safetyAdverseEvent <<input>>
 interface safetySafetyRisk <<input>>
 
+'literature
+interface PmidPmcidDoiInput <<input>>
+interface fullTextInput <<input>>
+interface abstractsInput <<input>>
+
 'outputs
   ' associations
 interface associationByDatatypeDirect <<output>>
@@ -98,6 +105,18 @@ interface associationByOverallIndirect <<output>>
   ' aotf
 interface AotfClickhouseOutput <<output>>
 interface AotfElasticsearchOutput <<output>>
+  ' epmc
+interface epmcOutput <<output>>
+interface epmcCooccurrences <<output>>
+  ' literature
+interface cooccurrencesOutput <<output>>
+interface matchesOutput <<output>>
+interface literatureIndexOutput <<output>>
+interface literatureSentencesOutput <<output>>
+interface failedCooccurrencesOutput <<output>>
+interface failedMatchesOutput <<output>>
+interface W2VModelOutput <<output>>
+interface trainingSetOutput <<output>>
   ' disease
 interface diseaseOutput <<output>>
 interface diseaseHpoOutput <<output>>
@@ -170,6 +189,27 @@ disease --> diseaseOutput
 disease --> diseaseHpoOutput
 disease --> diseaseToPhenotypeOutput
 
+  ' epmc
+cooccurrencesOutput --> epmc
+epmc --> epmcCooccurrences
+epmc --> epmcOutput
+
+  ' literature
+targetOutput --> literature
+diseaseOutput --> literature
+moleculeOutput --> literature
+PmidPmcidDoiInput --> literature
+fullTextInput --> literature
+abstractsInput --> literature
+literature --> cooccurrencesOutput
+literature --> matchesOutput
+literature --> literatureIndexOutput
+literature --> literatureSentencesOutput
+literature --> failedMatchesOutput
+literature --> failedCooccurrencesOutput
+literature --> W2VModelOutput
+literature --> trainingSetOutput
+
   ' drug
 targetOutput --> drug
 diseaseOutput --> drug
@@ -189,6 +229,7 @@ drug --> WarningsOutput
 targetOutput --> evidence
 diseaseOutput --> evidence
 rawEvidences --> evidence
+epmcOutput --> evidence
 evidence --> evidenceOutput
 
   ' expression
