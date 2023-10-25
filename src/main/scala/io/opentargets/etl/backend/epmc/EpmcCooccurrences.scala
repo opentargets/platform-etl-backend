@@ -19,8 +19,10 @@ object EpmcCooccurrences extends LazyLogging {
       .when(cType === "GP-CD", lit("Gene Drug Relationship"))
       .when(cType === "GP-DS", lit("Gene Disease Relationship"))
 
-  def apply(cooccurencesDf: DataFrame)(implicit context: ETLSessionContext): DataFrame =
-    cooccurencesDf
+  def apply(cooccurencesDf: DataFrame)(implicit context: ETLSessionContext): DataFrame = {
+    logger.info("Start EpmcCooccurrences in step epmc")
+
+    val epmcCooccurrencesDf = cooccurencesDf
       .select(
         when(col("pmcid").isNotNull, lit("PMC"))
           .otherwise(lit("MED"))
@@ -48,5 +50,11 @@ object EpmcCooccurrences extends LazyLogging {
         ).as("anns")
       )
       .withColumn("provider", lit("OpenTargets"))
+
+    logger.info("End EpmcCooccurrences in step epmc")
+
+    epmcCooccurrencesDf
+  }
+
 
 }
