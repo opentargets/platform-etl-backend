@@ -56,5 +56,4 @@ object EpmcCooccurrences extends LazyLogging {
     epmcCooccurrencesDf
   }
 
-
 }
