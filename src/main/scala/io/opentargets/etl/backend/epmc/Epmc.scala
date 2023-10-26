@@ -1,22 +1,12 @@
-package io.opentargets.etl.backend
+package io.opentargets.etl.backend.epmc
 
 import com.typesafe.scalalogging.LazyLogging
-import io.opentargets.etl.backend.spark.{IOResource, IoHelpers}
+import io.opentargets.etl.backend.ETLSessionContext
 import io.opentargets.etl.backend.spark.IoHelpers.IOResources
-import org.apache.spark.sql.functions.{
-  coalesce,
-  col,
-  collect_set,
-  length,
-  struct,
-  sum,
-  trim,
-  when,
-  size,
-  lit
-}
+import io.opentargets.etl.backend.spark.{IOResource, IoHelpers}
+import org.apache.spark.sql.functions._
 import org.apache.spark.sql.types.StringType
-import org.apache.spark.sql.{DataFrame, SparkSession}
+import org.apache.spark.sql.{Column, DataFrame, SparkSession}
 
 object Epmc extends LazyLogging {
 
@@ -33,8 +23,10 @@ object Epmc extends LazyLogging {
       )
     )
 
+    val inputDf = inputDataFrames("cooccurences").data
+
     val cooccurencesDf = compute(
-      inputDataFrames("cooccurences").data,
+      inputDf,
       conf.excludedTargetTerms,
       conf.sectionsOfInterest
     )
@@ -52,6 +44,8 @@ object Epmc extends LazyLogging {
         col("year") as "publicationYear"
       )
       .cache()
+
+    val epmcCooccurrencesDf = EpmcCooccurrences(inputDf)
 
     logger.info("EPMC disease target evidence saved.")
     if (conf.printMetrics) {
@@ -77,10 +71,11 @@ object Epmc extends LazyLogging {
       )
     }
 
-    logger.info(s"Write EMPC data to ${conf.output.path}")
+    logger.info(s"Write EMPC data to ${conf.outputs.output.path}")
     val dataframesToSave = Map(
       // coalesce to maintain logic previously used by datateam. A single file is used for metrics calculations.
-      "epmc" -> IOResource(evidence.coalesce(1), conf.output)
+      "epmc" -> IOResource(evidence.coalesce(1), conf.outputs.output),
+      "epmcCooccurrences" -> IOResource(epmcCooccurrencesDf, conf.outputs.epmcCooccurrences)
     )
 
     IoHelpers.writeTo(dataframesToSave)

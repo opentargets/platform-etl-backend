@@ -9,6 +9,7 @@ import scala.util._
 import io.opentargets.etl.backend._
 import io.opentargets.etl.backend.drug.Drug
 import io.opentargets.etl.backend.expressions.BaselineExpression
+import io.opentargets.etl.backend.epmc.Epmc
 import io.opentargets.etl.backend.graph.EtlDag
 import io.opentargets.etl.backend.literature.Literature
 import io.opentargets.etl.backend.targetEngine.TargetEngine
