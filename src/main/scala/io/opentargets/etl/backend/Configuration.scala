@@ -24,9 +24,17 @@ object Configuration extends LazyLogging {
 
   case class EpmcInputs(cooccurences: IOResourceConfig)
 
-  case class Epmc(
-      input: EpmcInputs,
+  case class EpmcOutputs(
       output: IOResourceConfig,
+      epmcCooccurrences: IOResourceConfig
+  )
+
+  case class EpmcUris(ensembl: String, chembl: String, ontologies: String)
+
+  case class Epmc(
+      uris: EpmcUris,
+      input: EpmcInputs,
+      outputs: EpmcOutputs,
       excludedTargetTerms: List[String],
       sectionsOfInterest: List[String],
       printMetrics: Boolean
@@ -141,6 +149,15 @@ object Configuration extends LazyLogging {
       intact: IOResourceConfig,
       strings: IOResourceConfig,
       outputs: InteractionsOutput
+  )
+
+  case class ExpressionInputs(target: IOResourceConfig, baseline: IOResourceConfig)
+
+  case class ExpressionOutputs(baseline: IOResourceConfig)
+
+  case class BaselineExpressionSection(printMetrics: Boolean,
+                                       inputs: ExpressionInputs,
+                                       outputs: ExpressionOutputs
   )
 
   case class ExpressionSection(
@@ -391,6 +408,7 @@ object Configuration extends LazyLogging {
       target: Target,
       targetValidation: TargetValidation,
       expression: ExpressionSection,
+      baselineExpression: BaselineExpressionSection,
       openfda: OpenfdaSection,
       ebisearch: EBISearchSection,
       otarproject: OtarProjectSection,
