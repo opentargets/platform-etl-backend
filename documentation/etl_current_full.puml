@@ -25,6 +25,8 @@ artifact reactome <<noDependency>>
 artifact search <<dependencies>>
 artifact target <<dependencies>>
 artifact targetValidation <<dependencies>>
+artifact pharmacogenomics <<noDependency>>
+
 
 'inputs
 ' association
@@ -83,6 +85,9 @@ interface targetEssentiality <<input>>
 interface tractability <<input>>
 interface uniprot <<input>>
 interface reactomePathways <<input>>
+
+' pharmacogenomics
+interface pharmacogenomicsData <<input>>
 
 'safety
 interface safetyToxicity <<input>>
@@ -153,7 +158,8 @@ interface searchDrugOutput <<output>>
   ' targetValidation
  interface mousePhenotypes <<input>>
  interface mousePhenotypesOutput <<output>>
-
+  ' pharmacogenomics
+interface pharmacogenomicsOutput <<output>>
 
 
 ' relations
@@ -306,5 +312,9 @@ tep --> target
 targetEssentiality --> target
 tractability --> target
 uniprot --> target
+
+' pharmacogenomics
+pharmacogenomicsData --> pharmacogenomics
+pharmacogenomics --> pharmacogenomicsOutput
 
 @enduml
