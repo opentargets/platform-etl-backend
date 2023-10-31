@@ -29,6 +29,7 @@ artifact openfda <<dependencies>>
 artifact ebiSearch <<dependencies>>
 artifact otar <<dependencies>>
 artifact targetengine <<dependencies>>
+artifact pharmacogenomics <<noDependency>>
 
 disease --> otar
 reactome --> target
