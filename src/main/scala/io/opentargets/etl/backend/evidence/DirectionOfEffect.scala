@@ -7,10 +7,9 @@ import org.apache.spark.sql.functions._
 
 object DirectionOfEffect {
 
-  def apply(evidencesDF: DataFrame,
-            targetsDF: DataFrame,
-            mechanismsOfActionDF: DataFrame
-  )(implicit context: ETLSessionContext): DataFrame = {
+  def apply(evidencesDF: DataFrame, targetsDF: DataFrame, mechanismsOfActionDF: DataFrame)(implicit
+      context: ETLSessionContext
+  ): DataFrame = {
     val evidenceConfig = context.configuration.evidences
     val actionTypeDF = mechanismsOfActionDF
       .select(

@@ -323,7 +323,7 @@ object Evidence extends LazyLogging {
       "targets" -> evidencesSec.inputs.targets,
       "diseases" -> evidencesSec.inputs.diseases,
       "rawEvidences" -> evidencesSec.inputs.rawEvidences,
-      "mechanismOfAction" -> evidencesSec.inputs.mechanismOfAction,
+      "mechanismOfAction" -> evidencesSec.inputs.mechanismOfAction
     )
     val dfs = IoHelpers.readFrom(mappedInputs)
 
@@ -351,10 +351,7 @@ object Evidence extends LazyLogging {
       .transform(checkNullifiedScores(_, sc, ns))
       .transform(markDuplicates(_, id, md))
       .transform(
-        DirectionOfEffect(_,
-                          dfs("targets").data,
-                          dfs("mechanismOfAction").data
-        )
+        DirectionOfEffect(_, dfs("targets").data, dfs("mechanismOfAction").data)
       )
       .persist(StorageLevel.DISK_ONLY)
 
