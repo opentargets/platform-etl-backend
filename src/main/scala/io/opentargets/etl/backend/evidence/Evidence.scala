@@ -324,7 +324,6 @@ object Evidence extends LazyLogging {
       "diseases" -> evidencesSec.inputs.diseases,
       "rawEvidences" -> evidencesSec.inputs.rawEvidences,
       "mechanismOfAction" -> evidencesSec.inputs.mechanismOfAction,
-      "geneBurden" -> evidencesSec.inputs.geneBurden
     )
     val dfs = IoHelpers.readFrom(mappedInputs)
 
@@ -354,8 +353,7 @@ object Evidence extends LazyLogging {
       .transform(
         DirectionOfEffect(_,
                           dfs("targets").data,
-                          dfs("mechanismOfAction").data,
-                          dfs("geneBurden").data
+                          dfs("mechanismOfAction").data
         )
       )
       .persist(StorageLevel.DISK_ONLY)

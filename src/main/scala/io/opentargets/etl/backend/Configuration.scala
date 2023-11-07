@@ -53,7 +53,6 @@ object Configuration extends LazyLogging {
       diseases: IOResourceConfig,
       targets: IOResourceConfig,
       mechanismOfAction: IOResourceConfig,
-      geneBurden: IOResourceConfig
   )
 
   case class SucceedFailedOutputs(succeeded: IOResourceConfig, failed: IOResourceConfig)

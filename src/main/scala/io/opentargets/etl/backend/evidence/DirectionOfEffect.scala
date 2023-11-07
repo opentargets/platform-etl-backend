@@ -9,8 +9,7 @@ object DirectionOfEffect {
 
   def apply(evidencesDF: DataFrame,
             targetsDF: DataFrame,
-            mechanismsOfActionDF: DataFrame,
-            geneBurdenDF: DataFrame
+            mechanismsOfActionDF: DataFrame
   )(implicit context: ETLSessionContext): DataFrame = {
     val evidenceConfig = context.configuration.evidences
     val actionTypeDF = mechanismsOfActionDF
@@ -64,15 +63,13 @@ object DirectionOfEffect {
         )
     )
 
-    directionOfEffectFunc(evidencesDF, oncolabelDF, geneBurdenDF, actionTypeDF)
+    directionOfEffectFunc(evidencesDF, oncolabelDF, actionTypeDF)
   }
 
   def directionOfEffectFunc(evidencesDF: DataFrame,
                             oncolabelDF: DataFrame,
-                            geneBurdenDF: DataFrame,
                             actionTypeDF: DataFrame
   )(implicit context: ETLSessionContext): DataFrame = {
-    val geneRenamedDF = geneBurdenDF.withColumnRenamed("statisticalMethodOverview", "stMethod")
     val evidenceConfig = context.configuration.evidences;
     val gof = evidenceConfig.directionOfEffect.gof;
     val lof = evidenceConfig.directionOfEffect.lof;
@@ -98,12 +95,7 @@ object DirectionOfEffect {
         "clinicalSignificances",
         concat_ws(",", col("clinicalSignificances"))
       ) // eva
-      .join(oncolabelDF, oncolabelDF.col("target_id") === col("targetId"), "left") // cgc
-      .join(
-        geneRenamedDF,
-        geneRenamedDF.col("stMethod") === col("statisticalMethodOverview"),
-        "left"
-      ) // gene_burden
+      .join(oncolabelDF, oncolabelDF.col("target_id") === col("targetId"), "left") // cgce_burden
       .join(
         actionTypeDF, // chembl
         (actionTypeDF.col("drugId2") === col("drugId"))
@@ -220,9 +212,9 @@ object DirectionOfEffect {
           )
         ).when(
           col("datasourceId") === "gene_burden",
-          when(col("whatToDo") === "get", lit("LoF")).otherwise(
+          when(col("targetId").isNotNull, lit("LoF")).otherwise(
             lit(null)
-          ) // son tambien no data las que tiene riesgo pero no se ensayan LoF o PT
+          )
         )
           // # Eva_germline
           .when(
@@ -324,45 +316,45 @@ object DirectionOfEffect {
           col("datasourceId")
             === "ot_genetics_portal", // the same for gene_burden
           when(
-            (col("beta").isNotNull) && (col("OddsRatio").isNull),
+            col("beta").isNotNull && col("OddsRatio").isNull,
             when(col("beta") > 0, lit("risk"))
               .when(col("beta") < 0, lit("protect"))
               .otherwise(lit(null))
           )
             .when(
-              (col("beta").isNull) && (col("OddsRatio").isNotNull),
+              col("beta").isNull && col("OddsRatio").isNotNull,
               when(col("OddsRatio") > 1, lit("risk"))
                 .when(col("OddsRatio") < 1, lit("protect"))
                 .otherwise(lit(null))
             )
             .when(
-              (col("beta").isNull) && (col("OddsRatio").isNull),
+              col("beta").isNull && col("OddsRatio").isNull,
               lit(null)
             )
             .when(
-              (col("beta").isNotNull) && (col("OddsRatio").isNotNull),
+              col("beta").isNotNull && col("OddsRatio").isNotNull,
               lit(null)
             )
         ).when(
           col("datasourceId") === "gene_burden",
           when(
-            (col("beta").isNotNull) && (col("OddsRatio").isNull),
+            col("beta").isNotNull && col("OddsRatio").isNull,
             when(col("beta") > 0, lit("risk"))
               .when(col("beta") < 0, lit("protect"))
               .otherwise(lit(null))
           )
             .when(
-              (col("oddsRatio").isNotNull) && (col("beta").isNull),
+              col("oddsRatio").isNotNull && col("beta").isNull,
               when(col("oddsRatio") > 1, lit("risk"))
                 .when(col("oddsRatio") < 1, lit("protect"))
                 .otherwise(lit(null))
             )
             .when(
-              (col("beta").isNull) && (col("oddsRatio").isNull),
+              col("beta").isNull && col("oddsRatio").isNull,
               lit(null)
             )
             .when(
-              (col("beta").isNotNull) && (col("oddsRatio").isNotNull),
+              col("beta").isNotNull && col("oddsRatio").isNotNull,
               lit(null)
             )
         )
