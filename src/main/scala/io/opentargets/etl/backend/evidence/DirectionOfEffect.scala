@@ -5,7 +5,6 @@ import org.apache.spark.sql.{Column, DataFrame}
 import org.apache.spark.sql.expressions.Window
 import org.apache.spark.sql.functions._
 
-
 object DirectionOfEffect {
   implicit class DoEColumnUtilities(val col: Column) {
     def isRiskSourceCol(source: String): Column = col.when(
@@ -22,7 +21,7 @@ object DirectionOfEffect {
     )
   }
 
-  private def geneProductLevel(whenDecrease: Column, whenIncrease: Column):Column = when(
+  private def geneProductLevel(whenDecrease: Column, whenIncrease: Column): Column = when(
     col("variantFunctionalConsequenceFromQtlId")
       === "SO_0002316",
     whenDecrease
@@ -124,8 +123,6 @@ object DirectionOfEffect {
     directionOfEffectFunc(evidencesDF, oncolabelDF, actionTypeDF)
   }
 
-
-
   def directionOfEffectFunc(evidencesDF: DataFrame,
                             oncolabelDF: DataFrame,
                             actionTypeDF: DataFrame
@@ -142,19 +139,18 @@ object DirectionOfEffect {
 
     val windowSpec = Window.partitionBy("targetId", "diseaseId")
 
-    def intogenFunction(): Column = {
+    def intogenFunction(): Column =
       when(arrays_overlap(
-        col("mutatedSamples.functionalConsequenceId"),
-        array(gof map lit: _*)
-      ),
-        lit("GoF")
+             col("mutatedSamples.functionalConsequenceId"),
+             array(gof map lit: _*)
+           ),
+           lit("GoF")
       ).when(arrays_overlap(
-        col("mutatedSamples.functionalConsequenceId"),
-        array(lof map lit: _*)
-      ),
-        lit("LoF")
+               col("mutatedSamples.functionalConsequenceId"),
+               array(lof map lit: _*)
+             ),
+             lit("LoF")
       )
-    }
 
     val variantIsLoF = col("variantFunctionalConsequenceId").isin(filterLof: _*)
 
@@ -333,7 +329,7 @@ object DirectionOfEffect {
           betaValidation
         ).when(
           col("datasourceId") === "gene_burden",
-            betaValidation
+          betaValidation
         )
           // Eva_germline
           .when(
