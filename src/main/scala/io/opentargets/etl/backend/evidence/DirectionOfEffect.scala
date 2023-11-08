@@ -1,11 +1,70 @@
 package io.opentargets.etl.backend.evidence
 
 import io.opentargets.etl.backend.ETLSessionContext
-import org.apache.spark.sql.DataFrame
+import org.apache.spark.sql.{Column, DataFrame}
 import org.apache.spark.sql.expressions.Window
 import org.apache.spark.sql.functions._
 
+
 object DirectionOfEffect {
+  implicit class DoEColumnUtilities(val col: Column) {
+    def isRiskSourceCol(source: String): Column = col.when(
+      col("datasourceId") === source,
+      when(col("diseaseId").isNotNull, lit("risk")).otherwise(
+        lit(null)
+      )
+    )
+    def isProtectSourceCol(source: String): Column = col.when(
+      col("datasourceId") === source,
+      when(col("diseaseId").isNotNull, lit("protect")).otherwise(
+        lit(null)
+      )
+    )
+  }
+
+  private def geneProductLevel(whenDecrease: Column, whenIncrease: Column):Column = when(
+    col("variantFunctionalConsequenceFromQtlId")
+      === "SO_0002316",
+    whenDecrease
+  )
+    .when(
+      col("variantFunctionalConsequenceFromQtlId")
+        === "SO_0002315",
+      whenIncrease
+    )
+
+  private val betaValidation = when(
+    col("beta").isNotNull && col("OddsRatio").isNull,
+    when(col("beta") > 0, lit("risk"))
+      .when(col("beta") < 0, lit("protect"))
+      .otherwise(lit(null))
+  )
+    .when(
+      col("beta").isNull && col("OddsRatio").isNotNull,
+      when(col("OddsRatio") > 1, lit("risk"))
+        .when(col("OddsRatio") < 1, lit("protect"))
+        .otherwise(lit(null))
+    )
+    .when(
+      col("beta").isNull && col("OddsRatio").isNull,
+      lit(null)
+    )
+    .when(
+      col("beta").isNotNull && col("OddsRatio").isNotNull,
+      lit(null)
+    )
+
+  private val clinicalSignificancesValidation = when(
+    col("clinicalSignificances").rlike("(pathogenic)$"),
+    lit("risk")
+  )
+    .when(
+      col("clinicalSignificances").contains("protect"),
+      lit("protect")
+    )
+    .otherwise(
+      lit(null)
+    )
 
   def apply(evidencesDF: DataFrame, targetsDF: DataFrame, mechanismsOfActionDF: DataFrame)(implicit
       context: ETLSessionContext
@@ -65,6 +124,8 @@ object DirectionOfEffect {
     directionOfEffectFunc(evidencesDF, oncolabelDF, actionTypeDF)
   }
 
+
+
   def directionOfEffectFunc(evidencesDF: DataFrame,
                             oncolabelDF: DataFrame,
                             actionTypeDF: DataFrame
@@ -80,6 +141,24 @@ object DirectionOfEffect {
     val validEvidencesDF = evidencesDF.filter(col("datasourceId").isin(sources: _*))
 
     val windowSpec = Window.partitionBy("targetId", "diseaseId")
+
+    def intogenFunction(): Column = {
+      when(arrays_overlap(
+        col("mutatedSamples.functionalConsequenceId"),
+        array(gof map lit: _*)
+      ),
+        lit("GoF")
+      ).when(arrays_overlap(
+        col("mutatedSamples.functionalConsequenceId"),
+        array(lof map lit: _*)
+      ),
+        lit("LoF")
+      )
+    }
+
+    val variantIsLoF = col("variantFunctionalConsequenceId").isin(filterLof: _*)
+
+    val variantIsGoF = col("variantFunctionalConsequenceId").isin(gof: _*)
 
     val joinedDF = validEvidencesDF
       .withColumn(
@@ -108,19 +187,7 @@ object DirectionOfEffect {
       .withColumn("activators_list", array(activators map lit: _*))
       .withColumn(
         "intogen_function",
-        when(
-          arrays_overlap(
-            col("mutatedSamples.functionalConsequenceId"),
-            array(gof map lit: _*)
-          ),
-          lit("GoF")
-        ).when(
-          arrays_overlap(
-            col("mutatedSamples.functionalConsequenceId"),
-            array(lof map lit: _*)
-          ),
-          lit("LoF")
-        )
+        intogenFunction()
       )
       .withColumn(
         "intogenAnnot",
@@ -135,13 +202,11 @@ object DirectionOfEffect {
             when(
               col("variantFunctionalConsequenceFromQtlId").isNull,
               when(
-                col("variantFunctionalConsequenceId").isin(
-                  filterLof: _*
-                ),
+                variantIsLoF,
                 lit("LoF")
               )
                 .when(
-                  col("variantFunctionalConsequenceId").isin(gof: _*),
+                  variantIsGoF,
                   lit("GoF")
                 )
                 .otherwise(lit(null))
@@ -150,63 +215,24 @@ object DirectionOfEffect {
               .when(
                 col("variantFunctionalConsequenceFromQtlId").isNotNull,
                 when(
-                  col("variantFunctionalConsequenceId").isin(
-                    filterLof: _*
-                  ), // when is a LoF variant
-                  when(
-                    col("variantFunctionalConsequenceFromQtlId")
-                      === "SO_0002316",
-                    lit("LoF")
-                  )
-                    .when(
-                      col("variantFunctionalConsequenceFromQtlId")
-                        === "SO_0002315",
-                      lit(null)
-                    )
+                  variantIsLoF,
+                  geneProductLevel(whenDecrease = lit("LoF"), whenIncrease = lit(null))
                     .otherwise(lit("LoF"))
                 ).when(
-                  col("variantFunctionalConsequenceId").isin(filterLof: _*)
-                    === false, // when is not a LoF, still can be a GoF
+                  not(variantIsLoF), // when is not a LoF, still can be a GoF
                   when(
-                    col("variantFunctionalConsequenceId").isin(gof: _*)
-                      === false, // if not GoF
-                    when(
-                      col("variantFunctionalConsequenceFromQtlId")
-                        === "SO_0002316",
-                      lit("LoF")
-                    )
-                      .when(
-                        col("variantFunctionalConsequenceFromQtlId")
-                          === "SO_0002315",
-                        lit("GoF")
-                      )
+                    not(variantIsGoF), // if not GoF
+                    geneProductLevel(whenDecrease = lit("LoF"), whenIncrease = lit("GoF"))
                       .otherwise(lit(null))
                   ).when(
-                    col("variantFunctionalConsequenceId").isin(
-                      gof: _*
-                    ), // if is GoF
-                    when(
-                      col("variantFunctionalConsequenceFromQtlId")
-                        === "SO_0002316",
-                      lit(null)
-                    ).when(
-                      col("variantFunctionalConsequenceFromQtlId")
-                        === "SO_0002315",
-                      lit("GoF")
-                    )
+                    variantIsGoF, // if is GoF
+                    geneProductLevel(whenDecrease = lit(null), whenIncrease = lit("GoF"))
                   )
                 )
               )
           ).when(
             col("variantFunctionalConsequenceId").isNull,
-            when(
-              col("variantFunctionalConsequenceFromQtlId") === "SO_0002316",
-              lit("LoF")
-            )
-              .when(
-                col("variantFunctionalConsequenceFromQtlId") === "SO_0002315",
-                lit("GoF")
-              )
+            geneProductLevel(whenDecrease = lit("LoF"), whenIncrease = lit("GoF"))
               .otherwise(lit(null))
           )
         ).when(
@@ -219,7 +245,7 @@ object DirectionOfEffect {
           .when(
             col("datasourceId") === "eva",
             when(
-              col("variantFunctionalConsequenceId").isin(filterLof: _*),
+              variantIsLoF,
               lit("LoF")
             ).otherwise(
               lit(null)
@@ -230,7 +256,7 @@ object DirectionOfEffect {
           .when(
             col("datasourceId") === "eva_somatic",
             when(
-              col("variantFunctionalConsequenceId").isin(filterLof: _*),
+              variantIsLoF,
               lit("LoF")
             ).otherwise(
               lit(null)
@@ -276,17 +302,7 @@ object DirectionOfEffect {
             col("datasourceId") === "intogen",
             when(
               col("intogenAnnot") === 1,
-              when(arrays_overlap(
-                     col("mutatedSamples.functionalConsequenceId"),
-                     array(gof map lit: _*)
-                   ),
-                   lit("GoF")
-              ).when(arrays_overlap(
-                       col("mutatedSamples.functionalConsequenceId"),
-                       array(lof map lit: _*)
-                     ),
-                     lit("LoF")
-              )
+              intogenFunction()
             )
               .when(col("intogenAnnot") > 1, lit(null))
               .otherwise(lit(null))
@@ -314,122 +330,33 @@ object DirectionOfEffect {
         when(
           col("datasourceId")
             === "ot_genetics_portal", // the same for gene_burden
-          when(
-            col("beta").isNotNull && col("OddsRatio").isNull,
-            when(col("beta") > 0, lit("risk"))
-              .when(col("beta") < 0, lit("protect"))
-              .otherwise(lit(null))
-          )
-            .when(
-              col("beta").isNull && col("OddsRatio").isNotNull,
-              when(col("OddsRatio") > 1, lit("risk"))
-                .when(col("OddsRatio") < 1, lit("protect"))
-                .otherwise(lit(null))
-            )
-            .when(
-              col("beta").isNull && col("OddsRatio").isNull,
-              lit(null)
-            )
-            .when(
-              col("beta").isNotNull && col("OddsRatio").isNotNull,
-              lit(null)
-            )
+          betaValidation
         ).when(
           col("datasourceId") === "gene_burden",
-          when(
-            col("beta").isNotNull && col("OddsRatio").isNull,
-            when(col("beta") > 0, lit("risk"))
-              .when(col("beta") < 0, lit("protect"))
-              .otherwise(lit(null))
-          )
-            .when(
-              col("oddsRatio").isNotNull && col("beta").isNull,
-              when(col("oddsRatio") > 1, lit("risk"))
-                .when(col("oddsRatio") < 1, lit("protect"))
-                .otherwise(lit(null))
-            )
-            .when(
-              col("beta").isNull && col("oddsRatio").isNull,
-              lit(null)
-            )
-            .when(
-              col("beta").isNotNull && col("oddsRatio").isNotNull,
-              lit(null)
-            )
+            betaValidation
         )
           // Eva_germline
           .when(
             col("datasourceId") === "eva", // the same for eva_somatic
-            when(
-              col("clinicalSignificances").rlike("(pathogenic)$"),
-              lit("risk")
-            )
-              .when(
-                col("clinicalSignificances").contains("protect"),
-                lit("protect")
-              )
-              .otherwise(
-                lit(null)
-              )
-            // Son todas aquellas que tenen info pero no son patogenicas / protective + LoF
+            clinicalSignificancesValidation
           )
           // # Eva_somatic
           .when(
             col("datasourceId") === "eva_somatic",
-            when(
-              col("clinicalSignificances").rlike("(pathogenic)$"),
-              lit("risk")
-            )
-              .when(
-                col("clinicalSignificances").contains("protect"),
-                lit("protect")
-              )
-              .otherwise(
-                lit(null)
-              ) // Son todas aquellas que tenen info pero no son patogenicas / protective + LoF
+            clinicalSignificancesValidation
           )
           // # G2P
-          .when(
-            col("datasourceId") === "gene2phenotype",
-            when(col("diseaseId").isNotNull, lit("risk")).otherwise(
-              lit(null)
-            )
-          )
+          .isRiskSourceCol("gene2phenotype")
           // # Orphanet
-          .when(
-            col("datasourceId") === "orphanet",
-            when(col("diseaseId").isNotNull, lit("risk")).otherwise(
-              lit(null)
-            )
-          )
+          .isRiskSourceCol("orphanet")
           // # CGC
-          .when(
-            col("datasourceId") === "cancer_gene_census",
-            when(col("diseaseId").isNotNull, lit("risk")).otherwise(
-              lit(null)
-            )
-          )
+          .isRiskSourceCol("cancer_gene_census")
           // # intogen
-          .when(
-            col("datasourceId") === "intogen",
-            when(col("diseaseId").isNotNull, lit("risk")).otherwise(
-              lit(null)
-            )
-          )
+          .isRiskSourceCol("intogen")
           // # impc
-          .when(
-            col("datasourceId") === "impc",
-            when(col("diseaseId").isNotNull, lit("risk")).otherwise(
-              lit(null)
-            )
-          )
+          .isRiskSourceCol("impc")
           // chembl
-          .when(
-            col("datasourceId") === "chembl",
-            when(col("diseaseId").isNotNull, lit("protect")).otherwise(
-              lit(null)
-            )
-          )
+          .isProtectSourceCol("chembl")
       )
       .withColumn(
         "homogenizedVersion",
