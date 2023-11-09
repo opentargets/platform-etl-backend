@@ -6,20 +6,6 @@ import org.apache.spark.sql.expressions.Window
 import org.apache.spark.sql.functions._
 
 object DirectionOfEffect {
-  implicit class DoEColumnUtilities(val col: Column) {
-    def isRiskSourceCol(source: String): Column = col.when(
-      col("datasourceId") === source,
-      when(col("diseaseId").isNotNull, lit("risk")).otherwise(
-        lit(null)
-      )
-    )
-    def isProtectSourceCol(source: String): Column = col.when(
-      col("datasourceId") === source,
-      when(col("diseaseId").isNotNull, lit("protect")).otherwise(
-        lit(null)
-      )
-    )
-  }
 
   private def geneProductLevel(whenDecrease: Column, whenIncrease: Column): Column = when(
     col("variantFunctionalConsequenceFromQtlId")
@@ -342,17 +328,47 @@ object DirectionOfEffect {
             clinicalSignificancesValidation
           )
           // # G2P
-          .isRiskSourceCol("gene2phenotype")
+          .when(
+            col("datasourceId") === "gene2phenotype",
+            when(col("diseaseId").isNotNull, lit("risk")).otherwise(
+              lit(null)
+            )
+          )
           // # Orphanet
-          .isRiskSourceCol("orphanet")
+          .when(
+            col("datasourceId") === "orphanet",
+            when(col("diseaseId").isNotNull, lit("risk")).otherwise(
+              lit(null)
+            )
+          )
           // # CGC
-          .isRiskSourceCol("cancer_gene_census")
+          .when(
+            col("datasourceId") === "cancer_gene_census",
+            when(col("diseaseId").isNotNull, lit("risk")).otherwise(
+              lit(null)
+            )
+          )
           // # intogen
-          .isRiskSourceCol("intogen")
+          .when(
+            col("datasourceId") === "intogen",
+            when(col("diseaseId").isNotNull, lit("risk")).otherwise(
+              lit(null)
+            )
+          )
           // # impc
-          .isRiskSourceCol("impc")
+          .when(
+            col("datasourceId") === "impc",
+            when(col("diseaseId").isNotNull, lit("risk")).otherwise(
+              lit(null)
+            )
+          )
           // chembl
-          .isProtectSourceCol("chembl")
+          .when(
+            col("datasourceId") === "chembl",
+            when(col("diseaseId").isNotNull, lit("protect")).otherwise(
+              lit(null)
+            )
+          )
       )
       .withColumn(
         "homogenizedVersion",
