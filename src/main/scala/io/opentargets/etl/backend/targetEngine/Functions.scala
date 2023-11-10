@@ -1,6 +1,13 @@
 package io.opentargets.etl.backend.targetEngine
 
 import com.typesafe.scalalogging.LazyLogging
+import io.opentargets.etl.backend.spark.Helpers.{
+  harmonic_sum_udf,
+  max_harmonic_sum_udf,
+  scaled_harmonic_sum_udf
+}
+import org.apache.spark.ml.functions.array_to_vector
+import org.apache.spark.sql.expressions.Window
 import org.apache.spark.sql.{Column, DataFrame}
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.types.IntegerType
@@ -440,31 +447,41 @@ object Functions extends LazyLogging {
     querySetDF.join(tepDF, Seq("targetid"), "left")
   }
 
-  def mousemodQuery(querySetDF: DataFrame, mouseDF: DataFrame): DataFrame = {
+  def mousemodQuery(querySetDF: DataFrame,
+                    mouseDF: DataFrame,
+                    mousePhenoScoresDF: DataFrame
+  ): DataFrame = {
+    val phenoScoresDF = mousePhenoScoresDF
+      .select(
+        col("id").as("idLabel"),
+        col("score")
+      )
+      .withColumn(
+        "score",
+        when(col("score") === 0.0, lit(0)).otherwise(lit(col("score")))
+      )
     val mouseModelsDF = mouseDF
       .select(
-        col("targetFromSourceId"),
-        explode(col("modelPhenotypeClasses")).as("classes"),
-        col("classes.label")
-      )
-      .select(
         col("targetFromSourceId").as("target_id_"),
-        col("classes.label")
+        explode_outer(col("modelPhenotypeClasses")).as("classes"),
+        col("classes.label"),
+        col("classes.id")
       )
+      .join(
+        phenoScoresDF,
+        col("classes.id") === phenoScoresDF.col("idLabel"),
+        "left"
+      )
+      .withColumn("score", col("score").cast("double"))
       .groupBy("target_id_")
-      .agg(
-        count("label").as("Nr_mouse_models"),
-        collect_set("label").as("Different_PhenoClasses")
-      )
-      .select(
-        col("*"),
-        when(col("Nr_mouse_models") =!= "0", lit(1))
-          .otherwise(lit(0))
-          .as("Nr_Mousemodels")
-      )
-
+      .agg(collect_list(col("score")).alias("score"))
+      .withColumn("harmonicSum", harmonic_sum_udf(col("score")).cast("double"))
+      .withColumn("maxHarmonicSum", max_harmonic_sum_udf(col("score")).cast("double"))
+      .withColumn("maximum", max(col("maxHarmonicSum")).over(Window.orderBy()).cast("double"))
+      .withColumn("scaledHarmonicSum", -scaled_harmonic_sum_udf(col("harmonicSum"), col("maximum")))
     querySetDF
       .join(mouseModelsDF, col("target_id_") === querySetDF.col("targetid"), "left")
+
   }
 
   def chemicalProbesQuery(querySetDF: DataFrame, targetsDF: DataFrame): DataFrame = {

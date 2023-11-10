@@ -379,7 +379,8 @@ object Configuration extends LazyLogging {
                                 mechanismOfAction: IOResourceConfig,
                                 mousePhenotypes: IOResourceConfig,
                                 hpaData: IOResourceConfig,
-                                uniprotSlterms: IOResourceConfig
+                                uniprotSlterms: IOResourceConfig,
+                                mousePhenoScores: IOResourceConfig
   )
 
   case class TargetEngineOutputs(targetEngine: IOResourceConfig)
