@@ -269,27 +269,6 @@ object Helpers extends LazyLogging {
       (c1, c2) => c1 + c2
     )
 
-  /** Harmonic sum UDFs Harmonic sum expressions and their associated spark UDFs To calculate the
-    * harmonic sum of a series of scores:
-    *   1. sort scores in descending order 2. divide each score by its 1-based index squared 3. sum
-    *      all values
-    */
-  val harmonicSum: Array[Double] => Double = (scores: Array[Double]) => {
-    val sortedScores = scores.sorted(Ordering[Double].reverse)
-    val denominators = (1 to sortedScores.length).map(i => math.pow(i, 2)).toArray
-    val harmonicSum = sortedScores.zip(denominators).map(i => i._1 / i._2).sum
-    harmonicSum
-  }
-  val harmonic_sum_udf: UserDefinedFunction = udf(harmonicSum)
-  val maxHarmonicSum: Array[Double] => Double = (scores: Array[Double]) => {
-    val maxScores = scores.map(_ => 1d)
-    harmonicSum(maxScores)
-  }
-  val max_harmonic_sum_udf: UserDefinedFunction = udf(maxHarmonicSum)
-  val scaledHarmonicSum: (Double, Double) => Double = (harmonicSum: Double, maximum: Double) =>
-    harmonicSum / maximum
-  val scaled_harmonic_sum_udf: UserDefinedFunction = udf(scaledHarmonicSum)
-
   def renameAllCols(schema: StructType, fn: String => String): StructType = {
 
     def renameDataType(dt: StructType): StructType =
