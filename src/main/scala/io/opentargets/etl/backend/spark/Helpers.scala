@@ -264,7 +264,7 @@ object Helpers extends LazyLogging {
 
   def harmonicFn(c: Column): Column =
     aggregate(
-      zip_with(c, sequence(lit(1), size(c)), (e1, e2) => e1 / pow(e2, 2d)),
+      zip_with(sort_array(c, asc = false), sequence(lit(1), size(c)), (e1, e2) => e1 / pow(e2, 2d)),
       lit(0d),
       (c1, c2) => c1 + c2
     )
