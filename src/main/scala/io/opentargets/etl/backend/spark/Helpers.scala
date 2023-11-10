@@ -3,7 +3,6 @@ package io.opentargets.etl.backend.spark
 import com.typesafe.scalalogging.LazyLogging
 import org.apache.spark.SparkConf
 import org.apache.spark.sql._
-import org.apache.spark.sql.expressions.UserDefinedFunction
 import org.apache.spark.sql.functions.{
   aggregate,
   array,
@@ -15,7 +14,6 @@ import org.apache.spark.sql.functions.{
   expr,
   filter,
   flatten,
-  length,
   lit,
   pow,
   sequence,
@@ -24,7 +22,6 @@ import org.apache.spark.sql.functions.{
   struct,
   substring_index,
   typedLit,
-  udf,
   zip_with
 }
 import org.apache.spark.sql.types.{ArrayType, DataType, StructField, StructType}
