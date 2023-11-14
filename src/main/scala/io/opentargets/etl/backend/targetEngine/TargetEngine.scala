@@ -84,7 +84,7 @@ object TargetEngine extends LazyLogging {
       col("Nr_ortholog").as("mouseOrthologMaxIdentityPercentage"),
       col("Nr_CDG").as("isCancerDriverGene"),
       col("Nr_TEP").as("hasTEP"),
-      col("scaledHarmonicSum").as("MouseKOScore"),
+      col("scaledHarmonicSum").as("mouseKOScore"),
       col("Nr_chprob").as("hasHighQualityChemicalProbes"),
       col("inClinicalTrials").as("maxClinicalTrialPhase"),
       col("Nr_specificity").as("tissueSpecificity"),
