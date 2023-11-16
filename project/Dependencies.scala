@@ -60,15 +60,16 @@ object Dependencies {
       "org.apache.spark" %% "spark-graphx" % sparkVersion,
       "org.apache.spark" %% "spark-mllib" % sparkVersion
     )
+    val sparkDeps =
+      if (sys.env.getOrElse("ETL_FLAG_DATAPROC", "true").toBoolean) {
+        sparkDepsOptionallyProvided.map(d => d % "provided")
+      } else {
+        sparkDepsOptionallyProvided
+      }
     Seq(
-      "com.github.fommil.netlib" % "all" % "1.1.2" pomOnly(),
+      "com.github.fommil.netlib" % "all" % "1.1.2" pomOnly (),
       "com.databricks" %% "spark-xml" % "0.11.0"
-    ) ++
-    if (sys.env.getOrElse("ETL_FLAG_DATAPROC", true)) {
-      sparkDepsOptionallyProvided.map(d => d % "provided")
-    } else {
-      sparkDepsOptionallyProvided
-    }
+    ) ++ sparkDeps
   }
 
   lazy val testVersion = "3.2.2"
