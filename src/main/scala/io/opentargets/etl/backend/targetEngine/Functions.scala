@@ -493,7 +493,12 @@ object Functions extends LazyLogging {
       .withColumn("harmonicSum", harmonic_sum_udf(col("score")).cast("double"))
       .withColumn("maxHarmonicSum", max_harmonic_sum_udf(col("score")).cast("double"))
       .withColumn("maximum", max(col("maxHarmonicSum")).over(Window.orderBy()).cast("double"))
-      .withColumn("scaledHarmonicSum", -scaled_harmonic_sum_udf(col("harmonicSum"), col("maximum")))
+      .withColumn("scaledHarmonicSum", scaled_harmonic_sum_udf(col("harmonicSum"), col("maximum")))
+      .withColumn(
+        "negScaledHarmonicSum",
+        when(col("scaledHarmonicSum").notEqual(0.0), col("ScaledHarmonicSum").multiply(-1))
+          .otherwise(col("ScaledHarmonicSum"))
+      )
     querySetDF
       .join(mouseModelsDF, col("target_id_") === querySetDF.col("targetid"), "left")
 
