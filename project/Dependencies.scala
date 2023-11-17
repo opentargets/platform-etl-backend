@@ -61,7 +61,7 @@ object Dependencies {
       "org.apache.spark" %% "spark-mllib" % sparkVersion
     )
     val sparkDeps =
-      if (sys.env.getOrElse("ETL_FLAG_DATAPROC", "true").toBoolean) {
+      if (sys.props.getOrElse("ETL_FLAG_DATAPROC", "true").toBoolean) {
         sparkDepsOptionallyProvided.map(d => d % "provided")
       } else {
         sparkDepsOptionallyProvided
