@@ -106,11 +106,20 @@ java -server -Xms1G -Xmx6G -Xss1M -XX:+CMSClassUnloadingEnabled \
 
 ### Create a fat JAR
 
-Simply run the following command:
+Simply run one of the following commands:
 
 ```bash
 sbt assembly
 ```
+or 
+```bash
+make build
+```
+or for a local build with all the spark dependencies
+```bash
+make build_local
+```
+
 The jar will be generated under target/scala-2.12.10/
 
 ### Create cluster and launch
