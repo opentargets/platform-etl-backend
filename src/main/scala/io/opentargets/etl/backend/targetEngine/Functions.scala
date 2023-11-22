@@ -466,6 +466,7 @@ object Functions extends LazyLogging {
                     mouseDF: DataFrame,
                     mousePhenoScoresDF: DataFrame
   ): DataFrame = {
+    val lowThreshold = 0.6d
     val phenoScoresDF = mousePhenoScoresDF
       .select(
         col("id").as("idLabel"),
@@ -493,7 +494,12 @@ object Functions extends LazyLogging {
       .withColumn("harmonicSum", harmonic_sum_udf(col("score")).cast("double"))
       .withColumn("maxHarmonicSum", max_harmonic_sum_udf(col("score")).cast("double"))
       .withColumn("maximum", max(col("maxHarmonicSum")).over(Window.orderBy()).cast("double"))
-      .withColumn("scaledHarmonicSum", -scaled_harmonic_sum_udf(col("harmonicSum"), col("maximum")))
+      .withColumn("scaledHarmonicSum", scaled_harmonic_sum_udf(col("harmonicSum"), col("maximum")))
+      .withColumn(
+        "negScaledHarmonicSum",
+        when(col("scaledHarmonicSum").lt(lowThreshold), lit(0))
+          .otherwise((col("ScaledHarmonicSum") - lowThreshold).multiply(-1) / (1 - lowThreshold))
+      )
     querySetDF
       .join(mouseModelsDF, col("target_id_") === querySetDF.col("targetid"), "left")
 
