@@ -30,7 +30,7 @@ object BaselineExpression extends LazyLogging {
     val targetIdsDf = targetDf.select("id")
 
     val joindExpressionsDf = expressionsDf
-      .join(targetIdsDf, col("ensemblGeneId") === targetDf.col("id"), "outer")
+      .join(targetIdsDf, col("ensemblGeneId") === targetDf.col("id"), "left_outer")
 
     logger.info("Filtering valid baselineExpression")
     val validExpressionsDf = joindExpressionsDf
