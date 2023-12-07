@@ -64,6 +64,9 @@ object ETL extends LazyLogging {
       case "otar" =>
         logger.info("Running Otar projects step")
         OtarProject()
+      case "pharmacogenomics" =>
+        logger.info("run step pharmacogenomics")
+        Pharmacogenomics()
       case "reactome" =>
         logger.info("run step reactome (rea)")
         Reactome()
@@ -92,6 +95,7 @@ object ETL extends LazyLogging {
   def stepsWithExistingOuputs(implicit ctx: ETLSessionContext): Set[String] = {
     lazy val outputPaths: Map[String, String] = Map(
       "disease" -> ctx.configuration.disease.outputs.diseases.path,
+      "pharmacogenomics" -> ctx.configuration.pharmacogenomics.outputs.path,
       "reactome" -> ctx.configuration.reactome.output.path,
       "expression" -> ctx.configuration.expression.output.path,
       "baselineExpression" -> ctx.configuration.baselineExpression.outputs.baseline.path,

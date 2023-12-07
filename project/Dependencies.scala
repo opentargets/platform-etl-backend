@@ -1,5 +1,7 @@
 import sbt._
 
+import scala.language.postfixOps
+
 object Dependencies {
 
   lazy val workflowDependencies: Seq[ModuleID] = Seq(
@@ -50,14 +52,25 @@ object Dependencies {
   )
 
   lazy val sparkVersion = "3.1.3"
-  lazy val sparkDeps = Seq(
-    "com.github.fommil.netlib" % "all" % "1.1.2" pomOnly (),
-    "com.databricks" %% "spark-xml" % "0.11.0",
-    "org.apache.spark" %% "spark-core" % sparkVersion % "provided",
-    "org.apache.spark" %% "spark-sql" % sparkVersion % "provided",
-    "org.apache.spark" %% "spark-graphx" % sparkVersion % "provided",
-    "org.apache.spark" %% "spark-mllib" % sparkVersion % "provided"
-  )
+
+  lazy val sparkDeps: Seq[ModuleID] = {
+    val sparkDepsOptionallyProvided = Seq(
+      "org.apache.spark" %% "spark-core" % sparkVersion,
+      "org.apache.spark" %% "spark-sql" % sparkVersion,
+      "org.apache.spark" %% "spark-graphx" % sparkVersion,
+      "org.apache.spark" %% "spark-mllib" % sparkVersion
+    )
+    val sparkDeps =
+      if (sys.props.getOrElse("ETL_FLAG_DATAPROC", "true").toBoolean) {
+        sparkDepsOptionallyProvided.map(d => d % "provided")
+      } else {
+        sparkDepsOptionallyProvided
+      }
+    Seq(
+      "com.github.fommil.netlib" % "all" % "1.1.2" pomOnly (),
+      "com.databricks" %% "spark-xml" % "0.11.0"
+    ) ++ sparkDeps
+  }
 
   lazy val testVersion = "3.2.2"
   lazy val testingDeps = Seq(

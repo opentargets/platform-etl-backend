@@ -230,6 +230,8 @@ object Configuration extends LazyLogging {
 
   case class SearchSection(inputs: SearchInputsSection, outputs: SearchOutputsSection)
 
+  case class PharmacogenomicsSection(inputs: IOResourceConfig, outputs: IOResourceConfig)
+
   case class ReactomeSectionInputs(pathways: IOResourceConfig, relations: IOResourceConfig)
 
   case class ReactomeSection(inputs: ReactomeSectionInputs, output: IOResourceConfig)
@@ -389,7 +391,8 @@ object Configuration extends LazyLogging {
                                 mechanismOfAction: IOResourceConfig,
                                 mousePhenotypes: IOResourceConfig,
                                 hpaData: IOResourceConfig,
-                                uniprotSlterms: IOResourceConfig
+                                uniprotSlterms: IOResourceConfig,
+                                mousePhenoScores: IOResourceConfig
   )
 
   case class TargetEngineOutputs(targetEngine: IOResourceConfig)
@@ -407,6 +410,7 @@ object Configuration extends LazyLogging {
       sparkSettings: SparkSettings,
       etlDag: EtlDagConfig,
       common: Common,
+      pharmacogenomics: PharmacogenomicsSection,
       reactome: ReactomeSection,
       associations: AssociationsSection,
       evidences: EvidencesSection,

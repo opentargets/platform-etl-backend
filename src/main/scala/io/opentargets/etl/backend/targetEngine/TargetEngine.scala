@@ -34,7 +34,8 @@ object TargetEngine extends LazyLogging {
       "mouse" -> config.mousePhenotypes,
       "moleculeMec" -> config.mechanismOfAction,
       "hpaData" -> config.hpaData,
-      "uniprotSlterms" -> config.uniprotSlterms
+      "uniprotSlterms" -> config.uniprotSlterms,
+      "mousePhenoScores" -> config.mousePhenoScores
     )
 
     readFrom(mappedInputs)
@@ -48,6 +49,7 @@ object TargetEngine extends LazyLogging {
     val moleculeMecDF = inputs("moleculeMec").data
     val hpaDataDF = inputs("hpaData").data
     val uniprotDF = inputs("uniprotSlterms").data
+    val mousePhenoScoresDF = inputs("mousePhenoScores").data
 
     val parentChildCousinsDF = FindParentChidCousins(uniprotDF)
 
@@ -64,7 +66,7 @@ object TargetEngine extends LazyLogging {
       .transform(orthologsMouseQuery(_, targetsDF))
       .transform(driverGeneQuery(_, targetsDF))
       .transform(tepQuery(_, targetsDF))
-      .transform(mousemodQuery(_, mouseDF))
+      .transform(mousemodQuery(_, mouseDF, mousePhenoScoresDF))
       .transform(chemicalProbesQuery(_, targetsDF))
       .transform(clinTrialsQuery(_, moleculeDF, moleculeMecDF))
       .transform(tissueSpecificQuery(_, hpaDataDF))
@@ -82,7 +84,7 @@ object TargetEngine extends LazyLogging {
       col("Nr_ortholog").as("mouseOrthologMaxIdentityPercentage"),
       col("Nr_CDG").as("isCancerDriverGene"),
       col("Nr_TEP").as("hasTEP"),
-      col("Nr_Mousemodels").as("hasMouseKO"),
+      col("negScaledHarmonicSum").as("mouseKOScore"),
       col("Nr_chprob").as("hasHighQualityChemicalProbes"),
       col("inClinicalTrials").as("maxClinicalTrialPhase"),
       col("Nr_specificity").as("tissueSpecificity"),
