@@ -40,11 +40,11 @@ object DirectionOfEffect {
     )
 
   private val clinicalSignificancesValidation = when(
-    col("clinicalSignificances").rlike("(pathogenic)$"),
+    col("clinicalSignificances_concat").rlike("(pathogenic)$"),
     lit("risk")
   )
     .when(
-      col("clinicalSignificances").contains("protect"),
+      col("clinicalSignificances_concat").contains("protect"),
       lit("protect")
     )
     .otherwise(
@@ -152,7 +152,7 @@ object DirectionOfEffect {
         col("oddsRatio").cast("float")
       ) // ot genetics & gene burden
       .withColumn(
-        "clinicalSignificances",
+        "clinicalSignificances_concat",
         concat_ws(",", col("clinicalSignificances"))
       ) // eva
       .join(oncolabelDF, oncolabelDF.col("target_id") === col("targetId"), "left") // cgce_burden
@@ -164,7 +164,7 @@ object DirectionOfEffect {
       )
 
     // variant Effect Column
-    joinedDF
+    val dofDf = joinedDF
       .withColumn("inhibitors_list", array(inhibitors map lit: _*))
       .withColumn("activators_list", array(activators map lit: _*))
       .withColumn(
@@ -395,6 +395,23 @@ object DirectionOfEffect {
           .otherwise(lit(null))
       )
 
+    dofDf
+      .drop(
+        "clinicalSignificances_concat",
+        "target_id",
+        "approvedSymbol",
+        "description",
+        "description_splited",
+        "TSorOncogene",
+        "targetId2",
+        "drugId2",
+        "actionType",
+        "inhibitors_list",
+        "activators_list",
+        "intogen_function",
+        "intogenAnnot",
+        "homogenizedVersion"
+      )
   }
 
 }
