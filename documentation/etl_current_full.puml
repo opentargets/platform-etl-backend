@@ -13,17 +13,21 @@ artifact associations <<dependencies>>
 artifact associationOTF <<dependencies>>
 artifact disease <<noDependency>>
 artifact drug <<dependencies>>
+artifact ebisearch <<dependencies>>
 artifact evidence <<dependencies>>
 artifact expression <<noDependency>>
+artifact fda <<dependencies>>
 artifact baselineExpression <<dependencies>>
 artifact go <<noDependency>>
 artifact epmc <<dependencies>>
 artifact literature <<dependencies>>
 artifact interactions <<dependencies>>
 artifact knownDrugs <<dependencies>>
+artifact otar <<dependencies>>
 artifact reactome <<noDependency>>
 artifact search <<dependencies>>
 artifact target <<dependencies>>
+artifact targetEngine <<dependencies>>
 artifact targetValidation <<dependencies>>
 artifact pharmacogenomics <<noDependency>>
 
@@ -46,11 +50,18 @@ interface chemblMechanism <<input>>
 interface chemblTarget <<input>>
 interface chemblWarning <<input>>
 interface drugbankToChembl <<input>>
-
+' ebisearch
 ' evidences
 interface rawEvidences <<input>>
 ' expression
 interface expressionData <<input>>
+' fda
+interface fdaData <<input>>
+interface blacklistedEvents <<input>>
+interface meddraPreferredTerms <<input>>
+interface meddraLowLevelTerms <<input>>
+
+
 ' baselineExpression
 interface baselineExpressionData <<input>>
 ' interactions
@@ -60,7 +71,13 @@ interface humanMapping <<input>>
 interface intact <<input>>
 interface strings <<input>>
 ' known drugs
-
+' targetEngine
+interface hpaData <<input>>
+interface uniprotSlterms <<input>>
+interface mousePhenoScores <<input>>
+' otar
+interface otarMeta <<input>>
+interface otarProjectToEfo <<input>>
 ' reactome
 interface pathways <<input>>
 interface relations <<input>>
@@ -156,8 +173,8 @@ interface searchDiseaseOutput <<output>>
 interface searchDrugOutput <<output>>
 
   ' targetValidation
- interface mousePhenotypes <<input>>
- interface mousePhenotypesOutput <<output>>
+interface mousePhenotypes <<input>>
+interface mousePhenotypesOutput <<output>>
   ' pharmacogenomics
 interface pharmacogenomicsOutput <<output>>
 
@@ -231,6 +248,14 @@ drug -->  mechanismOfActionOutput
 drug --> IndicationOutput
 drug --> WarningsOutput
 
+  ' ebisearch
+evidenceOutput --> ebisearch
+diseaseOutput --> ebisearch
+targetOutput --> ebisearch
+associationByOverallDirect --> ebisearch
+ebisearch --> ebisearchAssociationsOutput
+ebisearch --> ebisearchEvidenceOutput
+
   ' evidences
 targetOutput --> evidence
 diseaseOutput --> evidence
@@ -241,6 +266,19 @@ evidence --> evidenceOutput
   ' expression
 expressionData --> expression
 expression --> expressionOutput
+
+  ' fda
+moleculeOutput --> fda
+fdaData --> fda
+blacklistedEvents --> fda
+meddraPreferredTerms --> fda
+meddraLowLevelTerms --> fda
+fda --> fdaUnfiltered
+fda --> fdaResults
+fda --> fdaTargetsUnfiltered
+fda --> fdaTargetsResults
+fda --> fdaSampling
+fda --> fdaSamplingTargets
 
   ' baselineExpression
 baselineExpressionData --> baselineExpression
@@ -265,6 +303,12 @@ targetOutput --> knownDrugs
 moleculeOutput --> knownDrugs
 mechanismOfActionOutput --> knownDrugs
 knownDrugs --> knownDrugsOutput
+
+  ' otar
+diseaseOutput --> otar
+otarMeta --> otar
+otarProjectToEfo --> otar
+otar --> otarOutput
 
   ' reactome
 pathways --> reactome
@@ -312,7 +356,15 @@ tep --> target
 targetEssentiality --> target
 tractability --> target
 uniprot --> target
-
+' targetEngine
+targetOutput --> targetEngine
+moleculeOutput --> targetEngine
+mechanismOfActionOutput --> targetEngine
+mousePhenotypesOutput --> targetEngine
+hpaData --> targetEngine
+uniprotSlterms --> targetEngine
+mousePhenoScores --> targetEngine
+targetEngine --> targetEngineOutput
 ' pharmacogenomics
 pharmacogenomicsData --> pharmacogenomics
 pharmacogenomics --> pharmacogenomicsOutput
