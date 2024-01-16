@@ -121,7 +121,8 @@ object DirectionOfEffect {
     val activators = evidenceConfig.directionOfEffect.activators;
     val sources = evidenceConfig.directionOfEffect.sources;
 
-    val validEvidencesDF = evidencesDF.filter(col("datasourceId").isin(sources: _*))
+    val evidencesDoEDF = evidencesDF.filter(col("datasourceId").isin(sources: _*))
+    val evidencesNoDoEDF = evidencesDF.filter(not(col("datasourceId").isin(sources: _*)))
 
     val windowSpec = Window.partitionBy("targetId", "diseaseId")
 
@@ -142,7 +143,7 @@ object DirectionOfEffect {
 
     val variantIsGoF = col("variantFunctionalConsequenceId").isin(gof: _*)
 
-    val joinedDF = validEvidencesDF
+    val joinedDF = evidencesDoEDF
       .withColumn(
         "beta",
         col("beta").cast("float")
@@ -164,7 +165,7 @@ object DirectionOfEffect {
       )
 
     // variant Effect Column
-    val dofDf = joinedDF
+    val doEDf = joinedDF
       .withColumn("inhibitors_list", array(inhibitors map lit: _*))
       .withColumn("activators_list", array(activators map lit: _*))
       .withColumn(
@@ -394,8 +395,7 @@ object DirectionOfEffect {
           )
           .otherwise(lit(null))
       )
-
-    dofDf
+    val cleanedDoEDF = doEDf
       .drop(
         "clinicalSignificances_concat",
         "target_id",
@@ -412,6 +412,11 @@ object DirectionOfEffect {
         "intogenAnnot",
         "homogenizedVersion"
       )
+
+    evidencesNoDoEDF
+      .select(col("*"), lit(null).as("variantEffect"), lit(null).as("directionOnTrait"))
+      .union(cleanedDoEDF)
+
   }
 
 }
