@@ -1,14 +1,15 @@
-package io.opentargets.etl.backend
+package io.opentargets.etl.backend.evidence
 
 import com.typesafe.scalalogging.LazyLogging
+import io.opentargets.etl.backend.ETLSessionContext
 import io.opentargets.etl.backend.spark.Helpers.{mkFlattenArray, mkRandomPrefix}
 import io.opentargets.etl.backend.spark.IoHelpers.IOResources
+import io.opentargets.etl.backend.spark.{IOResource, IoHelpers}
 import org.apache.spark.sql._
 import org.apache.spark.sql.expressions.Window
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.types._
 import org.apache.spark.storage.StorageLevel
-import spark.{IOResource, IoHelpers}
 
 object Evidence extends LazyLogging {
   val rawScoreColumnName: String = "resourceScore"
@@ -321,7 +322,8 @@ object Evidence extends LazyLogging {
     val mappedInputs = Map(
       "targets" -> evidencesSec.inputs.targets,
       "diseases" -> evidencesSec.inputs.diseases,
-      "rawEvidences" -> evidencesSec.inputs.rawEvidences
+      "rawEvidences" -> evidencesSec.inputs.rawEvidences,
+      "mechanismOfAction" -> evidencesSec.inputs.mechanismOfAction
     )
     val dfs = IoHelpers.readFrom(mappedInputs)
 
@@ -348,6 +350,9 @@ object Evidence extends LazyLogging {
       .transform(score(_, sc))
       .transform(checkNullifiedScores(_, sc, ns))
       .transform(markDuplicates(_, id, md))
+      .transform(
+        DirectionOfEffect(_, dfs("targets").data, dfs("mechanismOfAction").data)
+      )
       .persist(StorageLevel.DISK_ONLY)
 
     val okFitler = col(rt) and col(rd) and !col(md) and !col(ns) and !col(xb)
