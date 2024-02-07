@@ -230,10 +230,7 @@ object Configuration extends LazyLogging {
 
   case class SearchSection(inputs: SearchInputsSection, outputs: SearchOutputsSection)
 
-  case class PharmacogenomicsInputs(pgkb: IOResourceConfig,
-                                    drug: IOResourceConfig,
-                                    diseases: IOResourceConfig
-  )
+  case class PharmacogenomicsInputs(pgkb: IOResourceConfig, drug: IOResourceConfig)
 
   case class PharmacogenomicsSection(inputs: PharmacogenomicsInputs, outputs: IOResourceConfig)
 

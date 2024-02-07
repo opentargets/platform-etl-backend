@@ -11,11 +11,12 @@ object Pharmacogenomics extends LazyLogging {
 
   private def getChebiChemblLut(drugs: DataFrame): DataFrame =
     drugs
-      .select(col("id"), explode(col("crossReferences")))
+      .select(col("id"), lower(col("name")).as("drugFromSource"), explode(col("crossReferences")))
       .filter(col("key") === "chEBI")
       .withColumn("drugId", explode(col("value")))
       .select(
-        col("id").alias("drugId"),
+        col("id").alias("drugIdCross"),
+        col("drugFromSource"),
         concat(lit("CHEBI_"), col("drugId")).alias("drugFromSourceId")
       )
       .distinct()
@@ -23,29 +24,22 @@ object Pharmacogenomics extends LazyLogging {
   private def getDrugTargetLut(drugs: DataFrame): DataFrame =
     drugs
       .filter(
-        (col("linkedTargets").isNotNull()) && (size(col("linkedTargets.rows")) >= 1)
-      )
-      .select(
-        col("id").alias("drugId"),
-        col("linkedTargets.rows").alias("drugTargetIds")
-      )
-
-  private def getHighConfidenceData(data: DataFrame): DataFrame =
-    data.filter(col("evidenceLevel").isin(Seq("1A", "1B", "2A", "2B"): _*))
-
-  private def flagIsDirectTarget(variant_target: Column, drug_targets: Column): Column =
-    when(array_contains(drug_targets, variant_target), true).otherwise(false)
+        col("linkedTargets").isNotNull
+          && size(col("linkedTargets.rows")) >= 1
+      ) select (
+      col("id").alias("drugId"),
+      col("linkedTargets.rows").alias("drugTargetIds")
+    )
 
   def apply()(implicit context: ETLSessionContext): IOResources = {
     implicit val ss: SparkSession = context.sparkSession
 
     logger.info("Executing Pharmacogenomics step.")
 
-    logger.debug("Reading Pharmacogenomics input")
+    logger.debug("Reading Pharmacogenomics inputs")
     val mappedInputs = Map(
       "pgx" -> context.configuration.pharmacogenomics.inputs.pgkb,
-      "drug" -> context.configuration.pharmacogenomics.inputs.drug,
-      "diseases" -> context.configuration.pharmacogenomics.inputs.diseases
+      "drug" -> context.configuration.pharmacogenomics.inputs.drug
     )
 
     logger.debug("Processing Pharmacogenomics data")
@@ -53,28 +47,47 @@ object Pharmacogenomics extends LazyLogging {
     val pgxDF = inputDataFrames("pgx").data
     val drugDF = inputDataFrames("drug").data
 
-    val xrefs = getChebiChemblLut(drugDF)
-    val drug_target_lut = getDrugTargetLut(drugDF)
+    logger.debug("Get Chebi Chembl Lut")
+    val xrefsDF = getChebiChemblLut(drugDF)
 
-    val dataEnrichedDF = (
-      pgxDF
-        .withColumnRenamed("drugId", "drugFromSourceId")
-        .join(xrefs, Seq("drugFromSourceId"), "left")
-        .join(drug_target_lut, Seq("drugId"), "left")
-        .withColumn(
-          "isDirectTarget",
-          flagIsDirectTarget(col("targetFromSourceId"), col("drugTargetIds"))
-        )
-        .drop("drugTargetIds")
-        .distinct()
-        .persist()
+    val drugNameDF = pgxDF
+      .withColumn("drugFromSource", lower(col("drugFromSource")))
+      .join(xrefsDF.select("drugFromSource", "drugIdCross"), Seq("drugFromSource"), "left")
+    val nonResolvedByNameDF =
+      drugNameDF.where(col("drugIdCross").isNull && col("drugFromSourceId").isNotNull)
+
+    val mergedByChebiDF = nonResolvedByNameDF.join(
+      xrefsDF.select(col("drugFromSourceId"), col("drugIdCross").as("drugIdCrossChebi")),
+      Seq("drugFromSourceId"),
+      "left"
     )
 
-    val hcDF = getHighConfidenceData(dataEnrichedDF)
+    val resolvedByNameDF = drugNameDF
+      .where(col("drugIdCross").isNotNull || col("drugFromSourceId").isNull)
+      .select(col("*"), lit(null).as("drugIdCrossChebi"))
+
+    val fullDF = resolvedByNameDF.union(mergedByChebiDF)
+
+    val withDrugIdDF =
+      fullDF
+        .select(col("*"), coalesce(col("drugIdCross"), col("drugIdCrossChebi")).as("drugId"))
+        .drop("drugIdCrossChebi", "drugIdCross")
+
+    logger.debug("Get Target Lut")
+    val drugTargetLutDF = getDrugTargetLut(drugDF)
+
+    logger.debug("Get Data Enriched")
+//    val dataEnrichedDF =
+//      pgxDF
+//        .withColumnRenamed("drugId", "drugFromSourceId")
+//        .join(xrefsDF, Seq("drugFromSourceId"), "left")
+//        .join(drugTargetLutDF, Seq("drugId"), "left")
+//        .drop("drugTargetIds")
+//        .distinct()
 
     logger.debug("Writing Pharmacogenomics outputs")
     val dataframesToSave: IOResources = Map(
-      "pgx" -> IOResource(hcDF, context.configuration.pharmacogenomics.outputs)
+      "pgx" -> IOResource(pgxDF, context.configuration.pharmacogenomics.outputs)
     )
 
     IoHelpers.writeTo(dataframesToSave)
