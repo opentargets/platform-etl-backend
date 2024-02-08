@@ -5,11 +5,12 @@ import org.apache.spark.sql.functions._
 
 object DrugUtils {
 
-  /**
-   * Obtains a lookup table of drug id and CHEBI id
-   * @param drugsDF Data Frame containing drug information
-   * @return Lookup table with drug id and CHEBI id
-   */
+  /** Obtains a lookup table of drug id and CHEBI id
+    * @param drugsDF
+    *   Data Frame containing drug information
+    * @return
+    *   Lookup table with drug id and CHEBI id
+    */
   private def getDrugChebiIdLut(drugsDF: DataFrame): DataFrame =
     drugsDF
       .select(col("id"), explode(col("crossReferences")))
@@ -27,26 +28,21 @@ object DrugUtils {
     mapToDF.join(chebiLut, Seq("drugFromSourceId"), "left")
   }
 
-  /**
-   * Obtains a lookup table of drug name and ids and it takes only oen id when more
-   * than one is present for the same name. It also normalizes the names to lower case.
-   * @param drugsDF Data Frame containing drug information
-   * @return Lookup table with drug name and id columns
-   */
+  /** Obtains a lookup table of drug name and ids and it takes only oen id when more than one is
+    * present for the same name. It also normalizes the names to lower case.
+    * @param drugsDF
+    *   Data Frame containing drug information
+    * @return
+    *   Lookup table with drug name and id columns
+    */
   private def getDrugNameLut(drugsDF: DataFrame): DataFrame = {
     val namesLutDF = drugsDF
-      .select(
-        col("id"),
-        lower(col("name")).as("drugFromSource"))
+      .select(col("id"), lower(col("name")).as("drugFromSource"))
 
     namesLutDF
       .groupBy(col("drugFromSource"))
-      .agg(
-        collect_set(col("id")).as("ids"),
-        count("drugFromSource").as("count"))
-      .select(
-        col("drugFromSource"),
-        element_at(sort_array(col("ids"), false), 1).as("drugIdCross"))
+      .agg(collect_set(col("id")).as("ids"), count("drugFromSource").as("count"))
+      .select(col("drugFromSource"), element_at(sort_array(col("ids"), false), 1).as("drugIdCross"))
   }
 
   private def completeByDrugName(mapToDF: DataFrame, moleculeDF: DataFrame): DataFrame = {
