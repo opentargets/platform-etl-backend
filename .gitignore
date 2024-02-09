@@ -35,3 +35,5 @@ application.xml
 /.classpath
 /.project
 workflow/target
+/credentials/
+/.env
