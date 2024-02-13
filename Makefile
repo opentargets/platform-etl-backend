@@ -32,6 +32,13 @@ else
   RUN_CMD := java -jar ${PATH_LOCAL_WORKFLOW_JAR} workflow --config ${PATH_LOCAL_WORKFLOW_CONFIG} public
 endif
 
+# Set run command if step is specified.
+ifdef step
+  RUN_CMD := java -jar ${PATH_LOCAL_WORKFLOW_JAR} step --config ${PATH_LOCAL_WORKFLOW_CONFIG} ${step}
+endif
+
+
+
 .DEFAULT_GOAL := help
 
 # Targets
@@ -86,7 +93,7 @@ workflow_config: ## Initialise the workflow config
 	@bash ./configuration/templates/init_config.sh configuration/templates/${WORKFLOW_CONFIG_TEMPLATE} ${PATH_LOCAL_WORKFLOW_CONFIG}
 
 .PHONY: etl_run
-etl_run: workflow_config jar_to_gcs config_to_gcs build_workflow build ## Run the ETL on a GCP Dataproc cluster
+etl_run: workflow_config jar_to_gcs config_to_gcs build_workflow build ## Run the ETL on a GCP Dataproc cluster. Use 'ppp=true' to run ppp workflow, defaults to public workflow. If you want to run a single step use 'step=<step_name>'.
 	@echo "[ETL] Attempting to run ETL on GCP dataproc..."
 	@echo "[ETL] Using workflow jar: ${PATH_LOCAL_WORKFLOW_JAR}, config: ${PATH_LOCAL_WORKFLOW_CONFIG}"
 	${RUN_CMD}
