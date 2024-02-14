@@ -3,6 +3,7 @@ package io.opentargets.workflow.service
 import cats.data.Reader
 import com.google.cloud.dataproc.v1._
 import io.opentargets.workflow.model.ClusterSettings
+import scala.collection.JavaConverters.mapAsJavaMap
 
 /** Create a new 'cluster' to run Dataproc jobs.
   *
@@ -71,10 +72,17 @@ object DataprocCluster {
 
   private def getClusterName: ClusterR[String] = Reader(sc => sc.name)
 
+  private def getClusterLabels: ClusterR[Map[String, String]] = Reader(sc => sc.labels)
+
   private def createManagedCluster: ClusterR[ManagedCluster] = for {
     name <- getClusterName
+    labels <- getClusterLabels
     conf <- createClusterConfig
-  } yield ManagedCluster.newBuilder.setClusterName(name).setConfig(conf).build
+  } yield ManagedCluster.newBuilder
+    .setClusterName(name)
+    .setConfig(conf)
+    .putAllLabels(mapAsJavaMap(labels))
+    .build
 
   /*
   Obtain the cluster by calling `createWorkflowTemplacePlacement.run(conf)` where

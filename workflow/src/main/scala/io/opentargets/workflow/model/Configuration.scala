@@ -38,7 +38,8 @@ case class ClusterSettings(name: String,
                            bootDiskSize: Int,
                            diskType: String,
                            machineType: String,
-                           workerCount: Int
+                           workerCount: Int,
+                           labels: Map[String, String]
 )
 
 /** @param arg
