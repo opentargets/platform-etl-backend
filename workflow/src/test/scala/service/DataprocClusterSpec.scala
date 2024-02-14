@@ -9,14 +9,16 @@ import org.scalatest.matchers.should.Matchers
 
 class DataprocClusterSpec extends AsyncFreeSpec with Matchers with AsyncIOSpec with AppendedClues {
   "An cluster should" - {
-    val clusterSettings = ClusterSettings("cluster",
-                                          "europe-west-1",
-                                          "2.0-debian10",
-                                          2000,
-                                          "pd-ssd",
-                                          "n1-highmem-64",
-                                          4
-    )
+    val clusterSettings =
+      ClusterSettings("cluster",
+                      "europe-west-1",
+                      "2.0-debian10",
+                      2000,
+                      "pd-ssd",
+                      "n1-highmem-64",
+                      4,
+                      Map("team" -> "opentargets", "subteam" -> "backend", "tool" -> "etl")
+      )
     "have 4 worker nodes" in {
       // given
       // when
