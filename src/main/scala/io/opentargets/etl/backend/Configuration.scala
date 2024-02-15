@@ -163,15 +163,6 @@ object Configuration extends LazyLogging {
       outputs: InteractionsOutput
   )
 
-  case class ExpressionInputs(target: IOResourceConfig, baseline: IOResourceConfig)
-
-  case class ExpressionOutputs(baseline: IOResourceConfig)
-
-  case class BaselineExpressionSection(printMetrics: Boolean,
-                                       inputs: ExpressionInputs,
-                                       outputs: ExpressionOutputs
-  )
-
   case class ExpressionSection(
       rna: IOResourceConfig,
       binned: IOResourceConfig,
@@ -424,7 +415,6 @@ object Configuration extends LazyLogging {
       target: Target,
       targetValidation: TargetValidation,
       expression: ExpressionSection,
-      baselineExpression: BaselineExpressionSection,
       openfda: OpenfdaSection,
       ebisearch: EBISearchSection,
       otarproject: OtarProjectSection,
