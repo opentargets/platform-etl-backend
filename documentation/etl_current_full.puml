@@ -13,24 +13,15 @@ artifact associations <<dependencies>>
 artifact associationOTF <<dependencies>>
 artifact disease <<noDependency>>
 artifact drug <<dependencies>>
-artifact ebisearch <<dependencies>>
 artifact evidence <<dependencies>>
 artifact expression <<noDependency>>
-artifact fda <<dependencies>>
-artifact baselineExpression <<dependencies>>
 artifact go <<noDependency>>
-artifact epmc <<dependencies>>
-artifact literature <<dependencies>>
 artifact interactions <<dependencies>>
 artifact knownDrugs <<dependencies>>
-artifact otar <<dependencies>>
 artifact reactome <<noDependency>>
 artifact search <<dependencies>>
 artifact target <<dependencies>>
-artifact targetEngine <<dependencies>>
 artifact targetValidation <<dependencies>>
-artifact pharmacogenomics <<noDependency>>
-
 
 'inputs
 ' association
@@ -50,20 +41,11 @@ interface chemblMechanism <<input>>
 interface chemblTarget <<input>>
 interface chemblWarning <<input>>
 interface drugbankToChembl <<input>>
-' ebisearch
+
 ' evidences
 interface rawEvidences <<input>>
 ' expression
 interface expressionData <<input>>
-' fda
-interface fdaData <<input>>
-interface blacklistedEvents <<input>>
-interface meddraPreferredTerms <<input>>
-interface meddraLowLevelTerms <<input>>
-
-
-' baselineExpression
-interface baselineExpressionData <<input>>
 ' interactions
 interface ensproteins <<input>>
 interface rnaCentral <<input>>
@@ -71,13 +53,7 @@ interface humanMapping <<input>>
 interface intact <<input>>
 interface strings <<input>>
 ' known drugs
-' targetEngine
-interface hpaData <<input>>
-interface uniprotSlterms <<input>>
-interface mousePhenoScores <<input>>
-' otar
-interface otarMeta <<input>>
-interface otarProjectToEfo <<input>>
+
 ' reactome
 interface pathways <<input>>
 interface relations <<input>>
@@ -103,18 +79,10 @@ interface tractability <<input>>
 interface uniprot <<input>>
 interface reactomePathways <<input>>
 
-' pharmacogenomics
-interface pharmacogenomicsData <<input>>
-
 'safety
 interface safetyToxicity <<input>>
 interface safetyAdverseEvent <<input>>
 interface safetySafetyRisk <<input>>
-
-'literature
-interface PmidPmcidDoiInput <<input>>
-interface fullTextInput <<input>>
-interface abstractsInput <<input>>
 
 'outputs
   ' associations
@@ -127,18 +95,6 @@ interface associationByOverallIndirect <<output>>
   ' aotf
 interface AotfClickhouseOutput <<output>>
 interface AotfElasticsearchOutput <<output>>
-  ' epmc
-interface epmcOutput <<output>>
-interface epmcCooccurrences <<output>>
-  ' literature
-interface cooccurrencesOutput <<output>>
-interface matchesOutput <<output>>
-interface literatureIndexOutput <<output>>
-interface literatureSentencesOutput <<output>>
-interface failedCooccurrencesOutput <<output>>
-interface failedMatchesOutput <<output>>
-interface W2VModelOutput <<output>>
-interface trainingSetOutput <<output>>
   ' disease
 interface diseaseOutput <<output>>
 interface diseaseHpoOutput <<output>>
@@ -153,8 +109,6 @@ interface WarningsOutput <<output>>
 interface evidenceOutput <<output>>
   ' expression
 interface expressionOutput <<output>>
-  ' baselineExpression
-interface validBaselineExpressionOutput <<output>>
   ' interactions
 interface interactionsOutput <<output>>
 interface interactionsEvidenceOutput <<output>>
@@ -173,10 +127,9 @@ interface searchDiseaseOutput <<output>>
 interface searchDrugOutput <<output>>
 
   ' targetValidation
-interface mousePhenotypes <<input>>
-interface mousePhenotypesOutput <<output>>
-  ' pharmacogenomics
-interface pharmacogenomicsOutput <<output>>
+ interface mousePhenotypes <<input>>
+ interface mousePhenotypesOutput <<output>>
+
 
 
 ' relations
@@ -212,27 +165,6 @@ disease --> diseaseOutput
 disease --> diseaseHpoOutput
 disease --> diseaseToPhenotypeOutput
 
-  ' epmc
-cooccurrencesOutput --> epmc
-epmc --> epmcCooccurrences
-epmc --> epmcOutput
-
-  ' literature
-targetOutput --> literature
-diseaseOutput --> literature
-moleculeOutput --> literature
-PmidPmcidDoiInput --> literature
-fullTextInput --> literature
-abstractsInput --> literature
-literature --> cooccurrencesOutput
-literature --> matchesOutput
-literature --> literatureIndexOutput
-literature --> literatureSentencesOutput
-literature --> failedMatchesOutput
-literature --> failedCooccurrencesOutput
-literature --> W2VModelOutput
-literature --> trainingSetOutput
-
   ' drug
 targetOutput --> drug
 diseaseOutput --> drug
@@ -248,42 +180,15 @@ drug -->  mechanismOfActionOutput
 drug --> IndicationOutput
 drug --> WarningsOutput
 
-  ' ebisearch
-evidenceOutput --> ebisearch
-diseaseOutput --> ebisearch
-targetOutput --> ebisearch
-associationByOverallDirect --> ebisearch
-ebisearch --> ebisearchAssociationsOutput
-ebisearch --> ebisearchEvidenceOutput
-
   ' evidences
 targetOutput --> evidence
 diseaseOutput --> evidence
 rawEvidences --> evidence
-epmcOutput --> evidence
 evidence --> evidenceOutput
 
   ' expression
 expressionData --> expression
 expression --> expressionOutput
-
-  ' fda
-moleculeOutput --> fda
-fdaData --> fda
-blacklistedEvents --> fda
-meddraPreferredTerms --> fda
-meddraLowLevelTerms --> fda
-fda --> fdaUnfiltered
-fda --> fdaResults
-fda --> fdaTargetsUnfiltered
-fda --> fdaTargetsResults
-fda --> fdaSampling
-fda --> fdaSamplingTargets
-
-  ' baselineExpression
-baselineExpressionData --> baselineExpression
-targetOutput --> baselineExpression
-baselineExpression --> validBaselineExpressionOutput
 
   ' interactions
 targetOutput --> interactions
@@ -303,12 +208,6 @@ targetOutput --> knownDrugs
 moleculeOutput --> knownDrugs
 mechanismOfActionOutput --> knownDrugs
 knownDrugs --> knownDrugsOutput
-
-  ' otar
-diseaseOutput --> otar
-otarMeta --> otar
-otarProjectToEfo --> otar
-otar --> otarOutput
 
   ' reactome
 pathways --> reactome
@@ -356,17 +255,5 @@ tep --> target
 targetEssentiality --> target
 tractability --> target
 uniprot --> target
-' targetEngine
-targetOutput --> targetEngine
-moleculeOutput --> targetEngine
-mechanismOfActionOutput --> targetEngine
-mousePhenotypesOutput --> targetEngine
-hpaData --> targetEngine
-uniprotSlterms --> targetEngine
-mousePhenoScores --> targetEngine
-targetEngine --> targetEngineOutput
-' pharmacogenomics
-pharmacogenomicsData --> pharmacogenomics
-pharmacogenomics --> pharmacogenomicsOutput
 
 @enduml
