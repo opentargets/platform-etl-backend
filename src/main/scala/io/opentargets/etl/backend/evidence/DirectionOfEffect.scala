@@ -20,14 +20,14 @@ object DirectionOfEffect {
 
   private val betaValidation = when(
     col("beta").isNotNull && col("OddsRatio").isNull,
-    when(col("beta") > 0.0D, lit("risk"))
-      .when(col("beta") < 0.0D, lit("protect"))
+    when(col("beta") > 0.0d, lit("risk"))
+      .when(col("beta") < 0.0d, lit("protect"))
       .otherwise(lit(null))
   )
     .when(
       col("beta").isNull && col("OddsRatio").isNotNull,
-      when(col("OddsRatio") > 1.0D, lit("risk"))
-        .when(col("OddsRatio") < 1.0D, lit("protect"))
+      when(col("OddsRatio") > 1.0d, lit("risk"))
+        .when(col("OddsRatio") < 1.0d, lit("protect"))
         .otherwise(lit(null))
     )
     .when(
