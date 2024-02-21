@@ -20,6 +20,19 @@ Either Java 8 or 11 can be used to build and run the project, but if you intend 
 _Dataproc_ you must use Java 8. To avoid this problem altogether, do not use native Java methods unless strictly
 necessary.
 
+### Run the ETL with the Makefile automation
+
+#### Step 1. Configuration
+
+Configure the run using the [profile](profiles/config.default).
+You should only need to modify the Ensembl, Chembl and data versions.
+Other profiles can be created and used by running `make set_profile profile=<profile_suffix>` where <profile_suffix> 
+would be "dev" if the profile file was called "config.dev".
+
+#### Step 2. Run
+Run `make etl_run` to set the configs, build the jars, copy them to GCS and run the workflow jar.
+For PPP releases, simply run `make etl_run ppp=true`
+
 ### Configuration
 
 There is a directory called `configuration` which versions all the release configuration files. To repeat a release use
