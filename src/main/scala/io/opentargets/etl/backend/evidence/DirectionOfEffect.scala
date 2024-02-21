@@ -20,14 +20,14 @@ object DirectionOfEffect {
 
   private val betaValidation = when(
     col("beta").isNotNull && col("OddsRatio").isNull,
-    when(col("beta") > 0, lit("risk"))
-      .when(col("beta") < 0, lit("protect"))
+    when(col("beta") > 0d, lit("risk"))
+      .when(col("beta") < 0d, lit("protect"))
       .otherwise(lit(null))
   )
     .when(
       col("beta").isNull && col("OddsRatio").isNotNull,
-      when(col("OddsRatio") > 1, lit("risk"))
-        .when(col("OddsRatio") < 1, lit("protect"))
+      when(col("OddsRatio") > 1d, lit("risk"))
+        .when(col("OddsRatio") < 1d, lit("protect"))
         .otherwise(lit(null))
     )
     .when(
@@ -146,11 +146,11 @@ object DirectionOfEffect {
     val joinedDF = evidencesDoEDF
       .withColumn(
         "beta",
-        col("beta").cast("float")
+        col("beta").cast("double")
       ) // ot genetics & gene burden
       .withColumn(
         "oddsRatio",
-        col("oddsRatio").cast("float")
+        col("oddsRatio").cast("double")
       ) // ot genetics & gene burden
       .withColumn(
         "clinicalSignificances_concat",
