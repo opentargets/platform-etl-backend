@@ -20,6 +20,9 @@ object Pharmacogenomics extends LazyLogging {
       col("linkedTargets.rows").alias("drugTargetIds")
     )
 
+  private def flagIsDirectTarget(variantTarget: Column, drugTargets: Column): Column =
+    when(array_contains(drugTargets, variantTarget), true).otherwise(false)
+
   def apply()(implicit context: ETLSessionContext): IOResources = {
     implicit val ss: SparkSession = context.sparkSession
 
@@ -46,6 +49,10 @@ object Pharmacogenomics extends LazyLogging {
     val dataEnrichedDF =
       mappedDF
         .join(drugTargetLutDF, Seq("drugId"), "left")
+        .withColumn(
+          "isDirectTarget",
+          flagIsDirectTarget(col("targetFromSourceId"), col("drugTargetIds"))
+        )
         .drop("drugTargetIds")
         .distinct()
 
