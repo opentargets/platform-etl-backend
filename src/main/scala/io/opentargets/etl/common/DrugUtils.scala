@@ -25,7 +25,6 @@ object DrugUtils {
   private def completeByChebi(mapToDF: DataFrame, chebiLutDF: DataFrame): DataFrame =
     mapToDF.join(chebiLutDF, Seq("drugFromSourceId"), "left")
 
-
   /** Obtains a lookup table of drug name and ids and it takes only oen id when more than one is
     * present for the same name. It also normalizes the names to lower case.
     * @param drugsDF
@@ -33,13 +32,14 @@ object DrugUtils {
     * @return
     *   Lookup table with drug name and id columns
     */
-  private def getDrugNameLut(drugsDF: DataFrame): DataFrame = {
+  private def getDrugNameLut(drugsDF: DataFrame): DataFrame =
     drugsDF
       .select(col("id"), lower(col("name")).as("drugFromSource"))
       .groupBy(col("drugFromSource"))
       .agg(collect_set(col("id")).as("ids"))
-      .select(col("drugFromSource"), element_at(sort_array(col("ids"), asc = false), 1).as("drugIdCross"))
-  }
+      .select(col("drugFromSource"),
+              element_at(sort_array(col("ids"), asc = false), 1).as("drugIdCross")
+      )
 
   private def completeByDrugName(mapToDF: DataFrame, moleculeDF: DataFrame): DataFrame = {
 
