@@ -74,7 +74,7 @@ object DrugUtils {
       .where(col("drugIdCross").isNotNull || col("drugFromSourceId").isNull)
       .select(col("*"), lit(null).as("drugIdCrossChebi"))
 
-    val fullDF = resolvedByNameDF.union(mergedByChebiDF)
+    val fullDF = resolvedByNameDF.unionByName(mergedByChebiDF, allowMissingColumns = true)
 
     fullDF
       .select(col("*"), coalesce(col("drugIdCross"), col("drugIdCrossChebi")).as("drugId"))
