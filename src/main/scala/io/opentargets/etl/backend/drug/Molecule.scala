@@ -92,7 +92,7 @@ object Molecule extends LazyLogging {
       )
       .drop("mol_synonyms", "synonym_type")
       .join(probes, col("id") === col("chemicalProbeDrugId"), "left_outer")
-      .join(drugbank, Seq("id"), "full_outer")
+      .join(drugbank, Seq("id"), "left_outer")
 
     columnsOfInterest
   }
