@@ -419,6 +419,7 @@ object Configuration extends LazyLogging {
       reactome: ReactomeSection,
       associations: AssociationsSection,
       evidences: EvidencesSection,
+      facetSearch: FacetSearchSection,
       drug: DrugSection,
       disease: DiseaseSection,
       interactions: InteractionsSection,
