@@ -36,10 +36,12 @@ object FacetSearch extends LazyLogging {
 
   def computeFacetsTarget(inputs: IOResources)(implicit ss: SparkSession): DataFrame = {
     val targetsDF = inputs("targets").data
+    targetsDF
   }
 
   def computeFacetsDisease(inputs: IOResources)(implicit ss: SparkSession): DataFrame = {
     val diseaseDF = inputs("diseases").data
+    diseaseDF
   }
   def writeOutput(facetSearchTarget: DataFrame, facetSearchDisease: DataFrame)(implicit
       context: ETLSessionContext
