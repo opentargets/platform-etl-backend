@@ -2,10 +2,18 @@ package io.opentargets.etl.backend.facetSearch
 
 import com.typesafe.scalalogging.LazyLogging
 import io.opentargets.etl.backend.ETLSessionContext
+import io.opentargets.etl.backend.facetSearch.TargetFacets._
 import io.opentargets.etl.backend.spark.IOResource
 import io.opentargets.etl.backend.spark.IoHelpers.{IOResources, readFrom, writeTo}
 import org.apache.spark.sql.functions.col
 import org.apache.spark.sql.{DataFrame, SparkSession}
+
+case class Facets(
+    label: String,
+    category: String,
+    entityIds: Seq[Option[String]],
+    datasourceId: Option[String]
+)
 
 object FacetSearch extends LazyLogging {
 
@@ -34,13 +42,16 @@ object FacetSearch extends LazyLogging {
 
   }
 
-  def computeFacetsTarget(inputs: IOResources)(implicit ss: SparkSession): DataFrame = {
-    val targetsDF = inputs("targets").data
-    targetsDF
+  private def computeFacetsTarget(inputs: IOResources)(implicit ss: SparkSession): DataFrame = {
+    val targetsDF =
+      inputs("targets").data.limit(10) // TODO: remove limit
+    // compute the tractability facets
+    val tractabilityDF = computeTractabilityFacets(targetsDF)
+    tractabilityDF.toDF()
   }
 
-  def computeFacetsDisease(inputs: IOResources)(implicit ss: SparkSession): DataFrame = {
-    val diseaseDF = inputs("diseases").data
+  private def computeFacetsDisease(inputs: IOResources)(implicit ss: SparkSession): DataFrame = {
+    val diseaseDF = inputs("diseases").data.limit(10) // TODO: remove limit
     diseaseDF
   }
   def writeOutput(facetSearchTarget: DataFrame, facetSearchDisease: DataFrame)(implicit

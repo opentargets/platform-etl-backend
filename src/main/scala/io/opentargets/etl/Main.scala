@@ -99,7 +99,7 @@ object ETL extends LazyLogging {
       "pharmacogenomics" -> ctx.configuration.pharmacogenomics.outputs.path,
       "reactome" -> ctx.configuration.reactome.output.path,
       "expression" -> ctx.configuration.expression.output.path,
-      "facetsearch" -> ctx.configuration.facetSearch.outputs.targets.path,
+      "facetSearch" -> ctx.configuration.facetSearch.outputs.targets.path,
       "go" -> ctx.configuration.geneOntology.output.path,
       "target" -> ctx.configuration.target.outputs.target.path,
       "interaction" -> ctx.configuration.interactions.outputs.interactions.path,
