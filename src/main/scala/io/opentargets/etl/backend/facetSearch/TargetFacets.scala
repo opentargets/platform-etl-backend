@@ -5,7 +5,19 @@ import com.typesafe.scalalogging.LazyLogging
 import org.apache.spark.sql.functions.{array, col, collect_set, lit, map_values, typedLit, when}
 import org.apache.spark.sql.{Column, DataFrame, Dataset, SparkSession}
 
+/** Object TargetFacets is used to compute various facets of targets.
+  */
 object TargetFacets extends LazyLogging {
+
+  /** Compute tractability facets for the given targets DataFrame.
+    *
+    * @param targetsDF
+    *   DataFrame of targets.
+    * @param sparkSession
+    *   Implicit SparkSession.
+    * @return
+    *   Dataset of Facets.
+    */
   def computeTractabilityFacets(
       targetsDF: DataFrame
   )(implicit sparkSession: SparkSession): Dataset[Facets] = {
@@ -41,6 +53,15 @@ object TargetFacets extends LazyLogging {
     tractabilityFacets
   }
 
+  /** Compute target id facets for the given targets DataFrame.
+    *
+    * @param targetsDF
+    *   DataFrame of targets.
+    * @param sparkSession
+    *   Implicit SparkSession.
+    * @return
+    *   Dataset of Facets.
+    */
   def computeTargetIdFacets(targetsDF: DataFrame)(implicit
       sparkSession: SparkSession
   ): Dataset[Facets] = {
@@ -48,6 +69,15 @@ object TargetFacets extends LazyLogging {
     computeSimpleFacet(targetsDF, "id", "Target ID", "id")
   }
 
+  /** Compute approved symbol facets for the given targets DataFrame.
+    *
+    * @param targetsDF
+    *   DataFrame of targets.
+    * @param sparkSession
+    *   Implicit SparkSession.
+    * @return
+    *   Dataset of Facets.
+    */
   def computeApprovedSymbolFacets(targetsDF: DataFrame)(implicit
       sparkSession: SparkSession
   ): Dataset[Facets] = {
@@ -55,6 +85,15 @@ object TargetFacets extends LazyLogging {
     computeSimpleFacet(targetsDF, "approvedSymbol", "Approved Symbol", "id")
   }
 
+  /** Compute approved name facets for the given targets DataFrame.
+    *
+    * @param targetsDF
+    *   DataFrame of targets.
+    * @param sparkSession
+    *   Implicit SparkSession.
+    * @return
+    *   Dataset of Facets.
+    */
   def computeApprovedNameFacets(targetsDF: DataFrame)(implicit
       sparkSession: SparkSession
   ): Dataset[Facets] = {
@@ -62,6 +101,21 @@ object TargetFacets extends LazyLogging {
     computeSimpleFacet(targetsDF, "approvedName", "Approved Name", "id")
   }
 
+  /** Compute simple facet dataset for the given DataFrame, setting the datasourceId to null.
+    *
+    * @param dataframe
+    *   DataFrame to compute facets from.
+    * @param labelField
+    *   Field to use as label.
+    * @param categoryField
+    *   Value to use as category.
+    * @param entityIdField
+    *   Field to use as entity id.
+    * @param sparkSession
+    *   Implicit SparkSession.
+    * @return
+    *   Dataset of Facets.
+    */
   private def computeSimpleFacet(dataframe: DataFrame,
                                  labelField: String,
                                  categoryField: String,
