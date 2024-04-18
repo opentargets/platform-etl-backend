@@ -10,6 +10,9 @@ case class SubcellularLocationWithId(ensemblGeneId: String,
                                      subcellularLocations: Array[LocationAndSource]
 )
 
+case class TargetClass(id: Long, label: String, level: String)
+case class TargetClassWithId(ensemblGeneId: String, targetClass: Array[TargetClass])
+
 /** Object TargetFacets is used to compute various facets of targets.
   */
 object TargetFacets extends LazyLogging {
@@ -127,6 +130,26 @@ object TargetFacets extends LazyLogging {
       .agg(collect_set("ensemblGeneId").as("entityIds"))
       .as[Facets]
     subcellularLocationsFacets
+  }
+
+  def computeTargetClassFacets(targetsDF: DataFrame)(implicit
+      sparkSession: SparkSession
+  ): Dataset[Facets] = {
+    import sparkSession.implicits._
+    logger.info("Computing target class facets")
+    val targetClassWithId: Dataset[TargetClassWithId] =
+      targetsDF
+        .select(col("id").as("ensemblGeneId"), col("targetClass"))
+        .where(col("targetClass").isNotNull)
+        .as[TargetClassWithId]
+    val targetClassFacets: Dataset[Facets] = targetClassWithId
+      .flatMap(row => row.targetClass.map(t => (row.ensemblGeneId, t.label, "ChEMBL Target Class")))
+      .toDF("ensemblGeneId", "label", "category")
+      .groupBy("label", "category")
+      .agg(collect_set("ensemblGeneId").as("entityIds"))
+      .withColumn("datasourceId", lit(null).cast("string"))
+      .as[Facets]
+    targetClassFacets
   }
 
   /** Compute simple facet dataset for the given DataFrame, setting the datasourceId to null.
