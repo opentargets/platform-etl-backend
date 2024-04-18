@@ -2,7 +2,7 @@ package io.opentargets.etl.backend.facetSearch
 
 import io.opentargets.etl.backend.target.TractabilityWithId
 import com.typesafe.scalalogging.LazyLogging
-import org.apache.spark.sql.functions.{col, collect_set, lit, map_values, typedLit, when}
+import org.apache.spark.sql.functions.{array, col, collect_set, lit, map_values, typedLit, when}
 import org.apache.spark.sql.{Column, DataFrame, Dataset, SparkSession}
 
 object TargetFacets extends LazyLogging {
@@ -24,7 +24,7 @@ object TargetFacets extends LazyLogging {
         .select(col("id").as("ensemblGeneId"), col("tractability"))
         .where(col("tractability").isNotNull)
         .as[TractabilityWithId]
-    val tractabilityFacets = tractabilityWithId
+    val tractabilityFacets: Dataset[Facets] = tractabilityWithId
       .flatMap(row => row.tractability.map(t => (row.ensemblGeneId, t.modality, t.id, t.value)))
       .toDF("ensemblGeneId", "category", "label", "value")
       .where(col("value") === true)
@@ -39,5 +39,16 @@ object TargetFacets extends LazyLogging {
       .withColumn("datasourceId", lit(null).cast("string"))
       .as[Facets]
     tractabilityFacets
+  }
+
+  def computeTargetIdFacets(
+      targetsDF: DataFrame
+  )(implicit sparkSession: SparkSession): Dataset[Facets] = {
+    import sparkSession.implicits._
+    logger.info("Computing target id facets")
+    val targetIdFacets: Dataset[Facets] = targetsDF
+      .select(col("id").as("label"), lit("Target ID").as("category"), array(col("id")).as("entityIds"), col("id").as("datasourceId"))
+      .as[Facets]
+    targetIdFacets
   }
 }
