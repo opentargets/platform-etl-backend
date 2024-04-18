@@ -76,6 +76,7 @@ object FacetSearch extends LazyLogging {
       computeApprovedNameFacets(targetsDF),
       computeSubcellularLocationsFacets(targetsDF),
       computeTargetClassFacets(targetsDF),
+      computePathwaysFacets(targetsDF),
       computeTractabilityFacets(targetsDF)
     )
     val targetFacetsDF = targetFacetsDatasets.reduce(_ unionByName _).toDF()
