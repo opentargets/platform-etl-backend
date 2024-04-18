@@ -1,6 +1,6 @@
 package io.opentargets.etl.backend.facetSearch
 
-import io.opentargets.etl.backend.target.TractabilityWithId
+import io.opentargets.etl.backend.target.{TractabilityWithId, Reactomes}
 import io.opentargets.etl.backend.spark.Helpers.LocationAndSource
 import com.typesafe.scalalogging.LazyLogging
 import org.apache.spark.sql.functions.{array, col, collect_set, lit, map_values, typedLit, when}
@@ -150,6 +150,25 @@ object TargetFacets extends LazyLogging {
       .withColumn("datasourceId", lit(null).cast("string"))
       .as[Facets]
     targetClassFacets
+  }
+
+  def computePathwaysFacets(targetsDF: DataFrame)(implicit
+      sparkSession: SparkSession
+  ): Dataset[Facets] = {
+    import sparkSession.implicits._
+    logger.info("Computing pathway facets")
+    val pathwaysWithId: Dataset[Reactomes] =
+      targetsDF
+        .select(col("id"), col("pathways"))
+        .where(col("pathways").isNotNull)
+        .as[Reactomes]
+    val pathwaysFacets: Dataset[Facets] = pathwaysWithId
+      .flatMap(row => row.pathways.map(p => (row.id, p.pathway, "Reactome", p.pathwayId)))
+      .toDF("ensemblGeneId", "label", "category", "datasourceId")
+      .groupBy("label", "category", "datasourceId")
+      .agg(collect_set("ensemblGeneId").as("entityIds"))
+      .as[Facets]
+    pathwaysFacets
   }
 
   /** Compute simple facet dataset for the given DataFrame, setting the datasourceId to null.
