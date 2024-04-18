@@ -1,10 +1,10 @@
 package io.opentargets.etl.backend.facetSearch
 
-import io.opentargets.etl.backend.target.{TractabilityWithId, Reactomes}
+import io.opentargets.etl.backend.target.{Reactomes, TractabilityWithId}
 import io.opentargets.etl.backend.spark.Helpers.LocationAndSource
 import com.typesafe.scalalogging.LazyLogging
 import org.apache.spark.sql.functions.{array, col, collect_set, lit, map_values, typedLit, when}
-import org.apache.spark.sql.{Column, DataFrame, Dataset, SparkSession}
+import org.apache.spark.sql.{Column, DataFrame, Dataset, Encoder, SparkSession}
 
 case class SubcellularLocationWithId(ensemblGeneId: String,
                                      subcellularLocations: Array[LocationAndSource]
@@ -40,10 +40,7 @@ object TargetFacets extends LazyLogging {
       )
     )
     val tractabilityWithId: Dataset[TractabilityWithId] =
-      targetsDF
-        .select(col("id").as("ensemblGeneId"), col("tractability"))
-        .where(col("tractability").isNotNull)
-        .as[TractabilityWithId]
+      getRelevantDataset[TractabilityWithId](targetsDF, "id", "ensemblGeneId", "tractability")
     val tractabilityFacets: Dataset[Facets] = tractabilityWithId
       .flatMap(row => row.tractability.map(t => (row.ensemblGeneId, t.modality, t.id, t.value)))
       .toDF("ensemblGeneId", "category", "label", "value")
@@ -115,10 +112,11 @@ object TargetFacets extends LazyLogging {
     import sparkSession.implicits._
     logger.info("Computing subcellular locations facets")
     val subcellularLocationWithId: Dataset[SubcellularLocationWithId] =
-      targetsDF
-        .select(col("id").as("ensemblGeneId"), col("subcellularLocations"))
-        .where(col("subcellularLocations").isNotNull)
-        .as[SubcellularLocationWithId]
+      getRelevantDataset[SubcellularLocationWithId](targetsDF,
+                                                    "id",
+                                                    "ensemblGeneId",
+                                                    "subcellularLocations"
+      )
     val subcellularLocationsFacets: Dataset[Facets] = subcellularLocationWithId
       .flatMap(row =>
         row.subcellularLocations.map(s =>
@@ -138,10 +136,7 @@ object TargetFacets extends LazyLogging {
     import sparkSession.implicits._
     logger.info("Computing target class facets")
     val targetClassWithId: Dataset[TargetClassWithId] =
-      targetsDF
-        .select(col("id").as("ensemblGeneId"), col("targetClass"))
-        .where(col("targetClass").isNotNull)
-        .as[TargetClassWithId]
+      getRelevantDataset[TargetClassWithId](targetsDF, "id", "ensemblGeneId", "targetClass")
     val targetClassFacets: Dataset[Facets] = targetClassWithId
       .flatMap(row => row.targetClass.map(t => (row.ensemblGeneId, t.label, "ChEMBL Target Class")))
       .toDF("ensemblGeneId", "label", "category")
@@ -158,10 +153,7 @@ object TargetFacets extends LazyLogging {
     import sparkSession.implicits._
     logger.info("Computing pathway facets")
     val pathwaysWithId: Dataset[Reactomes] =
-      targetsDF
-        .select(col("id"), col("pathways"))
-        .where(col("pathways").isNotNull)
-        .as[Reactomes]
+      getRelevantDataset[Reactomes](targetsDF, "id", "id", "pathways")
     val pathwaysFacets: Dataset[Facets] = pathwaysWithId
       .flatMap(row => row.pathways.map(p => (row.id, p.pathway, "Reactome", p.pathwayId)))
       .toDF("ensemblGeneId", "label", "category", "datasourceId")
@@ -170,6 +162,16 @@ object TargetFacets extends LazyLogging {
       .as[Facets]
     pathwaysFacets
   }
+
+  private def getRelevantDataset[T](dataframe: DataFrame,
+                                    idField: String,
+                                    idAlias: String,
+                                    facetField: String
+  )(implicit encoder: Encoder[T]): Dataset[T] =
+    dataframe
+      .select(col(idField).as(idAlias), col(facetField))
+      .where(col(facetField).isNotNull)
+      .as[T]
 
   /** Compute simple facet dataset for the given DataFrame, setting the datasourceId to null.
     *
