@@ -41,14 +41,45 @@ object TargetFacets extends LazyLogging {
     tractabilityFacets
   }
 
-  def computeTargetIdFacets(
-      targetsDF: DataFrame
+  def computeTargetIdFacets(targetsDF: DataFrame)(implicit
+      sparkSession: SparkSession
+  ): Dataset[Facets] = {
+    logger.info("Computing target id facets")
+    computeSimpleFacet(targetsDF, "id", "Target ID", "id")
+  }
+
+  def computeApprovedSymbolFacets(targetsDF: DataFrame)(implicit
+      sparkSession: SparkSession
+  ): Dataset[Facets] = {
+    logger.info("Computing approved symbol facets")
+    computeSimpleFacet(targetsDF, "approvedSymbol", "Approved Symbol", "id")
+  }
+
+  def computeApprovedNameFacets(targetsDF: DataFrame)(implicit
+      sparkSession: SparkSession
+  ): Dataset[Facets] = {
+    logger.info("Computing approved name facets")
+    computeSimpleFacet(targetsDF, "approvedName", "Approved Name", "id")
+  }
+
+  private def computeSimpleFacet(dataframe: DataFrame,
+                                 labelField: String,
+                                 categoryField: String,
+                                 entityIdField: String
   )(implicit sparkSession: SparkSession): Dataset[Facets] = {
     import sparkSession.implicits._
-    logger.info("Computing target id facets")
-    val targetIdFacets: Dataset[Facets] = targetsDF
-      .select(col("id").as("label"), lit("Target ID").as("category"), array(col("id")).as("entityIds"), col("id").as("datasourceId"))
+
+    val facets: Dataset[Facets] = dataframe
+      .select(
+        col(labelField).as("label"),
+        lit(categoryField).as("category"),
+        col(entityIdField).as("id")
+      )
+      .groupBy("label", "category")
+      .agg(collect_set("id").as("entityIds"))
+      .withColumn("datasourceId", lit(null).cast("string"))
       .as[Facets]
-    targetIdFacets
+    facets
   }
+
 }
