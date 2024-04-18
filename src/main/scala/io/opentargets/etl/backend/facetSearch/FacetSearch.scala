@@ -35,9 +35,11 @@ object FacetSearch extends LazyLogging {
 
   private def computeFacetsTarget(inputs: IOResources)(implicit ss: SparkSession): DataFrame = {
     val targetsDF = inputs("targets").data
-    val targetIdFacets = computeTargetIdFacets(targetsDF)
-    val tractabilityFacets = computeTractabilityFacets(targetsDF)
-    val targetFacetsDatasets = Seq(targetIdFacets, tractabilityFacets)
+    val targetFacetsDatasets = Seq(computeTargetIdFacets(targetsDF),
+                                   computeApprovedSymbolFacets(targetsDF),
+                                   computeApprovedNameFacets(targetsDF),
+                                   computeTractabilityFacets(targetsDF)
+    )
     val targetFacetsDF = targetFacetsDatasets.reduce(_ union _).toDF()
     targetFacetsDF
   }
