@@ -76,14 +76,14 @@ object FacetSearch extends LazyLogging {
     val targetsDF = inputs("targets").data
     val goDF = inputs("go").data
     val targetFacetsDatasets = Seq(
-      computeTargetIdFacets(targetsDF)
-//      computeApprovedSymbolFacets(targetsDF),
-//      computeApprovedNameFacets(targetsDF),
-//      computeGOFacets(targetsDF, goDF),
-//      computeSubcellularLocationsFacets(targetsDF),
-//      computeTargetClassFacets(targetsDF),
-//      computePathwaysFacets(targetsDF),
-//      computeTractabilityFacets(targetsDF)
+      computeTargetIdFacets(targetsDF),
+      computeApprovedSymbolFacets(targetsDF),
+      computeApprovedNameFacets(targetsDF),
+      computeGOFacets(targetsDF, goDF),
+      computeSubcellularLocationsFacets(targetsDF),
+      computeTargetClassFacets(targetsDF),
+      computePathwaysFacets(targetsDF),
+      computeTractabilityFacets(targetsDF)
     )
     val targetFacetsDF = targetFacetsDatasets.reduce(_ unionByName _).toDF()
     targetFacetsDF
