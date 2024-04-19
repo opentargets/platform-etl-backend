@@ -1,14 +1,14 @@
-package io.opentargets.etl.backend.epmc
+package io.opentargets.etl.backend.literature
 
 import com.typesafe.scalalogging.LazyLogging
 import io.opentargets.etl.backend.ETLSessionContext
+import org.apache.spark.sql.functions._
 import org.apache.spark.sql.{Column, DataFrame}
-import org.apache.spark.sql.functions.{array, col, collect_set, concat, lit, struct, when}
 
 object EpmcCooccurrences extends LazyLogging {
 
   def generateUri(keywordId: Column)(implicit context: ETLSessionContext): Column = {
-    val uris = context.configuration.epmc.uris
+    val uris = context.configuration.literature.epmc.uris
     when(keywordId.startsWith("ENSG"), concat(lit(uris.ensembl), keywordId))
       .when(keywordId.startsWith("CHEMBL"), concat(lit(uris.chembl), keywordId))
       .otherwise(concat(lit(uris.ontologies), keywordId))
