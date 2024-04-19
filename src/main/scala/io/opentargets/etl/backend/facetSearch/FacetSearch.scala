@@ -18,6 +18,7 @@ import org.apache.spark.sql.{DataFrame, SparkSession}
   * @param datasourceId
   *   The datasource ID associated with the facet. (searchable field)
   */
+
 case class Facets(
     label: String,
     category: String,
@@ -54,7 +55,8 @@ object FacetSearch extends LazyLogging {
     val config = context.configuration.facetSearch.inputs
     val mappedInputs = Map(
       "targets" -> config.targets,
-      "diseases" -> config.diseases
+      "diseases" -> config.diseases,
+      "go" -> config.go
     )
     readFrom(mappedInputs)
   }
@@ -70,10 +72,12 @@ object FacetSearch extends LazyLogging {
     */
   private def computeFacetsTarget(inputs: IOResources)(implicit ss: SparkSession): DataFrame = {
     val targetsDF = inputs("targets").data
+    val goDF = inputs("go").data
     val targetFacetsDatasets = Seq(
       computeTargetIdFacets(targetsDF),
       computeApprovedSymbolFacets(targetsDF),
       computeApprovedNameFacets(targetsDF),
+      computeGOFacets(targetsDF, goDF),
       computeSubcellularLocationsFacets(targetsDF),
       computeTargetClassFacets(targetsDF),
       computePathwaysFacets(targetsDF),
