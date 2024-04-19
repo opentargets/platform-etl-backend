@@ -223,7 +223,8 @@ object Configuration extends LazyLogging {
 
   case class FacetSearchInputsSection(
       diseases: IOResourceConfig,
-      targets: IOResourceConfig
+      targets: IOResourceConfig,
+      go: IOResourceConfig
   )
   case class FacetSearchOutputsSection(
       diseases: IOResourceConfig,
