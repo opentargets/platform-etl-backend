@@ -1,4 +1,4 @@
-package io.opentargets.etl.backend.epmc
+package io.opentargets.etl.backend.literature
 
 import com.typesafe.scalalogging.LazyLogging
 import io.opentargets.etl.backend.ETLSessionContext
@@ -6,7 +6,7 @@ import io.opentargets.etl.backend.spark.IoHelpers.IOResources
 import io.opentargets.etl.backend.spark.{IOResource, IoHelpers}
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.types.StringType
-import org.apache.spark.sql.{Column, DataFrame, SparkSession}
+import org.apache.spark.sql.{DataFrame, SparkSession}
 
 object Epmc extends LazyLogging {
 
@@ -15,7 +15,7 @@ object Epmc extends LazyLogging {
 
     logger.info("Prepare EPMC evidence")
 
-    val conf = context.configuration.epmc
+    val conf = context.configuration.literature.epmc
 
     val inputDataFrames = IoHelpers.readFrom(
       Map(

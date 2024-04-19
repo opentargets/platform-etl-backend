@@ -389,7 +389,8 @@ object Configuration extends LazyLogging {
       common: LiteratureCommon,
       processing: LiteratureProcessing,
       embedding: LiteratureEmbedding,
-      vectors: LiteratureVectors
+      vectors: LiteratureVectors,
+      epmc: Epmc
   )
 
   case class TargetEngineInputs(targets: IOResourceConfig,
@@ -435,7 +436,6 @@ object Configuration extends LazyLogging {
       ebisearch: EBISearchSection,
       otarproject: OtarProjectSection,
       literature: LiteratureSection,
-      epmc: Epmc,
       targetEngine: TargetEngineSection
   )
 }
