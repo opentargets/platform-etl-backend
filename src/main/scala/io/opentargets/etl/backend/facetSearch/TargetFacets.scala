@@ -1,6 +1,6 @@
 package io.opentargets.etl.backend.facetSearch
 
-import io.opentargets.etl.backend.target.{Reactomes, TractabilityWithId}
+import io.opentargets.etl.backend.target.{GeneOntologyByEnsembl, Reactomes, TractabilityWithId}
 import io.opentargets.etl.backend.spark.Helpers.LocationAndSource
 import com.typesafe.scalalogging.LazyLogging
 import org.apache.spark.sql.functions.{array, col, collect_set, lit, map_values, typedLit, when}
@@ -54,6 +54,7 @@ object TargetFacets extends LazyLogging {
                   ).otherwise($"category")
       )
       .withColumn("datasourceId", lit(null).cast("string"))
+      .distinct()
       .as[Facets]
     tractabilityFacets
   }
@@ -123,9 +124,10 @@ object TargetFacets extends LazyLogging {
           (row.ensemblGeneId, s.location, "Subcellular Location", s.termSl)
         )
       )
-      .toDF("ensemblGeneId", "label", "category", "datasourceId")
+      .toDF("id", "label", "category", "datasourceId")
       .groupBy("label", "category", "datasourceId")
-      .agg(collect_set("ensemblGeneId").as("entityIds"))
+      .agg(collect_set("id").as("entityIds"))
+      .distinct()
       .as[Facets]
     subcellularLocationsFacets
   }
@@ -143,6 +145,7 @@ object TargetFacets extends LazyLogging {
       .groupBy("label", "category")
       .agg(collect_set("ensemblGeneId").as("entityIds"))
       .withColumn("datasourceId", lit(null).cast("string"))
+      .distinct()
       .as[Facets]
     targetClassFacets
   }
@@ -159,8 +162,40 @@ object TargetFacets extends LazyLogging {
       .toDF("ensemblGeneId", "label", "category", "datasourceId")
       .groupBy("label", "category", "datasourceId")
       .agg(collect_set("ensemblGeneId").as("entityIds"))
+      .distinct()
       .as[Facets]
     pathwaysFacets
+  }
+
+  def computeGOFacets(targetsDF: DataFrame, goDF: DataFrame)(implicit
+      sparkSession: SparkSession
+  ): Dataset[Facets] = {
+    import sparkSession.implicits._
+    logger.info("Computing GO facets")
+    val goAspectMappings: Column = typedLit(
+      Map(
+        "F" -> "GO:MF",
+        "P" -> "GO:BP",
+        "C" -> "GO:CC"
+      )
+    )
+    val goWithId: Dataset[GeneOntologyByEnsembl] =
+      getRelevantDataset[GeneOntologyByEnsembl](targetsDF, "id", "ensemblId", "go")
+    val goFacets: Dataset[Facets] = goWithId
+      .flatMap(row => row.go.map(g => (row.ensemblId, g.id, g.aspect)))
+      .toDF("ensemblGeneId", "id", "category")
+      .join(goDF, Seq("id"), "left")
+      .withColumn("label", col("name"))
+      .withColumn("datasourceId", col("id"))
+      .groupBy("label", "category", "datasourceId")
+      .agg(collect_set("ensemblGeneId").as("entityIds"))
+      .withColumn("category",
+                  when(goAspectMappings($"category").isNotNull, goAspectMappings($"category"))
+                    .otherwise($"category")
+      )
+      .distinct()
+      .as[Facets]
+    goFacets
   }
 
   private def getRelevantDataset[T](dataframe: DataFrame,
@@ -204,6 +239,7 @@ object TargetFacets extends LazyLogging {
       .groupBy("label", "category")
       .agg(collect_set("id").as("entityIds"))
       .withColumn("datasourceId", lit(null).cast("string"))
+      .distinct()
       .as[Facets]
     facets
   }
