@@ -2,10 +2,12 @@ package io.opentargets.etl.backend.facetSearch
 
 import com.typesafe.scalalogging.LazyLogging
 import io.opentargets.etl.backend.ETLSessionContext
+import io.opentargets.etl.backend.facetSearch.DiseaseFacets._
 import io.opentargets.etl.backend.facetSearch.TargetFacets._
 import io.opentargets.etl.backend.spark.IOResource
 import io.opentargets.etl.backend.spark.IoHelpers.{IOResources, readFrom, writeTo}
-import org.apache.spark.sql.{DataFrame, SparkSession}
+import org.apache.spark.sql.functions.{col, collect_set, lit}
+import org.apache.spark.sql.{DataFrame, Dataset, Encoder, SparkSession}
 
 /** Case class representing the facets of a target or disease.
   *
@@ -74,14 +76,14 @@ object FacetSearch extends LazyLogging {
     val targetsDF = inputs("targets").data
     val goDF = inputs("go").data
     val targetFacetsDatasets = Seq(
-      computeTargetIdFacets(targetsDF),
-      computeApprovedSymbolFacets(targetsDF),
-      computeApprovedNameFacets(targetsDF),
-      computeGOFacets(targetsDF, goDF),
-      computeSubcellularLocationsFacets(targetsDF),
-      computeTargetClassFacets(targetsDF),
-      computePathwaysFacets(targetsDF),
-      computeTractabilityFacets(targetsDF)
+      computeTargetIdFacets(targetsDF)
+//      computeApprovedSymbolFacets(targetsDF),
+//      computeApprovedNameFacets(targetsDF),
+//      computeGOFacets(targetsDF, goDF),
+//      computeSubcellularLocationsFacets(targetsDF),
+//      computeTargetClassFacets(targetsDF),
+//      computePathwaysFacets(targetsDF),
+//      computeTractabilityFacets(targetsDF)
     )
     val targetFacetsDF = targetFacetsDatasets.reduce(_ unionByName _).toDF()
     targetFacetsDF
@@ -97,8 +99,11 @@ object FacetSearch extends LazyLogging {
     *   DataFrame containing the computed facets for diseases.
     */
   private def computeFacetsDisease(inputs: IOResources)(implicit ss: SparkSession): DataFrame = {
-    val diseaseDF = inputs("diseases").data.limit(10) // TODO: remove limit
-    diseaseDF
+    val diseaseDF = inputs("diseases").data
+    val diseaseFacetDatasets =
+      Seq(computeDiseaseNameFacets(diseaseDF), computeTheraputicAreasFacets(diseaseDF))
+    val diseaseFacetsDF = diseaseFacetDatasets.reduce(_ unionByName _).toDF()
+    diseaseFacetsDF
   }
 
   /** Write the computed facets to the specified outputs.
