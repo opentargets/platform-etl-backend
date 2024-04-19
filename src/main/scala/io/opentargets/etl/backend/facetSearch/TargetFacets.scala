@@ -2,9 +2,10 @@ package io.opentargets.etl.backend.facetSearch
 
 import io.opentargets.etl.backend.target.{GeneOntologyByEnsembl, Reactomes, TractabilityWithId}
 import io.opentargets.etl.backend.spark.Helpers.LocationAndSource
+import io.opentargets.etl.backend.facetSearch.Helpers._
 import com.typesafe.scalalogging.LazyLogging
-import org.apache.spark.sql.functions.{array, col, collect_set, lit, map_values, typedLit, when}
-import org.apache.spark.sql.{Column, DataFrame, Dataset, Encoder, SparkSession}
+import org.apache.spark.sql.functions.{col, collect_set, lit, typedLit, when}
+import org.apache.spark.sql.{Column, DataFrame, Dataset, SparkSession}
 
 case class SubcellularLocationWithId(ensemblGeneId: String,
                                      subcellularLocations: Array[LocationAndSource]
@@ -197,51 +198,4 @@ object TargetFacets extends LazyLogging {
       .as[Facets]
     goFacets
   }
-
-  private def getRelevantDataset[T](dataframe: DataFrame,
-                                    idField: String,
-                                    idAlias: String,
-                                    facetField: String
-  )(implicit encoder: Encoder[T]): Dataset[T] =
-    dataframe
-      .select(col(idField).as(idAlias), col(facetField))
-      .where(col(facetField).isNotNull)
-      .as[T]
-
-  /** Compute simple facet dataset for the given DataFrame, setting the datasourceId to null.
-    *
-    * @param dataframe
-    *   DataFrame to compute facets from.
-    * @param labelField
-    *   Field to use as label.
-    * @param categoryField
-    *   Value to use as category.
-    * @param entityIdField
-    *   Field to use as entity id.
-    * @param sparkSession
-    *   Implicit SparkSession.
-    * @return
-    *   Dataset of Facets.
-    */
-  private def computeSimpleFacet(dataframe: DataFrame,
-                                 labelField: String,
-                                 categoryField: String,
-                                 entityIdField: String
-  )(implicit sparkSession: SparkSession): Dataset[Facets] = {
-    import sparkSession.implicits._
-
-    val facets: Dataset[Facets] = dataframe
-      .select(
-        col(labelField).as("label"),
-        lit(categoryField).as("category"),
-        col(entityIdField).as("id")
-      )
-      .groupBy("label", "category")
-      .agg(collect_set("id").as("entityIds"))
-      .withColumn("datasourceId", lit(null).cast("string"))
-      .distinct()
-      .as[Facets]
-    facets
-  }
-
 }
