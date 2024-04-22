@@ -17,6 +17,7 @@ artifact drug <<dependencies>>
 artifact epmc <<dependencies>>
 artifact evidence <<dependencies>>
 artifact expression <<noDependency>>
+artifact facetsearch <<dependencies>>
 artifact go <<noDependency>>
 artifact interactions <<dependencies>>
 artifact knownDrugs <<dependencies>>
@@ -74,4 +75,9 @@ literature --> epmc
 target --> literature
 drug --> literature
 disease --> literature
+
+disease --> facetsearch
+target --> facetsearch
+go --> facetsearch
+
 @enduml
