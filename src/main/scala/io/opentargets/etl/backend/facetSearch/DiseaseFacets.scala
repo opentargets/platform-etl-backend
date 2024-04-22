@@ -20,6 +20,7 @@ object DiseaseFacets extends LazyLogging {
       .withColumn("datasourceId", col("id"))
       .groupBy("label", "category", "datasourceId")
       .agg(collect_set("id").as("entityIds"))
+      .distinct()
       .as[Facets]
     diseaseNameFacets
   }
@@ -44,6 +45,7 @@ object DiseaseFacets extends LazyLogging {
       )
       .groupBy("label", "category", "datasourceId")
       .agg(collect_set("diseaseId").as("entityIds"))
+      .distinct()
       .as[Facets]
     therapeuticAreasFacets
   }
