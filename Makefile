@@ -51,6 +51,9 @@ set_profile: ## Set an active configuration profile, e.g. "make set_profile prof
 	@echo "[ETL] Setting active profile '${profile}'"
 	@ln -sf profiles/config.${profile} ${ETL_ACTIVE_PROFILE}
 
+${ETL_ACTIVE_PROFILE}: ## Set the default configuration profile if there is no profile set.
+	@ln -sf profiles/config.default ${ETL_ACTIVE_PROFILE}
+
 .PHONY: etl_config
 etl_config: ## Instantiate the ETL config.
 	@echo "[ETL] Instantiating ETL config"
