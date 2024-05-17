@@ -43,8 +43,10 @@ object Dependencies {
   )
 
   lazy val loggingDeps = Seq(
-    "ch.qos.logback" % "logback-classic" % "1.4.4",
-    "com.typesafe.scala-logging" %% "scala-logging" % "3.9.2"
+    "ch.qos.logback" % "logback-classic" % "1.5.6",
+    "ch.qos.logback" % "logback-core" % "1.5.6",
+    "org.slf4j" % "slf4j-api" % "2.0.13",
+    "com.typesafe.scala-logging" %% "scala-logging" % "3.9.5"
   )
 
   lazy val graphDeps = Seq(
