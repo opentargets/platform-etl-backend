@@ -38,9 +38,13 @@ object Pharmacogenomics extends LazyLogging {
     val inputDataFrames = IoHelpers.readFrom(mappedInputs)
     val pgxDF = inputDataFrames("pgx").data
     val drugDF = inputDataFrames("drug").data
+    val pgxExpanded = pgxDF
+      .withColumn("drug", explode(col("drugs")))
+      .select(col("*"), col("drug.drugFromSource").as("drugFromSource"))
+      .drop("drugs")
 
     logger.debug("Map drug id from molecule")
-    val mappedDF = MapDrugId(pgxDF, drugDF)
+    val mappedDF = MapDrugId(pgxExpanded, drugDF)
 
     logger.debug("Get Target Lut")
     val drugTargetLutDF = getDrugTargetLut(drugDF)
@@ -55,6 +59,28 @@ object Pharmacogenomics extends LazyLogging {
         )
         .drop("drugTargetIds")
         .distinct()
+        .groupBy(
+          col("datasourceId"),
+          col("datasourceVersion"),
+          col("datatypeId"),
+          col("directionality"),
+          col("evidenceLevel"),
+          col("genotype"),
+          col("genotypeAnnotationText"),
+          col("genotypeId"),
+          col("haplotypeFromSourceId"),
+          col("haplotypeId"),
+          col("literature"),
+          col("pgxCategory"),
+          col("phenotypeFromSourceId"),
+          col("phenotypeText"),
+          col("studyId"),
+          col("targetFromSourceId"),
+          col("variantFunctionalConsequenceId"),
+          col("variantRsId"),
+          col("isDirectTarget")
+        )
+        .agg(collect_list(struct(col("drugFromSource"), col("drugId"))).as("drugs"))
 
     logger.debug("Writing Pharmacogenomics outputs")
     val dataframesToSave: IOResources = Map(
