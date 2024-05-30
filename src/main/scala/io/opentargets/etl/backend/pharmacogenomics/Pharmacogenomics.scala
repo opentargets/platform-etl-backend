@@ -60,8 +60,29 @@ object Pharmacogenomics extends LazyLogging {
         )
         .drop("drugTargetIds")
         .distinct()
+        // TODO This grouping creates a coupling between the input schema and the operation itself and it could be done
+        //  with a more generic approach based on a collection of aggregate expressions
         .groupBy(
-          col("operationalRowId")
+          col("operationalRowId"),
+          col("datasourceId"),
+          col("datasourceVersion"),
+          col("datatypeId"),
+          col("directionality"),
+          col("evidenceLevel"),
+          col("genotype"),
+          col("genotypeAnnotationText"),
+          col("genotypeId"),
+          col("haplotypeFromSourceId"),
+          col("haplotypeId"),
+          col("literature"),
+          col("pgxCategory"),
+          col("phenotypeFromSourceId"),
+          col("phenotypeText"),
+          col("studyId"),
+          col("targetFromSourceId"),
+          col("variantFunctionalConsequenceId"),
+          col("variantRsId"),
+          col("isDirectTarget")
         )
         .agg(collect_list(struct(col("drugFromSource"), col("drugId"))).as("drugs"))
         .drop("operationalRowId")
