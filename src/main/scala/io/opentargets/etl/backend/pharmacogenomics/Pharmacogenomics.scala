@@ -36,7 +36,7 @@ object Pharmacogenomics extends LazyLogging {
 
     logger.debug("Processing Pharmacogenomics data")
     val inputDataFrames = IoHelpers.readFrom(mappedInputs)
-    val pgxDF = inputDataFrames("pgx").data
+    val pgxDF = inputDataFrames("pgx").data.distinct()
     val drugDF = inputDataFrames("drug").data
     val pgxExpanded = pgxDF
       .withColumn("operationalRowId", monotonically_increasing_id())
