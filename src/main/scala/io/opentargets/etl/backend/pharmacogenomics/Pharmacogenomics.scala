@@ -39,6 +39,7 @@ object Pharmacogenomics extends LazyLogging {
     val pgxDF = inputDataFrames("pgx").data
     val drugDF = inputDataFrames("drug").data
     val pgxExpanded = pgxDF
+      .withColumn("operationalRowId", monotonically_increasing_id())
       .withColumn("drug", explode(col("drugs")))
       .select(col("*"), col("drug.drugFromSource").as("drugFromSource"))
       .drop("drugs")
@@ -60,27 +61,10 @@ object Pharmacogenomics extends LazyLogging {
         .drop("drugTargetIds")
         .distinct()
         .groupBy(
-          col("datasourceId"),
-          col("datasourceVersion"),
-          col("datatypeId"),
-          col("directionality"),
-          col("evidenceLevel"),
-          col("genotype"),
-          col("genotypeAnnotationText"),
-          col("genotypeId"),
-          col("haplotypeFromSourceId"),
-          col("haplotypeId"),
-          col("literature"),
-          col("pgxCategory"),
-          col("phenotypeFromSourceId"),
-          col("phenotypeText"),
-          col("studyId"),
-          col("targetFromSourceId"),
-          col("variantFunctionalConsequenceId"),
-          col("variantRsId"),
-          col("isDirectTarget")
+          col("operationalRowId")
         )
         .agg(collect_list(struct(col("drugFromSource"), col("drugId"))).as("drugs"))
+        .drop("operationalRowId")
 
     logger.debug("Writing Pharmacogenomics outputs")
     val dataframesToSave: IOResources = Map(
