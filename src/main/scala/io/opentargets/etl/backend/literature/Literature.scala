@@ -41,6 +41,8 @@ object Literature extends LazyLogging {
     Embedding()
     logger.info("Run literature vectors")
     Vectors()
+    logger.info("Run literature epmc")
+    Epmc()
   }
 
 }
