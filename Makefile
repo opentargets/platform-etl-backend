@@ -51,6 +51,9 @@ set_profile: ## Set an active configuration profile, e.g. "make set_profile prof
 	@echo "[ETL] Setting active profile '${profile}'"
 	@ln -sf profiles/config.${profile} ${ETL_ACTIVE_PROFILE}
 
+${ETL_ACTIVE_PROFILE}: ## Set the default configuration profile if there is no profile set.
+	@ln -sf profiles/config.default ${ETL_ACTIVE_PROFILE}
+
 .PHONY: etl_config
 etl_config: ## Instantiate the ETL config.
 	@echo "[ETL] Instantiating ETL config"
@@ -68,6 +71,11 @@ build: ${PATH_LOCAL_ETL_JAR} ## Build the ETL jar (dataproc)
 build_local: ## Build the ETL jar for running locally
 	@echo "[ETL] Building JAR for running the ETL locally"
 	@sbt -J-Xss2M -J-Xmx2G -DETL_FLAG_DATAPROC=false assembly
+
+.PHONY: build_local_skip_tests
+build_local_skip_tests: ## Build the ETL jar for running locally, skipping tests
+	@echo "[ETL] Building JAR for running the ETL locally with logs"
+	@sbt -J-Xss2M -J-Xmx2G -DETL_FLAG_DATAPROC=false 'set test in assembly := {}' assembly
 
 ${PATH_LOCAL_WORKFLOW_JAR}: ## Build the workflow jar
 	@echo "[ETL] Building JAR for workflow"

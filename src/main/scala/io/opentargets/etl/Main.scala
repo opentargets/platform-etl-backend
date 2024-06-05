@@ -11,6 +11,7 @@ import io.opentargets.etl.backend.drug.Drug
 import io.opentargets.etl.backend.evidence.Evidence
 import io.opentargets.etl.backend.graph.EtlDag
 import io.opentargets.etl.backend.literature.{Epmc, Literature}
+import io.opentargets.etl.backend.facetSearch.FacetSearch
 import io.opentargets.etl.backend.pharmacogenomics.Pharmacogenomics
 import io.opentargets.etl.backend.targetEngine.TargetEngine
 import io.opentargets.etl.common.GoogleStorageHelpers
@@ -45,6 +46,9 @@ object ETL extends LazyLogging {
       case "epmc" =>
         logger.info("Running EPMC step")
         Epmc()
+      case "facetsearch" =>
+        logger.info("run step facetSearch")
+        FacetSearch()
       case "fda" =>
         logger.info("Running OpenFDA FAERS step")
         OpenFda()
@@ -94,6 +98,7 @@ object ETL extends LazyLogging {
       "pharmacogenomics" -> ctx.configuration.pharmacogenomics.outputs.path,
       "reactome" -> ctx.configuration.reactome.output.path,
       "expression" -> ctx.configuration.expression.output.path,
+      "facetSearch" -> ctx.configuration.facetSearch.outputs.targets.path,
       "go" -> ctx.configuration.geneOntology.output.path,
       "target" -> ctx.configuration.target.outputs.target.path,
       "interaction" -> ctx.configuration.interactions.outputs.interactions.path,
