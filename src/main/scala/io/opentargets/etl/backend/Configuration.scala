@@ -223,6 +223,24 @@ object Configuration extends LazyLogging {
 
   case class SearchSection(inputs: SearchInputsSection, outputs: SearchOutputsSection)
 
+  case class FacetSearchCategories(
+      diseaseName: String,
+      therapeuticArea: String,
+      SM: String,
+      AB: String,
+      PR: String,
+      OC: String,
+      targetId: String,
+      approvedSymbol: String,
+      approvedName: String,
+      subcellularLocation: String,
+      targetClass: String,
+      pathways: String,
+      goF: String,
+      goP: String,
+      goC: String
+  )
+
   case class FacetSearchInputsSection(
       diseases: IOResourceConfig,
       targets: IOResourceConfig,
@@ -233,7 +251,8 @@ object Configuration extends LazyLogging {
       targets: IOResourceConfig
   )
   case class FacetSearchSection(inputs: FacetSearchInputsSection,
-                                outputs: FacetSearchOutputsSection
+                                outputs: FacetSearchOutputsSection,
+                                categories: FacetSearchCategories
   )
 
   case class PharmacogenomicsInputs(pgkb: IOResourceConfig, drug: IOResourceConfig)
