@@ -223,7 +223,7 @@ object Configuration extends LazyLogging {
 
   case class FacetSearchCategories(
       diseaseName: String,
-      theraputicArea: String,
+      therapeuticArea: String,
       SM: String,
       AB: String,
       PR: String,
