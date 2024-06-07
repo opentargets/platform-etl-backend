@@ -1,14 +1,12 @@
 package io.opentargets.etl.backend.facetSearch
 
 import com.typesafe.scalalogging.LazyLogging
-import io.opentargets.etl.backend.Configuration.FacetSearchCategories
 import io.opentargets.etl.backend.ETLSessionContext
 import io.opentargets.etl.backend.facetSearch.DiseaseFacets._
 import io.opentargets.etl.backend.facetSearch.TargetFacets._
 import io.opentargets.etl.backend.spark.IOResource
 import io.opentargets.etl.backend.spark.IoHelpers.{IOResources, readFrom, writeTo}
-import org.apache.spark.sql.functions.{col, collect_set, lit}
-import org.apache.spark.sql.{DataFrame, Dataset, Encoder, SparkSession}
+import org.apache.spark.sql.{DataFrame, Dataset, SparkSession}
 
 /** Case class representing the facets of a target or disease.
   *
@@ -39,7 +37,6 @@ object FacetSearch extends LazyLogging {
     *   Implicit ETLSessionContext.
     */
   def apply()(implicit context: ETLSessionContext): Unit = {
-    implicit val ss: SparkSession = context.sparkSession
     val inputs = readInputs
     val facetSearchTarget = computeFacetsTarget(inputs)
     val facetSearchDisease = computeFacetsDisease(inputs)
@@ -68,23 +65,27 @@ object FacetSearch extends LazyLogging {
     *
     * @param inputs
     *   IOResources containing the input data.
-    * @param ss
-    *   Implicit SparkSession.
+    * @param context
+    *   Implicit ETLSessionContext.
     * @return
     *   DataFrame containing the computed facets for targets.
     */
-  private def computeFacetsTarget(inputs: IOResources)(implicit ss: SparkSession): DataFrame = {
+  private def computeFacetsTarget(
+      inputs: IOResources
+  )(implicit context: ETLSessionContext): DataFrame = {
+    implicit val ss: SparkSession = context.sparkSession
+    val categoryValues = context.configuration.facetSearch.categories
     val targetsDF: DataFrame = inputs("targets").data
     val goDF: DataFrame = inputs("go").data
     val targetFacetsDatasets: Seq[Dataset[Facets]] = Seq(
-      computeTargetIdFacets(targetsDF),
-      computeApprovedSymbolFacets(targetsDF),
-      computeApprovedNameFacets(targetsDF),
-      computeGOFacets(targetsDF, goDF),
-      computeSubcellularLocationsFacets(targetsDF),
-      computeTargetClassFacets(targetsDF),
-      computePathwaysFacets(targetsDF),
-      computeTractabilityFacets(targetsDF)
+      computeTargetIdFacets(targetsDF, categoryValues),
+      computeApprovedSymbolFacets(targetsDF, categoryValues),
+      computeApprovedNameFacets(targetsDF, categoryValues),
+      computeGOFacets(targetsDF, goDF, categoryValues),
+      computeSubcellularLocationsFacets(targetsDF, categoryValues),
+      computeTargetClassFacets(targetsDF, categoryValues),
+      computePathwaysFacets(targetsDF, categoryValues),
+      computeTractabilityFacets(targetsDF, categoryValues)
     )
     val targetFacetsDF: DataFrame = targetFacetsDatasets.reduce(_ unionByName _).toDF()
     targetFacetsDF
@@ -94,15 +95,21 @@ object FacetSearch extends LazyLogging {
     *
     * @param inputs
     *   IOResources containing the input data.
-    * @param ss
-    *   Implicit SparkSession.
+    * @param context
+    *   Implicit ETLSessionContext.
     * @return
     *   DataFrame containing the computed facets for diseases.
     */
-  private def computeFacetsDisease(inputs: IOResources)(implicit ss: SparkSession): DataFrame = {
+  private def computeFacetsDisease(
+      inputs: IOResources
+  )(implicit context: ETLSessionContext): DataFrame = {
+    implicit val ss: SparkSession = context.sparkSession
+    val categoryValues = context.configuration.facetSearch.categories
     val diseaseDF = inputs("diseases").data
     val diseaseFacetDatasets =
-      Seq(computeDiseaseNameFacets(diseaseDF), computeTheraputicAreasFacets(diseaseDF))
+      Seq(computeDiseaseNameFacets(diseaseDF, categoryValues),
+          computeTherapeuticAreasFacets(diseaseDF, categoryValues)
+      )
     val diseaseFacetsDF = diseaseFacetDatasets.reduce(_ unionByName _).toDF()
     diseaseFacetsDF
   }
