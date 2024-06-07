@@ -1,6 +1,7 @@
 package io.opentargets.etl.backend.facetSearch
 
 import com.typesafe.scalalogging.LazyLogging
+import io.opentargets.etl.backend.Configuration.FacetSearchCategories
 import io.opentargets.etl.backend.ETLSessionContext
 import io.opentargets.etl.backend.facetSearch.DiseaseFacets._
 import io.opentargets.etl.backend.facetSearch.TargetFacets._
@@ -54,11 +55,11 @@ object FacetSearch extends LazyLogging {
     */
   def readInputs()(implicit context: ETLSessionContext): IOResources = {
     implicit val ss: SparkSession = context.sparkSession
-    val config = context.configuration.facetSearch.inputs
+    val inputs = context.configuration.facetSearch.inputs
     val mappedInputs = Map(
-      "targets" -> config.targets,
-      "diseases" -> config.diseases,
-      "go" -> config.go
+      "targets" -> inputs.targets,
+      "diseases" -> inputs.diseases,
+      "go" -> inputs.go
     )
     readFrom(mappedInputs)
   }
