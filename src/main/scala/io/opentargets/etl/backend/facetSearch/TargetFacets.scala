@@ -4,6 +4,7 @@ import io.opentargets.etl.backend.target.{GeneOntologyByEnsembl, Reactomes, Trac
 import io.opentargets.etl.backend.spark.Helpers.LocationAndSource
 import io.opentargets.etl.backend.facetSearch.Helpers._
 import com.typesafe.scalalogging.LazyLogging
+import io.opentargets.etl.backend.Configuration.FacetSearchCategories
 import org.apache.spark.sql.functions.{col, collect_set, lit, typedLit, when}
 import org.apache.spark.sql.{Column, DataFrame, Dataset, SparkSession}
 
@@ -22,22 +23,25 @@ object TargetFacets extends LazyLogging {
     *
     * @param targetsDF
     *   DataFrame of targets.
+    * @param categoryValues
+    *   FacetSearchCategories.
     * @param sparkSession
     *   Implicit SparkSession.
     * @return
     *   Dataset of Facets.
     */
   def computeTractabilityFacets(
-      targetsDF: DataFrame
+      targetsDF: DataFrame,
+      categoryValues: FacetSearchCategories
   )(implicit sparkSession: SparkSession): Dataset[Facets] = {
     import sparkSession.implicits._
     logger.info("Computing tractability facets")
     val tractabilityModalityMappings: Column = typedLit(
       Map(
-        "SM" -> "Tractability Small Molecule",
-        "AB" -> "Tractability Antibody",
-        "PR" -> "Tractability PROTAC",
-        "OC" -> "Tractability Other Modalities"
+        "SM" -> categoryValues.SM,
+        "AB" -> categoryValues.AB,
+        "PR" -> categoryValues.PR,
+        "OC" -> categoryValues.OC
       )
     )
     val tractabilityWithId: Dataset[TractabilityWithId] =
@@ -64,51 +68,70 @@ object TargetFacets extends LazyLogging {
     *
     * @param targetsDF
     *   DataFrame of targets.
+    * @param categoryValues
+    *   FacetSearchCategories.
     * @param sparkSession
     *   Implicit SparkSession.
     * @return
     *   Dataset of Facets.
     */
-  def computeTargetIdFacets(targetsDF: DataFrame)(implicit
+  def computeTargetIdFacets(targetsDF: DataFrame, categoryValues: FacetSearchCategories)(implicit
       sparkSession: SparkSession
   ): Dataset[Facets] = {
     logger.info("Computing target id facets")
-    computeSimpleFacet(targetsDF, "id", "Target ID", "id")
+    computeSimpleFacet(targetsDF, "id", categoryValues.targetId, "id")
   }
 
   /** Compute approved symbol facets for the given targets DataFrame.
     *
     * @param targetsDF
     *   DataFrame of targets.
+    * @param categoryValues
+    *   FacetSearchCategories.
     * @param sparkSession
     *   Implicit SparkSession.
     * @return
     *   Dataset of Facets.
     */
-  def computeApprovedSymbolFacets(targetsDF: DataFrame)(implicit
-      sparkSession: SparkSession
+  def computeApprovedSymbolFacets(targetsDF: DataFrame, categoryValues: FacetSearchCategories)(
+      implicit sparkSession: SparkSession
   ): Dataset[Facets] = {
     logger.info("Computing approved symbol facets")
-    computeSimpleFacet(targetsDF, "approvedSymbol", "Approved Symbol", "id")
+    computeSimpleFacet(targetsDF, "approvedSymbol", categoryValues.approvedSymbol, "id")
   }
 
   /** Compute approved name facets for the given targets DataFrame.
     *
     * @param targetsDF
     *   DataFrame of targets.
+    * @param categoryValues
+    *   FacetSearchCategories.
     * @param sparkSession
     *   Implicit SparkSession.
     * @return
     *   Dataset of Facets.
     */
-  def computeApprovedNameFacets(targetsDF: DataFrame)(implicit
-      sparkSession: SparkSession
+  def computeApprovedNameFacets(targetsDF: DataFrame, categoryValues: FacetSearchCategories)(
+      implicit sparkSession: SparkSession
   ): Dataset[Facets] = {
     logger.info("Computing approved name facets")
-    computeSimpleFacet(targetsDF, "approvedName", "Approved Name", "id")
+    computeSimpleFacet(targetsDF, "approvedName", categoryValues.approvedName, "id")
   }
 
-  def computeSubcellularLocationsFacets(targetsDF: DataFrame)(implicit
+  /** Compute subcellular locations facets for the given targets DataFrame.
+    *
+    * @param targetsDF
+    *   DataFrame of targets.
+    * @param categoryValues
+    *   FacetSearchCategories.
+    * @param sparkSession
+    *   Implicit SparkSession.
+    * @return
+    *   Dataset of Facets.
+    */
+  def computeSubcellularLocationsFacets(targetsDF: DataFrame,
+                                        categoryValues: FacetSearchCategories
+  )(implicit
       sparkSession: SparkSession
   ): Dataset[Facets] = {
     import sparkSession.implicits._
@@ -122,7 +145,7 @@ object TargetFacets extends LazyLogging {
     val subcellularLocationsFacets: Dataset[Facets] = subcellularLocationWithId
       .flatMap(row =>
         row.subcellularLocations.map(s =>
-          (row.ensemblGeneId, s.location, "Subcellular Location", s.termSl)
+          (row.ensemblGeneId, s.location, categoryValues.subcellularLocation, s.termSl)
         )
       )
       .toDF("id", "label", "category", "datasourceId")
@@ -133,7 +156,18 @@ object TargetFacets extends LazyLogging {
     subcellularLocationsFacets
   }
 
-  def computeTargetClassFacets(targetsDF: DataFrame)(implicit
+  /** Compute target class facets for the given targets DataFrame.
+    *
+    * @param targetsDF
+    *   DataFrame of targets.
+    * @param categoryValues
+    *   FacetSearchCategories.
+    * @param sparkSession
+    *   Implicit SparkSession.
+    * @return
+    *   Dataset of Facets.
+    */
+  def computeTargetClassFacets(targetsDF: DataFrame, categoryValues: FacetSearchCategories)(implicit
       sparkSession: SparkSession
   ): Dataset[Facets] = {
     import sparkSession.implicits._
@@ -141,7 +175,9 @@ object TargetFacets extends LazyLogging {
     val targetClassWithId: Dataset[TargetClassWithId] =
       getRelevantDataset[TargetClassWithId](targetsDF, "id", "ensemblGeneId", "targetClass")
     val targetClassFacets: Dataset[Facets] = targetClassWithId
-      .flatMap(row => row.targetClass.map(t => (row.ensemblGeneId, t.label, "ChEMBL Target Class")))
+      .flatMap(row =>
+        row.targetClass.map(t => (row.ensemblGeneId, t.label, categoryValues.targetClass))
+      )
       .toDF("ensemblGeneId", "label", "category")
       .groupBy("label", "category")
       .agg(collect_set("ensemblGeneId").as("entityIds"))
@@ -151,7 +187,18 @@ object TargetFacets extends LazyLogging {
     targetClassFacets
   }
 
-  def computePathwaysFacets(targetsDF: DataFrame)(implicit
+  /** Compute pathway facets for the given targets DataFrame.
+    *
+    * @param targetsDF
+    *   DataFrame of targets.
+    * @param categoryValues
+    *   FacetSearchCategories.
+    * @param sparkSession
+    *   Implicit SparkSession.
+    * @return
+    *   Dataset of Facets.
+    */
+  def computePathwaysFacets(targetsDF: DataFrame, categoryValues: FacetSearchCategories)(implicit
       sparkSession: SparkSession
   ): Dataset[Facets] = {
     import sparkSession.implicits._
@@ -159,7 +206,9 @@ object TargetFacets extends LazyLogging {
     val pathwaysWithId: Dataset[Reactomes] =
       getRelevantDataset[Reactomes](targetsDF, "id", "id", "pathways")
     val pathwaysFacets: Dataset[Facets] = pathwaysWithId
-      .flatMap(row => row.pathways.map(p => (row.id, p.pathway, "Reactome", p.pathwayId)))
+      .flatMap(row =>
+        row.pathways.map(p => (row.id, p.pathway, categoryValues.pathways, p.pathwayId))
+      )
       .toDF("ensemblGeneId", "label", "category", "datasourceId")
       .groupBy("label", "category", "datasourceId")
       .agg(collect_set("ensemblGeneId").as("entityIds"))
@@ -168,16 +217,29 @@ object TargetFacets extends LazyLogging {
     pathwaysFacets
   }
 
-  def computeGOFacets(targetsDF: DataFrame, goDF: DataFrame)(implicit
-      sparkSession: SparkSession
+  /** Compute GO facets for the given targets DataFrame.
+    *
+    * @param targetsDF
+    *   DataFrame of targets.
+    * @param goDF
+    *   DataFrame of GO.
+    * @param categoryValues
+    *   FacetSearchCategories.
+    * @param sparkSession
+    *   Implicit SparkSession.
+    * @return
+    *   Dataset of Facets.
+    */
+  def computeGOFacets(targetsDF: DataFrame, goDF: DataFrame, categoryValues: FacetSearchCategories)(
+      implicit sparkSession: SparkSession
   ): Dataset[Facets] = {
     import sparkSession.implicits._
     logger.info("Computing GO facets")
     val goAspectMappings: Column = typedLit(
       Map(
-        "F" -> "GO:MF",
-        "P" -> "GO:BP",
-        "C" -> "GO:CC"
+        "F" -> categoryValues.goF,
+        "P" -> categoryValues.goP,
+        "C" -> categoryValues.goC
       )
     )
     val goWithId: Dataset[GeneOntologyByEnsembl] =
