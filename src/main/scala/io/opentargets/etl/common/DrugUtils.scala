@@ -5,49 +5,49 @@ import org.apache.spark.sql.functions._
 
 object DrugUtils {
 
-  /** Obtains a lookup table of drug id and CHEBI id
-    * @param drugsDF
-    *   Data Frame containing drug information
-    * @return
-    *   Lookup table with drug id and CHEBI id
-    */
-  private def getDrugChebiIdLut(drugsDF: DataFrame): DataFrame =
-    drugsDF
-      .select(col("id"), explode(col("crossReferences")))
-      .filter(col("key") === "chEBI")
-      .withColumn("drugId", explode(col("value")))
-      .select(
-        col("id").alias("drugIdCrossChebi"),
-        concat(lit("CHEBI_"), col("drugId")).alias("drugFromSourceId")
-      )
-      .distinct()
-
-  private def completeByChebi(mapToDF: DataFrame, chebiLutDF: DataFrame): DataFrame =
+  private def completeByChebi(mapToDF: DataFrame, lutDF: DataFrame): DataFrame = {
+    val chebiLutDF = lutDF.select(
+      col("id").alias("drugIdCrossChebi"),
+      col("drugFromSourceId"))
     mapToDF.join(chebiLutDF, Seq("drugFromSourceId"), "left")
+  }
 
-  /** Obtains a lookup table of drug name and ids and it takes only oen id when more than one is
-    * present for the same name. It also normalizes the names to lower case.
-    * @param drugsDF
-    *   Data Frame containing drug information
-    * @return
-    *   Lookup table with drug name and id columns
-    */
-  private def getDrugNameLut(drugsDF: DataFrame): DataFrame =
-    drugsDF
-      .select(col("id"), lower(col("name")).as("drugFromSource"))
-      .groupBy(col("drugFromSource"))
-      .agg(collect_set(col("id")).as("ids"))
-      .select(col("drugFromSource"),
-              element_at(sort_array(col("ids"), asc = false), 1).as("drugIdCross")
-      )
-
-  private def completeByDrugName(mapToDF: DataFrame, moleculeDF: DataFrame): DataFrame = {
-
-    val namesLutDF = getDrugNameLut(moleculeDF)
+  private def completeByDrugName(mapToDF: DataFrame, lutDF: DataFrame): DataFrame = {
+    val namesLutDF = lutDF.select(
+      col("drugFromSource"),
+      col("id").as("drugIdCross")
+    ).distinct()
 
     mapToDF
       .withColumn("drugFromSource", lower(col("drugFromSource")))
       .join(namesLutDF, Seq("drugFromSource"), "left")
+  }
+
+  /** Obtains a lookup table of drug name and CHEBI id
+    * @param drugsDF
+    *   Data Frame containing drug information
+    * @return
+    *   Lookup table with drug name and CHEBI id
+    */
+  private def getDrugLut(drugsDF: DataFrame): DataFrame = {
+    drugsDF
+      .select(col("id"), explode_outer(col("crossReferences")), lower(col("name")).as("drugFromSource"))
+      .withColumn("drugId", explode_outer(col("value")))
+      .select(
+        col("id"),
+        when(
+          col("key") === "chEBI", concat(lit("CHEBI_"),
+          col("drugId"))).otherwise(null).as("drugFromSourceId"),
+        col("drugFromSource")
+      )
+      .distinct()
+      .groupBy(col("drugFromSource"))
+      .agg(collect_set(col("id")).as("ids"), collect_set(col("drugFromSourceId")).as("idsChebi"))
+      .select(
+        element_at(sort_array(col("ids"), asc = false), 1).as("id"),
+        col("drugFromSource"),
+        explode_outer(col("idsChebi")).as("drugFromSourceId")
+      )
   }
 
   /** MapDrugId is a function that attempts to map the drug Id from the molecule Data Frame to the
@@ -61,14 +61,14 @@ object DrugUtils {
     */
   def MapDrugId(mapToDF: DataFrame, moleculeDF: DataFrame): DataFrame = {
 
-    val drugNameDF = completeByDrugName(mapToDF, moleculeDF)
+    val drugLutDF = getDrugLut(moleculeDF)
+
+    val drugNameDF = completeByDrugName(mapToDF, drugLutDF)
 
     val nonResolvedByNameDF =
       drugNameDF.where(col("drugIdCross").isNull && col("drugFromSourceId").isNotNull)
 
-    val chebiLutDF = getDrugChebiIdLut(moleculeDF)
-
-    val mergedByChebiDF = completeByChebi(nonResolvedByNameDF, chebiLutDF)
+    val mergedByChebiDF = completeByChebi(nonResolvedByNameDF, drugLutDF)
 
     val resolvedByNameDF = drugNameDF
       .where(col("drugIdCross").isNotNull || col("drugFromSourceId").isNull)
