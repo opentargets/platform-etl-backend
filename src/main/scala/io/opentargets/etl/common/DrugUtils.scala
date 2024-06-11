@@ -7,7 +7,7 @@ object DrugUtils {
 
   private def completeByChebi(mapToDF: DataFrame, lutDF: DataFrame): DataFrame = {
     val chebiLutDF = lutDF.select(
-      col("id").alias("drugIdCrossChebi"),
+      col("id").alias("drugIdFromChebi"),
       col("drugFromSourceId"))
     mapToDF.join(chebiLutDF, Seq("drugFromSourceId"), "left")
   }
@@ -15,7 +15,7 @@ object DrugUtils {
   private def completeByDrugName(mapToDF: DataFrame, lutDF: DataFrame): DataFrame = {
     val namesLutDF = lutDF.select(
       col("drugFromSource"),
-      col("id").as("drugIdCross")
+      col("id").as("drugIdFromName")
     ).distinct()
 
     mapToDF
@@ -66,19 +66,19 @@ object DrugUtils {
     val drugNameDF = completeByDrugName(mapToDF, drugLutDF)
 
     val nonResolvedByNameDF =
-      drugNameDF.where(col("drugIdCross").isNull && col("drugFromSourceId").isNotNull)
+      drugNameDF.where(col("drugIdFromName").isNull && col("drugFromSourceId").isNotNull)
 
     val mergedByChebiDF = completeByChebi(nonResolvedByNameDF, drugLutDF)
 
     val resolvedByNameDF = drugNameDF
-      .where(col("drugIdCross").isNotNull || col("drugFromSourceId").isNull)
-      .select(col("*"), lit(null).as("drugIdCrossChebi"))
+      .where(col("drugIdFromName").isNotNull || col("drugFromSourceId").isNull)
+      .select(col("*"), lit(null).as("drugIdFromChebi"))
 
     val fullDF = resolvedByNameDF.unionByName(mergedByChebiDF, allowMissingColumns = true)
 
     fullDF
-      .select(col("*"), coalesce(col("drugIdCross"), col("drugIdCrossChebi")).as("drugId"))
-      .drop("drugIdCrossChebi", "drugIdCross")
+      .select(col("*"), coalesce(col("drugIdFromName"), col("drugIdFromChebi")).as("drugId"))
+      .drop("drugIdFromChebi", "drugIdFromName")
   }
 
 }
