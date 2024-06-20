@@ -1,4 +1,4 @@
-package io.opentargets.etl.backend.variant
+package io.opentargets.etl.backend.variantIndex
 
 import io.opentargets.etl.backend.ETLSessionContext
 import io.opentargets.etl.backend.spark.IOResource
