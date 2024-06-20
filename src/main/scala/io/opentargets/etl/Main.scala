@@ -14,6 +14,7 @@ import io.opentargets.etl.backend.facetSearch.FacetSearch
 import io.opentargets.etl.backend.literature.{Epmc, Literature}
 import io.opentargets.etl.backend.pharmacogenomics.Pharmacogenomics
 import io.opentargets.etl.backend.targetEngine.TargetEngine
+import io.opentargets.etl.backend.variantIndex.VariantIndex
 import io.opentargets.etl.common.GoogleStorageHelpers
 
 import scala.collection.JavaConverters
@@ -85,6 +86,9 @@ object ETL extends LazyLogging {
       case "targetengine" =>
         logger.info("run step target engine")
         TargetEngine()
+      case "variantindex" =>
+        logger.info("run step variant index")
+        VariantIndex()
       case _ => throw new IllegalArgumentException(s"step $step is unknown.")
     }
     logger.info(s"finished to run step ($step)")
@@ -112,7 +116,8 @@ object ETL extends LazyLogging {
       "ebisearch" -> ctx.configuration.ebisearch.outputs.ebisearchEvidence.path,
       "fda" -> ctx.configuration.openfda.stepRootOutputPath,
       "literature" -> ctx.configuration.literature.processing.outputs.literatureIndex.path,
-      "targetengine" -> ctx.configuration.targetEngine.outputs.targetEngine.path
+      "targetengine" -> ctx.configuration.targetEngine.outputs.targetEngine.path,
+      "variantIndex" -> ctx.configuration.variantIndex.output.path
     )
 
     val storage: Storage = StorageOptions.getDefaultInstance.getService
