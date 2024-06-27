@@ -15,6 +15,7 @@ artifact disease <<noDependency>>
 artifact drug <<dependencies>>
 artifact evidence <<dependencies>>
 artifact expression <<noDependency>>
+artifact facetSearch <<dependencies>>
 artifact go <<noDependency>>
 artifact interactions <<dependencies>>
 artifact knownDrugs <<dependencies>>
@@ -53,7 +54,8 @@ interface humanMapping <<input>>
 interface intact <<input>>
 interface strings <<input>>
 ' known drugs
-
+' go
+interface goInput <<input>>
 ' reactome
 interface pathways <<input>>
 interface relations <<input>>
@@ -109,6 +111,12 @@ interface WarningsOutput <<output>>
 interface evidenceOutput <<output>>
   ' expression
 interface expressionOutput <<output>>
+  ' facetSearch
+interface facetSearchTargetOutput <<output>>
+interface facetSearchDiseaseOutput <<output>>
+
+  ' go
+interface goOutput <<output>>
   ' interactions
 interface interactionsOutput <<output>>
 interface interactionsEvidenceOutput <<output>>
@@ -190,6 +198,10 @@ evidence --> evidenceOutput
 expressionData --> expression
 expression --> expressionOutput
 
+  ' gene ontology
+goInput --> go
+go --> goOutput
+
   ' interactions
 targetOutput --> interactions
 rnaCentral --> interactions
@@ -213,6 +225,14 @@ knownDrugs --> knownDrugsOutput
 pathways --> reactome
 relations --> reactome
 reactome --> reactomeOutput
+
+  ' facetSearch
+targetOutput --> facetSearch
+diseaseOutput --> facetSearch
+goOutput --> facetSearch
+facetSearch --> facetSearchTargetOutput
+facetSearch --> facetSearchDiseaseOutput
+
 
   ' search
 evidenceOutput --> search

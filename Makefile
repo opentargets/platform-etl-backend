@@ -5,7 +5,7 @@ ETL_ACTIVE_PROFILE := .env
 include ${ETL_ACTIVE_PROFILE}
 ppp ?= false
 profile ?= default
-commit_hash := $(shell git log --oneline | head -n1 | cut -f1 -d' ')
+commit_hash := $(shell git log --oneline --abbrev=7 | head -n1 | cut -f1 -d' ')
 ETL_JAR_FILENAME = etl-backend-${commit_hash}.jar
 PATH_LOCAL_ETL_JAR = target/scala-2.12/${ETL_JAR_FILENAME}
 PATH_LOCAL_WORKFLOW_JAR = workflow/target/scala-2.12/workflow-${commit_hash}.jar

@@ -63,22 +63,27 @@ object DrugUtils {
 
     val drugNameDF = completeByDrugName(mapToDF, moleculeDF)
 
-    val nonResolvedByNameDF =
-      drugNameDF.where(col("drugIdCross").isNull && col("drugFromSourceId").isNotNull)
+    // val nonResolvedByNameDF =
+    // drugNameDF.where(col("drugIdCross").isNull)
 
-    val chebiLutDF = getDrugChebiIdLut(moleculeDF)
+    // val chebiLutDF = getDrugChebiIdLut(moleculeDF)
 
-    val mergedByChebiDF = completeByChebi(nonResolvedByNameDF, chebiLutDF)
+    // val mergedByChebiDF = completeByChebi(nonResolvedByNameDF, chebiLutDF)
 
-    val resolvedByNameDF = drugNameDF
-      .where(col("drugIdCross").isNotNull || col("drugFromSourceId").isNull)
-      .select(col("*"), lit(null).as("drugIdCrossChebi"))
+    // val resolvedByNameDF = drugNameDF
+    //  .where(col("drugIdCross").isNotNull)
+    //  .select(col("*"), lit(null).as("drugIdCrossChebi"))
 
-    val fullDF = resolvedByNameDF.unionByName(mergedByChebiDF, allowMissingColumns = true)
+    // val fullDF = resolvedByNameDF.unionByName(mergedByChebiDF, allowMissingColumns = true)
+    // val fullDF = resolvedByNameDF.unionByName(nonResolvedByNameDF, allowMissingColumns = true)
 
-    fullDF
-      .select(col("*"), coalesce(col("drugIdCross"), col("drugIdCrossChebi")).as("drugId"))
-      .drop("drugIdCrossChebi", "drugIdCross")
+    // fullDF
+    // .select(col("*"), coalesce(col("drugIdCross"), col("drugIdCrossChebi")).as("drugId"))
+    // .drop("drugIdCrossChebi", "drugIdCross")
+    drugNameDF
+      .withColumnRenamed("drugIdCross", "drugId")
+      .drop("drugIdCross")
+
   }
 
 }
