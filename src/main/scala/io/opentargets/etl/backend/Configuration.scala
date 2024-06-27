@@ -423,8 +423,7 @@ object Configuration extends LazyLogging {
 
   case class TargetEngineOutputs(targetEngine: IOResourceConfig)
 
-  case class VariantIndexSection(input: IOResourceConfig,
-                                  output: IOResourceConfig)
+  case class VariantIndexSection(input: IOResourceConfig, output: IOResourceConfig)
 
   case class TargetEngineSection(inputs: TargetEngineInputs, outputs: TargetEngineOutputs)
 
