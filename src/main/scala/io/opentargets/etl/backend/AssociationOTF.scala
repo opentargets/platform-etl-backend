@@ -149,14 +149,6 @@ object AssociationOTF extends LazyLogging {
       .join(diseasesFacetTAs, Seq("disease_id"), "left_outer")
       .drop("therapeuticAreas")
 
-    val columnsToDrop = Seq(
-      "mutatedSamples",
-      "diseaseModelAssociatedModelPhenotypes",
-      "diseaseModelAssociatedHumanPhenotypes",
-      "textMiningSentences",
-      "clinicalUrls"
-    )
-
     val evidenceColumns = Seq(
       "id as row_id",
       "diseaseId as disease_id",
@@ -177,12 +169,6 @@ object AssociationOTF extends LazyLogging {
       "target_data"
     )
 
-    val elasticsearchDF = dfs("evidences").data
-      .drop(columnsToDrop: _*)
-      .selectExpr(evidenceColumns: _*)
-      .join(finalDiseases, Seq("disease_id"), "left_outer")
-      .join(finalTargets, Seq("target_id"), "left_outer")
-
     val clickhouseDF = dfs("evidences").data
       .selectExpr(evidenceColumns: _*)
       .join(finalDiseases, Seq("disease_id"), "left_outer")
@@ -190,7 +176,6 @@ object AssociationOTF extends LazyLogging {
       .selectExpr(evidenceColumnsCleaned: _*)
 
     Map(
-      "aotfsElasticsearch" -> IOResource(elasticsearchDF, conf.aotf.outputs.elasticsearch),
       "aotfsClickhouse" -> IOResource(clickhouseDF, conf.aotf.outputs.clickhouse)
     )
   }

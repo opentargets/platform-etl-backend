@@ -103,7 +103,7 @@ object Configuration extends LazyLogging {
       targets: IOResourceConfig
   )
 
-  case class AOTFOutputsSection(clickhouse: IOResourceConfig, elasticsearch: IOResourceConfig)
+  case class AOTFOutputsSection(clickhouse: IOResourceConfig)
 
   case class AOTFSection(
       outputs: AOTFOutputsSection,
