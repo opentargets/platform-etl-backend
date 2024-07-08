@@ -96,7 +96,6 @@ interface associationByDatatypeIndirect <<output>>
 interface associationByOverallIndirect <<output>>
   ' aotf
 interface AotfClickhouseOutput <<output>>
-interface AotfElasticsearchOutput <<output>>
   ' disease
 interface diseaseOutput <<output>>
 interface diseaseHpoOutput <<output>>
@@ -162,8 +161,6 @@ evidenceOutput --> associationOTF
 diseaseOutput --> associationOTF
 targetOutput --> associationOTF
 associationOTF --> AotfClickhouseOutput
-associationOTF --> AotfElasticsearchOutput
-
   ' disease
 efoOntology --> disease
 hpoOntology --> disease
