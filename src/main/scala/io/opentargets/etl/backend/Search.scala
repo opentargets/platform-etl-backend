@@ -6,7 +6,7 @@ import io.opentargets.etl.backend.spark.IoHelpers.IOResources
 import io.opentargets.etl.backend.spark.{IOResource, IoHelpers, Helpers => C}
 import org.apache.spark.sql._
 import org.apache.spark.sql.expressions._
-import org.apache.spark.sql.functions._
+import org.apache.spark.sql.functions.{lit, _}
 import org.apache.spark.sql.types._
 import org.apache.spark.storage.StorageLevel
 
@@ -54,7 +54,8 @@ object Transformers {
         associations: DataFrame,
         associatedDrugs: DataFrame,
         diseases: DataFrame,
-        drugs: DataFrame
+        drugs: DataFrame,
+        variants: DataFrame
     ): DataFrame = {
 
       val drugsByTarget = associatedDrugs
@@ -67,10 +68,14 @@ object Transformers {
         associations
        */
       val top50 = 50L
-      val top25 = 25L
-      val top5 = 5L
+      val top25 = 25L // 25
+      val top5 = 5L // 5
       val window = Window.partitionBy(col("targetId")).orderBy(col("score").desc)
-      val assocsWithLabels = associations
+      val variantWindow = Window
+        .partitionBy(col("targetId"))
+        .orderBy(col("transcriptScore").asc)
+
+      val assocsWithDrugAndDiseaseLabels = associations
         .join(drugsByTarget, Seq("associationId"), "left_outer")
         .withColumn("rank", rank().over(window))
         .where(col("rank") <= top50)
@@ -89,6 +94,51 @@ object Transformers {
             .as("drug_labels_5"),
           mean(col("score")).as("target_relevance")
         )
+
+      val variantsByTarget = variants
+        .withColumn("transcriptConsequences", explode(col("transcriptConsequences")))
+        .withColumn(
+          "consequenceScore",
+          when(col("transcriptConsequences.consequenceScore").isNotNull,
+               col("transcriptConsequences.consequenceScore")
+          ).otherwise(lit(0) + lit(1))
+        )
+        .withColumn("targetId", col("transcriptConsequences.targetId"))
+        .withColumn("transcriptScore",
+                    (col("transcriptConsequences.consequenceScore") + lit(1)) * col(
+                      "transcriptConsequences.distanceFromFootprint"
+                    )
+        )
+        .withColumn(
+          "variant_labels",
+          C.flattenCat(
+            "array(variantId)",
+            "array(hgvsId)",
+            "dbXrefs.id",
+            "rsIds"
+          )
+        )
+        .withColumn("variantTargetRank", rank().over(variantWindow))
+        .where(col("variantTargetRank") <= top50)
+        .groupBy(col("targetId"))
+        .agg(
+          array_distinct(
+            flatten(collect_list(when(col("variantTargetRank") <= top50, col("variant_labels"))))
+          )
+            .as("variant_labels"),
+          array_distinct(
+            flatten(collect_list(when(col("variantTargetRank") <= top25, col("variant_labels"))))
+          )
+            .as("variant_labels_25"),
+          array_distinct(
+            flatten(collect_list(when(col("variantTargetRank") <= top5, col("variant_labels"))))
+          )
+            .as("variant_labels_5")
+        )
+        .persist(StorageLevel.DISK_ONLY)
+
+      val assocsWithLabels = assocsWithDrugAndDiseaseLabels
+        .join(variantsByTarget, Seq("targetId"), "left_outer")
 
       val targetHGNC = df
         .select(
@@ -115,6 +165,11 @@ object Transformers {
             .otherwise(col("drug_labels"))
         )
         .withColumn(
+          "variant_labels",
+          when(col("variant_labels").isNull, Array.empty[String])
+            .otherwise(col("variant_labels"))
+        )
+        .withColumn(
           "disease_labels_5",
           when(col("disease_labels_5").isNull, Array.empty[String])
             .otherwise(col("disease_labels_5"))
@@ -125,6 +180,11 @@ object Transformers {
             .otherwise(col("drug_labels_5"))
         )
         .withColumn(
+          "variant_labels_5",
+          when(col("variant_labels_5").isNull, Array.empty[String])
+            .otherwise(col("variant_labels_5"))
+        )
+        .withColumn(
           "disease_labels_25",
           when(col("disease_labels_25").isNull, Array.empty[String])
             .otherwise(col("disease_labels_25"))
@@ -133,6 +193,11 @@ object Transformers {
           "drug_labels_25",
           when(col("drug_labels_25").isNull, Array.empty[String])
             .otherwise(col("drug_labels_25"))
+        )
+        .withColumn(
+          "variant_labels_25",
+          when(col("variant_labels_25").isNull, Array.empty[String])
+            .otherwise(col("variant_labels_25"))
         )
         .withColumnRenamed("targetId", "id")
         .withColumn(
@@ -168,21 +233,24 @@ object Transformers {
           "terms",
           C.flattenCat(
             "disease_labels",
-            "drug_labels"
+            "drug_labels",
+            "variant_labels"
           )
         )
         .withColumn(
           "terms25",
           C.flattenCat(
             "disease_labels_25",
-            "drug_labels_25"
+            "drug_labels_25",
+            "variant_labels_25"
           )
         )
         .withColumn(
           "terms5",
           C.flattenCat(
             "disease_labels_5",
-            "drug_labels_5"
+            "drug_labels_5",
+            "variant_labels_5"
           )
         )
         .withColumn("entity", lit("target"))
@@ -467,6 +535,46 @@ object Transformers {
       drugs
         .selectExpr(searchFields: _*)
     }
+
+    def setIdAndSelectFromVariants(
+    ): DataFrame = {
+
+      val output = df
+        .withColumn("id", col("variantId"))
+        .withColumn("name", col("variantId"))
+        .withColumn("description", lit(null).cast("string"))
+        .withColumn("entity", lit("variant"))
+        .withColumn("category", array(lit("variant")))
+        .withColumn("synonyms", col("dbXrefs.id"))
+        .withColumn("locationUnderscore",
+                    concat(col("chromosome"), lit("_"), col("position"), lit("_"))
+        )
+        .withColumn("locationDash", concat(col("chromosome"), lit("-"), col("position"), lit("-")))
+        .withColumn("locationColon", concat(col("chromosome"), lit(":"), col("position"), lit(":")))
+        .withColumn("keywords",
+                    C.flattenCat(
+                      "array(id)",
+                      "array(hgvsId)",
+                      "synonyms",
+                      "rsIds",
+                      "array(locationUnderscore)",
+                      "array(locationDash)",
+                      "array(locationColon)"
+                    )
+        )
+        .withColumn(
+          "prefixes",
+          C.flattenCat("array(id)", "array(hgvsId)", "synonyms", "rsIds", "array(locationColon)")
+        )
+        .withColumn("ngrams", C.flattenCat("array(id)", "synonyms"))
+        .withColumn("terms", lit(null).cast("string"))
+        .withColumn("terms25", lit(null).cast("string"))
+        .withColumn("terms5", lit(null).cast("string"))
+        .withColumn("multiplier", lit(0.01d))
+        .selectExpr(searchFields: _*)
+      output
+    }
+
   }
 }
 
@@ -485,7 +593,8 @@ object Search extends LazyLogging {
       "indication" -> searchSec.inputs.drugs.indications,
       "evidence" -> searchSec.inputs.evidences,
       "target" -> searchSec.inputs.targets,
-      "association" -> searchSec.inputs.associations
+      "association" -> searchSec.inputs.associations,
+      "variants" -> searchSec.inputs.variants
     )
 
     val inputDataFrame = IoHelpers.readFrom(mappedInputs)
@@ -548,6 +657,16 @@ object Search extends LazyLogging {
       .withColumnRenamed("id", "drugId")
       .orderBy(col("drugId"))
       .persist(StorageLevel.DISK_ONLY)
+
+    val variants = inputDataFrame("variants").data
+      .select("variantId",
+              "rsIds",
+              "hgvsId",
+              "dbXrefs",
+              "chromosome",
+              "position",
+              "transcriptConsequences"
+      )
 
     val dLUT = diseases
       .withColumn(
@@ -656,7 +775,8 @@ object Search extends LazyLogging {
         associationScores,
         associationsWithDrugsFromEvidencesWithScores,
         dLUT,
-        drLUT
+        drLUT,
+        variants
       )
 
     logger.info("generate search objects for drug entity")
@@ -668,11 +788,15 @@ object Search extends LazyLogging {
       .withColumnRenamed("drugId", "id")
       .setIdAndSelectFromDrugs(associationsWithDrugs, tLUT, dLUT)
 
+    val searchVariants = variants
+      .setIdAndSelectFromVariants()
+
     val conf = context.configuration.search
     val outputs = Map(
       "search_diseases" -> IOResource(searchDiseases, conf.outputs.diseases),
       "search_targets" -> IOResource(searchTargets, conf.outputs.targets),
-      "search_drugs" -> IOResource(searchDrugs, conf.outputs.drugs)
+      "search_drugs" -> IOResource(searchDrugs, conf.outputs.drugs),
+      "search_variants" -> IOResource(searchVariants, conf.outputs.variants)
     )
 
     IoHelpers.writeTo(outputs)
