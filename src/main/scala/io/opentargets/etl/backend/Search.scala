@@ -467,6 +467,37 @@ object Transformers {
       drugs
         .selectExpr(searchFields: _*)
     }
+
+    def setIdAndSelectFromVariants(): DataFrame =
+      df.withColumn("id", col("variantId"))
+        .withColumn("name", lit(null).cast("string"))
+        .withColumn("description", lit(null).cast("string"))
+        .withColumn("entity", lit("variant"))
+        .withColumn("category", lit("variant"))
+        .withColumn("synonyms", col("dbXrefs.id"))
+        .withColumn("locationUnderscore",
+                    concat(col("chromosome"), lit("_"), col("position"), lit("_"))
+        )
+        .withColumn("locationDash", concat(col("chromosome"), lit("-"), col("position"), lit("-")))
+        .withColumn("locationColon", concat(col("chromosome"), lit(":"), col("position"), lit(":")))
+        .withColumn("keywords",
+                    C.flattenCat(
+                      "array(id)",
+                      "synonyms",
+                      "rsIds",
+                      "array(locationUnderscore)",
+                      "array(locationDash)",
+                      "array(locationColon)"
+                    )
+        )
+        .withColumn("prefixes", C.flattenCat("array(id)", "synonyms"))
+        .withColumn("ngrams", C.flattenCat("array(id)", "synonyms"))
+        .withColumn("terms", lit("terms"))
+        .withColumn("terms25", lit("terms25"))
+        .withColumn("terms5", lit("terms5"))
+        .withColumn("multiplier", lit(1.0d))
+        .selectExpr(searchFields: _*)
+
   }
 }
 
@@ -485,7 +516,8 @@ object Search extends LazyLogging {
       "indication" -> searchSec.inputs.drugs.indications,
       "evidence" -> searchSec.inputs.evidences,
       "target" -> searchSec.inputs.targets,
-      "association" -> searchSec.inputs.associations
+      "association" -> searchSec.inputs.associations,
+      "variants" -> searchSec.inputs.variants
     )
 
     val inputDataFrame = IoHelpers.readFrom(mappedInputs)
@@ -667,12 +699,22 @@ object Search extends LazyLogging {
       )
       .withColumnRenamed("drugId", "id")
       .setIdAndSelectFromDrugs(associationsWithDrugs, tLUT, dLUT)
+    val variants = inputDataFrame("variants").data.select("variantId",
+                                                          "rsIds",
+                                                          "dbXrefs",
+                                                          "chromosome",
+                                                          "position",
+                                                          "transcriptConsequences"
+    )
+
+    val searchVariants = variants.setIdAndSelectFromVariants()
 
     val conf = context.configuration.search
     val outputs = Map(
       "search_diseases" -> IOResource(searchDiseases, conf.outputs.diseases),
       "search_targets" -> IOResource(searchTargets, conf.outputs.targets),
-      "search_drugs" -> IOResource(searchDrugs, conf.outputs.drugs)
+      "search_drugs" -> IOResource(searchDrugs, conf.outputs.drugs),
+      "search_variants" -> IOResource(searchVariants, conf.outputs.variants)
     )
 
     IoHelpers.writeTo(outputs)
