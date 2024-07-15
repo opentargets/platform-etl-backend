@@ -468,11 +468,10 @@ object Transformers {
         .selectExpr(searchFields: _*)
     }
 
-    def setIdAndSelectFromVariants(): DataFrame = {
+    def setIdAndSelectFromVariants(associations: DataFrame): DataFrame = {
 
-      val top50 = 50L
-      val top25 = 25L
-      val top5 = 5L
+      val top50 =
+        50L // top 50 targets for each variant - do we need to add another window for the target disease assoc?
       val window = Window.partitionBy(col("variantId")).orderBy(col("distance").asc)
       val targetsByVariant: DataFrame = df
         .withColumn("transcriptConsequences", explode(col("transcriptConsequences")))
@@ -483,10 +482,20 @@ object Transformers {
           ).otherwise(lit(Double.PositiveInfinity))
         )
         .withColumn("targetId", col("transcriptConsequences.targetId"))
+        .join(associations, Seq("targetId"), "inner")
         .withColumn("rank", rank().over(window))
         .groupBy(col("variantId"))
-        .agg(collect_set(when(col("rank") <= top50, col("targetId"))).as("targetIds"))
-        .select(col("variantId"), col("targetIds"))
+        .agg(
+          array_distinct(
+            flatten(collect_list(when(col("rank") <= top50, col("target_labels"))))
+              .as("target_labels")
+          ),
+          array_distinct(
+            flatten(collect_list(when(col("rank") <= top50, col("disease_labels"))))
+              .as("disease_labels")
+          )
+        )
+        .select(col("variantId"), col("target_labels"), col("disease_labels"))
 
       val output = df
         .join(targetsByVariant, Seq("variantId"), "left_outer")
@@ -513,7 +522,7 @@ object Transformers {
         )
         .withColumn("prefixes", C.flattenCat("array(id)", "synonyms"))
         .withColumn("ngrams", C.flattenCat("array(id)", "synonyms"))
-        .withColumn("terms", C.flattenCat("targetIds"))
+        .withColumn("terms", C.flattenCat("target_labels", "disease_labels"))
         .withColumn("terms25", lit("terms25"))
         .withColumn("terms5", lit("terms5"))
         .withColumn("multiplier", lit(1.0d))
@@ -730,7 +739,7 @@ object Search extends LazyLogging {
                                                           "transcriptConsequences"
     )
 
-    val searchVariants = variants.setIdAndSelectFromVariants()
+    val searchVariants = variants.setIdAndSelectFromVariants(associationScores)
 
     val conf = context.configuration.search
     val outputs = Map(
