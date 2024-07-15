@@ -468,8 +468,29 @@ object Transformers {
         .selectExpr(searchFields: _*)
     }
 
-    def setIdAndSelectFromVariants(): DataFrame =
-      df.withColumn("id", col("variantId"))
+    def setIdAndSelectFromVariants(): DataFrame = {
+
+      val top50 = 50L
+      val top25 = 25L
+      val top5 = 5L
+      val window = Window.partitionBy(col("variantId")).orderBy(col("distance").asc)
+      val targetsByVariant: DataFrame = df
+        .withColumn("transcriptConsequences", explode(col("transcriptConsequences")))
+        .withColumn(
+          "distance",
+          when(col("transcriptConsequences.distance").isNotNull,
+               col("transcriptConsequences.distance")
+          ).otherwise(lit(Double.PositiveInfinity))
+        )
+        .withColumn("targetId", col("transcriptConsequences.targetId"))
+        .withColumn("rank", rank().over(window))
+        .groupBy(col("variantId"))
+        .agg(collect_set(when(col("rank") <= top50, col("targetId"))).as("targetIds"))
+        .select(col("variantId"), col("targetIds"))
+
+      val output = df
+        .join(targetsByVariant, Seq("variantId"), "left_outer")
+        .withColumn("id", col("variantId"))
         .withColumn("name", lit(null).cast("string"))
         .withColumn("description", lit(null).cast("string"))
         .withColumn("entity", lit("variant"))
@@ -492,11 +513,13 @@ object Transformers {
         )
         .withColumn("prefixes", C.flattenCat("array(id)", "synonyms"))
         .withColumn("ngrams", C.flattenCat("array(id)", "synonyms"))
-        .withColumn("terms", lit("terms"))
+        .withColumn("terms", C.flattenCat("targetIds"))
         .withColumn("terms25", lit("terms25"))
         .withColumn("terms5", lit("terms5"))
         .withColumn("multiplier", lit(1.0d))
         .selectExpr(searchFields: _*)
+      output
+    }
 
   }
 }
