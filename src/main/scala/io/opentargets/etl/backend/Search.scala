@@ -499,6 +499,16 @@ object Transformers {
 
       val output = df
         .join(targetsByVariant, Seq("variantId"), "left_outer")
+        .withColumn(
+          "target_labels",
+          when(col("target_labels").isNull, Array.empty[String])
+            .otherwise(col("target_labels"))
+        )
+        .withColumn(
+          "disease_labels",
+          when(col("disease_labels").isNull, Array.empty[String])
+            .otherwise(col("disease_labels"))
+        )
         .withColumn("id", col("variantId"))
         .withColumn("name", lit(null).cast("string"))
         .withColumn("description", lit(null).cast("string"))
