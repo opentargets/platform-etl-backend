@@ -468,11 +468,16 @@ object Transformers {
         .selectExpr(searchFields: _*)
     }
 
-    def setIdAndSelectFromVariants(associations: DataFrame): DataFrame = {
+    def setIdAndSelectFromVariants(
+        associations: DataFrame,
+        targets: DataFrame,
+        diseases: DataFrame
+    ): DataFrame = {
 
       val top50 =
         50L // top 50 targets for each variant - do we need to add another window for the target disease assoc?
-      val window = Window.partitionBy(col("variantId")).orderBy(col("distance").asc)
+      val variantWindow = Window.partitionBy(col("variantId")).orderBy(col("distance").asc)
+      val targetWindow = Window.partitionBy(col("targetId")).orderBy(col("score").desc)
       val targetsByVariant: DataFrame = df
         .withColumn("transcriptConsequences", explode(col("transcriptConsequences")))
         .withColumn(
@@ -482,20 +487,30 @@ object Transformers {
           ).otherwise(lit(Double.PositiveInfinity))
         )
         .withColumn("targetId", col("transcriptConsequences.targetId"))
+        .join(targets, Seq("targetId"), "inner")
         .join(associations, Seq("targetId"), "inner")
-        .withColumn("rank", rank().over(window))
+        .join(diseases, Seq("diseaseId"), "inner")
+        .withColumn("variantTargetRank", rank().over(variantWindow))
+        .withColumn("targetDiseaseRank", rank().over(targetWindow))
         .groupBy(col("variantId"))
         .agg(
+          collect_set(when(col("variantTargetRank") <= top50, col("targetId"))).as("targetIds"),
+          collect_set(when(col("targetDiseaseRank") <= top50, col("diseaseId"))).as("diseaseIds"),
           array_distinct(
-            flatten(collect_list(when(col("rank") <= top50, col("target_labels"))))
-              .as("target_labels")
-          ),
-          array_distinct(
-            flatten(collect_list(when(col("rank") <= top50, col("disease_labels"))))
-              .as("disease_labels")
+            flatten(collect_list(when(col("variantTargetRank") <= top50, col("target_labels"))))
           )
+            .as("target_labels"),
+          array_distinct(
+            flatten(collect_list(when(col("targetDiseaseRank") <= top50, col("disease_labels"))))
+          )
+            .as("disease_labels")
         )
-        .select(col("variantId"), col("target_labels"), col("disease_labels"))
+        .select(col("variantId"),
+                col("target_labels"),
+                col("disease_labels"),
+                col("targetIds"),
+                col("diseaseIds")
+        )
 
       val output = df
         .join(targetsByVariant, Seq("variantId"), "left_outer")
@@ -532,7 +547,9 @@ object Transformers {
         )
         .withColumn("prefixes", C.flattenCat("array(id)", "synonyms"))
         .withColumn("ngrams", C.flattenCat("array(id)", "synonyms"))
-        .withColumn("terms", C.flattenCat("target_labels", "disease_labels"))
+        .withColumn("terms",
+                    C.flattenCat("targetIds", "target_labels", "diseaseIds", "disease_labels")
+        )
         .withColumn("terms25", lit("terms25"))
         .withColumn("terms5", lit("terms5"))
         .withColumn("multiplier", lit(1.0d))
@@ -556,7 +573,7 @@ object Search extends LazyLogging {
       "drug" -> searchSec.inputs.drugs.drug,
       "mechanism" -> searchSec.inputs.drugs.mechanismOfAction,
       "indication" -> searchSec.inputs.drugs.indications,
-      "evidence" -> searchSec.inputs.evidences,
+      // "evidence" -> searchSec.inputs.evidences,
       "target" -> searchSec.inputs.targets,
       "association" -> searchSec.inputs.associations,
       "variants" -> searchSec.inputs.variants
@@ -587,41 +604,41 @@ object Search extends LazyLogging {
       .orderBy(col("targetId"))
       .persist(StorageLevel.DISK_ONLY)
 
-    logger.info("process drugs and persist")
-    val drugs = inputDataFrame("drug").data
-      .join(
-        inputDataFrame("mechanism").data
-          .withColumn("id", explode(col("chemblIds")))
-          .transform(
-            nest(
-              _: DataFrame,
-              List("mechanismOfAction", "references", "targetName", "targets"),
-              "rows"
-            )
-          )
-          .groupBy("id")
-          .agg(
-            collect_list("rows") as "rows",
-            collect_set("actionType") as "uniqueActionTypes",
-            collect_set("targetType") as "uniqueTargetType"
-          ),
-        Seq("id"),
-        "left_outer"
-      )
-      .join(
-        inputDataFrame("indication").data
-          .select(
-            col("id"),
-            col("indications") as "rows",
-            col("indicationCount") as "count"
-          )
-          .transform(nest(_: DataFrame, List("rows", "count"), "indications")),
-        Seq("id"),
-        "left_outer"
-      )
-      .withColumnRenamed("id", "drugId")
-      .orderBy(col("drugId"))
-      .persist(StorageLevel.DISK_ONLY)
+//    logger.info("process drugs and persist")
+//    val drugs = inputDataFrame("drug").data
+//      .join(
+//        inputDataFrame("mechanism").data
+//          .withColumn("id", explode(col("chemblIds")))
+//          .transform(
+//            nest(
+//              _: DataFrame,
+//              List("mechanismOfAction", "references", "targetName", "targets"),
+//              "rows"
+//            )
+//          )
+//          .groupBy("id")
+//          .agg(
+//            collect_list("rows") as "rows",
+//            collect_set("actionType") as "uniqueActionTypes",
+//            collect_set("targetType") as "uniqueTargetType"
+//          ),
+//        Seq("id"),
+//        "left_outer"
+//      )
+//      .join(
+//        inputDataFrame("indication").data
+//          .select(
+//            col("id"),
+//            col("indications") as "rows",
+//            col("indicationCount") as "count"
+//          )
+//          .transform(nest(_: DataFrame, List("rows", "count"), "indications")),
+//        Seq("id"),
+//        "left_outer"
+//      )
+//      .withColumnRenamed("id", "drugId")
+//      .orderBy(col("drugId"))
+//      .persist(StorageLevel.DISK_ONLY)
 
     val dLUT = diseases
       .withColumn(
@@ -639,19 +656,19 @@ object Search extends LazyLogging {
       .persist(StorageLevel.DISK_ONLY)
 
     // DataFrame with [drug_id, drug_labels]
-    val drLUT: DataFrame = drugs
-      .withColumn(
-        "drug_labels",
-        flattenCat(
-          "synonyms",
-          "tradeNames",
-          "array(name)",
-          "rows.mechanismOfAction"
-        )
-      )
-      .select("drugId", "drug_labels")
-      .orderBy("drugId")
-      .persist(StorageLevel.DISK_ONLY)
+//    val drLUT: DataFrame = drugs
+//      .withColumn(
+//        "drug_labels",
+//        flattenCat(
+//          "synonyms",
+//          "tradeNames",
+//          "array(name)",
+//          "rows.mechanismOfAction"
+//        )
+//      )
+//      .select("drugId", "drug_labels")
+//      .orderBy("drugId")
+//      .persist(StorageLevel.DISK_ONLY)
 
     val tLUT = targets
       .withColumn(
@@ -681,66 +698,67 @@ object Search extends LazyLogging {
       .select(associationColumns.head, associationColumns.tail: _*)
       .persist(StorageLevel.DISK_ONLY)
 
-    logger.info("find associated drugs using evidence dataset")
-    val associationsWithDrugsFromEvidences = inputDataFrame("evidence").data
-      .transform(Transformers.findAssociationsWithDrugs)
+//    logger.info("find associated drugs using evidence dataset")
+//    val associationsWithDrugsFromEvidences = inputDataFrame("evidence").data
+//      .transform(Transformers.findAssociationsWithDrugs)
+//
+//    logger.info("compute total counts for associations and associations with drugs")
+//    val totalAssociationsWithDrugs = associationsWithDrugsFromEvidences.count()
+//
+//    val drugColumns = Seq(
+//      "associationId",
+//      "drugId",
+//      "drugIds",
+//      "targetId",
+//      "diseaseId",
+//      "score"
+//    )
+//    logger.info("associations with at least 1 drug and the overall score per association")
+//    val associationsWithDrugsFromEvidencesWithScores = associationsWithDrugsFromEvidences
+//      .join(associationScores.select("associationId", "score"), Seq("associationId"), "inner")
+//      .withColumn("drugId", explode(col("drugIds")))
+//      .select(drugColumns.head, drugColumns.tail: _*)
+//      .persist(StorageLevel.DISK_ONLY)
+//
+//    logger.info("collected associations with drugs coming from evidences")
+//    val associationsWithDrugs = associationsWithDrugsFromEvidencesWithScores
+//      .groupBy(col("drugId"))
+//      .agg(
+//        collect_set(col("targetId")).as("targetIds"),
+//        collect_set("diseaseId").as("diseaseIds"),
+//        mean(col("score")).as("meanScore"),
+//        (count(col("associationId")).cast(DoubleType) / lit(totalAssociationsWithDrugs.toDouble))
+//          .as("drug_relevance")
+//      )
+//
+//    logger.info("generate search objects for disease entity")
+//    val searchDiseases = diseases
+//      .setIdAndSelectFromDiseases(
+//        phenotypeNames,
+//        associationScores,
+//        associationsWithDrugsFromEvidencesWithScores,
+//        tLUT,
+//        drLUT
+//      )
+//
+//    logger.info("generate search objects for target entity")
+//    val searchTargets = targets
+//      .setIdAndSelectFromTargets(
+//        associationScores,
+//        associationsWithDrugsFromEvidencesWithScores,
+//        dLUT,
+//        drLUT
+//      )
+//
+//    logger.info("generate search objects for drug entity")
+//    val searchDrugs = drugs
+//      .resolveDrugIndications(
+//        dLUT,
+//        "indicationLabels"
+//      )
+//      .withColumnRenamed("drugId", "id")
+//      .setIdAndSelectFromDrugs(associationsWithDrugs, tLUT, dLUT)
 
-    logger.info("compute total counts for associations and associations with drugs")
-    val totalAssociationsWithDrugs = associationsWithDrugsFromEvidences.count()
-
-    val drugColumns = Seq(
-      "associationId",
-      "drugId",
-      "drugIds",
-      "targetId",
-      "diseaseId",
-      "score"
-    )
-    logger.info("associations with at least 1 drug and the overall score per association")
-    val associationsWithDrugsFromEvidencesWithScores = associationsWithDrugsFromEvidences
-      .join(associationScores.select("associationId", "score"), Seq("associationId"), "inner")
-      .withColumn("drugId", explode(col("drugIds")))
-      .select(drugColumns.head, drugColumns.tail: _*)
-      .persist(StorageLevel.DISK_ONLY)
-
-    logger.info("collected associations with drugs coming from evidences")
-    val associationsWithDrugs = associationsWithDrugsFromEvidencesWithScores
-      .groupBy(col("drugId"))
-      .agg(
-        collect_set(col("targetId")).as("targetIds"),
-        collect_set("diseaseId").as("diseaseIds"),
-        mean(col("score")).as("meanScore"),
-        (count(col("associationId")).cast(DoubleType) / lit(totalAssociationsWithDrugs.toDouble))
-          .as("drug_relevance")
-      )
-
-    logger.info("generate search objects for disease entity")
-    val searchDiseases = diseases
-      .setIdAndSelectFromDiseases(
-        phenotypeNames,
-        associationScores,
-        associationsWithDrugsFromEvidencesWithScores,
-        tLUT,
-        drLUT
-      )
-
-    logger.info("generate search objects for target entity")
-    val searchTargets = targets
-      .setIdAndSelectFromTargets(
-        associationScores,
-        associationsWithDrugsFromEvidencesWithScores,
-        dLUT,
-        drLUT
-      )
-
-    logger.info("generate search objects for drug entity")
-    val searchDrugs = drugs
-      .resolveDrugIndications(
-        dLUT,
-        "indicationLabels"
-      )
-      .withColumnRenamed("drugId", "id")
-      .setIdAndSelectFromDrugs(associationsWithDrugs, tLUT, dLUT)
     val variants = inputDataFrame("variants").data.select("variantId",
                                                           "rsIds",
                                                           "dbXrefs",
@@ -749,13 +767,18 @@ object Search extends LazyLogging {
                                                           "transcriptConsequences"
     )
 
-    val searchVariants = variants.setIdAndSelectFromVariants(associationScores)
+    val searchVariants = variants
+      .setIdAndSelectFromVariants(
+        associationScores,
+        tLUT,
+        dLUT
+      )
 
     val conf = context.configuration.search
     val outputs = Map(
-      "search_diseases" -> IOResource(searchDiseases, conf.outputs.diseases),
-      "search_targets" -> IOResource(searchTargets, conf.outputs.targets),
-      "search_drugs" -> IOResource(searchDrugs, conf.outputs.drugs),
+      // "search_diseases" -> IOResource(searchDiseases, conf.outputs.diseases),
+      // "search_targets" -> IOResource(searchTargets, conf.outputs.targets),
+      // "search_drugs" -> IOResource(searchDrugs, conf.outputs.drugs),
       "search_variants" -> IOResource(searchVariants, conf.outputs.variants)
     )
 
