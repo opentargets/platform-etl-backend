@@ -557,10 +557,10 @@ object Transformers {
             .otherwise(col("disease_labels"))
         )
         .withColumn("id", col("variantId"))
-        .withColumn("name", lit(null).cast("string"))
+        .withColumn("name", col("variantId"))
         .withColumn("description", lit(null).cast("string"))
         .withColumn("entity", lit("variant"))
-        .withColumn("category", lit("variant"))
+        .withColumn("category", array(lit("variant")))
         .withColumn("synonyms", col("dbXrefs.id"))
         .withColumn("locationUnderscore",
                     concat(col("chromosome"), lit("_"), col("position"), lit("_"))
@@ -577,7 +577,14 @@ object Transformers {
                       "array(locationColon)"
                     )
         )
-        .withColumn("prefixes", C.flattenCat("array(id)", "synonyms"))
+        .withColumn("prefixes",
+                    C.flattenCat("array(id)",
+                                 "synonyms",
+                                 "rsIds",
+                                 "array(locationDash)",
+                                 "array(locationColon)"
+                    )
+        )
         .withColumn("ngrams", C.flattenCat("array(id)", "synonyms"))
         .withColumn("terms", C.flattenCat("target_labels", "disease_labels"))
         .withColumn("terms25", C.flattenCat("target_labels_5", "disease_labels_5"))
