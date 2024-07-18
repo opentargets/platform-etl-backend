@@ -578,12 +578,7 @@ object Transformers {
                     )
         )
         .withColumn("prefixes",
-                    C.flattenCat("array(id)",
-                                 "synonyms",
-                                 "rsIds",
-                                 "array(locationDash)",
-                                 "array(locationColon)"
-                    )
+                    C.flattenCat("array(id)", "synonyms", "rsIds", "array(locationColon)")
         )
         .withColumn("ngrams", C.flattenCat("array(id)", "synonyms"))
         .withColumn("terms", C.flattenCat("target_labels", "disease_labels"))
