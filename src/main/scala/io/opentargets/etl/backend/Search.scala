@@ -581,8 +581,8 @@ object Transformers {
                     C.flattenCat("array(id)", "synonyms", "rsIds", "array(locationColon)")
         )
         .withColumn("ngrams", C.flattenCat("array(id)", "synonyms"))
-        .withColumn("terms", C.flattenCat("target_labels", "disease_labels"))
-        .withColumn("terms25", C.flattenCat("target_labels_5", "disease_labels_5"))
+        .withColumn("terms", lit(null).cast("string"))
+        .withColumn("terms25", lit(null).cast("string"))
         .withColumn("terms5", C.flattenCat("target_labels_2", "disease_labels_2"))
         .withColumn("multiplier",
                     when(col("relevance_score").isNotNull, col("relevance_score"))
