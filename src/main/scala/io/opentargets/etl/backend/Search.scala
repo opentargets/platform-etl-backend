@@ -477,11 +477,10 @@ object Transformers {
       // score will be (5000 - (min(5000, distance))/5000) + 1
       // 5000 is a somewhat arbitrary number (based on distance) to scale the distance to a score between 0 and 1
 
-      val top2 = 2L
-      val top5 = 5L
-      val top10 = 10L
-      val distanceThreshold = 5000L
-      val variantWindow = Window.partitionBy(col("variantId")).orderBy(col("distance").asc)
+      val top3 = 3L
+      val variantWindow = Window
+        .partitionBy(col("variantId"))
+        .orderBy(col("transcriptConsequences.transcriptIndex").asc)
       val targetWindow = Window.partitionBy(col("targetId")).orderBy(col("score").desc)
 
       val topAssocs: DataFrame = associations
@@ -490,72 +489,37 @@ object Transformers {
         .groupBy(col("targetId"))
         .agg(
           array_distinct(
-            flatten(collect_list(when(col("targetDiseaseRank") <= top2, col("disease_labels"))))
+            flatten(collect_list(when(col("targetDiseaseRank") <= top3, col("disease_labels"))))
           )
-            .as("disease_labels_2"),
-          array_distinct(
-            flatten(collect_list(when(col("targetDiseaseRank") <= top5, col("disease_labels"))))
-          )
-            .as("disease_labels_5"),
-          array_distinct(
-            flatten(collect_list(when(col("targetDiseaseRank") <= top10, col("disease_labels"))))
-          )
-            .as("disease_labels"),
+            .as("disease_labels_3"),
           mean(col("score")).as("disease_relevance")
         )
 
       val targetsByVariant: DataFrame = df
         .withColumn("transcriptConsequences", explode(col("transcriptConsequences")))
         .withColumn(
-          "distance",
-          when(col("transcriptConsequences.distance").isNotNull,
-               col("transcriptConsequences.distance")
-          ).otherwise(lit(0))
+          "consequenceScore",
+          when(col("transcriptConsequences.consequenceScore").isNotNull,
+               col("transcriptConsequences.consequenceScore")
+          ).otherwise(lit(0) + lit(1))
         )
         .withColumn("targetId", col("transcriptConsequences.targetId"))
-        .withColumn(
-          "distanceScore",
-          ((lit(distanceThreshold) - least(lit(distanceThreshold), col("distance"))) / lit(
-            distanceThreshold
-          )) + lit(1)
-        )
         .join(targets, Seq("targetId"), "left_outer")
         .join(topAssocs, Seq("targetId"), "left_outer")
         .withColumn("variantTargetRank", rank().over(variantWindow))
         .groupBy(col("variantId"))
         .agg(
           array_distinct(
-            flatten(collect_list(when(col("variantTargetRank") <= top2, col("target_labels"))))
+            flatten(collect_list(when(col("variantTargetRank") <= top3, col("target_labels"))))
           )
-            .as("target_labels_2"),
-          array_distinct(
-            flatten(collect_list(when(col("variantTargetRank") <= top5, col("target_labels"))))
-          )
-            .as("target_labels_5"),
-          array_distinct(
-            flatten(collect_list(when(col("variantTargetRank") <= top10, col("target_labels"))))
-          )
-            .as("target_labels"),
-          first(col("disease_labels_2")).as("disease_labels_2"),
-          first(col("disease_labels_5")).as("disease_labels_5"),
-          first(col("disease_labels")).as("disease_labels"),
-          first(col("distance")).as("distance"),
-          (mean(col("distanceScore")) * mean(col("disease_relevance")) + lit(1))
+            .as("target_labels_3"),
+          first(col("disease_labels_3")).as("disease_labels_3"),
+          (mean(col("consequenceScore")) * mean(col("disease_relevance")) + lit(1))
             .as("relevance_score")
         )
 
       val output = df
         .join(targetsByVariant, Seq("variantId"), "left_outer")
-        .withColumn(
-          "target_labels",
-          when(col("target_labels").isNull, Array.empty[String])
-            .otherwise(col("target_labels"))
-        )
-        .withColumn(
-          "disease_labels",
-          when(col("disease_labels").isNull, Array.empty[String])
-            .otherwise(col("disease_labels"))
-        )
         .withColumn("id", col("variantId"))
         .withColumn("name", col("variantId"))
         .withColumn("description", lit(null).cast("string"))
@@ -570,6 +534,7 @@ object Transformers {
         .withColumn("keywords",
                     C.flattenCat(
                       "array(id)",
+                      "array(hgvsId)",
                       "synonyms",
                       "rsIds",
                       "array(locationUnderscore)",
@@ -577,13 +542,14 @@ object Transformers {
                       "array(locationColon)"
                     )
         )
-        .withColumn("prefixes",
-                    C.flattenCat("array(id)", "synonyms", "rsIds", "array(locationColon)")
+        .withColumn(
+          "prefixes",
+          C.flattenCat("array(id)", "array(hgvsId)", "synonyms", "rsIds", "array(locationColon)")
         )
         .withColumn("ngrams", C.flattenCat("array(id)", "synonyms"))
         .withColumn("terms", lit(null).cast("string"))
         .withColumn("terms25", lit(null).cast("string"))
-        .withColumn("terms5", C.flattenCat("target_labels_2", "disease_labels_2"))
+        .withColumn("terms5", C.flattenCat("target_labels_3", "disease_labels_3"))
         .withColumn("multiplier",
                     when(col("relevance_score").isNotNull, col("relevance_score"))
                       .otherwise(0.01d)
@@ -796,6 +762,7 @@ object Search extends LazyLogging {
 
     val variants = inputDataFrame("variants").data.select("variantId",
                                                           "rsIds",
+                                                          "hgvsId",
                                                           "dbXrefs",
                                                           "chromosome",
                                                           "position",
@@ -811,9 +778,9 @@ object Search extends LazyLogging {
 
     val conf = context.configuration.search
     val outputs = Map(
-      "search_diseases" -> IOResource(searchDiseases, conf.outputs.diseases),
-      "search_targets" -> IOResource(searchTargets, conf.outputs.targets),
-      "search_drugs" -> IOResource(searchDrugs, conf.outputs.drugs),
+//      "search_diseases" -> IOResource(searchDiseases, conf.outputs.diseases),
+//      "search_targets" -> IOResource(searchTargets, conf.outputs.targets),
+//      "search_drugs" -> IOResource(searchDrugs, conf.outputs.drugs),
       "search_variants" -> IOResource(searchVariants, conf.outputs.variants)
     )
 
