@@ -1,4 +1,4 @@
-[![Build Status](https://travis-ci.com/opentargets/platform-etl-backend.svg?branch=master)](https://travis-ci.com/opentargets/platform-etl-backend)
+![Build status](https://github.com/opentargets/platform-etl-backend/actions/workflows/build.yaml/badge.svg)
 
 # Open Targets Post-Pipeline ETL process
 
