@@ -1,0 +1,70 @@
+name: Build
+
+on:
+  release:
+    types:
+      - published
+    branches:
+      - master
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: write
+
+    env:
+      TAG: ${{ github.ref_name }}
+      SCALA_VERSION: 2.12.12
+      OUTPUT_PATH: target/scala-2.12
+
+    steps:
+      - id: prepare-tag
+        name: Prepare tag
+        run: echo "TAG=$(echo $TAG | sed 's/^v//')" >> $GITHUB_ENV
+
+      - id: checkout
+        name: Check out repo
+        uses: actions/checkout@v4
+
+      - id: scala-setup
+        name: Install Scala
+        uses: olafurpg/setup-scala@v11
+        with:
+          java-version: openjdk@1.11
+
+      - id: cache
+        name: Cache dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/coursier
+            ~/.ivy2/cache
+            ~/.sbt
+          key: ${{ runner.os }}-sbt-${{ hashFiles('**/build.sbt') }}
+
+      - id: linter
+        name: Lint code
+        run: sbt ++${{ env.SCALA_VERSION }} scalafmtCheckAll
+
+      - id: compile
+        name: Compile code
+        run: sbt ++${{ env.SCALA_VERSION }} clean compile
+
+      - id: test
+        name: Run tests
+        run: sbt ++${{ env.SCALA_VERSION }} coverage test coverageReport
+
+      - id: assembly
+        name: Build jar
+        run: sbt ++${{env.SCALA_VERSION }} 'set test in assembly := {}' assembly
+
+      - id: rename
+        name: Rename jar
+        run: mv ${{ env.OUTPUT_PATH }}/etl-backend-*.jar ${{ env.OUTPUT_PATH }}/etl-backend-${{ env.TAG }}.jar
+
+      - id: push-to-release
+        uses: svenstaro/upload-release-action@v2
+        with:
+          file: ${{ env.OUTPUT_PATH }}/etl-backend-${{ env.TAG }}.jar
