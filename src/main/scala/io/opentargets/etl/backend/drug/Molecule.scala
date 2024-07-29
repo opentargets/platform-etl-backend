@@ -70,7 +70,7 @@ object Molecule extends LazyLogging {
         col("molecule_chembl_id").as("id"),
         col("molecule_structures.canonical_smiles").as("canonicalSmiles"),
         col("molecule_structures.standard_inchi_key").as("inchiKey"),
-        coalesce(col("molecule_type"), lit("unknown")).as("drugType"),
+        when(col("molecule_type").isNull || col("molecule_type") === "Unknown", lit("unknown")).otherwise(col("molecule_type")).as("drugType"),
         col("chebi_par_id"),
         col("black_box_warning").as("blackBoxWarning"),
         col("pref_name").as("name"),
