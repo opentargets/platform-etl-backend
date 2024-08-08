@@ -6,7 +6,7 @@ import io.opentargets.etl.backend.spark.IoHelpers.IOResources
 import io.opentargets.etl.backend.spark.{IOResource, IoHelpers, Helpers => C}
 import org.apache.spark.sql._
 import org.apache.spark.sql.expressions._
-import org.apache.spark.sql.functions._
+import org.apache.spark.sql.functions.{lit, _}
 import org.apache.spark.sql.types._
 import org.apache.spark.storage.StorageLevel
 
@@ -54,7 +54,8 @@ object Transformers {
         associations: DataFrame,
         associatedDrugs: DataFrame,
         diseases: DataFrame,
-        drugs: DataFrame
+        drugs: DataFrame,
+        variants: DataFrame
     ): DataFrame = {
 
       val drugsByTarget = associatedDrugs
@@ -496,14 +497,6 @@ object Transformers {
         )
 
       val targetsByVariant: DataFrame = df
-        .withColumn("transcriptConsequences", explode(col("transcriptConsequences")))
-        .withColumn(
-          "consequenceScore",
-          when(col("transcriptConsequences.consequenceScore").isNotNull,
-               col("transcriptConsequences.consequenceScore")
-          ).otherwise(lit(0) + lit(1))
-        )
-        .withColumn("targetId", col("transcriptConsequences.targetId"))
         .join(targets, Seq("targetId"), "left_outer")
         .join(topAssocs, Seq("targetId"), "left_outer")
         .withColumn("variantTargetRank", rank().over(variantWindow))
@@ -547,9 +540,9 @@ object Transformers {
           C.flattenCat("array(id)", "array(hgvsId)", "synonyms", "rsIds", "array(locationColon)")
         )
         .withColumn("ngrams", C.flattenCat("array(id)", "synonyms"))
-        .withColumn("terms", lit(null).cast("string"))
+        .withColumn("terms", lit(null).cast("string")) // TODO remove the terms generation.
         .withColumn("terms25", lit(null).cast("string"))
-        .withColumn("terms5", C.flattenCat("target_labels_3", "disease_labels_3"))
+        .withColumn("terms5", lit(null).cast("string"))
         .withColumn("multiplier",
                     when(col("relevance_score").isNotNull, col("relevance_score"))
                       .otherwise(0.01d)
@@ -641,6 +634,24 @@ object Search extends LazyLogging {
       .orderBy(col("drugId"))
       .persist(StorageLevel.DISK_ONLY)
 
+    val variants = inputDataFrame("variants").data
+      .select("variantId",
+              "rsIds",
+              "hgvsId",
+              "dbXrefs",
+              "chromosome",
+              "position",
+              "transcriptConsequences"
+      )
+      .withColumn("transcriptConsequences", explode(col("transcriptConsequences")))
+      .withColumn(
+        "consequenceScore",
+        when(col("transcriptConsequences.consequenceScore").isNotNull,
+             col("transcriptConsequences.consequenceScore")
+        ).otherwise(lit(0) + lit(1))
+      )
+      .withColumn("targetId", col("transcriptConsequences.targetId"))
+
     val dLUT = diseases
       .withColumn(
         "disease_labels",
@@ -682,6 +693,29 @@ object Search extends LazyLogging {
       )
       .select("targetId", "target_labels")
       .orderBy("targetId")
+      .persist(StorageLevel.DISK_ONLY)
+
+    val vLUT = variants
+      .withColumn("locationUnderscore",
+                  concat(col("chromosome"), lit("_"), col("position"), lit("_"))
+      )
+      .withColumn("locationDash", concat(col("chromosome"), lit("-"), col("position"), lit("-")))
+      .withColumn("locationColon", concat(col("chromosome"), lit(":"), col("position"), lit(":")))
+      .withColumn(
+        "variant_labels",
+        C.flattenCat(
+          "array(id)",
+          "array(hgvsId)",
+          "dbXrefs.id",
+          "synonyms",
+          "rsIds",
+          "array(locationUnderscore)",
+          "array(locationDash)",
+          "array(locationColon)"
+        )
+      )
+      .select("variantId", "variant_labels")
+      .orderBy("variantId")
       .persist(StorageLevel.DISK_ONLY)
 
     val associationColumns = Seq(
@@ -748,7 +782,8 @@ object Search extends LazyLogging {
         associationScores,
         associationsWithDrugsFromEvidencesWithScores,
         dLUT,
-        drLUT
+        drLUT,
+        variants
       )
 
     logger.info("generate search objects for drug entity")
@@ -760,15 +795,6 @@ object Search extends LazyLogging {
       .withColumnRenamed("drugId", "id")
       .setIdAndSelectFromDrugs(associationsWithDrugs, tLUT, dLUT)
 
-    val variants = inputDataFrame("variants").data.select("variantId",
-                                                          "rsIds",
-                                                          "hgvsId",
-                                                          "dbXrefs",
-                                                          "chromosome",
-                                                          "position",
-                                                          "transcriptConsequences"
-    )
-
     val searchVariants = variants
       .setIdAndSelectFromVariants(
         associationScores,
@@ -779,7 +805,7 @@ object Search extends LazyLogging {
     val conf = context.configuration.search
     val outputs = Map(
 //      "search_diseases" -> IOResource(searchDiseases, conf.outputs.diseases),
-//      "search_targets" -> IOResource(searchTargets, conf.outputs.targets),
+      "search_targets" -> IOResource(searchTargets, conf.outputs.targets),
 //      "search_drugs" -> IOResource(searchDrugs, conf.outputs.drugs),
       "search_variants" -> IOResource(searchVariants, conf.outputs.variants)
     )
