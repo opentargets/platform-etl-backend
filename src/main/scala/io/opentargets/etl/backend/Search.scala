@@ -96,7 +96,28 @@ object Transformers {
         )
 
       val variantsByTarget = variants
-        .select("targetId", "variant_labels", "transcriptScore")
+        .withColumn("transcriptConsequences", explode(col("transcriptConsequences")))
+        .withColumn(
+          "consequenceScore",
+          when(col("transcriptConsequences.consequenceScore").isNotNull,
+               col("transcriptConsequences.consequenceScore")
+          ).otherwise(lit(0) + lit(1))
+        )
+        .withColumn("targetId", col("transcriptConsequences.targetId"))
+        .withColumn("transcriptScore",
+                    (col("transcriptConsequences.consequenceScore") + lit(1)) * col(
+                      "transcriptConsequences.distanceFromFootprint"
+                    )
+        )
+        .withColumn(
+          "variant_labels",
+          C.flattenCat(
+            "array(variantId)",
+            "array(hgvsId)",
+            "dbXrefs.id",
+            "rsIds"
+          )
+        )
         .withColumn("variantTargetRank", rank().over(variantWindow))
         .where(col("variantTargetRank") <= top50)
         .groupBy(col("targetId"))
@@ -646,28 +667,6 @@ object Search extends LazyLogging {
               "position",
               "transcriptConsequences"
       )
-      .withColumn("transcriptConsequences", explode(col("transcriptConsequences")))
-      .withColumn(
-        "consequenceScore",
-        when(col("transcriptConsequences.consequenceScore").isNotNull,
-             col("transcriptConsequences.consequenceScore")
-        ).otherwise(lit(0) + lit(1))
-      )
-      .withColumn("targetId", col("transcriptConsequences.targetId"))
-      .withColumn("transcriptScore",
-                  (col("transcriptConsequences.consequenceScore") + lit(1)) * col(
-                    "transcriptConsequences.distanceFromFootprint"
-                  )
-      )
-      .withColumn(
-        "variant_labels",
-        C.flattenCat(
-          "array(variantId)",
-          "array(hgvsId)",
-          "dbXrefs.id",
-          "rsIds"
-        )
-      )
 
     val dLUT = diseases
       .withColumn(
@@ -794,9 +793,9 @@ object Search extends LazyLogging {
 
     val conf = context.configuration.search
     val outputs = Map(
-      "search_diseases" -> IOResource(searchDiseases, conf.outputs.diseases),
+      // "search_diseases" -> IOResource(searchDiseases, conf.outputs.diseases),
       "search_targets" -> IOResource(searchTargets, conf.outputs.targets),
-      "search_drugs" -> IOResource(searchDrugs, conf.outputs.drugs),
+      // "search_drugs" -> IOResource(searchDrugs, conf.outputs.drugs),
       "search_variants" -> IOResource(searchVariants, conf.outputs.variants)
     )
 
