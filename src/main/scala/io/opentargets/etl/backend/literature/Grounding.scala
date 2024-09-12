@@ -111,13 +111,6 @@ object Grounding extends Serializable with LazyLogging {
                            labelCountsColumnName: String,
                            typeColumnName: String = "type"
   )(implicit sparkSession: SparkSession): DataFrame = {
-    // prefix is used to prefix each new temp column is created in here so no clash with
-    // any other already present
-    val prefix = Random.alphanumeric.take(6)
-    val minDistinctKeywordsPerLabelPerPubOverKeywordPerPub =
-      s"${prefix}_minDistinctKeywordsPerLabelPerPubOverKeywordPerPub"
-    val minDistinctKeywordsPerLabelOverKeywordOverallPubs =
-      s"${prefix}_minDistinctKeywordsPerLabelOverKeywordOverallPubs"
 
     val keywordColumns = typeColumnName :: keywordColumnName :: Nil
     val windowPerKeyword = Window.partitionBy(keywordColumns.map(col): _*)
@@ -125,17 +118,14 @@ object Grounding extends Serializable with LazyLogging {
     val keywordColumnsPerPub = "pmid" :: "pmcid" :: typeColumnName :: keywordColumnName :: Nil
     val windowPerKeywordPerPub = Window.partitionBy(keywordColumnsPerPub.map(col): _*)
 
-    df.withColumn(minDistinctKeywordsPerLabelPerPubOverKeywordPerPub,
+    df.withColumn("minDistinctKeywordsPerLabelPerPubOverKeywordPerPub",
                   min(col(labelCountsColumnName)).over(windowPerKeywordPerPub)
-    ).withColumn(minDistinctKeywordsPerLabelOverKeywordOverallPubs,
-                 min(col(minDistinctKeywordsPerLabelPerPubOverKeywordPerPub)).over(windowPerKeyword)
+    ).withColumn("minDistinctKeywordsPerLabelOverKeywordOverallPubs",
+                 min(col("minDistinctKeywordsPerLabelPerPubOverKeywordPerPub")).over(windowPerKeyword)
     ).withColumn("isDisambiguous",
-      col(minDistinctKeywordsPerLabelPerPubOverKeywordPerPub) <= col(
-        minDistinctKeywordsPerLabelOverKeywordOverallPubs
+      col("minDistinctKeywordsPerLabelPerPubOverKeywordPerPub") <= col(
+        "minDistinctKeywordsPerLabelOverKeywordOverallPubs"
       )
-    ).drop(
-      minDistinctKeywordsPerLabelOverKeywordOverallPubs,
-      minDistinctKeywordsPerLabelPerPubOverKeywordPerPub
     )
   }
 
