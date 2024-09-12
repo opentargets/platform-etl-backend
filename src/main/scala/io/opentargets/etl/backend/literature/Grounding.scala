@@ -195,6 +195,7 @@ object Grounding extends Serializable with LazyLogging {
 
     logger.info("ground and take rank 1 from the mapped ones")
     val w = Window.partitionBy($"type", $"labelN").orderBy(scoreC.desc)
+    val windowByTypeAndLabel = Window.partitionBy(col("type"), col("labelN"))
     val mappedLabel = labels
       .join(luts, Seq("type", "labelN"), "left_outer")
       .withColumn("isMapped", $"keywordId".isNotNull)
@@ -203,6 +204,10 @@ object Grounding extends Serializable with LazyLogging {
       .filter($"rank" === 1)
       .select(selelectedCols.toList.map(col): _*)
       .dropDuplicates("type", "label", "keywordId")
+      .withColumn("uniqueKeywordIdsPerLabelN",
+        approx_count_distinct(col("keywordId"), 0.01).over(windowByTypeAndLabel)
+      )
+      .orderBy(col("type"), col("labelN"))
 
     mappedLabel
   }
@@ -537,16 +542,10 @@ object Grounding extends Serializable with LazyLogging {
       .withColumn("type", lit("CD"))
       .selectExpr(cols: _*)
 
-    val windowByTypeAndLabel = Window.partitionBy(col("type"), col("labelN"))
-
     diseaseDf
       .unionByName(targetDf)
       .unionByName(drugDf)
       .distinct() // fixme: can this have any effect? We're taking the union of target, disease and drug, what crossover could there be?
-      .withColumn("uniqueKeywordIdsPerLabelN",
-                  approx_count_distinct(col("keywordId"), 0.01).over(windowByTypeAndLabel)
-      )
-      .orderBy(col("type"), col("labelN"))
 
   }
 
