@@ -129,7 +129,7 @@ object Grounding extends Serializable with LazyLogging {
                   min(col(labelCountsColumnName)).over(windowPerKeywordPerPub)
     ).withColumn(minDistinctKeywordsPerLabelOverKeywordOverallPubs,
                  min(col(minDistinctKeywordsPerLabelPerPubOverKeywordPerPub)).over(windowPerKeyword)
-    ).filter(
+    ).withColumn("isDisambiguous",
       col(minDistinctKeywordsPerLabelPerPubOverKeywordPerPub) <= col(
         minDistinctKeywordsPerLabelOverKeywordOverallPubs
       )
