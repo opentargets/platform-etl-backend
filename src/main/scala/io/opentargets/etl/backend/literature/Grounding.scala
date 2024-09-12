@@ -122,6 +122,7 @@ object Grounding extends Serializable with LazyLogging {
                   min(col(labelCountsColumnName)).over(windowPerKeywordPerPub)
     ).withColumn("minDistinctKeywordsPerLabelOverKeywordOverallPubs",
                  min(col("minDistinctKeywordsPerLabelPerPubOverKeywordPerPub")).over(windowPerKeyword)
+    // was previously a filter, now changed to a boolean column
     ).withColumn("isDisambiguous",
       col("minDistinctKeywordsPerLabelPerPubOverKeywordPerPub") <= col(
         "minDistinctKeywordsPerLabelOverKeywordOverallPubs"
@@ -194,6 +195,7 @@ object Grounding extends Serializable with LazyLogging {
       .filter($"rank" === 1)
       .select(selelectedCols.toList.map(col): _*)
       .dropDuplicates("type", "label", "keywordId")
+      // evaluated after filtering by rank so only determined by relevant keywordIds
       .withColumn("uniqueKeywordIdsPerLabelN",
         approx_count_distinct(col("keywordId"), 0.01).over(windowByTypeAndLabel)
       )
