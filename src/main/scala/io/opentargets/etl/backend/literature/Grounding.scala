@@ -234,10 +234,16 @@ object Grounding extends Serializable with LazyLogging {
       .join(mappedLabels, Seq("type", "label"), "left_outer")
       .withColumn("isMapped", $"keywordId".isNotNull)
 
-    val validMatches =
+    // processedMatches contains mapped matches that both pass and fail the disambiguation
+    val processedMatches =
       mergedMatches
         .filter($"isMapped" === true)
         .transform(disambiguate(_, "keywordId", "uniqueKeywordIdsPerLabelN"))
+
+    // matches that pass the disambiguation are processed to become validMatches
+    val validMatches =
+      processedMatches
+        .filter($"isDisambiguous" === true)
         .withColumn(
           "match",
           struct(
@@ -253,6 +259,12 @@ object Grounding extends Serializable with LazyLogging {
           )
         )
         .select(matchesCols: _*)
+
+    // matches that fail the disambiguation are combined with unmapped matches
+    val failedMatches =
+      processedMatches
+        .filter($"isDisambiguous" === false)
+        .unionByName(mergedMatches.filter($"isMapped" === false), allowMissingColumns = true)
 
     val mergedCooc = entities
       .withColumn("cooc", explode($"co-occurrence"))
@@ -274,10 +286,15 @@ object Grounding extends Serializable with LazyLogging {
       .drop("label", "type")
       .withColumn("isMapped", $"keywordId1".isNotNull and $"keywordId2".isNotNull)
 
-    val validCooc = mergedCooc
+    // processedCooc contains mapped cooc that both pass and fail the disambiguation
+    val processedCooc = mergedCooc
       .filter($"isMapped" === true)
       .transform(disambiguate(_, "keywordId1", "uniqueKeywordIdsPerLabelN1", "type1"))
       .transform(disambiguate(_, "keywordId2", "uniqueKeywordIdsPerLabelN2", "type2"))
+
+    // cooc that pass the disambiguation are processed to become validCooc
+    val validCooc = processedCooc
+      .filter($"isDisambiguous" === true)
       .withColumn(
         "co-occurrence",
         struct(
@@ -302,10 +319,16 @@ object Grounding extends Serializable with LazyLogging {
       )
       .select(baseCols :+ $"co-occurrence": _*)
 
+    // cooc that fail the disambiguation are combined with unmapped cooc
+    val failedCooc =
+      processedCooc
+        .filter($"isDisambiguous" === false)
+        .unionByName(mergedCooc.filter($"isMapped" === false), allowMissingColumns = true)
+
     Map(
-      "matchesFailed" -> mergedMatches.filter($"isMapped" === false),
+      "matchesFailed" -> failedMatches,
       "matches" -> validMatches,
-      "cooccurrencesFailed" -> mergedCooc.filter($"isMapped" === false),
+      "cooccurrencesFailed" -> failedCooc,
       "cooccurrences" -> validCooc
     )
   }
