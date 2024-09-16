@@ -194,7 +194,7 @@ object Grounding extends Serializable with LazyLogging {
       .withColumn("rank", dense_rank().over(w))
       .filter($"rank" === 1)
       .select(selelectedCols.toList.map(col): _*)
-      .dropDuplicates("type", "label", "keywordId")
+      .dropDuplicates("type", "label", "labelN", "keywordId")
       // evaluated after filtering by rank so only determined by relevant keywordIds
       .withColumn("uniqueKeywordIdsPerLabelN",
         approx_count_distinct(col("keywordId"), 0.01).over(windowByTypeAndLabel)
