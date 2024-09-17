@@ -111,13 +111,6 @@ object Grounding extends Serializable with LazyLogging {
                            labelCountsColumnName: String,
                            typeColumnName: String = "type"
   )(implicit sparkSession: SparkSession): DataFrame = {
-    // prefix is used to prefix each new temp column is created in here so no clash with
-    // any other already present
-    val prefix = Random.alphanumeric.take(6)
-    val minDistinctKeywordsPerLabelPerPubOverKeywordPerPub =
-      s"${prefix}_minDistinctKeywordsPerLabelPerPubOverKeywordPerPub"
-    val minDistinctKeywordsPerLabelOverKeywordOverallPubs =
-      s"${prefix}_minDistinctKeywordsPerLabelOverKeywordOverallPubs"
 
     val keywordColumns = typeColumnName :: keywordColumnName :: Nil
     val windowPerKeyword = Window.partitionBy(keywordColumns.map(col): _*)
@@ -125,17 +118,15 @@ object Grounding extends Serializable with LazyLogging {
     val keywordColumnsPerPub = "pmid" :: "pmcid" :: typeColumnName :: keywordColumnName :: Nil
     val windowPerKeywordPerPub = Window.partitionBy(keywordColumnsPerPub.map(col): _*)
 
-    df.withColumn(minDistinctKeywordsPerLabelPerPubOverKeywordPerPub,
+    df.withColumn("minDistinctKeywordsPerLabelPerPubOverKeywordPerPub",
                   min(col(labelCountsColumnName)).over(windowPerKeywordPerPub)
-    ).withColumn(minDistinctKeywordsPerLabelOverKeywordOverallPubs,
-                 min(col(minDistinctKeywordsPerLabelPerPubOverKeywordPerPub)).over(windowPerKeyword)
-    ).filter(
-      col(minDistinctKeywordsPerLabelPerPubOverKeywordPerPub) <= col(
-        minDistinctKeywordsPerLabelOverKeywordOverallPubs
+    ).withColumn("minDistinctKeywordsPerLabelOverKeywordOverallPubs",
+                 min(col("minDistinctKeywordsPerLabelPerPubOverKeywordPerPub")).over(windowPerKeyword)
+    // was previously a filter, now changed to a boolean column
+    ).withColumn("isDisambiguous",
+      col("minDistinctKeywordsPerLabelPerPubOverKeywordPerPub") <= col(
+        "minDistinctKeywordsPerLabelOverKeywordOverallPubs"
       )
-    ).drop(
-      minDistinctKeywordsPerLabelOverKeywordOverallPubs,
-      minDistinctKeywordsPerLabelPerPubOverKeywordPerPub
     )
   }
 
@@ -195,6 +186,7 @@ object Grounding extends Serializable with LazyLogging {
 
     logger.info("ground and take rank 1 from the mapped ones")
     val w = Window.partitionBy($"type", $"labelN").orderBy(scoreC.desc)
+    val windowByTypeAndLabel = Window.partitionBy(col("type"), col("labelN"))
     val mappedLabel = labels
       .join(luts, Seq("type", "labelN"), "left_outer")
       .withColumn("isMapped", $"keywordId".isNotNull)
@@ -202,7 +194,12 @@ object Grounding extends Serializable with LazyLogging {
       .withColumn("rank", dense_rank().over(w))
       .filter($"rank" === 1)
       .select(selelectedCols.toList.map(col): _*)
-      .dropDuplicates("type", "label", "keywordId")
+      .dropDuplicates("type", "label", "labelN", "keywordId")
+      // evaluated after filtering by rank so only determined by relevant keywordIds
+      .withColumn("uniqueKeywordIdsPerLabelN",
+        approx_count_distinct(col("keywordId"), 0.01).over(windowByTypeAndLabel)
+      )
+      .orderBy(col("type"), col("labelN"))
 
     mappedLabel
   }
@@ -237,10 +234,16 @@ object Grounding extends Serializable with LazyLogging {
       .join(mappedLabels, Seq("type", "label"), "left_outer")
       .withColumn("isMapped", $"keywordId".isNotNull)
 
-    val validMatches =
+    // processedMatches contains mapped matches that both pass and fail the disambiguation
+    val processedMatches =
       mergedMatches
         .filter($"isMapped" === true)
         .transform(disambiguate(_, "keywordId", "uniqueKeywordIdsPerLabelN"))
+
+    // matches that pass the disambiguation are processed to become validMatches
+    val validMatches =
+      processedMatches
+        .filter($"isDisambiguous" === true)
         .withColumn(
           "match",
           struct(
@@ -256,6 +259,12 @@ object Grounding extends Serializable with LazyLogging {
           )
         )
         .select(matchesCols: _*)
+
+    // matches that fail the disambiguation are combined with unmapped matches
+    val failedMatches =
+      processedMatches
+        .filter($"isDisambiguous" === false)
+        .unionByName(mergedMatches.filter($"isMapped" === false), allowMissingColumns = true)
 
     val mergedCooc = entities
       .withColumn("cooc", explode($"co-occurrence"))
@@ -277,10 +286,15 @@ object Grounding extends Serializable with LazyLogging {
       .drop("label", "type")
       .withColumn("isMapped", $"keywordId1".isNotNull and $"keywordId2".isNotNull)
 
-    val validCooc = mergedCooc
+    // processedCooc contains mapped cooc that both pass and fail the disambiguation
+    val processedCooc = mergedCooc
       .filter($"isMapped" === true)
       .transform(disambiguate(_, "keywordId1", "uniqueKeywordIdsPerLabelN1", "type1"))
       .transform(disambiguate(_, "keywordId2", "uniqueKeywordIdsPerLabelN2", "type2"))
+
+    // cooc that pass the disambiguation are processed to become validCooc
+    val validCooc = processedCooc
+      .filter($"isDisambiguous" === true)
       .withColumn(
         "co-occurrence",
         struct(
@@ -305,10 +319,16 @@ object Grounding extends Serializable with LazyLogging {
       )
       .select(baseCols :+ $"co-occurrence": _*)
 
+    // cooc that fail the disambiguation are combined with unmapped cooc
+    val failedCooc =
+      processedCooc
+        .filter($"isDisambiguous" === false)
+        .unionByName(mergedCooc.filter($"isMapped" === false), allowMissingColumns = true)
+
     Map(
-      "matchesFailed" -> mergedMatches.filter($"isMapped" === false),
+      "matchesFailed" -> failedMatches,
       "matches" -> validMatches,
-      "cooccurrencesFailed" -> mergedCooc.filter($"isMapped" === false),
+      "cooccurrencesFailed" -> failedCooc,
       "cooccurrences" -> validCooc
     )
   }
@@ -537,16 +557,10 @@ object Grounding extends Serializable with LazyLogging {
       .withColumn("type", lit("CD"))
       .selectExpr(cols: _*)
 
-    val windowByTypeAndLabel = Window.partitionBy(col("type"), col("labelN"))
-
     diseaseDf
       .unionByName(targetDf)
       .unionByName(drugDf)
       .distinct() // fixme: can this have any effect? We're taking the union of target, disease and drug, what crossover could there be?
-      .withColumn("uniqueKeywordIdsPerLabelN",
-                  approx_count_distinct(col("keywordId"), 0.01).over(windowByTypeAndLabel)
-      )
-      .orderBy(col("type"), col("labelN"))
 
   }
 
