@@ -793,9 +793,9 @@ object Search extends LazyLogging {
 
     val conf = context.configuration.search
     val outputs = Map(
-      // "search_diseases" -> IOResource(searchDiseases, conf.outputs.diseases),
+      "search_diseases" -> IOResource(searchDiseases, conf.outputs.diseases),
       "search_targets" -> IOResource(searchTargets, conf.outputs.targets),
-      // "search_drugs" -> IOResource(searchDrugs, conf.outputs.drugs),
+      "search_drugs" -> IOResource(searchDrugs, conf.outputs.drugs),
       "search_variants" -> IOResource(searchVariants, conf.outputs.variants)
     )
 
