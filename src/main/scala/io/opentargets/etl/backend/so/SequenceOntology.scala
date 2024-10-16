@@ -17,8 +17,13 @@ object SequenceOntology extends LazyLogging {
 //  )))
   private val owlPrefix = "owl:"
 
+  private val valCol = element_at(split(col("col.val"), "/"), -1).as("val")
+  private val predCol = element_at(split(col("col.pred"), "/"), -1).as("pred")
+  private val cleanPredCol = when(col("pred").contains("#"), element_at(split(col("pred"), "#"), -1))
+    .otherwise(col("pred"))
+
   def apply()(implicit context: ETLSessionContext): Unit = {
-    implicit val ss = context.sparkSession
+    implicit val ss: SparkSession = context.sparkSession
     logger.info("Start of sequence ontology step")
 
     val soConfig = context.configuration.so
@@ -34,6 +39,73 @@ object SequenceOntology extends LazyLogging {
 
     val nodesDf = inputsDfs("nodes").data
 
+    val flattenNodesDf: DataFrame = flattenNodes(nodesDf)
+
+    val nodesWithPropertiesDF: DataFrame = extractBasicProperties(flattenNodesDf)
+
+    val nodesWithSynonymsDF: DataFrame = extractSynonyms(flattenNodesDf, nodesWithPropertiesDF)
+
+    val nodesWithDefinitionRenamedDf: DataFrame = renameDefinitionCol(inputsDfs, nodesWithSynonymsDF)
+
+    logger.info("Renaming deprecated column")
+    val nodesRenamedFiledsDf = nodesWithDefinitionRenamedDf.select(col("*"),col("deprecated").as(owlPrefix+"deprecated")).drop("deprecated")
+
+    val outputs = Map(
+      "nodes" -> IOResource(nodesRenamedFiledsDf, soConfig.output)
+    )
+
+    logger.info("Writing sequence ontology outputs")
+    IoHelpers.writeTo(outputs)
+
+    logger.info("End of sequence ontology step")
+  }
+
+  private def renameDefinitionCol(inputsDfs: IOResources, nodesWithSynonymsDF: DataFrame) = {
+    logger.info("Renaming definition column")
+    val propertiesDF = inputsDfs("properties").data
+    val commentsColName = propertiesDF
+      .where(col("lbl") === "definition")
+      .select(element_at(split(col("id"), "/"), -1))
+      .first()
+      .getString(0)
+    val nodesWithDefinitionRenamedDf = nodesWithSynonymsDF
+      .select(col("*"), col("definition.val").as(commentsColName))
+      .drop("definition")
+    nodesWithDefinitionRenamedDf
+  }
+
+  private def extractSynonyms(flattenNodesDf: DataFrame, nodesWithPropertiesDF: DataFrame) = {
+    logger.info("Extracting synonyms")
+    val synonymsLUT = flattenNodesDf
+      .select(col("id"), explode(col("Synonyms")))
+      .select(col("id"), predCol, valCol)
+      .withColumn("pred", cleanPredCol)
+      .groupBy("id")
+      .pivot("pred")
+      .agg(collect_list("val"))
+    val nodesWithSynonymsDF = nodesWithPropertiesDF
+      .join(synonymsLUT, Seq("id"))
+      .drop("Synonyms")
+    nodesWithSynonymsDF
+  }
+
+  private def extractBasicProperties(flattenNodesDf: DataFrame) = {
+    logger.info("Extracting basicPropertyValues")
+
+    val propertiesLUT = flattenNodesDf
+      .select(col("id"), explode(col("basicPropertyValues")))
+      .select(col("id"), predCol, valCol)
+      .withColumn("pred", cleanPredCol)
+      .groupBy("id")
+      .pivot("pred")
+      .agg(first("val"))
+    val nodesWithPropertiesDF = flattenNodesDf
+      .join(propertiesLUT, Seq("id"))
+      .drop("basicPropertyValues")
+    nodesWithPropertiesDF
+  }
+
+  private def flattenNodes(nodesDf: DataFrame) = {
     // Extract the values from url format for the id fields
     val idAtPrefix = element_at(split(col("id"), "/"), -2)
     val idAtValue = element_at(split(col("id"), "/"), -1)
@@ -49,57 +121,6 @@ object SequenceOntology extends LazyLogging {
       concat(lit(owlPrefix), col("type")).as("@type"),
       col("meta.*")
     )
-
-    logger.info("Extracting basicPropertyValues")
-    val valCol = element_at(split(col("col.val"), "/"), -1).as("val")
-    val predCol = element_at(split(col("col.pred"), "/"), -1).as("pred")
-    val cleanPredCol = when(col("pred").contains("#"), element_at(split(col("pred"), "#"), -1))
-      .otherwise(col("pred"))
-    val propertiesLUT = flattenNodesDf
-      .select(col("id"), explode(col("basicPropertyValues")))
-      .select(col("id"), predCol, valCol)
-      .withColumn("pred", cleanPredCol)
-      .groupBy("id")
-      .pivot("pred")
-      .agg(first("val"))
-    val nodesWithPropertiesDF = flattenNodesDf
-      .join(propertiesLUT, Seq("id"))
-      .drop("basicPropertyValues")
-
-    logger.info("Extracting synonyms")
-    val synonymsLUT = flattenNodesDf
-      .select(col("id"), explode(col("Synonyms")))
-      .select(col("id"), predCol, valCol)
-      .withColumn("pred", cleanPredCol)
-      .groupBy("id")
-      .pivot("pred")
-      .agg(collect_list("val"))
-    val nodesWithSynonymsDF = nodesWithPropertiesDF
-      .join(synonymsLUT, Seq("id"))
-      .drop("Synonyms")
-
-    logger.info("Renaming definition column")
-    val propertiesDF = inputsDfs("properties").data
-    val commentsColName = propertiesDF
-      .where(col("lbl") === "definition")
-      .select(element_at(split(col("id"), "/"), -1))
-      .first()
-      .getString(0)
-    val nodesWithDefinitionRenamedDf = nodesWithSynonymsDF
-      .select(col("*"), col("definition.val").as(commentsColName))
-      .drop("definition")
-
-    logger.info("Renaming deprecated column")
-    val nodesRenamedFiledsDf = nodesWithDefinitionRenamedDf.select(col("*"),col("deprecated").as(owlPrefix+"deprecated")).drop("deprecated")
-
-    val outputs = Map(
-      "nodes" -> IOResource(nodesRenamedFiledsDf, soConfig.output)
-    )
-
-    logger.info("Writing sequence ontology outputs")
-    IoHelpers.writeTo(outputs)
-
-    logger.info("End of sequence ontology step")
+    flattenNodesDf
   }
-
 }
