@@ -2,7 +2,7 @@ package io.opentargets.etl.backend.so
 
 import com.typesafe.scalalogging.LazyLogging
 import io.opentargets.etl.backend.ETLSessionContext
-import io.opentargets.etl.backend.spark.IoHelpers
+import io.opentargets.etl.backend.spark.{IOResource, IoHelpers}
 import io.opentargets.etl.backend.spark.IoHelpers.IOResources
 import org.apache.spark.sql._
 import org.apache.spark.sql.functions._
@@ -15,9 +15,11 @@ object SequenceOntology extends LazyLogging {
 //    StructField("pred", StringType, nullable = true),
 //    StructField("val", StringType, nullable = true)
 //  )))
+  private val owlPrefix = "owl:"
 
   def apply()(implicit context: ETLSessionContext): Unit = {
     implicit val ss = context.sparkSession
+    logger.info("Start of sequence ontology step")
 
     val soConfig = context.configuration.so
 
@@ -27,6 +29,7 @@ object SequenceOntology extends LazyLogging {
       "subclasses" -> soConfig.inputs.subclasses
     )
 
+    logger.info("Reading sequence ontology inputs")
     val inputsDfs = IoHelpers.readFrom(soInputs)
 
     val nodesDf = inputsDfs("nodes").data
@@ -37,8 +40,8 @@ object SequenceOntology extends LazyLogging {
     val id = element_at(split(idAtValue, "_"), 2)
     val idPrefix = element_at(split(idAtValue, "_"), 1)
 
-    val owlPrefix = "owl:"
 
+    logger.info("Flattening nodes")
     val flattenNodesDf = nodesDf.select(
       concat(idAtPrefix, lit(":"), idAtValue).as("@id"),
       concat(idPrefix, lit(":"), id).as("id"),
@@ -47,6 +50,7 @@ object SequenceOntology extends LazyLogging {
       col("meta.*")
     )
 
+    logger.info("Extracting basicPropertyValues")
     val valCol = element_at(split(col("col.val"), "/"), -1).as("val")
     val predCol = element_at(split(col("col.pred"), "/"), -1).as("pred")
     val cleanPredCol = when(col("pred").contains("#"), element_at(split(col("pred"), "#"), -1))
@@ -62,6 +66,7 @@ object SequenceOntology extends LazyLogging {
       .join(propertiesLUT, Seq("id"))
       .drop("basicPropertyValues")
 
+    logger.info("Extracting synonyms")
     val synonymsLUT = flattenNodesDf
       .select(col("id"), explode(col("Synonyms")))
       .select(col("id"), predCol, valCol)
@@ -73,6 +78,7 @@ object SequenceOntology extends LazyLogging {
       .join(synonymsLUT, Seq("id"))
       .drop("Synonyms")
 
+    logger.info("Renaming definition column")
     val propertiesDF = inputsDfs("properties").data
     val commentsColName = propertiesDF
       .where(col("lbl") === "definition")
@@ -83,7 +89,15 @@ object SequenceOntology extends LazyLogging {
       .select(col("*"), col("definition.val").as(commentsColName))
       .drop("definition")
 
+    logger.info("Renaming deprecated column")
     val nodesRenamedFiledsDf = nodesWithDefinitionRenamedDf.select(col("*"),col("deprecated").as(owlPrefix+"deprecated")).drop("deprecated")
+
+    val outputs = Map(
+      "nodes" -> IOResource(nodesRenamedFiledsDf, soConfig.output)
+    )
+
+    logger.info("Writing sequence ontology outputs")
+    IoHelpers.writeTo(outputs)
 
     logger.info("End of sequence ontology step")
   }
