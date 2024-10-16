@@ -88,7 +88,7 @@ object FacetSearch extends LazyLogging {
       computeTractabilityFacets(targetsDF, categoryValues)
     )
     val targetFacetsDF: DataFrame = targetFacetsDatasets.reduce(_ unionByName _).toDF()
-    targetFacetsDF
+    targetFacetsDF.coalesce(200)
   }
 
   /** Compute facets for diseases.
@@ -111,7 +111,7 @@ object FacetSearch extends LazyLogging {
           computeTherapeuticAreasFacets(diseaseDF, categoryValues)
       )
     val diseaseFacetsDF = diseaseFacetDatasets.reduce(_ unionByName _).toDF()
-    diseaseFacetsDF
+    diseaseFacetsDF.coalesce(200)
   }
 
   /** Write the computed facets to the specified outputs.
