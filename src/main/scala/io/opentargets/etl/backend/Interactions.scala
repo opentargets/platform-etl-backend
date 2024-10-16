@@ -425,10 +425,12 @@ object Interactions extends LazyLogging {
     val interactionStringsDFValid = removeNullTargetA(interactionStringsDF)
 
     val aggregationInteractions =
-      interactionIntactDFValid.interactionAggreation(interactionStringsDFValid)
+      interactionIntactDFValid
+        .interactionAggreation(interactionStringsDFValid)
+        .coalesce(200)
     val interactionEvidences = interactionIntactDFValid
       .generateEvidences(interactionStringsDFValid)
-      .repartitionByRange(500, $"targetA".asc, $"targetB".asc)
+      .repartitionByRange(200, $"targetA".asc, $"targetB".asc)
 
     val outputs = context.configuration.interactions.outputs
 
