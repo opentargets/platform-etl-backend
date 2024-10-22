@@ -6,7 +6,6 @@
 channels:
     - conda-forge
     - bioconda
-    - defaults
 dependencies:
     - python=3
     - conda-forge::pyspark=3.0.1
