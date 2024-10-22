@@ -431,10 +431,7 @@ object Configuration extends LazyLogging {
 
   case class EtlDagConfig(steps: List[EtlStep[String]], resolve: Boolean)
 
-  case class soInputs(nodes: IOResourceConfig,
-                      properties: IOResourceConfig,
-                      subclasses: IOResourceConfig
-  )
+  case class soInputs(nodes: IOResourceConfig)
 
   case class SequenceOntology(inputs: soInputs, output: IOResourceConfig)
 

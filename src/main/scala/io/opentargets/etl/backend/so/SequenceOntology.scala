@@ -3,24 +3,10 @@ package io.opentargets.etl.backend.so
 import com.typesafe.scalalogging.LazyLogging
 import io.opentargets.etl.backend.ETLSessionContext
 import io.opentargets.etl.backend.spark.{IOResource, IoHelpers}
-import io.opentargets.etl.backend.spark.IoHelpers.IOResources
 import org.apache.spark.sql._
 import org.apache.spark.sql.functions._
-import org.apache.spark.sql.types._
 
 object SequenceOntology extends LazyLogging {
-
-  // Define schema for the array of structs
-//  val keyValueSchema: ArrayType = ArrayType(StructType(List(
-//    StructField("pred", StringType, nullable = true),
-//    StructField("val", StringType, nullable = true)
-//  )))
-  private val owlPrefix = "owl:"
-
-  private val valCol = element_at(split(col("col.val"), "/"), -1).as("val")
-  private val predCol = element_at(split(col("col.pred"), "/"), -1).as("pred")
-  private val cleanPredCol = when(col("pred").contains("#"), element_at(split(col("pred"), "#"), -1))
-    .otherwise(col("pred"))
 
   def apply()(implicit context: ETLSessionContext): Unit = {
     implicit val ss: SparkSession = context.sparkSession
@@ -29,9 +15,7 @@ object SequenceOntology extends LazyLogging {
     val soConfig = context.configuration.so
 
     val soInputs = Map(
-      "nodes" -> soConfig.inputs.nodes,
-      "properties" -> soConfig.inputs.properties,
-      "subclasses" -> soConfig.inputs.subclasses
+      "nodes" -> soConfig.inputs.nodes
     )
 
     logger.info("Reading sequence ontology inputs")
@@ -39,88 +23,23 @@ object SequenceOntology extends LazyLogging {
 
     val nodesDf = inputsDfs("nodes").data
 
-    val flattenNodesDf: DataFrame = flattenNodes(nodesDf)
+    val idAtValue = element_at(split(col("id"), "/"), -1)
+    val id = element_at(split(idAtValue, "_"), 2)
+    val idPrefix = element_at(split(idAtValue, "_"), 1)
 
-    val nodesWithPropertiesDF: DataFrame = extractBasicProperties(flattenNodesDf)
-
-    val nodesWithSynonymsDF: DataFrame = extractSynonyms(flattenNodesDf, nodesWithPropertiesDF)
-
-    val nodesWithDefinitionRenamedDf: DataFrame = renameDefinitionCol(inputsDfs, nodesWithSynonymsDF)
-
-    logger.info("Renaming deprecated column")
-    val nodesRenamedFiledsDf = nodesWithDefinitionRenamedDf.select(col("*"),col("deprecated").as(owlPrefix+"deprecated")).drop("deprecated")
+    logger.info("Extracting the id and the label from the nodes")
+    val idLabelDf = nodesDf.select(
+      concat(idPrefix, lit(":"), id).as("id"),
+      col("lbl").as("label")
+    )
 
     val outputs = Map(
-      "nodes" -> IOResource(nodesRenamedFiledsDf, soConfig.output)
+      "nodes" -> IOResource(idLabelDf, soConfig.output)
     )
 
     logger.info("Writing sequence ontology outputs")
     IoHelpers.writeTo(outputs)
 
     logger.info("End of sequence ontology step")
-  }
-
-  private def renameDefinitionCol(inputsDfs: IOResources, nodesWithSynonymsDF: DataFrame) = {
-    logger.info("Renaming definition column")
-    val propertiesDF = inputsDfs("properties").data
-    val commentsColName = propertiesDF
-      .where(col("lbl") === "definition")
-      .select(element_at(split(col("id"), "/"), -1))
-      .first()
-      .getString(0)
-    val nodesWithDefinitionRenamedDf = nodesWithSynonymsDF
-      .select(col("*"), col("definition.val").as(commentsColName))
-      .drop("definition")
-    nodesWithDefinitionRenamedDf
-  }
-
-  private def extractSynonyms(flattenNodesDf: DataFrame, nodesWithPropertiesDF: DataFrame) = {
-    logger.info("Extracting synonyms")
-    val synonymsLUT = flattenNodesDf
-      .select(col("id"), explode(col("Synonyms")))
-      .select(col("id"), predCol, valCol)
-      .withColumn("pred", cleanPredCol)
-      .groupBy("id")
-      .pivot("pred")
-      .agg(collect_list("val"))
-    val nodesWithSynonymsDF = nodesWithPropertiesDF
-      .join(synonymsLUT, Seq("id"))
-      .drop("Synonyms")
-    nodesWithSynonymsDF
-  }
-
-  private def extractBasicProperties(flattenNodesDf: DataFrame) = {
-    logger.info("Extracting basicPropertyValues")
-
-    val propertiesLUT = flattenNodesDf
-      .select(col("id"), explode(col("basicPropertyValues")))
-      .select(col("id"), predCol, valCol)
-      .withColumn("pred", cleanPredCol)
-      .groupBy("id")
-      .pivot("pred")
-      .agg(first("val"))
-    val nodesWithPropertiesDF = flattenNodesDf
-      .join(propertiesLUT, Seq("id"))
-      .drop("basicPropertyValues")
-    nodesWithPropertiesDF
-  }
-
-  private def flattenNodes(nodesDf: DataFrame) = {
-    // Extract the values from url format for the id fields
-    val idAtPrefix = element_at(split(col("id"), "/"), -2)
-    val idAtValue = element_at(split(col("id"), "/"), -1)
-    val id = element_at(split(idAtValue, "_"), 2)
-    val idPrefix = element_at(split(idAtValue, "_"), 1)
-
-
-    logger.info("Flattening nodes")
-    val flattenNodesDf = nodesDf.select(
-      concat(idAtPrefix, lit(":"), idAtValue).as("@id"),
-      concat(idPrefix, lit(":"), id).as("id"),
-      col("lbl").as("label"),
-      concat(lit(owlPrefix), col("type")).as("@type"),
-      col("meta.*")
-    )
-    flattenNodesDf
   }
 }
