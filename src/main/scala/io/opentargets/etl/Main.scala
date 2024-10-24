@@ -14,6 +14,7 @@ import io.opentargets.etl.backend.literature.{Epmc, Literature}
 import io.opentargets.etl.backend.facetSearch.FacetSearch
 import io.opentargets.etl.backend.literature.{Epmc, Literature}
 import io.opentargets.etl.backend.pharmacogenomics.Pharmacogenomics
+import io.opentargets.etl.backend.so.SequenceOntology
 import io.opentargets.etl.backend.targetEngine.TargetEngine
 import io.opentargets.etl.common.GoogleStorageHelpers
 
@@ -86,6 +87,9 @@ object ETL extends LazyLogging {
       case "targetengine" =>
         logger.info("run step target engine")
         TargetEngine()
+      case "so" =>
+        logger.info("run step target engine")
+        SequenceOntology()
       case _ => throw new IllegalArgumentException(s"step $step is unknown.")
     }
     logger.info(s"finished to run step ($step)")
@@ -113,7 +117,8 @@ object ETL extends LazyLogging {
       "ebisearch" -> ctx.configuration.ebisearch.outputs.ebisearchEvidence.path,
       "fda" -> ctx.configuration.openfda.stepRootOutputPath,
       "literature" -> ctx.configuration.literature.processing.outputs.literatureIndex.path,
-      "targetengine" -> ctx.configuration.targetEngine.outputs.targetEngine.path
+      "targetengine" -> ctx.configuration.targetEngine.outputs.targetEngine.path,
+      "so" -> ctx.configuration.so.output.path
     )
 
     val storage: Storage = StorageOptions.getDefaultInstance.getService
