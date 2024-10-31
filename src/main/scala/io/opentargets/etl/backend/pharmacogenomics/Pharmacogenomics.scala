@@ -82,6 +82,7 @@ object Pharmacogenomics extends LazyLogging {
           col("targetFromSourceId"),
           col("variantFunctionalConsequenceId"),
           col("variantRsId"),
+          col("variantId"),
           col("isDirectTarget")
         )
         .agg(collect_list(struct(col("drugFromSource"), col("drugId"))).as("drugs"))
