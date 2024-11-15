@@ -433,6 +433,10 @@ object Configuration extends LazyLogging {
 
   case class EtlDagConfig(steps: List[EtlStep[String]], resolve: Boolean)
 
+  case class soInputs(nodes: IOResourceConfig)
+
+  case class SequenceOntology(inputs: soInputs, output: IOResourceConfig)
+
   case class OTConfig(
       sparkUri: Option[String],
       sparkSettings: SparkSettings,
@@ -457,6 +461,7 @@ object Configuration extends LazyLogging {
       ebisearch: EBISearchSection,
       otarproject: OtarProjectSection,
       literature: LiteratureSection,
-      targetEngine: TargetEngineSection
+      targetEngine: TargetEngineSection,
+      so: SequenceOntology
   )
 }
