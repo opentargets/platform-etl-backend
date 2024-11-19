@@ -44,11 +44,10 @@ object Ortholog extends LazyLogging {
 
     val homoGeneDictDf =
       homologyGeneDict
-        .select(functions.split(col("_c0"), "\\\\t") as "a")
         .select(
-          col("a")(0) as "homology_gene_stable_id",
-          // when no gene symbol use gene id
-          when(col("a")(1) =!= "", col("a")(1)).otherwise(col("a")(0)) as "targetGeneSymbol"
+          col("id") as "homology_gene_stable_id",
+          when(col("name").isNotNull && col("name") =!= "", col("name"))
+            .otherwise(col("id")) as "targetGeneSymbol"
         )
 
     val speciesOfReference = "homo_sapiens"
