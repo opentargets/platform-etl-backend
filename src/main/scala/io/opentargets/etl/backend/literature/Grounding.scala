@@ -120,13 +120,14 @@ object Grounding extends Serializable with LazyLogging {
 
     df.withColumn("minDistinctKeywordsPerLabelPerPubOverKeywordPerPub",
                   min(col(labelCountsColumnName)).over(windowPerKeywordPerPub)
-    ).withColumn("minDistinctKeywordsPerLabelOverKeywordOverallPubs",
-                 min(col("minDistinctKeywordsPerLabelPerPubOverKeywordPerPub")).over(windowPerKeyword)
-    // was previously a filter, now changed to a boolean column
+    ).withColumn(
+      "minDistinctKeywordsPerLabelOverKeywordOverallPubs",
+      min(col("minDistinctKeywordsPerLabelPerPubOverKeywordPerPub")).over(windowPerKeyword)
+      // was previously a filter, now changed to a boolean column
     ).withColumn("isDisambiguous",
-      col("minDistinctKeywordsPerLabelPerPubOverKeywordPerPub") <= col(
-        "minDistinctKeywordsPerLabelOverKeywordOverallPubs"
-      )
+                 col("minDistinctKeywordsPerLabelPerPubOverKeywordPerPub") <= col(
+                   "minDistinctKeywordsPerLabelOverKeywordOverallPubs"
+                 )
     )
   }
 
@@ -197,7 +198,7 @@ object Grounding extends Serializable with LazyLogging {
       .dropDuplicates("type", "label", "labelN", "keywordId")
       // evaluated after filtering by rank so only determined by relevant keywordIds
       .withColumn("uniqueKeywordIdsPerLabelN",
-        approx_count_distinct(col("keywordId"), 0.01).over(windowByTypeAndLabel)
+                  approx_count_distinct(col("keywordId"), 0.01).over(windowByTypeAndLabel)
       )
       .orderBy(col("type"), col("labelN"))
 
