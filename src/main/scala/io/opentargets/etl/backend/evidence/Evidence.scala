@@ -267,7 +267,7 @@ object Evidence extends LazyLogging {
     df.withColumn(columnName, hashes)
   }
 
-  def hashLongVariantIds(df: DataFrame, columnName: String, threshold: Int = 100)(implicit
+  def hashLongVariantIds(df: DataFrame, columnName: String, threshold: Int = 300)(implicit
     context: ETLSessionContext
   ): DataFrame = {
     implicit val ss: SparkSession = context.sparkSession
@@ -364,7 +364,7 @@ object Evidence extends LazyLogging {
     val fromDiseaseId = "diseaseFromSourceMappedId"
     val datasourceId = "datasourceId"
     val variantId = "variantId"
-    val varIdLenThreshold = 100
+    val varIdLenThreshold = 300
 
     val transformedDF = dfs("rawEvidences").data
       .transform(prepare)
