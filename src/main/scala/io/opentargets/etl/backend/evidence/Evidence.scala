@@ -268,7 +268,7 @@ object Evidence extends LazyLogging {
   }
 
   def hashLongVariantIds(df: DataFrame, columnName: String, threshold: Int = 300)(implicit
-    context: ETLSessionContext
+      context: ETLSessionContext
   ): DataFrame = {
     implicit val ss: SparkSession = context.sparkSession
 
@@ -277,18 +277,23 @@ object Evidence extends LazyLogging {
     val variantId = col(columnName)
 
     df
-    .withColumn("chr", regexp_extract(variantId, "^([0-9XYMT]{1,2})_([0-9]+)_([ACGTN]+)_([ACGTN]+)$", 1))
-    .withColumn("pos", regexp_extract(variantId, "^([0-9XYMT]{1,2})_([0-9]+)_([ACGTN]+)_([ACGTN]+)$", 2))
-    .withColumn(columnName,
-      when(col("chr").isNull || col("pos").isNull,
-        concat(lit("OTVAR_"), md5(variantId).cast("string"))
+      .withColumn("chr",
+                  regexp_extract(variantId, "^([0-9XYMT]{1,2})_([0-9]+)_([ACGTN]+)_([ACGTN]+)$", 1)
       )
-      .when(length(variantId) > threshold,
-        concat_ws("_", lit("OTVAR"), col("chr"), col("pos"), md5(variantId).cast("string"))
+      .withColumn("pos",
+                  regexp_extract(variantId, "^([0-9XYMT]{1,2})_([0-9]+)_([ACGTN]+)_([ACGTN]+)$", 2)
       )
-      .otherwise(variantId)
-    )
-    .drop("chr", "pos")
+      .withColumn(
+        columnName,
+        when(col("chr").isNull || col("pos").isNull,
+             concat(lit("OTVAR_"), md5(variantId).cast("string"))
+        )
+          .when(length(variantId) > threshold,
+                concat_ws("_", lit("OTVAR"), col("chr"), col("pos"), md5(variantId).cast("string"))
+          )
+          .otherwise(variantId)
+      )
+      .drop("chr", "pos")
   }
 
   def score(df: DataFrame, columnName: String)(implicit context: ETLSessionContext): DataFrame = {
