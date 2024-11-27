@@ -267,30 +267,6 @@ object Evidence extends LazyLogging {
     df.withColumn(columnName, hashes)
   }
 
-  def hashLongVariantIds(df: DataFrame, columnName: String, threshold: Int = 300)(implicit
-    context: ETLSessionContext
-  ): DataFrame = {
-    implicit val ss: SparkSession = context.sparkSession
-
-    logger.info("Hash long variantIds")
-
-    val variantId = col(columnName)
-
-    df
-    .withColumn("chr", regexp_extract(variantId, "^([0-9XYMT]{1,2})_([0-9]+)_([ACGTN]+)_([ACGTN]+)$", 1))
-    .withColumn("pos", regexp_extract(variantId, "^([0-9XYMT]{1,2})_([0-9]+)_([ACGTN]+)_([ACGTN]+)$", 2))
-    .withColumn(columnName,
-      when(col("chr").isNull || col("pos").isNull,
-        concat(lit("OTVAR_"), md5(variantId).cast("string"))
-      )
-      .when(length(variantId) > threshold,
-        concat_ws("_", lit("OTVAR"), col("chr"), col("pos"), md5(variantId).cast("string"))
-      )
-      .otherwise(variantId)
-    )
-    .drop("chr", "pos")
-  }
-
   def score(df: DataFrame, columnName: String)(implicit context: ETLSessionContext): DataFrame = {
     implicit val ss: SparkSession = context.sparkSession
 
@@ -363,8 +339,6 @@ object Evidence extends LazyLogging {
     val fromTargetId = "targetFromSourceId"
     val fromDiseaseId = "diseaseFromSourceMappedId"
     val datasourceId = "datasourceId"
-    val variantId = "variantId"
-    val varIdLenThreshold = 300
 
     val transformedDF = dfs("rawEvidences").data
       .transform(prepare)
@@ -373,7 +347,6 @@ object Evidence extends LazyLogging {
       .transform(excludeByBiotype(_, dfs("targets").data, xb, targetId, datasourceId))
       .transform(normaliseDatatypes _)
       .transform(generateHashes(_, id))
-      .transform(hashLongVariantIds(_, variantId, varIdLenThreshold))
       .transform(score(_, sc))
       .transform(checkNullifiedScores(_, sc, ns))
       .transform(markDuplicates(_, id, md))
