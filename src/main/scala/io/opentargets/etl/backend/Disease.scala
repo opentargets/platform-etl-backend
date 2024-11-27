@@ -7,7 +7,6 @@ import io.opentargets.etl.backend.spark.IoHelpers.{IOResources, writeTo}
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.functions.col
 import org.apache.spark.sql._
-
 import io.opentargets.etl.backend.graph.GraphNode
 
 object Hpo extends Serializable with LazyLogging {
@@ -91,11 +90,13 @@ object Hpo extends Serializable with LazyLogging {
             col("diseaseName"),
             col("evidenceType"),
             col("frequency"),
-            col("modifiers"),
-            col("onset"),
+            when(col("modifiers").isNull, array()).otherwise(col("modifiers")).alias("modifiers"),
+            when(col("onset").isNull, array()).otherwise(col("onset")).alias("onset"),
             col("qualifier"),
             col("qualifierNot"),
-            col("references"),
+            when(col("references").isNull, array())
+              .otherwise(col("references"))
+              .alias("references"),
             col("sex"),
             col("resource")
           )
