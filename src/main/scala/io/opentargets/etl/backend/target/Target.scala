@@ -166,6 +166,7 @@ object Target extends LazyLogging {
       .transform(addTargetSafety(inputDataFrames, ensemblIdLookupDf))
       .transform(addReactome(reactome))
       .transform(removeDuplicatedSynonyms)
+      .transform(addTss)
 
     val targetEssentialityDF = targetsDF
       .transform(addGeneEssentiality(inputDataFrames("geneEssentiality").data, ensemblIdLookupDf))
@@ -173,6 +174,15 @@ object Target extends LazyLogging {
     Map(
       "target" -> targetsDF,
       "targetEssentiality" -> targetEssentialityDF
+    )
+  }
+
+  private def addTss(dataFrame: DataFrame): DataFrame = {
+    logger.info("Adding tss column to target dataframe")
+    dataFrame.withColumn(
+      "tss",
+      when(col("canonicalTranscript.strand") === 1, col("canonicalTranscript.start"))
+        .when(col("canonicalTranscript.strand") === -1, col("canonicalTranscript.end"))
     )
   }
 
