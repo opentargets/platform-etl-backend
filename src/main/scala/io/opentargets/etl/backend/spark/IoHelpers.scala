@@ -40,7 +40,7 @@ case class IOResourceConfig(
     path: String,
     options: Option[Seq[IOResourceConfigOption]] = None,
     partitionBy: Option[Seq[String]] = None,
-    generateMetadata: Boolean = true
+    generateMetadata: Boolean = false
 )
 
 case class Metadata(
