@@ -178,9 +178,6 @@ object Configuration extends LazyLogging {
 
   case class Common(
       path: String,
-      input: String,
-      output: String,
-      error: String,
       outputFormat: String,
       additionalOutputs: List[String],
       metadata: MetadataConfig
@@ -351,8 +348,6 @@ object Configuration extends LazyLogging {
   )
 
   case class OpenfdaSection(
-      stepRootInputPath: String,
-      stepRootOutputPath: String,
       chemblDrugs: IOResourceConfig,
       fdaData: IOResourceConfig,
       blacklistedEvents: IOResourceConfig,
@@ -407,8 +402,6 @@ object Configuration extends LazyLogging {
   )
 
   case class LiteratureSection(
-      input: String,
-      output: String,
       common: LiteratureCommon,
       processing: LiteratureProcessing,
       embedding: LiteratureEmbedding,
