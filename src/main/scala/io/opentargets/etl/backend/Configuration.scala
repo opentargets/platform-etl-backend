@@ -49,7 +49,8 @@ object Configuration extends LazyLogging {
   )
 
   case class EvidenceInputsSection(
-      rawEvidences: IOResourceConfig,
+      rawInputEvidences: IOResourceConfig,
+      rawIntermediateEvidences: IOResourceConfig,
       diseases: IOResourceConfig,
       targets: IOResourceConfig,
       mechanismOfAction: IOResourceConfig
@@ -176,6 +177,7 @@ object Configuration extends LazyLogging {
   case class MetadataConfig(writeMode: String, output: IOResourceConfig)
 
   case class Common(
+      path: String,
       input: String,
       output: String,
       error: String,

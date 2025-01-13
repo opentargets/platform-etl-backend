@@ -218,7 +218,6 @@ object Disease extends Serializable with LazyLogging {
     val hposDF = Hpo(diseaseDF)
 
     val outputs = context.configuration.disease.outputs
-    logger.info(s"write to ${context.configuration.common.output}/disease")
     val dataframesToSave = Map(
       "disease" -> IOResource(diseaseDF, outputs.diseases),
       "diseasehpo" -> IOResource(hposDF("diseasehpo"), outputs.diseaseHpo),
