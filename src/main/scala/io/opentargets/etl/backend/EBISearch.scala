@@ -49,7 +49,6 @@ object EBISearch extends LazyLogging {
     val inputDataFrames = IoHelpers.readFrom(mappedInputs)
     val dataToSave = generateDatasets(inputDataFrames)
 
-    logger.info(s"write to ${context.configuration.common.output}/ebisearch")
     IoHelpers.writeTo(
       Map(
         "ebisearchEvidence" -> IOResource(

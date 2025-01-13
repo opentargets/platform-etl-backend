@@ -7,12 +7,12 @@ import com.typesafe.scalalogging.LazyLogging
 
 import scala.util._
 import io.opentargets.etl.backend._
+import io.opentargets.etl.backend.target.Target
 import io.opentargets.etl.backend.drug.Drug
 import io.opentargets.etl.backend.evidence.Evidence
 import io.opentargets.etl.backend.graph.EtlDag
 import io.opentargets.etl.backend.literature.{Epmc, Literature}
 import io.opentargets.etl.backend.facetSearch.FacetSearch
-import io.opentargets.etl.backend.literature.{Epmc, Literature}
 import io.opentargets.etl.backend.pharmacogenomics.Pharmacogenomics
 import io.opentargets.etl.backend.targetEngine.TargetEngine
 import io.opentargets.etl.common.GoogleStorageHelpers
@@ -20,75 +20,34 @@ import io.opentargets.etl.common.GoogleStorageHelpers
 import scala.collection.JavaConverters
 
 object ETL extends LazyLogging {
-
   def applySingleStep(step: String)(implicit context: ETLSessionContext): Unit = {
+    logger.info(s"running step $step")
+
     step.toLowerCase match {
-      case "association" =>
-        logger.info("run step association")
-        Association()
-      case "associationotf" =>
-        logger.info("run step associationOTF")
-        AssociationOTF()
-      case "disease" =>
-        logger.info("run step disease")
-        Disease()
-      case "drug" =>
-        logger.info("run step drug")
-        Drug()
-      case "evidence" =>
-        logger.info("run step evidence")
-        Evidence()
-      case "expression" =>
-        logger.info("run step expression")
-        Expression()
-      case "ebisearch" =>
-        logger.info("Running EBI Search step")
-        EBISearch()
-      case "epmc" =>
-        logger.info("Running EPMC step")
-        Epmc()
-      case "facetsearch" =>
-        logger.info("run step facetSearch")
-        FacetSearch()
-      case "fda" =>
-        logger.info("Running OpenFDA FAERS step")
-        OpenFda()
-      case "go" =>
-        logger.info("run step go")
-        Go()
-      case "interaction" =>
-        logger.info("run step interactions")
-        Interactions()
-      case "knowndrug" =>
-        logger.info("run step knownDrugs")
-        KnownDrugs()
-      case "otar" =>
-        logger.info("Running Otar projects step")
-        OtarProject()
-      case "pharmacogenomics" =>
-        logger.info("run step pharmacogenomics")
-        Pharmacogenomics()
-      case "reactome" =>
-        logger.info("run step reactome (rea)")
-        Reactome()
-      case "search" =>
-        logger.info("run step search")
-        Search()
-      case "target" =>
-        logger.info("run step target")
-        target.Target()
-      case "targetvalidation" =>
-        logger.info("run step targetValidation")
-        TargetValidation()
-      case "literature" =>
-        logger.info("run step literature")
-        Literature()
-      case "targetengine" =>
-        logger.info("run step target engine")
-        TargetEngine()
-      case _ => throw new IllegalArgumentException(s"step $step is unknown.")
+      case "association"      => Association()
+      case "association_otf"  => AssociationOTF()
+      case "disease"          => Disease()
+      case "drug"             => Drug()
+      case "evidence"         => Evidence()
+      case "expression"       => Expression()
+      case "search_ebi"       => EBISearch()
+      case "epmc"             => Epmc()
+      case "facetsearch"      => FacetSearch()
+      case "fda"              => OpenFda()
+      case "go"               => Go()
+      case "interaction"      => Interactions()
+      case "knowndrug"        => KnownDrugs()
+      case "otar"             => OtarProject()
+      case "pharmacogenomics" => Pharmacogenomics()
+      case "reactome"         => Reactome()
+      case "search"           => Search()
+      case "target"           => Target()
+      case "targetvalidation" => TargetValidation()
+      case "literature"       => Literature()
+      case "targetengine"     => TargetEngine()
+      case _                  => throw new IllegalArgumentException(s"step $step is unknown")
     }
-    logger.info(s"finished to run step ($step)")
+    logger.info(s"finished running step $step")
   }
 
   /** Identify steps whose outputs already exist in GCP.
