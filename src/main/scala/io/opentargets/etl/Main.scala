@@ -24,28 +24,27 @@ object ETL extends LazyLogging {
     logger.info(s"running step $step")
 
     step.toLowerCase match {
-      case "association"      => Association()
-      case "association_otf"  => AssociationOTF()
-      case "disease"          => Disease()
-      case "drug"             => Drug()
-      case "evidence"         => Evidence()
-      case "expression"       => Expression()
-      case "search_ebi"       => EBISearch()
-      case "epmc"             => Epmc()
-      case "facetsearch"      => FacetSearch()
-      case "fda"              => OpenFda()
-      case "go"               => Go()
-      case "interaction"      => Interactions()
-      case "knowndrug"        => KnownDrugs()
-      case "otar"             => OtarProject()
-      case "pharmacogenomics" => Pharmacogenomics()
-      case "reactome"         => Reactome()
-      case "search"           => Search()
-      case "target"           => Target()
-      case "targetvalidation" => TargetValidation()
-      case "literature"       => Literature()
-      case "targetengine"     => TargetEngine()
-      case _                  => throw new IllegalArgumentException(s"step $step is unknown")
+      case "association"       => Association()
+      case "association_otf"   => AssociationOTF()
+      case "disease"           => Disease()
+      case "drug"              => Drug()
+      case "evidence"          => Evidence()
+      case "expression"        => Expression()
+      case "openfda"           => OpenFda()
+      case "go"                => Go()
+      case "interaction"       => Interactions()
+      case "known_drug"        => KnownDrugs()
+      case "literature"        => Literature()
+      case "otar"              => OtarProject()
+      case "pharmacogenomics"  => Pharmacogenomics()
+      case "reactome"          => Reactome()
+      case "search"            => Search()
+      case "search_ebi"        => EBISearch()
+      case "search_facet"      => FacetSearch()
+      case "target"            => Target()
+      case "target_engine"     => TargetEngine()
+      case "target_validation" => TargetValidation()
+      case _                   => throw new IllegalArgumentException(s"step $step is unknown")
     }
     logger.info(s"finished running step $step")
   }
@@ -54,30 +53,30 @@ object ETL extends LazyLogging {
     */
   def stepsWithExistingOuputs(implicit ctx: ETLSessionContext): Set[String] = {
     lazy val outputPaths: Map[String, String] = Map(
+      "association" -> ctx.configuration.associations.outputs.directByDatatype.path,
+      "association_otf" -> ctx.configuration.aotf.outputs.clickhouse.path,
       "disease" -> ctx.configuration.disease.outputs.diseases.path,
+      "drug" -> ctx.configuration.drug.outputs.drug.path,
+      "evidence" -> ctx.configuration.evidences.outputs.succeeded.path,
+      "expression" -> ctx.configuration.expression.output.path,
+      "openfda" -> ctx.configuration.openfda.outputs.fdaResults.path,
+      "go" -> ctx.configuration.geneOntology.output.path,
+      "interaction" -> ctx.configuration.interactions.outputs.interactions.path,
+      "known_drug" -> ctx.configuration.knownDrugs.output.path,
+      "literature" -> ctx.configuration.literature.processing.outputs.literatureIndex.path,
       "pharmacogenomics" -> ctx.configuration.pharmacogenomics.outputs.path,
       "reactome" -> ctx.configuration.reactome.output.path,
-      "expression" -> ctx.configuration.expression.output.path,
-      "facetSearch" -> ctx.configuration.facetSearch.outputs.targets.path,
-      "go" -> ctx.configuration.geneOntology.output.path,
-      "target" -> ctx.configuration.target.outputs.target.path,
-      "interaction" -> ctx.configuration.interactions.outputs.interactions.path,
-      "targetValidation" -> ctx.configuration.targetValidation.output.succeeded.path,
-      "evidence" -> ctx.configuration.evidences.outputs.succeeded.path,
-      "association" -> ctx.configuration.associations.outputs.directByDatatype.path,
-      "associationOTF" -> ctx.configuration.aotf.outputs.clickhouse.path,
       "search" -> ctx.configuration.search.outputs.diseases.path,
-      "drug" -> ctx.configuration.drug.outputs.drug.path,
-      "knownDrug" -> ctx.configuration.knownDrugs.output.path,
-      "ebisearch" -> ctx.configuration.ebisearch.outputs.ebisearchEvidence.path,
-      "fda" -> ctx.configuration.openfda.stepRootOutputPath,
-      "literature" -> ctx.configuration.literature.processing.outputs.literatureIndex.path,
-      "targetengine" -> ctx.configuration.targetEngine.outputs.targetEngine.path
+      "search_ebi" -> ctx.configuration.ebisearch.outputs.ebisearchEvidence.path,
+      "search_facet" -> ctx.configuration.facetSearch.outputs.targets.path,
+      "target" -> ctx.configuration.target.outputs.target.path,
+      "target_engine" -> ctx.configuration.targetEngine.outputs.targetEngine.path,
+      "target_validation" -> ctx.configuration.targetValidation.output.succeeded.path
     )
 
     val storage: Storage = StorageOptions.getDefaultInstance.getService
 
-    val (bucket, blob) = GoogleStorageHelpers.pathToBucketBlob(ctx.configuration.common.output)
+    val (bucket, blob) = GoogleStorageHelpers.pathToBucketBlob(ctx.configuration.common.path)
 
     val blobs: Page[Blob] =
       storage.list(bucket, BlobListOption.currentDirectory(), BlobListOption.prefix(blob))

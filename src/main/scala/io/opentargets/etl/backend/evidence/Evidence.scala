@@ -351,7 +351,8 @@ object Evidence extends LazyLogging {
     val mappedInputs = Map(
       "targets" -> evidencesSec.inputs.targets,
       "diseases" -> evidencesSec.inputs.diseases,
-      "rawEvidences" -> evidencesSec.inputs.rawEvidences,
+      "rawInputEvidences" -> evidencesSec.inputs.rawInputEvidences,
+      "rawIntermediateEvidences" -> evidencesSec.inputs.rawIntermediateEvidences,
       "mechanismOfAction" -> evidencesSec.inputs.mechanismOfAction
     )
     val dfs = IoHelpers.readFrom(mappedInputs)
@@ -371,7 +372,11 @@ object Evidence extends LazyLogging {
     val variantId = "variantId"
     val varIdLenThreshold = 300
 
-    val transformedDF = dfs("rawEvidences").data
+    val combinedEvidencesDF =
+      dfs("rawInputEvidences").data
+        .unionByName(dfs("rawIntermediateEvidences").data, allowMissingColumns = true)
+
+    val transformedDF = combinedEvidencesDF
       .transform(prepare)
       .transform(resolveTargets(_, dfs("targets").data, rt, fromTargetId, targetId))
       .transform(resolveDiseases(_, dfs("diseases").data, rd, fromDiseaseId, diseaseId))
