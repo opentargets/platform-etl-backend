@@ -1,0 +1,46 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v[0-9]+.[0-9]+.[0-9]+'
+
+jobs:
+  ci:
+    uses: ./.github/workflows/ci.yaml
+
+  build:
+    uses: ./.github/workflows/build.yaml
+    needs: ci
+
+  upload:
+    uses: ./.github/workflows/upload.yaml
+    needs: build
+
+  release:
+    name: Release 🚀
+    runs-on: ubuntu-22.04
+    needs: build
+    permissions:
+      contents: write
+    env:
+      TAG: ${{ github.ref_name }}
+    steps:
+      - name: Prepare tag
+        run: |
+          TAG=$(echo $TAG | sed 's/^v//')
+          echo "TAG=$TAG" >> $GITHUB_ENV
+      - uses: actions/download-artifact@v4
+        name: Download JAR
+        with:
+          name: etl-${{ env.TAG }}.jar
+      - name: Create draft release 🐙
+        run: >-
+          gh release create
+          --draft
+          --repo ${{ github.repository }}
+          --title ${{ github.ref_name }}
+          ${{ github.ref_name }}
+          etl-${{ env.TAG }}.jar
+        env:
+          GH_TOKEN: ${{ github.token }}
