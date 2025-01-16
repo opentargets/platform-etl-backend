@@ -9,13 +9,10 @@ val buildResolvers = Seq(
 )
 
 ThisBuild / organization := "io.opentargets"
-ThisBuild / version := "1.0.0"
+ThisBuild / version := sys.env.getOrElse("TAG", "0.0.0")
 ThisBuild / scalaVersion := "2.12.12"
 
-def jarName(name: String): String = {
-  val commit = Process(s"git log --oneline").lineStream.head.take(7)
-  s"$name-$commit.jar"
-}
+def jarName(name: String): String = s"$name-${sys.env.getOrElse("TAG", "0.0.0")}.jar"
 
 lazy val workflow = (project in file("workflow")).settings(
   name := "etl-workflow",
@@ -76,5 +73,5 @@ lazy val root = (project in file("."))
       case PathList("META-INF", xs @ _*) => MergeStrategy.discard
       case _                             => MergeStrategy.first
     },
-    assembly / assemblyJarName := jarName("etl-backend")
+    assembly / assemblyJarName := jarName("etl")
   )

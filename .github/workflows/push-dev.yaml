@@ -1,0 +1,22 @@
+name: Development build
+
+on:
+  push:
+    tags:
+      # Matches tags that contain a dash after YY.major.minor
+      # Example: 25.0.0-beta.1
+      # Keep in mind github does not support all regex features:
+      # https://docs.github.com/en/actions/writing-workflows/workflow-syntax-for-github-actions#filter-pattern-cheat-sheet
+      - 'v[0-9]+.[0-9]+.[0-9]+-*'
+
+jobs:
+  ci:
+    uses: ./.github/workflows/ci.yaml
+
+  build:
+    uses: ./.github/workflows/build.yaml
+    needs: ci
+
+  upload:
+    uses: ./.github/workflows/upload.yaml
+    needs: build

@@ -43,8 +43,9 @@ object Dependencies {
   )
 
   lazy val loggingDeps = Seq(
-    "ch.qos.logback" % "logback-classic" % "1.4.4",
-    "com.typesafe.scala-logging" %% "scala-logging" % "3.9.2"
+    "com.typesafe.scala-logging" %% "scala-logging" % "3.9.2",
+    "org.slf4j" % "slf4j-api" % "2.0.9" force (),
+    "ch.qos.logback" % "logback-classic" % "1.4.11" force ()
   )
 
   lazy val graphDeps = Seq(
@@ -55,7 +56,11 @@ object Dependencies {
 
   lazy val sparkDeps: Seq[ModuleID] = {
     val sparkDepsOptionallyProvided = Seq(
-      "org.apache.spark" %% "spark-core" % sparkVersion,
+      "org.apache.spark" %% "spark-core" % sparkVersion excludeAll (
+        ExclusionRule(organization = "org.slf4j"),
+        ExclusionRule(organization = "log4j"),
+        ExclusionRule(organization = "org.apache.logging.log4j")
+      ),
       "org.apache.spark" %% "spark-sql" % sparkVersion,
       "org.apache.spark" %% "spark-graphx" % sparkVersion,
       "org.apache.spark" %% "spark-mllib" % sparkVersion
