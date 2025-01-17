@@ -13,8 +13,7 @@ jobs:
     env:
       TAG: ${{ github.ref_name }}
     steps:
-      - id: prepare
-        name: Prepare the action and log details
+      - name: Prepare the action and log details
         shell: bash
         env:
           GITHUB_CONTEXT: ${{ toJson(github) }}
@@ -23,8 +22,7 @@ jobs:
           echo "TAG=$TAG" >> $GITHUB_ENV
           echo "The tag for this build is $TAG"
           echo "Github context:\n$GITHUB_CONTEXT"
-      - id: auth-google
-        name: Authenticate with Google Cloud
+      - name: Authenticate with Google Cloud
         uses: google-github-actions/auth@v2
         with:
           token_format: access_token
