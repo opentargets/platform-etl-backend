@@ -3,14 +3,15 @@ name: CI
 on:
   workflow_call:
 
+env:
+  SCALA_VERSION: 2.12.12
+
 jobs:
   format:
     name: Check format ✨
     runs-on: ubuntu-22.04
     permissions:
       contents: read
-    env:
-      SCALA_VERSION: 2.12.12
     steps:
       - uses: actions/checkout@v4
         name: Checkout code
@@ -20,8 +21,7 @@ jobs:
         name: Set up Scala
         with:
           java-version: openjdk@1.11
-      - id: check-format
-        name: Check format
+      - name: Check format
         run: sbt ++${{ env.SCALA_VERSION }} scalafmtCheckAll
 
   test:
@@ -29,8 +29,6 @@ jobs:
     runs-on: ubuntu-22.04
     permissions:
       contents: read
-    env:
-      SCALA_VERSION: 2.12.12
     steps:
       - uses: actions/checkout@v4
         name: Checkout code
@@ -40,6 +38,5 @@ jobs:
         name: Set up Scala
         with:
           java-version: openjdk@1.11
-      - id: run-tests
-        name: Run tests
+      - name: Run tests
         run: sbt ++${{ env.SCALA_VERSION }} coverage test coverageReport

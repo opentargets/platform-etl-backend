@@ -25,8 +25,7 @@ jobs:
         name: Set up Scala
         with:
           java-version: openjdk@1.11
-      - id: assembly
-        name: Build JAR
+      - name: Build JAR
         run: sbt ++${{env.SCALA_VERSION }} 'set test in assembly := {}' assembly
       - uses: actions/upload-artifact@v4
         name: Upload JAR
