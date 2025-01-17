@@ -40,3 +40,4 @@ jobs:
           path: etl-${{ env.TAG }}.jar
           destination: 'opentargets-pipelines/up/etl'
           process_gcloudignore: false
+          gzip: false
