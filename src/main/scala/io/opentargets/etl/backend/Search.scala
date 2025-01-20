@@ -10,8 +10,50 @@ import org.apache.spark.sql.functions.{lit, _}
 import org.apache.spark.sql.types._
 import org.apache.spark.storage.StorageLevel
 
-object Transformers {
-  val searchFields = Seq(
+/** SearchIndex case class to generate search index objects All the search entities require the same
+  * structure. Exact matches in the "id", "name", and "keyword" fields are strongly boosted.
+  * Otherwise the following fields are used for search with descending score multipliers: "name",
+  * "description", "prefixes", "terms5", "terms25", "terms", "ngrams" Score "multiplier" is applied
+  * to the non-exact matches.
+  * @param id
+  *   entity id e.g. target id, disease id, drug id
+  * @param name
+  *   display name
+  * @param description
+  *   description of the entry
+  * @param entity
+  *   entity type e.g. target, disease, drug
+  * @param category
+  *   category within the entity e.g. therapeutic area, drug type. Used for aggregating the search
+  *   results
+  * @param keywords
+  *   keywords to be used for search i.e. a hit for one of these keywords will return the entry
+  * @param prefixes
+  * @param ngrams
+  * @param terms
+  *   top 50 terms
+  * @param terms25
+  *   Top 25 terms
+  * @param terms5
+  *   Top 5 terms
+  * @param multiplier
+  * @param df
+  */
+case class SearchIndex(
+    id: Column,
+    name: Column,
+    description: Column = lit(null).cast("string"),
+    entity: Column,
+    category: Column,
+    keywords: Column,
+    prefixes: Column,
+    ngrams: Column,
+    terms: Column = lit(Array.empty[String]),
+    terms25: Column = lit(Array.empty[String]),
+    terms5: Column = lit(Array.empty[String]),
+    multiplier: Column = lit(0.01d)
+)(implicit val df: DataFrame) {
+  private val searchFields = Seq(
     "id",
     "name",
     "description",
@@ -25,7 +67,23 @@ object Transformers {
     "terms5",
     "multiplier"
   )
+  val output: DataFrame = df
+    .withColumn("id", id)
+    .withColumn("name", name)
+    .withColumn("description", description)
+    .withColumn("entity", entity)
+    .withColumn("category", category)
+    .withColumn("keywords", keywords)
+    .withColumn("prefixes", prefixes)
+    .withColumn("ngrams", ngrams)
+    .withColumn("terms", terms)
+    .withColumn("terms25", terms25)
+    .withColumn("terms5", terms5)
+    .withColumn("multiplier", multiplier)
+    .selectExpr(searchFields: _*)
+}
 
+object Transformers {
   def processDiseases(efos: DataFrame): DataFrame =
     efos.withColumnRenamed("id", "diseaseId")
 
@@ -152,7 +210,8 @@ object Transformers {
         .withColumn("hgncId", when(col("hgncId").isNotNull, concat(lit("HGNC:"), col("hgncId"))))
         .orderBy("targetId")
 
-      df.join(targetHGNC, Seq("targetId"))
+      val targets: DataFrame = df
+        .join(targetHGNC, Seq("targetId"))
         .join(assocsWithLabels, Seq("targetId"), "left_outer")
         .withColumn(
           "disease_labels",
@@ -199,70 +258,51 @@ object Transformers {
           when(col("variant_labels_25").isNull, Array.empty[String])
             .otherwise(col("variant_labels_25"))
         )
-        .withColumnRenamed("targetId", "id")
-        .withColumn(
-          "keywords",
-          C.flattenCat(
-            "synonyms.label",
-            "proteinIds.id",
-            "array(approvedName)",
-            "array(approvedSymbol)",
-            "array(hgncId)",
-            "array(id)"
-          )
-        )
-        .withColumn(
-          "prefixes",
-          C.flattenCat(
-            "synonyms.label",
-            "proteinIds.id",
-            "array(approvedName)",
-            "array(approvedSymbol)"
-          )
-        )
-        .withColumn(
-          "ngrams",
-          C.flattenCat(
-            "proteinIds.id",
-            "synonyms.label",
-            "array(approvedName)",
-            "array(approvedSymbol)"
-          )
-        )
-        .withColumn(
-          "terms",
-          C.flattenCat(
-            "disease_labels",
-            "drug_labels",
-            "variant_labels"
-          )
-        )
-        .withColumn(
-          "terms25",
-          C.flattenCat(
-            "disease_labels_25",
-            "drug_labels_25",
-            "variant_labels_25"
-          )
-        )
-        .withColumn(
-          "terms5",
-          C.flattenCat(
-            "disease_labels_5",
-            "drug_labels_5",
-            "variant_labels_5"
-          )
-        )
-        .withColumn("entity", lit("target"))
-        .withColumn("category", array(col("biotype")))
-        .withColumn("name", col("approvedSymbol"))
-        .withColumn("description", col("approvedName"))
-        .withColumn(
-          "multiplier",
+      SearchIndex(
+        id = col("targetId"),
+        name = col("approvedSymbol"),
+        description = col("approvedName"),
+        entity = lit("target"),
+        category = array(col("biotype")),
+        keywords = C.flattenCat(
+          "synonyms.label",
+          "proteinIds.id",
+          "array(approvedName)",
+          "array(approvedSymbol)",
+          "array(hgncId)",
+          "array(id)"
+        ),
+        prefixes = C.flattenCat(
+          "synonyms.label",
+          "proteinIds.id",
+          "array(approvedName)",
+          "array(approvedSymbol)"
+        ),
+        ngrams = C.flattenCat(
+          "proteinIds.id",
+          "synonyms.label",
+          "array(approvedName)",
+          "array(approvedSymbol)"
+        ),
+        terms = C.flattenCat(
+          "disease_labels",
+          "drug_labels",
+          "variant_labels"
+        ),
+        terms25 = C.flattenCat(
+          "disease_labels_25",
+          "drug_labels_25",
+          "variant_labels_25"
+        ),
+        terms5 = C.flattenCat(
+          "disease_labels_5",
+          "drug_labels_5",
+          "variant_labels_5"
+        ),
+        multiplier =
           when(col("target_relevance").isNotNull, log1p(col("target_relevance")) + lit(1.0d))
             .otherwise(0.01d)
-        )
-        .selectExpr(searchFields: _*)
+      )(targets).output
     }
 
     def resolveTALabels(idColumnName: String, taLabelsColumnName: String): DataFrame = {
@@ -302,7 +342,7 @@ object Transformers {
       val window = Window.partitionBy(col("diseaseId")).orderBy(col("score").desc)
 
       /*
-        comute per target all labels from associated diseases and drugs through
+        compute per target all labels from associated diseases and drugs through
         associations
        */
       val assocsWithLabels = associations
@@ -325,7 +365,8 @@ object Transformers {
           mean(col("score")).as("disease_relevance")
         )
 
-      df.join(phenotypeNames, Seq("diseaseId"), "left_outer")
+      val disease = df
+        .join(phenotypeNames, Seq("diseaseId"), "left_outer")
         .join(assocsWithLabels, Seq("diseaseId"), "left_outer")
         .withColumn(
           "phenotype_labels",
@@ -342,68 +383,51 @@ object Transformers {
           when(col("drug_labels").isNull, Array.empty[String])
             .otherwise(col("drug_labels"))
         )
-        .withColumnRenamed("diseaseId", "id")
-        .withColumn(
-          "keywords",
-          C.flattenCat(
-            "array(name)",
-            "array(id)",
-            "synonyms.hasBroadSynonym",
-            "synonyms.hasExactSynonym",
-            "synonyms.hasNarrowSynonym",
-            "synonyms.hasRelatedSynonym"
-          )
-        )
-        .withColumn(
-          "prefixes",
-          C.flattenCat(
-            "array(name)",
-            "synonyms.hasBroadSynonym",
-            "synonyms.hasExactSynonym",
-            "synonyms.hasNarrowSynonym",
-            "synonyms.hasRelatedSynonym"
-          )
-        )
-        .withColumn(
-          "ngrams",
-          C.flattenCat(
-            "array(name)",
-            "synonyms.hasBroadSynonym",
-            "synonyms.hasExactSynonym",
-            "synonyms.hasNarrowSynonym",
-            "synonyms.hasRelatedSynonym",
-            "phenotype_labels"
-          )
-        )
-        .withColumn(
-          "terms",
-          C.flattenCat(
-            "target_labels",
-            "drug_labels"
-          )
-        )
-        .withColumn(
-          "terms25",
-          C.flattenCat(
-            "target_labels_25",
-            "drug_labels_25"
-          )
-        )
-        .withColumn(
-          "terms5",
-          C.flattenCat(
-            "target_labels_5",
-            "drug_labels_5"
-          )
-        )
-        .withColumn("entity", lit("disease"))
-        .withColumn("category", col("therapeutic_labels"))
-        .withColumn(
-          "multiplier",
+      SearchIndex(
+        id = col("diseaseId"),
+        name = col("name"),
+        description = col("description"),
+        entity = lit("disease"),
+        category = col("therapeutic_labels"),
+        keywords = C.flattenCat(
+          "array(name)",
+          "array(id)",
+          "synonyms.hasBroadSynonym",
+          "synonyms.hasExactSynonym",
+          "synonyms.hasNarrowSynonym",
+          "synonyms.hasRelatedSynonym"
+        ),
+        prefixes = C.flattenCat(
+          "array(name)",
+          "synonyms.hasBroadSynonym",
+          "synonyms.hasExactSynonym",
+          "synonyms.hasNarrowSynonym",
+          "synonyms.hasRelatedSynonym"
+        ),
+        ngrams = C.flattenCat(
+          "array(name)",
+          "synonyms.hasBroadSynonym",
+          "synonyms.hasExactSynonym",
+          "synonyms.hasNarrowSynonym",
+          "synonyms.hasRelatedSynonym",
+          "phenotype_labels"
+        ),
+        terms = C.flattenCat(
+          "target_labels",
+          "drug_labels"
+        ),
+        terms25 = C.flattenCat(
+          "target_labels_25",
+          "drug_labels_25"
+        ),
+        terms5 = C.flattenCat(
+          "target_labels_5",
+          "drug_labels_5"
+        ),
+        multiplier =
           when(col("disease_relevance").isNotNull, log1p(col("disease_relevance")) + lit(1.0d))
             .otherwise(0.01d)
-        )
-        .selectExpr(searchFields: _*)
+      )(disease).output
     }
 
     def resolveDrugIndications(diseases: DataFrame, outColName: String): DataFrame = {
@@ -470,45 +494,6 @@ object Transformers {
             .otherwise(col("diseaseIds"))
         )
         .withColumn("descriptions", expr("rows.mechanismOfAction"))
-        .withColumn(
-          "keywords",
-          C.flattenCat(
-            "synonyms",
-            "tradeNames",
-            "array(name)",
-            "array(id)",
-            "childChemblIds",
-            "crossReferences.PubChem",
-            "crossReferences.drugbank",
-            "crossReferences.chEBI"
-          )
-        )
-        .withColumn(
-          "prefixes",
-          C.flattenCat(
-            "synonyms",
-            "tradeNames",
-            "array(name)",
-            "descriptions"
-          )
-        )
-        .withColumn(
-          "ngrams",
-          C.flattenCat(
-            "array(name)",
-            "synonyms",
-            "tradeNames",
-            "descriptions"
-          )
-        )
-        // put the drug type in another field
-        .withColumn("entity", lit("drug"))
-        .withColumn("category", array(col("drugType")))
-        .withColumn(
-          "multiplier",
-          when(col("drug_relevance").isNotNull, log1p(col("drug_relevance")) + lit(1.0d))
-            .otherwise(0.01d)
-        )
         .join(broadcast(drugEnrichedWithLabels), Seq("drugId"), "left_outer")
         .withColumn(
           "target_labels",
@@ -520,61 +505,87 @@ object Transformers {
           when(col("disease_labels").isNull, Array.empty[String])
             .otherwise(col("disease_labels"))
         )
-        .withColumn("terms25", lit(Array.empty[String]))
-        .withColumn("terms5", lit(Array.empty[String]))
-        .withColumn(
-          "terms",
-          C.flattenCat(
-            "disease_labels",
-            "target_labels",
-            "indicationLabels",
-            "therapeutic_labels"
-          )
-        )
-
-      drugs
-        .selectExpr(searchFields: _*)
+      SearchIndex(
+        id = col("id"),
+        name = col("name"),
+        description = col("description"),
+        entity = lit("drug"),
+        category = array(col("drugType")),
+        keywords = C.flattenCat(
+          "synonyms",
+          "tradeNames",
+          "array(name)",
+          "array(id)",
+          "childChemblIds",
+          "crossReferences.PubChem",
+          "crossReferences.drugbank",
+          "crossReferences.chEBI"
+        ),
+        prefixes = C.flattenCat(
+          "synonyms",
+          "tradeNames",
+          "array(name)",
+          "descriptions"
+        ),
+        ngrams = C.flattenCat(
+          "array(name)",
+          "synonyms",
+          "tradeNames",
+          "descriptions"
+        ),
+        terms = C.flattenCat(
+          "disease_labels",
+          "target_labels",
+          "indicationLabels",
+          "therapeutic_labels"
+        ),
+        multiplier = when(col("drug_relevance").isNotNull, log1p(col("drug_relevance")) + lit(1.0d))
+          .otherwise(0.01d)
+      )(drugs).output
     }
 
     def setIdAndSelectFromVariants(
     ): DataFrame = {
-
-      val output = df
-        .withColumn("id", col("variantId"))
-        .withColumn("name", col("variantId"))
-        .withColumn("description", lit(null).cast("string"))
-        .withColumn("entity", lit("variant"))
-        .withColumn("category", array(lit("variant")))
-        .withColumn("synonyms", col("dbXrefs.id"))
+      val variants = df
         .withColumn("locationUnderscore",
                     concat(col("chromosome"), lit("_"), col("position"), lit("_"))
         )
         .withColumn("locationDash", concat(col("chromosome"), lit("-"), col("position"), lit("-")))
         .withColumn("locationColon", concat(col("chromosome"), lit(":"), col("position"), lit(":")))
-        .withColumn("keywords",
-                    C.flattenCat(
-                      "array(id)",
-                      "array(hgvsId)",
-                      "synonyms",
-                      "rsIds",
-                      "array(locationUnderscore)",
-                      "array(locationDash)",
-                      "array(locationColon)"
-                    )
-        )
-        .withColumn(
-          "prefixes",
-          C.flattenCat("array(id)", "array(hgvsId)", "synonyms", "rsIds", "array(locationColon)")
-        )
-        .withColumn("ngrams", C.flattenCat("array(id)", "synonyms"))
-        .withColumn("terms", lit(null).cast("string"))
-        .withColumn("terms25", lit(null).cast("string"))
-        .withColumn("terms5", lit(null).cast("string"))
-        .withColumn("multiplier", lit(0.01d))
-        .selectExpr(searchFields: _*)
-      output
+      SearchIndex(
+        id = col("variantId"),
+        name = col("variantId"),
+        entity = lit("variant"),
+        category = array(lit("variant")),
+        keywords = C.flattenCat("array(id)",
+                                "array(hgvsId)",
+                                "dbXrefs.id",
+                                "rsIds",
+                                "array(locationUnderscore)",
+                                "array(locationDash)",
+                                "array(locationColon)"
+        ),
+        prefixes =
+          C.flattenCat("array(id)", "array(hgvsId)", "dbXrefs.id", "rsIds", "array(locationColon)"),
+        ngrams = C.flattenCat("array(id)", "dbXrefs.id")
+      )(variants).output
     }
 
+    def setIdAndSelectFromStudies(): DataFrame =
+      SearchIndex(
+        id = col("studyId"),
+        name = col("studyId"),
+        entity = lit("study"),
+        category = array(lit("study")),
+        keywords =
+          C.flattenCat("array(id)", "array(pubmedId)", "array(publicationFirstAuthor)", "cohorts"),
+        prefixes =
+          C.flattenCat("array(id)", "array(pubmedId)", "array(publicationFirstAuthor)", "cohorts"),
+        ngrams = C.flattenCat("array(id)"),
+        terms5 = C.flattenCat("array(traitFromSource)", "diseaseIds"),
+        terms25 = C.flattenCat("array(traitFromSource)", "diseaseIds"),
+        terms = C.flattenCat("array(traitFromSource)", "diseaseIds")
+      )(df).output
   }
 }
 
@@ -594,7 +605,8 @@ object Search extends LazyLogging {
       "evidence" -> searchSec.inputs.evidences,
       "target" -> searchSec.inputs.targets,
       "association" -> searchSec.inputs.associations,
-      "variants" -> searchSec.inputs.variants
+      "variants" -> searchSec.inputs.variants,
+      "studies" -> searchSec.inputs.studies
     )
 
     val inputDataFrame = IoHelpers.readFrom(mappedInputs)
@@ -666,6 +678,15 @@ object Search extends LazyLogging {
               "chromosome",
               "position",
               "transcriptConsequences"
+      )
+
+    val studies = inputDataFrame("studies").data
+      .select("studyId",
+              "traitFromSource",
+              "pubmedId",
+              "publicationFirstAuthor",
+              "cohorts",
+              "diseaseIds"
       )
 
     val dLUT = diseases
@@ -791,12 +812,15 @@ object Search extends LazyLogging {
     val searchVariants = variants
       .setIdAndSelectFromVariants()
 
+    val searchStudies = studies.setIdAndSelectFromStudies()
+
     val conf = context.configuration.search
     val outputs = Map(
-      "search_diseases" -> IOResource(searchDiseases, conf.outputs.diseases),
-      "search_targets" -> IOResource(searchTargets, conf.outputs.targets),
-      "search_drugs" -> IOResource(searchDrugs, conf.outputs.drugs),
-      "search_variants" -> IOResource(searchVariants, conf.outputs.variants)
+      // "search_diseases" -> IOResource(searchDiseases, conf.outputs.diseases),
+      // "search_targets" -> IOResource(searchTargets, conf.outputs.targets),
+      // "search_drugs" -> IOResource(searchDrugs, conf.outputs.drugs),
+      // "search_variants" -> IOResource(searchVariants, conf.outputs.variants),
+      "search_studies" -> IOResource(searchStudies, conf.outputs.studies)
     )
 
     IoHelpers.writeTo(outputs)
