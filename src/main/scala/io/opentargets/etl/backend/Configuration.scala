@@ -210,14 +210,16 @@ object Configuration extends LazyLogging {
       targets: IOResourceConfig,
       drugs: DrugOutputs,
       associations: IOResourceConfig,
-      variants: IOResourceConfig
+      variants: IOResourceConfig,
+      studies: IOResourceConfig
   )
 
   case class SearchOutputsSection(
       targets: IOResourceConfig,
       diseases: IOResourceConfig,
       drugs: IOResourceConfig,
-      variants: IOResourceConfig
+      variants: IOResourceConfig,
+      studies: IOResourceConfig
   )
 
   case class SearchSection(inputs: SearchInputsSection, outputs: SearchOutputsSection)
