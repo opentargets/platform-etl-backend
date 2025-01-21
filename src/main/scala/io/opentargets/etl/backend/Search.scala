@@ -328,13 +328,17 @@ object Transformers {
         associations: DataFrame,
         associatedDrugs: DataFrame,
         targets: DataFrame,
-        drugs: DataFrame
+        drugs: DataFrame,
+        studies: DataFrame
     ): DataFrame = {
 
       val drugsByDisease = associatedDrugs
         .join(drugs, Seq("drugId"), "inner")
         .groupBy(col("associationId"))
         .agg(array_distinct(flatten(collect_list(col("drug_labels")))).as("drug_labels"))
+      // study df exploded by disease id
+      val studiesByDisease = studies
+        .select(col("studyId"), explode(col("diseaseIds")) as "diseaseId")
 
       val top50 = 50L
       val top25 = 25L
@@ -368,6 +372,7 @@ object Transformers {
       val disease = df
         .join(phenotypeNames, Seq("diseaseId"), "left_outer")
         .join(assocsWithLabels, Seq("diseaseId"), "left_outer")
+        .join(studiesByDisease, Seq("diseaseId"), "left_outer")
         .withColumn(
           "phenotype_labels",
           when(col("phenotype_labels").isNull, Array.empty[String])
@@ -414,15 +419,18 @@ object Transformers {
         ),
         terms = C.flattenCat(
           "target_labels",
-          "drug_labels"
+          "drug_labels",
+          "array(studyId)"
         ),
         terms25 = C.flattenCat(
           "target_labels_25",
-          "drug_labels_25"
+          "drug_labels_25",
+          "array(studyId)"
         ),
         terms5 = C.flattenCat(
           "target_labels_5",
-          "drug_labels_5"
+          "drug_labels_5",
+          "array(studyId)"
         ),
         multiplier =
           when(col("disease_relevance").isNotNull, log1p(col("disease_relevance")) + lit(1.0d))
@@ -787,7 +795,8 @@ object Search extends LazyLogging {
         associationScores,
         associationsWithDrugsFromEvidencesWithScores,
         tLUT,
-        drLUT
+        drLUT,
+        studies
       )
 
     logger.info("generate search objects for target entity")
