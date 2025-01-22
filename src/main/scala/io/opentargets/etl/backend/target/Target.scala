@@ -181,8 +181,8 @@ object Target extends LazyLogging {
     logger.info("Adding tss column to target dataframe")
     dataFrame.withColumn(
       "tss",
-      when(col("canonicalTranscript.strand") === 1, col("canonicalTranscript.start"))
-        .when(col("canonicalTranscript.strand") === -1, col("canonicalTranscript.end"))
+      when(col("canonicalTranscript.strand") === "+", col("canonicalTranscript.start"))
+        .when(col("canonicalTranscript.strand") === "-", col("canonicalTranscript.end"))
     )
   }
 
