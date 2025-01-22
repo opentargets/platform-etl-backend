@@ -576,16 +576,10 @@ object Transformers {
         name = col("studyId"),
         entity = lit("study"),
         category = array(lit("study")),
-        keywords = C.flattenCat("array(studyId)",
-                                "array(pubmedId)",
-                                "array(publicationFirstAuthor)",
-                                "cohorts"
-        ),
-        prefixes = C.flattenCat("array(studyId)",
-                                "array(pubmedId)",
-                                "array(publicationFirstAuthor)",
-                                "cohorts"
-        ),
+        keywords =
+          C.flattenCat("array(studyId)", "array(pubmedId)", "array(publicationFirstAuthor)"),
+        prefixes =
+          C.flattenCat("array(studyId)", "array(pubmedId)", "array(publicationFirstAuthor)"),
         ngrams = C.flattenCat("array(studyId)"),
         terms5 = C.flattenCat("array(traitFromSource)", "diseaseIds"),
         terms25 = C.flattenCat("array(traitFromSource)", "diseaseIds"),
@@ -686,13 +680,7 @@ object Search extends LazyLogging {
       )
 
     val studies = inputDataFrame("studies").data
-      .select("studyId",
-              "traitFromSource",
-              "pubmedId",
-              "publicationFirstAuthor",
-              "cohorts",
-              "diseaseIds"
-      )
+      .select("studyId", "traitFromSource", "pubmedId", "publicationFirstAuthor", "diseaseIds")
 
     val dLUT = diseases
       .withColumn(
