@@ -53,34 +53,21 @@ case class SearchIndex(
     terms5: Column = lit(Array.empty[String]),
     multiplier: Column = lit(0.01d)
 )(implicit val df: DataFrame) {
-  private val searchFields = Seq(
-    "id",
-    "name",
-    "description",
-    "entity",
-    "category",
-    "keywords",
-    "prefixes",
-    "ngrams",
-    "terms",
-    "terms25",
-    "terms5",
-    "multiplier"
-  )
   val output: DataFrame = df
-    .withColumn("id", id)
-    .withColumn("name", name)
-    .withColumn("description", description)
-    .withColumn("entity", entity)
-    .withColumn("category", category)
-    .withColumn("keywords", keywords)
-    .withColumn("prefixes", prefixes)
-    .withColumn("ngrams", ngrams)
-    .withColumn("terms", terms)
-    .withColumn("terms25", terms25)
-    .withColumn("terms5", terms5)
-    .withColumn("multiplier", multiplier)
-    .selectExpr(searchFields: _*)
+    .select(
+      id as "id",
+      name as "name",
+      description as "description",
+      entity as "entity",
+      category as "category",
+      keywords as "keywords",
+      prefixes as "prefixes",
+      ngrams as "ngrams",
+      terms as "terms",
+      terms25 as "terms25",
+      terms5 as "terms5",
+      multiplier as "multiplier"
+    )
 }
 
 object Transformers {
@@ -270,7 +257,7 @@ object Transformers {
           "array(approvedName)",
           "array(approvedSymbol)",
           "array(hgncId)",
-          "array(id)"
+          "array(targetId)"
         ),
         prefixes = C.flattenCat(
           "synonyms.label",
@@ -396,7 +383,7 @@ object Transformers {
         category = col("therapeutic_labels"),
         keywords = C.flattenCat(
           "array(name)",
-          "array(id)",
+          "array(diseaseId)",
           "synonyms.hasBroadSynonym",
           "synonyms.hasExactSynonym",
           "synonyms.hasNarrowSynonym",
@@ -565,7 +552,7 @@ object Transformers {
         name = col("variantId"),
         entity = lit("variant"),
         category = array(lit("variant")),
-        keywords = C.flattenCat("array(id)",
+        keywords = C.flattenCat("array(variantId)",
                                 "array(hgvsId)",
                                 "dbXrefs.id",
                                 "rsIds",
@@ -573,9 +560,13 @@ object Transformers {
                                 "array(locationDash)",
                                 "array(locationColon)"
         ),
-        prefixes =
-          C.flattenCat("array(id)", "array(hgvsId)", "dbXrefs.id", "rsIds", "array(locationColon)"),
-        ngrams = C.flattenCat("array(id)", "dbXrefs.id")
+        prefixes = C.flattenCat("array(variantId)",
+                                "array(hgvsId)",
+                                "dbXrefs.id",
+                                "rsIds",
+                                "array(locationColon)"
+        ),
+        ngrams = C.flattenCat("array(variantId)", "dbXrefs.id")
       )(variants).output
     }
 
@@ -585,11 +576,17 @@ object Transformers {
         name = col("studyId"),
         entity = lit("study"),
         category = array(lit("study")),
-        keywords =
-          C.flattenCat("array(id)", "array(pubmedId)", "array(publicationFirstAuthor)", "cohorts"),
-        prefixes =
-          C.flattenCat("array(id)", "array(pubmedId)", "array(publicationFirstAuthor)", "cohorts"),
-        ngrams = C.flattenCat("array(id)"),
+        keywords = C.flattenCat("array(studyId)",
+                                "array(pubmedId)",
+                                "array(publicationFirstAuthor)",
+                                "cohorts"
+        ),
+        prefixes = C.flattenCat("array(studyId)",
+                                "array(pubmedId)",
+                                "array(publicationFirstAuthor)",
+                                "cohorts"
+        ),
+        ngrams = C.flattenCat("array(studyId)"),
         terms5 = C.flattenCat("array(traitFromSource)", "diseaseIds"),
         terms25 = C.flattenCat("array(traitFromSource)", "diseaseIds"),
         terms = C.flattenCat("array(traitFromSource)", "diseaseIds")
