@@ -1,0 +1,9 @@
+on:
+  pull_request:
+
+jobs:
+  test:
+    name: Test 🧪
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: opentargets/platform-etl-backend/.github/workflows/build.yaml
