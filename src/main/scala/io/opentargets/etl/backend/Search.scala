@@ -805,8 +805,9 @@ object Search extends LazyLogging {
 
     val searchVariants = variants
       .setIdAndSelectFromVariants()
+      .repartition(100)
 
-    val searchStudies = studies.setIdAndSelectFromStudies()
+    val searchStudies = studies.setIdAndSelectFromStudies().repartition(100)
 
     val conf = context.configuration.search
     val outputs = Map(
