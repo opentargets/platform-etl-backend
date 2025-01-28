@@ -1,7 +1,7 @@
 package io.opentargets.etl.backend
 
 import com.typesafe.scalalogging.LazyLogging
-import io.opentargets.etl.backend.spark.Helpers.{flattenCat, nest}
+import io.opentargets.etl.backend.spark.Helpers.{columnExpr, flattenCat, nest}
 import io.opentargets.etl.backend.spark.IoHelpers.IOResources
 import io.opentargets.etl.backend.spark.{IOResource, IoHelpers, Helpers => C}
 import org.apache.spark.sql._
@@ -326,6 +326,8 @@ object Transformers {
       // study df exploded by disease id
       val studiesByDisease = studies
         .select(col("studyId"), explode(col("diseaseIds")) as "diseaseId")
+        .groupBy(col("diseaseId"))
+        .agg(collect_list(col("studyId")).as("studyIds"))
 
       val top50 = 50L
       val top25 = 25L
@@ -407,17 +409,17 @@ object Transformers {
         terms = C.flattenCat(
           "target_labels",
           "drug_labels",
-          "array(studyId)"
+          "studyIds"
         ),
         terms25 = C.flattenCat(
           "target_labels_25",
           "drug_labels_25",
-          "array(studyId)"
+          "studyIds"
         ),
         terms5 = C.flattenCat(
           "target_labels_5",
           "drug_labels_5",
-          "array(studyId)"
+          "studyIds"
         ),
         multiplier =
           when(col("disease_relevance").isNotNull, log1p(col("disease_relevance")) + lit(1.0d))
