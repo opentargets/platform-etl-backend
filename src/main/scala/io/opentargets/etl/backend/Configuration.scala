@@ -211,7 +211,8 @@ object Configuration extends LazyLogging {
       drugs: DrugOutputs,
       associations: IOResourceConfig,
       variants: IOResourceConfig,
-      studies: IOResourceConfig
+      studies: IOResourceConfig,
+      credibleSets: IOResourceConfig
   )
 
   case class SearchOutputsSection(

@@ -146,7 +146,7 @@ object Transformers {
           "consequenceScore",
           when(col("transcriptConsequences.consequenceScore").isNotNull,
                col("transcriptConsequences.consequenceScore")
-          ).otherwise(lit(0) + lit(1))
+          ).otherwise(lit(1))
         )
         .withColumn("targetId", col("transcriptConsequences.targetId"))
         .withColumn("transcriptScore",
@@ -568,11 +568,50 @@ object Transformers {
                                 "rsIds",
                                 "array(locationColon)"
         ),
-        ngrams = C.flattenCat("array(variantId)", "dbXrefs.id")
+        ngrams = C.flattenCat("array(variantId)", "dbXrefs.id"),
+        multiplier = lit(1.0d)
       )(variants).output
     }
 
-    def setIdAndSelectFromStudies(): DataFrame =
+    def setIdAndSelectFromStudies(targets: DataFrame, credibleSets: DataFrame): DataFrame = {
+      val studiesWithTargets = df
+        .withColumnRenamed("geneId", "targetId")
+        .join(targets, Seq("targetId"), "left_outer")
+
+      val studiesWithTargetsAndCredSets = studiesWithTargets
+        .join(credibleSets, Seq("studyId"), "left_outer")
+      val credibleSetCountMax = credibleSets
+        .select(max(col("credibleSetCount")))
+        .first()
+        .getDouble(0)
+      val credibleSetCountMin = credibleSets
+        .select(min(col("credibleSetCount")))
+        .first()
+        .getDouble(0)
+      val credibleSetMultiplier = when(
+        col("credibleSetCount").isNotNull,
+        (col(
+          "credibleSetCount"
+        ) - credibleSetCountMin) / (credibleSetCountMax - (credibleSetCountMin))
+      ).otherwise(0.01d)
+      val nSamplesMax = studiesWithTargetsAndCredSets
+        .select(max(col("nSamples").cast(DoubleType)))
+        .first()
+        .getDouble(0)
+      val nSamplesMin = studiesWithTargetsAndCredSets
+        .select(min(col("nSamples").cast(DoubleType)))
+        .first()
+        .getDouble(0)
+      val nSamplesMultiplier = when(
+        col("nSamples").isNotNull,
+        (col("nSamples") - nSamplesMin) / (nSamplesMax - nSamplesMin)
+      ).otherwise(0.01d)
+      // multiplier is a function of credible set count and nSamples giving double the weight to credible set counts
+      val multiplier =
+        lit(1d) + (
+          ((lit(2d) * credibleSetMultiplier) + nSamplesMultiplier) / lit(3d)
+        )
+
       SearchIndex(
         id = col("studyId"),
         name = col("studyId"),
@@ -583,10 +622,24 @@ object Transformers {
         prefixes =
           C.flattenCat("array(studyId)", "array(pubmedId)", "array(publicationFirstAuthor)"),
         ngrams = C.flattenCat("array(studyId)"),
-        terms5 = C.flattenCat("array(traitFromSource)", "diseaseIds"),
-        terms25 = C.flattenCat("array(traitFromSource)", "diseaseIds"),
-        terms = C.flattenCat("array(traitFromSource)", "diseaseIds")
-      )(df).output
+        terms5 = C.flattenCat("array(traitFromSource)",
+                              "diseaseIds",
+                              "array(approvedSymbol)",
+                              "array(targetId)"
+        ),
+        terms25 = C.flattenCat("array(traitFromSource)",
+                               "diseaseIds",
+                               "array(approvedSymbol)",
+                               "array(targetId)"
+        ),
+        terms = C.flattenCat("array(traitFromSource)",
+                             "diseaseIds",
+                             "array(approvedSymbol)",
+                             "array(targetId)"
+        ),
+        multiplier = multiplier
+      )(studiesWithTargetsAndCredSets).output
+    }
   }
 }
 
@@ -607,7 +660,8 @@ object Search extends LazyLogging {
       "target" -> searchSec.inputs.targets,
       "association" -> searchSec.inputs.associations,
       "variants" -> searchSec.inputs.variants,
-      "studies" -> searchSec.inputs.studies
+      "studies" -> searchSec.inputs.studies,
+      "credibleSets" -> searchSec.inputs.credibleSets
     )
 
     val inputDataFrame = IoHelpers.readFrom(mappedInputs)
@@ -682,7 +736,20 @@ object Search extends LazyLogging {
       )
 
     val studies = inputDataFrame("studies").data
-      .select("studyId", "traitFromSource", "pubmedId", "publicationFirstAuthor", "diseaseIds")
+      .select("studyId",
+              "traitFromSource",
+              "pubmedId",
+              "publicationFirstAuthor",
+              "diseaseIds",
+              "nSamples",
+              "geneId"
+      )
+
+    // read in the credible sets, extract the studyId field. Then create a column with the count of each studyId
+    val credibleSets = inputDataFrame("credibleSets").data
+      .select("studyId")
+      .groupBy("studyId")
+      .agg(count("studyId").cast(DoubleType) as "credibleSetCount")
 
     val dLUT = diseases
       .withColumn(
@@ -809,7 +876,7 @@ object Search extends LazyLogging {
       .setIdAndSelectFromVariants()
       .repartition(100)
 
-    val searchStudies = studies.setIdAndSelectFromStudies().repartition(100)
+    val searchStudies = studies.setIdAndSelectFromStudies(targets, credibleSets).repartition(100)
 
     val conf = context.configuration.search
     val outputs = Map(
