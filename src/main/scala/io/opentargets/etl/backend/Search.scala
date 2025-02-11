@@ -1,7 +1,7 @@
 package io.opentargets.etl.backend
 
 import com.typesafe.scalalogging.LazyLogging
-import io.opentargets.etl.backend.spark.Helpers.{columnExpr, flattenCat, nest}
+import io.opentargets.etl.backend.spark.Helpers.{columnExpr, flattenCat, nest, safeArrayUnion}
 import io.opentargets.etl.backend.spark.IoHelpers.IOResources
 import io.opentargets.etl.backend.spark.{IOResource, IoHelpers, Helpers => C}
 import org.apache.spark.sql._
@@ -578,39 +578,13 @@ object Transformers {
         .withColumnRenamed("geneId", "targetId")
         .join(targets, Seq("targetId"), "left_outer")
 
+      val window = Window.orderBy(col("credibleSetCount").desc, col("nSamples").desc)
       val studiesWithTargetsAndCredSets = studiesWithTargets
         .join(credibleSets, Seq("studyId"), "left_outer")
-      val credibleSetCountMax = credibleSets
-        .select(max(col("credibleSetCount")))
-        .first()
-        .getDouble(0)
-      val credibleSetCountMin = credibleSets
-        .select(min(col("credibleSetCount")))
-        .first()
-        .getDouble(0)
-      val credibleSetMultiplier = when(
-        col("credibleSetCount").isNotNull,
-        (col(
-          "credibleSetCount"
-        ) - credibleSetCountMin) / (credibleSetCountMax - (credibleSetCountMin))
-      ).otherwise(0.01d)
-      val nSamplesMax = studiesWithTargetsAndCredSets
-        .select(max(col("nSamples").cast(DoubleType)))
-        .first()
-        .getDouble(0)
-      val nSamplesMin = studiesWithTargetsAndCredSets
-        .select(min(col("nSamples").cast(DoubleType)))
-        .first()
-        .getDouble(0)
-      val nSamplesMultiplier = when(
-        col("nSamples").isNotNull,
-        (col("nSamples") - nSamplesMin) / (nSamplesMax - nSamplesMin)
-      ).otherwise(0.01d)
-      // multiplier is a function of credible set count and nSamples giving double the weight to credible set counts
-      val multiplier =
-        lit(1d) + (
-          ((lit(2d) * credibleSetMultiplier) + nSamplesMultiplier) / lit(3d)
-        )
+        .withColumn("rank", rank().over(window))
+
+      val max = studiesWithTargetsAndCredSets.agg(functions.max("rank")).first().getInt(0)
+      val multiplier = expr(s"1 + (($max - rank) / ($max - 1))")
 
       SearchIndex(
         id = col("studyId"),
