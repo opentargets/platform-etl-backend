@@ -179,46 +179,6 @@ object DirectionOfEffect {
       .withColumn(
         "variantEffect",
         when(
-          col("datasourceId") === "ot_genetics_portal",
-          when(
-            col("variantFunctionalConsequenceId").isNotNull,
-            when(
-              col("variantFunctionalConsequenceFromQtlId").isNull,
-              when(
-                variantIsLoF,
-                lit("LoF")
-              )
-                .when(
-                  variantIsGoF,
-                  lit("GoF")
-                )
-                .otherwise(lit(null))
-            )
-              // variantFunctionalConsequenceFromQtlId
-              .when(
-                col("variantFunctionalConsequenceFromQtlId").isNotNull,
-                when(
-                  variantIsLoF,
-                  geneProductLevel(whenDecrease = lit("LoF"), whenIncrease = lit(null))
-                    .otherwise(lit("LoF"))
-                ).when(
-                  not(variantIsLoF), // when is not a LoF, still can be a GoF
-                  when(
-                    not(variantIsGoF), // if not GoF
-                    geneProductLevel(whenDecrease = lit("LoF"), whenIncrease = lit("GoF"))
-                      .otherwise(lit(null))
-                  ).when(
-                    variantIsGoF, // if is GoF
-                    geneProductLevel(whenDecrease = lit(null), whenIncrease = lit("GoF"))
-                  )
-                )
-              )
-          ).when(
-            col("variantFunctionalConsequenceId").isNull,
-            geneProductLevel(whenDecrease = lit("LoF"), whenIncrease = lit("GoF"))
-              .otherwise(lit(null))
-          )
-        ).when(
           col("datasourceId") === "gene_burden",
           when(col("targetId").isNotNull, lit("LoF")).otherwise(
             lit(null)
@@ -311,10 +271,6 @@ object DirectionOfEffect {
         "directionOnTrait",
         // ot genetics portal
         when(
-          col("datasourceId")
-            === "ot_genetics_portal", // the same for gene_burden
-          betaValidation
-        ).when(
           col("datasourceId") === "gene_burden",
           betaValidation
         )
