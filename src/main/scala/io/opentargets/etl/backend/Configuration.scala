@@ -291,6 +291,7 @@ object Configuration extends LazyLogging {
       homologyGeneDictionary: IOResourceConfig,
       tractability: IOResourceConfig,
       safetyEvidence: IOResourceConfig,
+      diseases: IOResourceConfig,
       reactomeEtl: IOResourceConfig,
       reactomePathways: IOResourceConfig
   )

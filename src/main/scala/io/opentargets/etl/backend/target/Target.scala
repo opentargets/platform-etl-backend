@@ -389,11 +389,34 @@ object Target extends LazyLogging {
       .drop("s", "ss", "ns")
   }
 
+  /**
+   * Creates a LUT from the dieseases input to replace the obsolete EFOs in the safety evidence data,
+   * @param inputDataFrames map with input dataframes
+   * @return Safety Evidence DataFrame with obsolete EFOs replaced
+   */
+  private def replaceObsoleteEFOs(inputDataFrames: IOResources): DataFrame = {
+    logger.info("Replacing obsolete EFOs in gene ontology using diseases data")
+
+    logger.debug("Loading dataframes for replaceObsoleteEFOs")
+    val safetyEvidenceDf = inputDataFrames("safetyEvidence").data
+    val diseasesDf = inputDataFrames("diseases").data
+
+    val diseaseMappingDf = diseasesDf.select(col("id").as("diseaseId"), explode(col("obsoleteTerms")).as("obsoleteTerm"))
+
+    safetyEvidenceDf
+      .join(diseaseMappingDf, col("id") === diseaseMappingDf.col("obsoleteTerm"), "left_outer")
+      .withColumn("id", coalesce(col("diseaseId"), col("id")))
+      .drop("obsoleteTerm", "diseaseId")
+  }
+
   private def addTargetSafety(inputDataFrames: IOResources, geneToEnsemblLookup: DataFrame)(
       dataFrame: DataFrame
   )(implicit sparkSession: SparkSession): DataFrame = {
+
+    val safetyEvidenceDf = replaceObsoleteEFOs(inputDataFrames)
+
     val tsDS: Dataset[TargetSafety] = Safety(
-      inputDataFrames("safetyEvidence").data,
+      safetyEvidenceDf,
       geneToEnsemblLookup
     )
     logger.info("Adding target safety to dataframe")
@@ -481,7 +504,8 @@ object Target extends LazyLogging {
       "tep" -> targetInputs.tep,
       "tractability" -> targetInputs.tractability,
       "uniprotSsl" -> targetInputs.uniprotSsl,
-      "geneEssentiality" -> targetInputs.geneEssentiality
+      "geneEssentiality" -> targetInputs.geneEssentiality,
+      "diseases" -> targetInputs.diseases
     )
 
     IoHelpers
