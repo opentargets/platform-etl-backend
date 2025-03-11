@@ -24,27 +24,27 @@ object ETL extends LazyLogging {
     logger.info(s"running step $step")
 
     step.toLowerCase match {
-      case "association"       => Association()
-      case "association_otf"   => AssociationOTF()
-      case "disease"           => Disease()
-      case "drug"              => Drug()
-      case "evidence"          => Evidence()
-      case "expression"        => Expression()
-      case "openfda"           => OpenFda()
-      case "go"                => Go()
-      case "interaction"       => Interactions()
-      case "known_drug"        => KnownDrugs()
-      case "literature"        => Literature()
-      case "otar"              => OtarProject()
-      case "pharmacogenomics"  => Pharmacogenomics()
-      case "reactome"          => Reactome()
-      case "search"            => Search()
-      case "search_ebi"        => EBISearch()
-      case "search_facet"      => FacetSearch()
-      case "target"            => Target()
-      case "target_engine"     => TargetEngine()
-      case "target_validation" => TargetValidation()
-      case _                   => throw new IllegalArgumentException(s"step $step is unknown")
+      case "association"      => Association()
+      case "association_otf"  => AssociationOTF()
+      case "disease"          => Disease()
+      case "drug"             => Drug()
+      case "evidence"         => Evidence()
+      case "expression"       => Expression()
+      case "openfda"          => OpenFda()
+      case "go"               => Go()
+      case "interaction"      => Interactions()
+      case "known_drug"       => KnownDrugs()
+      case "literature"       => Literature()
+      case "otar"             => OtarProject()
+      case "pharmacogenomics" => Pharmacogenomics()
+      case "reactome"         => Reactome()
+      case "search"           => Search()
+      case "search_ebi"       => EBISearch()
+      case "search_facet"     => FacetSearch()
+      case "target"           => Target()
+      case "target_engine"    => TargetEngine()
+      case "mouse_phenotypes" => MousePhenotypes()
+      case _                  => throw new IllegalArgumentException(s"step $step is unknown")
     }
     logger.info(s"finished running step $step")
   }
@@ -71,7 +71,7 @@ object ETL extends LazyLogging {
       "search_facet" -> ctx.configuration.facetSearch.outputs.targets.path,
       "target" -> ctx.configuration.target.outputs.target.path,
       "target_engine" -> ctx.configuration.targetEngine.outputs.targetEngine.path,
-      "target_validation" -> ctx.configuration.targetValidation.output.succeeded.path
+      "mouse_phenotypes" -> ctx.configuration.mousePhenotypes.output.succeeded.path
     )
 
     val storage: Storage = StorageOptions.getDefaultInstance.getService

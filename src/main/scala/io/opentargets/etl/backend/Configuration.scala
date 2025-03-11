@@ -194,10 +194,8 @@ object Configuration extends LazyLogging {
 
   case class GeneOntologySection(goInput: IOResourceConfig, output: IOResourceConfig)
 
-  case class TargetValidationInput(name: String, idColumn: String, data: IOResourceConfig)
-
-  case class TargetValidation(
-      inputs: Seq[TargetValidationInput],
+  case class MousePhenotypes(
+      input: IOResourceConfig,
       target: IOResourceConfig,
       output: SucceedFailedOutputs
   )
@@ -449,7 +447,7 @@ object Configuration extends LazyLogging {
       search: SearchSection,
       aotf: AOTFSection,
       target: Target,
-      targetValidation: TargetValidation,
+      mousePhenotypes: MousePhenotypes,
       expression: ExpressionSection,
       openfda: OpenfdaSection,
       ebisearch: EBISearchSection,
