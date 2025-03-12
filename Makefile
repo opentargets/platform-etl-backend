@@ -66,4 +66,3 @@ config_to_gcs: etl_config ## Copy the ETL config to GCS
 jar_to_gcs: build ## Copy the ETL jar to GCS
 	@echo "[ETL] Copying ETL jar to GCS"
 	${JAR_CP_CMD}
-
