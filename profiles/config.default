@@ -2,15 +2,3 @@
 OTOPS_ENSEMBL_RELEASE_VERSION=111
 OTOPS_CHEMBL_RELEASE_VERSION=33
 OTOPS_DATA_RELEASE_VERSION=24.03
-
-# -- Unlikely that you'll need to change the configuration below -- #
-
-# Workflow configuration
-OTOPS_GCS_ETL_CONFIG_PATH=gs://open-targets-pre-data-releases/${OTOPS_DATA_RELEASE_VERSION}/conf/
-OTOPS_GCS_ETL_CONFIG_FILE=platform.conf
-OTOPS_GCS_ETL_JAR_PATH=gs://open-targets-pre-data-releases/${OTOPS_DATA_RELEASE_VERSION}/jars/
-
-# Workflow configuration (PPP)
-OTOPS_GCS_ETL_CONFIG_PATH_PPP=gs://open-targets-pre-data-releases/partners/${OTOPS_DATA_RELEASE_VERSION}/conf/
-OTOPS_GCS_ETL_CONFIG_FILE_PPP=ppp.conf
-OTOPS_GCS_ETL_JAR_PATH_PPP=gs://open-targets-pre-data-releases/partners/${OTOPS_DATA_RELEASE_VERSION}/jars/
