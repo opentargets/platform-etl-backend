@@ -4,15 +4,6 @@ import scala.language.postfixOps
 
 object Dependencies {
 
-  lazy val workflowDependencies: Seq[ModuleID] = Seq(
-    configDeps,
-    cats,
-    gcpWorkflow,
-    testingDeps,
-    loggingDeps,
-    cli
-  ).flatten
-
   lazy val etlDependencies: Seq[ModuleID] = Seq(
     betterFiles,
     configDeps,
@@ -25,13 +16,6 @@ object Dependencies {
     johnS
   ).flatten
 
-  lazy val catsVersion = "3.3.14"
-  lazy val cats = Seq(
-    "org.typelevel" %% "cats-effect" % catsVersion,
-    "org.typelevel" %% "log4cats-slf4j" % "2.5.0",
-    "com.github.pureconfig" %% "pureconfig-cats-effect" % "0.17.1",
-    "org.typelevel" %% "cats-effect-testing-scalatest" % "1.4.0" % Test
-  )
   lazy val cli = Seq(
     "com.monovore" %% "decline-effect" % "2.3.1"
   )
@@ -84,14 +68,6 @@ object Dependencies {
   lazy val gcpEtl = Seq(
     "com.google.cloud" % "google-cloud-dataproc" % "4.2.0" % "provided",
     "com.google.cloud" % "google-cloud-storage" % "2.4.2"
-  )
-  lazy val gcpWorkflow = Seq(
-    "com.google.cloud" % "google-cloud-dataproc" % "4.2.0",
-    "com.google.cloud" % "google-cloud-storage" % "2.4.2",
-    // https://storage.googleapis.com/cloud-opensource-java-dashboard/com.google.cloud/libraries-bom/26.1.4/index.html
-    "io.grpc" % "grpc-netty-shaded" % "1.50.2", // needed for workflow to communicate with GCP
-    "io.grpc" % "grpc-netty" % "1.50.2", // needed for workflow to communicate with GCP
-    "io.grpc" % "grpc-okhttp" % "1.50.2" // needed for workflow to communicate with GCP
   )
 
   lazy val johnSVersion = "3.3.4"

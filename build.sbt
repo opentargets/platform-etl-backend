@@ -14,46 +14,6 @@ ThisBuild / scalaVersion := "2.12.12"
 
 def jarName(name: String): String = s"$name-${sys.env.getOrElse("TAG", "0.0.0")}.jar"
 
-lazy val workflow = (project in file("workflow")).settings(
-  name := "etl-workflow",
-  libraryDependencies ++= workflowDependencies,
-  scalacOptions ++= Seq("-feature",
-                        "-deprecation",
-                        "-unchecked",
-                        "-language:postfixOps",
-                        "-language:higherKinds",
-                        "-Ypartial-unification"
-  ),
-  coverageEnabled := true,
-  logLevel in assembly := Level.Info,
-  mainClass in assembly := Some("io.opentargets.workflow.cli.OpenTargetsCliApp"),
-  assemblyMergeStrategy in assembly := {
-    case PathList("META-INF", "io.netty.versions.properties") =>
-      MergeStrategy.discard
-    case PathList(ps @ _*) if Assembly.isReadme(ps.last) || Assembly.isLicenseFile(ps.last) =>
-      MergeStrategy.rename
-    case PathList("META-INF", xs @ _*) =>
-      (xs map {
-        _.toLowerCase
-      }) match {
-        case ("manifest.mf" :: Nil) | ("index.list" :: Nil) | ("dependencies" :: Nil) =>
-          MergeStrategy.discard
-        case ps @ (x :: xs) if ps.last.endsWith(".sf") || ps.last.endsWith(".dsa") =>
-          MergeStrategy.discard
-        case "plexus" :: xs =>
-          MergeStrategy.discard
-        case "versions" :: xs => MergeStrategy.discard
-        case "services" :: xs =>
-          MergeStrategy.filterDistinctLines
-        case ("spring.schemas" :: Nil) | ("spring.handlers" :: Nil) =>
-          MergeStrategy.filterDistinctLines
-        case _ => MergeStrategy.deduplicate
-      }
-    case "module-info.class" => MergeStrategy.filterDistinctLines
-    case _                   => MergeStrategy.deduplicate
-  },
-  assembly / assemblyJarName := jarName("workflow")
-)
 lazy val root = (project in file("."))
   .settings(
     name := "io-opentargets-etl-backend",
