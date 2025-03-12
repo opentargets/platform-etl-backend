@@ -43,7 +43,7 @@ object ETL extends LazyLogging {
       case "search_facet"     => FacetSearch()
       case "target"           => Target()
       case "target_engine"    => TargetEngine()
-      case "mouse_phenotypes" => MousePhenotypes()
+      case "mouse_phenotype" => MousePhenotype()
       case _                  => throw new IllegalArgumentException(s"step $step is unknown")
     }
     logger.info(s"finished running step $step")
@@ -71,7 +71,7 @@ object ETL extends LazyLogging {
       "search_facet" -> ctx.configuration.facetSearch.outputs.targets.path,
       "target" -> ctx.configuration.target.outputs.target.path,
       "target_engine" -> ctx.configuration.targetEngine.outputs.targetEngine.path,
-      "mouse_phenotypes" -> ctx.configuration.mousePhenotypes.output.succeeded.path
+      "mouse_phenotype" -> ctx.configuration.mousePhenotype.output.succeeded.path
     )
 
     val storage: Storage = StorageOptions.getDefaultInstance.getService

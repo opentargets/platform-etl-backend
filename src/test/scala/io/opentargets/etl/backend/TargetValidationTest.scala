@@ -17,7 +17,7 @@ class TargetValidationTest extends EtlSparkUnitTest {
     } toDF (filterColumn, "data")
 
     // when
-    val results = MousePhenotypes.validate(dfToFilter, filterColumn)
+    val results = MousePhenotype.validate(dfToFilter, filterColumn)
 
     /*
      then the dataframes should be the same size since we have 10 unique targets and 5 unique other results, so 5 results

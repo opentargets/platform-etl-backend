@@ -5,17 +5,17 @@ import io.opentargets.etl.backend.spark.{IOResource, IoHelpers}
 import io.opentargets.etl.backend.spark.IoHelpers.IOResources
 import org.apache.spark.sql.{DataFrame, SparkSession}
 
-object MousePhenotypes extends Serializable with LazyLogging {
+object MousePhenotype extends Serializable with LazyLogging {
 
   def apply()(implicit context: ETLSessionContext): IOResources = {
     implicit val ss: SparkSession = context.sparkSession
 
     implicit val target_df: DataFrame =
-      IoHelpers.loadFileToDF(context.configuration.mousePhenotypes.target)
+      IoHelpers.loadFileToDF(context.configuration.mousePhenotype.target)
     logger.info(s"MousePhenotypes step")
 
     logger.info(s"MousePhenotypes Reading input data")
-    val inputs = Map("mousePhenotypes" -> context.configuration.mousePhenotypes.input)
+    val inputs = Map("mousePhenotypes" -> context.configuration.mousePhenotype.input)
 
     val inputDataframes = IoHelpers.readFrom(inputs)
 
@@ -26,10 +26,10 @@ object MousePhenotypes extends Serializable with LazyLogging {
 
     val outputs = Map(
       "succeeded" -> IOResource(valid_targets_df,
-                                context.configuration.mousePhenotypes.output.succeeded
+                                context.configuration.mousePhenotype.output.succeeded
       ),
       "failed" -> IOResource(missing_targets_df,
-                             context.configuration.mousePhenotypes.output.failed
+                             context.configuration.mousePhenotype.output.failed
       )
     )
 
