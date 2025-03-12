@@ -30,8 +30,7 @@ Other profiles can be created and used by running `make set_profile profile=<pro
 would be "dev" if the profile file was called "config.dev".
 
 #### Step 2. Run
-Run `make etl_run` to set the configs, build the jars, copy them to GCS and run the workflow jar.
-For PPP releases, simply run `make etl_run ppp=true`
+TODO: Update to reference airflow
 
 ### Configuration
 
@@ -183,17 +182,6 @@ common {
   output = "gs://ot-snapshots/etl/mk-latest"
 }
 ```
-
-### Using Dataproc workflows
-
-Once [PIS](https://github.com/opentargets/platform-input-support) has provided all of the necessary inputs, update the
-configuration files to make use of the new inputs. Create two input files, one using `parquet` as the output format, and
-one using `json`. Consult `opentargets-pre-data-releases/22.02.3/` for reference.
-
-If there have been any changes to the ETL create new jars for the literature and ETL project and push them to google
-storage.
-
-Run the worksheet `./dataproc/workflow-etl.sc` which will create a cluster, run all steps and then destroy the cluster.
 
 ## Step dependencies
 
