@@ -28,9 +28,7 @@ object MousePhenotype extends Serializable with LazyLogging {
       "succeeded" -> IOResource(valid_targets_df,
                                 context.configuration.mousePhenotype.output.succeeded
       ),
-      "failed" -> IOResource(missing_targets_df,
-                             context.configuration.mousePhenotype.output.failed
-      )
+      "failed" -> IOResource(missing_targets_df, context.configuration.mousePhenotype.output.failed)
     )
 
     logger.info(s"MousePhenotypes writing output data")
