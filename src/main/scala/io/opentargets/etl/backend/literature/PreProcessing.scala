@@ -1,7 +1,7 @@
 package io.opentargets.etl.backend.literature
 
-import org.apache.spark.sql.{DataFrame, SparkSession}
-import org.apache.spark.sql.functions.{col, input_file_name, regexp_extract, unix_timestamp}
+import org.apache.spark.sql.DataFrame
+import org.apache.spark.sql.functions.{col, unix_timestamp}
 
 object PreProcessing {
 
@@ -33,7 +33,7 @@ object PreProcessing {
       .drop(uniqueDfRows.col("pmid"))
       .drop(uniqueDfRows.col("int_timestamp"))
 
-  def process(epmc: DataFrame)(implicit ss: SparkSession) = {
+  def process(epmc: DataFrame) = {
 
     val dfWithType = addGroupingColumns(epmc)
 

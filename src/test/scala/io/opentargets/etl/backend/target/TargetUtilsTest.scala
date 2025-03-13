@@ -4,7 +4,6 @@ import io.opentargets.etl.backend.EtlSparkUnitTest
 import io.opentargets.etl.backend.spark.Helpers.{idAndSourceSchema, labelAndSourceSchema}
 import io.opentargets.etl.backend.target.TargetUtils._
 import org.apache.spark.sql.functions.{col, explode, typedLit}
-import org.apache.spark.sql.types.{StringType, StructField, StructType}
 import org.scalatest.matchers.should.Matchers.convertToAnyShouldWrapper
 
 class TargetUtilsTest extends EtlSparkUnitTest {
@@ -38,7 +37,6 @@ class TargetUtilsTest extends EtlSparkUnitTest {
     // |ENSG5    |[]             |[]                                     |[]                                     |
     // +---------+---------------+---------------------------------------+---------------------------------------+
 
-    import sparkSession.implicits._
     val columns = Seq("ensemblId", "hgncSynonyms")
     val data = Seq(
       ("ENSG1", Some(Array("foo", "baz", "bar"))),

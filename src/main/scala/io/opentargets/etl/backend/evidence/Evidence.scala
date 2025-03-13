@@ -239,8 +239,6 @@ object Evidence extends LazyLogging {
   def generateHashes(df: DataFrame, columnName: String)(implicit
       context: ETLSessionContext
   ): DataFrame = {
-    implicit val ss: SparkSession = context.sparkSession
-
     val config = context.configuration.evidences
 
     logger.info("Validate each evidence: generating a hash to check for duplicates")
@@ -267,11 +265,7 @@ object Evidence extends LazyLogging {
     df.withColumn(columnName, hashes)
   }
 
-  def hashLongVariantIds(df: DataFrame, columnName: String, threshold: Int = 300)(implicit
-      context: ETLSessionContext
-  ): DataFrame = {
-    implicit val ss: SparkSession = context.sparkSession
-
+  def hashLongVariantIds(df: DataFrame, columnName: String, threshold: Int = 300): DataFrame = {
     logger.info("Hash long variantIds")
 
     val variantId = col(columnName)
@@ -297,8 +291,6 @@ object Evidence extends LazyLogging {
   }
 
   def score(df: DataFrame, columnName: String)(implicit context: ETLSessionContext): DataFrame = {
-    implicit val ss: SparkSession = context.sparkSession
-
     logger.info("score each evidence and mark unscored ones")
     val config = context.configuration.evidences
 
@@ -315,17 +307,16 @@ object Evidence extends LazyLogging {
     df.withColumn(columnName, scores)
   }
 
-  def checkNullifiedScores(df: DataFrame, scoreColumnName: String, columnName: String)(implicit
-      context: ETLSessionContext
+  def checkNullifiedScores(df: DataFrame,
+                           scoreColumnName: String,
+                           columnName: String
   ): DataFrame = {
     val idC = col(scoreColumnName)
 
     df.withColumn(columnName, idC.isNull)
   }
 
-  def markDuplicates(df: DataFrame, hashColumnName: String, columnName: String)(implicit
-      context: ETLSessionContext
-  ): DataFrame = {
+  def markDuplicates(df: DataFrame, hashColumnName: String, columnName: String): DataFrame = {
     val idC = col(hashColumnName)
     val w = Window.partitionBy(col("sourceId"), idC).orderBy(idC.asc)
 
@@ -405,8 +396,6 @@ object Evidence extends LazyLogging {
   }
 
   def apply()(implicit context: ETLSessionContext): IOResources = {
-    implicit val ss: SparkSession = context.sparkSession
-
     val processedEvidences = compute()
     IoHelpers.writeTo(processedEvidences)
 

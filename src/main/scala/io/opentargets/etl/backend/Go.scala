@@ -4,8 +4,7 @@ import com.typesafe.scalalogging.LazyLogging
 import io.opentargets.etl.backend.spark.{IOResource, IOResourceConfig, IoHelpers}
 import io.opentargets.etl.backend.spark.IoHelpers.IOResources
 import io.opentargets.etl.preprocess.go.GoConverter
-import org.apache.spark.sql.functions.{col, desc, when}
-import org.apache.spark.sql.{DataFrame, SparkSession}
+import org.apache.spark.sql.SparkSession
 
 import scala.jdk.CollectionConverters.asScalaIteratorConverter
 

@@ -141,7 +141,7 @@ object Association extends LazyLogging {
           .fill(otc.defaultWeight, Seq(weightColName))
       }
 
-      def groupByDataSources(implicit context: ETLSessionContext): DataFrame = {
+      def groupByDataSources(): DataFrame = {
         val cols = Seq(
           dtId,
           dsId,
@@ -151,7 +151,6 @@ object Association extends LazyLogging {
           dsEvsCount
         )
 
-        val associationsSec = context.configuration.associations
         val dsPartition = Seq(dsId, dId, tId)
 
         val datasourceAssocs = df
@@ -215,8 +214,6 @@ object Association extends LazyLogging {
   }
 
   def computeDirectAssociations()(implicit context: ETLSessionContext): IOResources = {
-    implicit val ss: SparkSession = context.sparkSession
-
     val outputs = context.configuration.associations.outputs
 
     val evidenceSet = prepareEvidences().persist(StorageLevel.DISK_ONLY)
@@ -232,8 +229,6 @@ object Association extends LazyLogging {
   }
 
   def computeIndirectAssociations()(implicit context: ETLSessionContext): IOResources = {
-    implicit val ss: SparkSession = context.sparkSession
-
     val outputs = context.configuration.associations.outputs
 
     val evidenceSet = prepareEvidences(expandOntology = true).persist()
@@ -335,8 +330,6 @@ object Association extends LazyLogging {
   }
 
   def apply()(implicit context: ETLSessionContext): IOResources = {
-    implicit val ss: SparkSession = context.sparkSession
-
     val directs = computeDirectAssociations()
     val indirects = computeIndirectAssociations()
 

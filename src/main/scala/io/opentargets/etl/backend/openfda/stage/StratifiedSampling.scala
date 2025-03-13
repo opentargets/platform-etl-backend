@@ -2,7 +2,7 @@ package io.opentargets.etl.backend.openfda.stage
 
 import com.typesafe.scalalogging.LazyLogging
 import io.opentargets.etl.backend.ETLSessionContext
-import io.opentargets.etl.backend.spark.{IOResource, IoHelpers}
+import io.opentargets.etl.backend.spark.IOResource
 import io.opentargets.etl.backend.spark.IoHelpers.IOResources
 import org.apache.spark.sql.DataFrame
 

@@ -3,7 +3,7 @@ package io.opentargets.etl.backend
 import com.typesafe.scalalogging.LazyLogging
 import io.opentargets.etl.backend.spark.Helpers.unionDataframeDifferentSchema
 import io.opentargets.etl.backend.spark.{IOResource, IoHelpers}
-import io.opentargets.etl.backend.spark.IoHelpers.{IOResources, writeTo}
+import io.opentargets.etl.backend.spark.IoHelpers.IOResources
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.functions.col
 import org.apache.spark.sql._
@@ -209,8 +209,6 @@ object Disease extends Serializable with LazyLogging {
   }
 
   def apply()(implicit context: ETLSessionContext): IOResources = {
-    implicit val ss: SparkSession = context.sparkSession
-
     logger.info("transform disease dataset")
     // compute is mandatory for running Connection.
     val diseaseDF = compute()

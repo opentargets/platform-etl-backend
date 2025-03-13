@@ -4,7 +4,7 @@ import com.typesafe.scalalogging.LazyLogging
 import io.opentargets.etl.backend.graph.GraphNode
 import org.apache.spark.sql._
 import org.apache.spark.sql.functions._
-import io.opentargets.etl.backend.spark.{IOResource, IOResourceConfig, IoHelpers}
+import io.opentargets.etl.backend.spark.{IOResource, IoHelpers}
 import io.opentargets.etl.backend.spark.IoHelpers.IOResources
 
 // This is option/step reactome in the config file
