@@ -2,24 +2,12 @@ package io.opentargets.etl.backend
 
 import com.typesafe.scalalogging.LazyLogging
 import io.opentargets.etl.backend.openfda.stage.{
-  AttachMeddraData,
-  EventsFiltering,
   LoadData,
-  MonteCarloSampling,
   OpenFdaCompute,
-  OpenFdaDataPreparation,
-  PrePrepRawFdaData,
-  PrepareAdverseEventData,
-  PrepareBlacklistData,
-  PrepareDrugList,
-  PrepareForMontecarlo,
-  PrepareSummaryStatistics,
-  StratifiedSampling
+  OpenFdaDataPreparation
 }
-import io.opentargets.etl.backend.spark.IoHelpers.IOResources
-import io.opentargets.etl.backend.spark.{IOResource, IOResourceConfig, IoHelpers}
-import org.apache.spark.sql.functions.{explode, typedLit}
-import org.apache.spark.storage.StorageLevel
+import io.opentargets.etl.backend.spark.IOResourceConfig
+import org.apache.spark.sql.functions.explode
 
 // Data Sources
 sealed trait FdaDataSource

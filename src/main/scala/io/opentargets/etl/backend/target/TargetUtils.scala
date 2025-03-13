@@ -1,6 +1,6 @@
 package io.opentargets.etl.backend.target
 
-import org.apache.spark.sql.{Column, functions}
+import org.apache.spark.sql.Column
 import org.apache.spark.sql.functions.{struct, transform, when, size}
 import org.apache.spark.sql.types.{ArrayType, StructType}
 

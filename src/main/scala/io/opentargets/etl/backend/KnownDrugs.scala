@@ -7,7 +7,7 @@ import org.apache.spark.sql._
 import org.apache.spark.sql.functions.{col, _}
 
 object KnownDrugsHelpers {
-  def aggregateDrugsByOntology(df: DataFrame)(implicit ss: SparkSession): DataFrame = {
+  def aggregateDrugsByOntology(df: DataFrame): DataFrame = {
 
     val dfDirect = df
       .groupBy(

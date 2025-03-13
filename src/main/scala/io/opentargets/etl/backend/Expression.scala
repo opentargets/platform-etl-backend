@@ -3,7 +3,7 @@ package io.opentargets.etl.backend
 import com.typesafe.scalalogging.LazyLogging
 import org.apache.spark.sql._
 import org.apache.spark.sql.functions._
-import io.opentargets.etl.backend.spark.{IOResource, IOResourceConfig, IoHelpers}
+import io.opentargets.etl.backend.spark.{IOResource, IoHelpers}
 import io.opentargets.etl.backend.spark.IoHelpers.IOResources
 import io.opentargets.etl.backend.spark.Helpers.{transposeDataframe, unionDataframeDifferentSchema}
 
@@ -293,8 +293,6 @@ object Expression extends LazyLogging {
   }
 
   def apply()(implicit context: ETLSessionContext): IOResources = {
-    implicit val ss: SparkSession = context.sparkSession
-
     logger.info("transform Baseline Expression dataset")
     val dataframesToSave = compute()
 

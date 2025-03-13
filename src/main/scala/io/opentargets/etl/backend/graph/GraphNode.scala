@@ -1,16 +1,10 @@
 package io.opentargets.etl.backend.graph
 
 import com.typesafe.scalalogging.LazyLogging
-import org.apache.spark._
 import org.apache.spark.sql._
-import org.apache.spark.sql.functions._
 import scala.collection.convert.ImplicitConversions._
-import org.jgrapht._
-import org.jgrapht.generate._
-import org.jgrapht.traverse._
 import org.jgrapht.graph._
 import org.jgrapht.Graphs._
-import org.jgrapht.util._
 import org.jgrapht.alg.shortestpath._
 
 /** vertices must contain "id", "label" fields. The field label can be called in a flexible way.

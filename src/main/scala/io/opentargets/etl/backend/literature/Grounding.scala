@@ -14,8 +14,6 @@ import org.apache.spark.sql.types._
 import org.apache.spark.sql.expressions.Window
 import org.apache.spark.storage.StorageLevel
 
-import scala.util.Random
-
 object Grounding extends Serializable with LazyLogging {
   // https://meta.wikimedia.org/wiki/Stop_word_list/google_stop_word_list#English
   val googleStopWords: Array[String] =
@@ -110,7 +108,7 @@ object Grounding extends Serializable with LazyLogging {
                            keywordColumnName: String,
                            labelCountsColumnName: String,
                            typeColumnName: String = "type"
-  )(implicit sparkSession: SparkSession): DataFrame = {
+  ): DataFrame = {
 
     val keywordColumns = typeColumnName :: keywordColumnName :: Nil
     val windowPerKeyword = Window.partitionBy(keywordColumns.map(col): _*)

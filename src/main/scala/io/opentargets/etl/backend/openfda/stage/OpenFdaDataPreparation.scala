@@ -3,7 +3,6 @@ package io.opentargets.etl.backend.openfda.stage
 import com.typesafe.scalalogging.LazyLogging
 import io.opentargets.etl.backend.spark.IoHelpers.IOResources
 import io.opentargets.etl.backend.{Blacklisting, DrugData, ETLSessionContext, FdaData}
-import org.apache.spark.sql.DataFrame
 
 object OpenFdaDataPreparation extends LazyLogging {
   def apply(dfsData: IOResources)(implicit context: ETLSessionContext) = {
