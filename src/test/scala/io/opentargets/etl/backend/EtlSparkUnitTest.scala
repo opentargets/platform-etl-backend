@@ -1,7 +1,5 @@
 package io.opentargets.etl.backend
 
-import io.opentargets.etl.backend.ETLSessionContext.progName
-import io.opentargets.etl.backend.spark.Helpers.getOrCreateSparkSession
 import org.scalatest.PrivateMethodTester
 import org.scalatest.flatspec.AnyFlatSpecLike
 import org.scalatest.matchers.must.Matchers

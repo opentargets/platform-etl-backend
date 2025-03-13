@@ -1,12 +1,9 @@
 package io.opentargets.etl.backend
 
 import com.typesafe.scalalogging.LazyLogging
-import io.opentargets.etl.backend.InteractionsHelpers.logger
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.functions.col
 import org.apache.spark.sql._
-import org.apache.spark.sql.types._
-import com.typesafe.config.Config
 import io.opentargets.etl.backend.spark.IoHelpers.IOResources
 import spark.{Helpers, IOResource, IoHelpers}
 import io.opentargets.etl.backend.stringProtein.StringProtein
@@ -350,7 +347,7 @@ object Interactions extends LazyLogging {
     * @return
     *   a DataFrame with the interaction_id unmatched
     */
-  def getUnmatch(intact: DataFrame, string: DataFrame)(implicit ss: SparkSession): DataFrame = {
+  def getUnmatch(intact: DataFrame, string: DataFrame): DataFrame = {
 
     val intactMissing = intact
       .filter(col("targetB").isNull && col("speciesB.taxon_id") === 9606)
@@ -374,7 +371,7 @@ object Interactions extends LazyLogging {
     * @return
     *   a DataFrame
     */
-  def removeNullTargetA(df: DataFrame)(implicit ss: SparkSession): DataFrame =
+  def removeNullTargetA(df: DataFrame): DataFrame =
     df.filter(col("targetA").isNotNull)
 
   /** Homo_sapiens.GRCh38.chr.gtf.gz is a tsv file with the first 5 lines are comments
@@ -383,7 +380,7 @@ object Interactions extends LazyLogging {
     * @return
     *   a DataFrame
     */
-  def transformEnsemblProtein(df: DataFrame)(implicit ss: SparkSession): DataFrame =
+  def transformEnsemblProtein(df: DataFrame): DataFrame =
     df.filter(col("_c2") === "CDS")
       .withColumn("gene_id", regexp_extract(col("_c8"), "ENSG\\w{11}", 0))
       .withColumn("protein_id", regexp_extract(col("_c8"), "ENSP\\w{11}", 0))
@@ -446,8 +443,6 @@ object Interactions extends LazyLogging {
   }
 
   def apply()(implicit context: ETLSessionContext): IOResources = {
-    implicit val ss: SparkSession = context.sparkSession
-
     val otnetworksDF = compute()
     IoHelpers.writeTo(otnetworksDF)
   }

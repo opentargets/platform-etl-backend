@@ -1,7 +1,7 @@
 package io.opentargets.etl.backend.drug
 
 import com.typesafe.scalalogging.LazyLogging
-import org.apache.spark.sql.{DataFrame, SparkSession}
+import org.apache.spark.sql.DataFrame
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.types.DoubleType
 
@@ -27,7 +27,7 @@ import org.apache.spark.sql.types.DoubleType
 object Indication extends Serializable with LazyLogging {
   private val efoId: String = "disease"
 
-  def apply(indicationsRaw: DataFrame, efoRaw: DataFrame)(implicit ss: SparkSession): DataFrame = {
+  def apply(indicationsRaw: DataFrame, efoRaw: DataFrame): DataFrame = {
     logger.info("Processing indications.")
     // efoDf for therapeutic areas
     val efoDf = getEfoDataframe(efoRaw)

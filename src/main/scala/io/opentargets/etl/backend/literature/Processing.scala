@@ -9,7 +9,6 @@ import org.apache.spark.sql.SparkSession
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql._
 import org.apache.spark.sql.expressions.Window
-import org.apache.spark.sql.types.LongType
 import org.apache.spark.storage.StorageLevel
 
 import scala.language.postfixOps

@@ -3,7 +3,7 @@ package io.opentargets.etl.backend.target
 import com.typesafe.scalalogging.LazyLogging
 import org.apache.spark.sql.functions.{array_contains, broadcast, col, typedLit, when}
 import org.apache.spark.sql.types.DoubleType
-import org.apache.spark.sql.{DataFrame, Dataset, SparkSession, functions}
+import org.apache.spark.sql.{DataFrame, Dataset, SparkSession}
 
 /** Maps orthologs to ensembl human gene ids */
 object Ortholog extends LazyLogging {

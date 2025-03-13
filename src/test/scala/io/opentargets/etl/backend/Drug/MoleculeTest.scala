@@ -3,8 +3,7 @@ package io.opentargets.etl.backend.Drug
 import io.opentargets.etl.backend.Drug.MoleculeTest.{
   XRef,
   getSampleHierarchyData,
-  getSampleSynonymData,
-  getSampleWithdrawnNoticeData
+  getSampleSynonymData
 }
 import io.opentargets.etl.backend.EtlSparkUnitTest
 import io.opentargets.etl.backend.drug.Molecule
@@ -130,7 +129,6 @@ object MoleculeTest {
   }
 
   def getSampleSynonymData(sparkSession: SparkSession): DataFrame = {
-    import sparkSession.implicits._
     val schema = StructType(
       Array(
         StructField("id", StringType),
@@ -157,7 +155,6 @@ object MoleculeTest {
   }
 
   def getSampleWithdrawnNoticeData(sparkSession: SparkSession): DataFrame = {
-    import sparkSession.implicits._
     val schema = StructType(
       Array(
         StructField("id", StringType),

@@ -1,11 +1,8 @@
 package io.opentargets.etl.backend.Graph
 
 import io.opentargets.etl.backend.EtlSparkUnitTest
-import io.opentargets.etl.backend.graph
 import io.opentargets.etl.backend.graph.GraphNode
-import org.apache.spark.sql.functions.{array_contains, col, map_keys}
-import org.apache.spark.sql.types._
-import org.apache.spark.sql.{DataFrame, Dataset, Row, SparkSession}
+import org.apache.spark.sql.{DataFrame, SparkSession}
 
 object GraphNodeTest {
 
@@ -19,7 +16,6 @@ object GraphNodeTest {
 }
 
 class GraphNodeTest extends EtlSparkUnitTest {
-  import sparkSession.implicits._
 
   "Processing two Dataframe " should "return a dataframe with parents,children, ancestors and descendants" in {
     // given

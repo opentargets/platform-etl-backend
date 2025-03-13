@@ -2,12 +2,6 @@ package io.opentargets.etl.backend.target
 
 import io.opentargets.etl.backend.{EtlSparkUnitTest, Hpo}
 import org.apache.spark.sql.{DataFrame, Dataset, Row, SparkSession}
-import org.apache.spark.sql.functions.{col, explode}
-import org.apache.spark.sql.types.{StringType, StructField, StructType}
-
-// cat efo_sample.json | jq .id > ids.json
-// cat out/diseases/part* |  jq -c -n --slurpfile ids ids.json 'inputs | . as $in | select( $ids | index($in.id))' > new_efo.json
-// shuf -n 21412 hpo-phenotypes-sample.jsonl > hpo-pheno.jsonl
 
 object HpoTest extends EtlSparkUnitTest {
 
@@ -26,7 +20,6 @@ object HpoTest extends EtlSparkUnitTest {
 
 class HpoTest extends EtlSparkUnitTest {
   import Hpo._
-  import sparkSession.implicits._
   val getEfoDataFrame: PrivateMethod[Dataset[Row]] = PrivateMethod[Dataset[Row]]('getEfoDataframe)
 
   "Processing EFO metadata" should "return a dataframe with the EFO's disease, name and dbXRefId" in {

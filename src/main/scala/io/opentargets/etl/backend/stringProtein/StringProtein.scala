@@ -2,7 +2,6 @@ package io.opentargets.etl.backend.stringProtein
 
 import com.typesafe.scalalogging.LazyLogging
 import io.opentargets.etl.backend.ETLSessionContext
-import org.apache.spark._
 import org.apache.spark.sql._
 import org.apache.spark.sql.functions.col
 import org.apache.spark.sql.functions._
@@ -50,8 +49,6 @@ object StringProtein extends Serializable with LazyLogging {
   def apply(stringDataset: DataFrame, scorethreshold: Int)(implicit
       context: ETLSessionContext
   ): DataFrame = {
-    import context.sparkSession.implicits._
-
     val configuration = context.configuration.interactions
 
     logger.info("Compute string protein dataset threshold: " + scorethreshold.toString)

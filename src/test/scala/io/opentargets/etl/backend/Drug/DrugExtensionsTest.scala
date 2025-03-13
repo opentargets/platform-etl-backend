@@ -145,11 +145,11 @@ class SynonymExtensionTest extends EtlSparkUnitTest {
     assertThrows[AssertionError] {
       val inputBad1: DataFrame =
         Seq(SynonymBadSynonymField("D01", "foo"), SynonymBadSynonymField("D01", "bar")).toDF
-      val result = DrugExtensions invokePrivate stardardiseSynonyms(inputBad1)
+      DrugExtensions invokePrivate stardardiseSynonyms(inputBad1)
     }
     assertThrows[AssertionError] {
       val inputBad2 = Seq(SynonymBadIdField("D01", "foo"), SynonymBadIdField("D01", "bar")).toDF
-      val result = DrugExtensions invokePrivate stardardiseSynonyms(inputBad2)
+      DrugExtensions invokePrivate stardardiseSynonyms(inputBad2)
     }
   }
 
