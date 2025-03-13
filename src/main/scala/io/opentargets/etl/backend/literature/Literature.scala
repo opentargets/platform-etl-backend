@@ -1,7 +1,7 @@
 package io.opentargets.etl.backend.literature
 
 import io.opentargets.etl.backend.ETLSessionContext
-import io.opentargets.etl.backend.spark.Helpers.{getOrCreateSparkSession}
+import io.opentargets.etl.backend.spark.Helpers.getOrCreateSparkSession
 import io.opentargets.etl.backend.ETLSessionContext.progName
 import com.typesafe.scalalogging.LazyLogging
 

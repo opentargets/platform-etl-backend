@@ -1,11 +1,7 @@
 package io.opentargets.etl.backend
 
 import com.typesafe.scalalogging.LazyLogging
-import io.opentargets.etl.backend.openfda.stage.{
-  LoadData,
-  OpenFdaCompute,
-  OpenFdaDataPreparation
-}
+import io.opentargets.etl.backend.openfda.stage.{LoadData, OpenFdaCompute, OpenFdaDataPreparation}
 import io.opentargets.etl.backend.spark.IOResourceConfig
 import org.apache.spark.sql.functions.explode
 
