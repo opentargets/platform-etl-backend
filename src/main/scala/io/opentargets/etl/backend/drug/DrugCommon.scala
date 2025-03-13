@@ -3,12 +3,7 @@ package io.opentargets.etl.backend.drug
 import com.typesafe.scalalogging.LazyLogging
 import org.apache.spark.sql.DataFrame
 import org.apache.spark.sql.expressions.UserDefinedFunction
-import org.apache.spark.sql.functions.{
-  col,
-  typedLit,
-  udf,
-  when
-}
+import org.apache.spark.sql.functions.{col, typedLit, udf, when}
 
 /** Utility object to hold methods common to Drug and DrugBeta steps to prevent code duplication.
   */
