@@ -1,7 +1,7 @@
 package io.opentargets.etl.backend
 
 import com.typesafe.scalalogging.LazyLogging
-import io.opentargets.etl.backend.spark.Helpers.{columnExpr, flattenCat, nest, safeArrayUnion}
+import io.opentargets.etl.backend.spark.Helpers.{flattenCat, nest}
 import io.opentargets.etl.backend.spark.IoHelpers.IOResources
 import io.opentargets.etl.backend.spark.{IOResource, IoHelpers, Helpers => C}
 import org.apache.spark.sql._

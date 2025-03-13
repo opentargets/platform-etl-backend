@@ -7,17 +7,6 @@ import org.apache.spark.sql.functions._
 
 object DirectionOfEffect {
 
-  private def geneProductLevel(whenDecrease: Column, whenIncrease: Column): Column = when(
-    col("variantFunctionalConsequenceFromQtlId")
-      === "SO_0002316",
-    whenDecrease
-  )
-    .when(
-      col("variantFunctionalConsequenceFromQtlId")
-        === "SO_0002315",
-      whenIncrease
-    )
-
   private val betaValidation = when(
     col("beta").isNotNull && col("OddsRatio").isNull,
     when(col("beta") > 0d, lit("risk"))
@@ -140,8 +129,6 @@ object DirectionOfEffect {
       )
 
     val variantIsLoF = col("variantFunctionalConsequenceId").isin(filterLof: _*)
-
-    val variantIsGoF = col("variantFunctionalConsequenceId").isin(gof: _*)
 
     val joinedDF = evidencesDoEDF
       .withColumn(

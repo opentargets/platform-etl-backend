@@ -37,11 +37,7 @@ object AssociationOTF extends LazyLogging {
     df.drop("facet_classes").join(fcDF, Seq("target_id"), "left_outer")
   }
 
-  def computeFacetTAs(df: DataFrame, keyCol: String, labelCol: String, vecCol: String)(implicit
-      context: ETLSessionContext
-  ): DataFrame = {
-    implicit val ss: SparkSession = context.sparkSession
-
+  def computeFacetTAs(df: DataFrame, keyCol: String, labelCol: String, vecCol: String): DataFrame = {
     val taID = vecCol + "_tmp"
 
     // [disease_id, therapeuticAreas_tmp]
@@ -181,7 +177,6 @@ object AssociationOTF extends LazyLogging {
   }
 
   def apply()(implicit context: ETLSessionContext): IOResources = {
-    implicit val ss: SparkSession = context.sparkSession
     val clickhouseEvidences = compute()
 
     IoHelpers.writeTo(clickhouseEvidences)

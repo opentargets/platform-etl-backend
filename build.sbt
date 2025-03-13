@@ -14,6 +14,8 @@ ThisBuild / scalaVersion := "2.12.12"
 
 def jarName(name: String): String = s"$name-${sys.env.getOrElse("TAG", "0.0.0")}.jar"
 
+scalacOptions ++= Seq("-Xlint:unused")
+
 lazy val root = (project in file("."))
   .settings(
     name := "io-opentargets-etl-backend",

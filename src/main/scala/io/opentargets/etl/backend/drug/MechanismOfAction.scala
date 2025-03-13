@@ -3,7 +3,7 @@ package io.opentargets.etl.backend.drug
 import com.typesafe.scalalogging.LazyLogging
 import io.opentargets.etl.backend.spark.Helpers.validateDF
 import org.apache.spark.sql.functions._
-import org.apache.spark.sql.{DataFrame, SparkSession}
+import org.apache.spark.sql.DataFrame
 
 /** Object for preparing mechanism of action section of the drug object.
   *
@@ -32,9 +32,7 @@ object MechanismOfAction extends LazyLogging {
     * @param sparkSession
     *   implicit
     */
-  def apply(mechanismDf: DataFrame, targetDf: DataFrame, geneDf: DataFrame)(implicit
-      sparkSession: SparkSession
-  ): DataFrame = {
+  def apply(mechanismDf: DataFrame, targetDf: DataFrame, geneDf: DataFrame): DataFrame = {
 
     logger.info("Processing mechanisms of action")
     val mechanism = mechanismDf

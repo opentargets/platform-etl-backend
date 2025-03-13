@@ -18,8 +18,6 @@ object OpenFdaCompute extends LazyLogging {
   def apply(dfsData: IOResources, fdaCookedData: DataFrame, targetDimension: TargetDimension)(
       implicit context: ETLSessionContext
   ): IOResources = {
-    implicit val sparkSession = context.sparkSession
-
     // Prepare Summary Statistics
     val fdaDataWithSummaryStats =
       PrepareSummaryStatistics(fdaCookedData, targetDimension.colId, targetDimension.statsColId)

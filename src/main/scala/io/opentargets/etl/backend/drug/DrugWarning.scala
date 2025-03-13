@@ -1,9 +1,8 @@
 package io.opentargets.etl.backend.drug
 
 import com.typesafe.scalalogging.LazyLogging
-import io.opentargets.etl.backend.spark.Helpers.nest
-import org.apache.spark.sql.functions.{col, collect_list, collect_set, flatten, lit, split, when}
-import org.apache.spark.sql.{DataFrame, SparkSession}
+import org.apache.spark.sql.functions.{col, lit, split}
+import org.apache.spark.sql.DataFrame
 
 /** Drug warnings as produced by ChEMBL. Available since ChEMBL release 28.
   *
@@ -11,8 +10,7 @@ import org.apache.spark.sql.{DataFrame, SparkSession}
   * [[https://pubs.acs.org/doi/pdf/10.1021/acs.chemrestox.0c00296 in this research paper]].
   */
 object DrugWarning extends LazyLogging {
-  def apply(df: DataFrame)(implicit sparkSession: SparkSession): DataFrame = {
-    import sparkSession.implicits._
+  def apply(df: DataFrame): DataFrame = {
     logger.info("Preparing drug warnings")
     val warningsDF = df.selectExpr(
       "_metadata.all_molecule_chembl_ids as chemblIds",

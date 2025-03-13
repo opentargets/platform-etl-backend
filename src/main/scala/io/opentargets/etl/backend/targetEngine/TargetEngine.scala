@@ -6,15 +6,12 @@ import io.opentargets.etl.backend.spark.IOResource
 import io.opentargets.etl.backend.spark.IoHelpers.{IOResources, readFrom, writeTo}
 import io.opentargets.etl.backend.targetEngine.Functions._
 import io.opentargets.etl.backend.targetEngine.UniprotLocationFunctions.FindParentChidCousins
-import org.apache.spark.sql.functions.{col, struct, to_json}
-import org.apache.spark.sql.types.StringType
+import org.apache.spark.sql.functions.col
 import org.apache.spark.sql.{DataFrame, SparkSession}
 
 object TargetEngine extends LazyLogging {
 
   def apply()(implicit context: ETLSessionContext): Unit = {
-    implicit val ss: SparkSession = context.sparkSession
-
     val inputs = readInputs
 
     val targetEngineDF = compute(inputs)
@@ -42,7 +39,7 @@ object TargetEngine extends LazyLogging {
 
   }
 
-  def compute(inputs: IOResources)(implicit ss: SparkSession): DataFrame = {
+  def compute(inputs: IOResources): DataFrame = {
     val targetsDF = inputs("targets").data
     val mouseDF = inputs("mouse").data
     val moleculeDF = inputs("molecule").data
