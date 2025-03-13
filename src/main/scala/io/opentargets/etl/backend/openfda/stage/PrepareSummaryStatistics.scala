@@ -6,7 +6,10 @@ import org.apache.spark.sql.expressions.Window
 import org.apache.spark.sql.functions.{approx_count_distinct, col}
 
 object PrepareSummaryStatistics extends LazyLogging {
-  def apply(fdaData: DataFrame, targetDimensionColId: String, targetDimensionStatsColdId: String): DataFrame = {
+  def apply(fdaData: DataFrame,
+            targetDimensionColId: String,
+            targetDimensionStatsColdId: String
+  ): DataFrame = {
 
     logger.info(s"Prepare Summary Statistics for target dimension '${targetDimensionColId}'")
     // Define the output

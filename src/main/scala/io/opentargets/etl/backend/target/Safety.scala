@@ -1,13 +1,7 @@
 package io.opentargets.etl.backend.target
 
 import com.typesafe.scalalogging.LazyLogging
-import org.apache.spark.sql.functions.{
-  array_contains,
-  coalesce,
-  col,
-  collect_set,
-  struct
-}
+import org.apache.spark.sql.functions.{array_contains, coalesce, col, collect_set, struct}
 import org.apache.spark.sql.{DataFrame, Dataset, SparkSession}
 
 case class TargetSafety(id: String, safetyLiabilities: Array[TargetSafetyEvidence])

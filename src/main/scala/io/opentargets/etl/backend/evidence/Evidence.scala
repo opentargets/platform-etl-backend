@@ -307,7 +307,10 @@ object Evidence extends LazyLogging {
     df.withColumn(columnName, scores)
   }
 
-  def checkNullifiedScores(df: DataFrame, scoreColumnName: String, columnName: String): DataFrame = {
+  def checkNullifiedScores(df: DataFrame,
+                           scoreColumnName: String,
+                           columnName: String
+  ): DataFrame = {
     val idC = col(scoreColumnName)
 
     df.withColumn(columnName, idC.isNull)
