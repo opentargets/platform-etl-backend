@@ -5,10 +5,6 @@ import org.apache.spark.sql.DataFrame
 import org.apache.spark.sql.expressions.UserDefinedFunction
 import org.apache.spark.sql.functions.{
   col,
-  collect_set,
-  size,
-  struct,
-  substring_index,
   typedLit,
   udf,
   when

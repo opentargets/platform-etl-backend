@@ -1,23 +1,12 @@
 package io.opentargets.etl.backend.target
 
 import com.typesafe.scalalogging.LazyLogging
-import io.opentargets.etl.backend.ETLSessionContext
-import io.opentargets.etl.backend.spark.Helpers.unionDataframeDifferentSchema
-import io.opentargets.etl.backend.target.Target.logger
 import org.apache.spark.sql.functions.{
   array_contains,
-  broadcast,
   coalesce,
   col,
   collect_set,
-  element_at,
-  explode,
-  lit,
-  split,
-  struct,
-  trim,
-  typedLit,
-  when
+  struct
 }
 import org.apache.spark.sql.{DataFrame, Dataset, SparkSession}
 

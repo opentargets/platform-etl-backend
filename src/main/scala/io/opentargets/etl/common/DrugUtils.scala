@@ -5,26 +5,6 @@ import org.apache.spark.sql.functions._
 
 object DrugUtils {
 
-  /** Obtains a lookup table of drug id and CHEBI id
-    * @param drugsDF
-    *   Data Frame containing drug information
-    * @return
-    *   Lookup table with drug id and CHEBI id
-    */
-  private def getDrugChebiIdLut(drugsDF: DataFrame): DataFrame =
-    drugsDF
-      .select(col("id"), explode(col("crossReferences")))
-      .filter(col("key") === "chEBI")
-      .withColumn("drugId", explode(col("value")))
-      .select(
-        col("id").alias("drugIdCrossChebi"),
-        concat(lit("CHEBI_"), col("drugId")).alias("drugFromSourceId")
-      )
-      .distinct()
-
-  private def completeByChebi(mapToDF: DataFrame, chebiLutDF: DataFrame): DataFrame =
-    mapToDF.join(chebiLutDF, Seq("drugFromSourceId"), "left")
-
   /** Obtains a lookup table of drug name and ids and it takes only oen id when more than one is
     * present for the same name. It also normalizes the names to lower case.
     * @param drugsDF
@@ -63,23 +43,6 @@ object DrugUtils {
 
     val drugNameDF = completeByDrugName(mapToDF, moleculeDF)
 
-    // val nonResolvedByNameDF =
-    // drugNameDF.where(col("drugIdCross").isNull)
-
-    // val chebiLutDF = getDrugChebiIdLut(moleculeDF)
-
-    // val mergedByChebiDF = completeByChebi(nonResolvedByNameDF, chebiLutDF)
-
-    // val resolvedByNameDF = drugNameDF
-    //  .where(col("drugIdCross").isNotNull)
-    //  .select(col("*"), lit(null).as("drugIdCrossChebi"))
-
-    // val fullDF = resolvedByNameDF.unionByName(mergedByChebiDF, allowMissingColumns = true)
-    // val fullDF = resolvedByNameDF.unionByName(nonResolvedByNameDF, allowMissingColumns = true)
-
-    // fullDF
-    // .select(col("*"), coalesce(col("drugIdCross"), col("drugIdCrossChebi")).as("drugId"))
-    // .drop("drugIdCrossChebi", "drugIdCross")
     drugNameDF
       .withColumnRenamed("drugIdCross", "drugId")
       .drop("drugIdCross")

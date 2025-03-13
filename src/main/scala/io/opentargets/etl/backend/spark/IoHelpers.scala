@@ -12,7 +12,6 @@ import org.apache.spark.ml.feature.Word2VecModel
 import org.apache.spark.sql.{DataFrame, DataFrameWriter, Row, SparkSession}
 
 import scala.collection.JavaConverters
-import scala.jdk.CollectionConverters.iterableAsScalaIterableConverter
 import scala.util.Random
 
 /** Options to be used by Spark to configure dataframe loading. */
@@ -137,7 +136,6 @@ object IoHelpers extends LazyLogging {
 
   // TODO: Refactorizar para recibir config
   def writeTo(output: IOResourceML)(implicit context: ETLSessionContext): IOResourceML = {
-    implicit val spark: SparkSession = context.sparkSession
     val configuration = output.configuration
 
     val outputPath = configuration.path
@@ -152,8 +150,6 @@ object IoHelpers extends LazyLogging {
   }
 
   private def writeTo(output: IOResource)(implicit context: ETLSessionContext): IOResource = {
-    implicit val spark: SparkSession = context.sparkSession
-
     val writeMode = context.configuration.sparkSettings.writeMode
     logger.debug(s"Write mode set to $writeMode")
 
@@ -234,7 +230,6 @@ object IoHelpers extends LazyLogging {
     *   the same outputs as a continuator
     */
   def writeTo(outputs: IOResources)(implicit context: ETLSessionContext): IOResources = {
-    implicit val spark: SparkSession = context.sparkSession
 
     // add in additional output types
     val resourcesToWrite =

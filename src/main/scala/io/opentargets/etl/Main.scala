@@ -11,7 +11,7 @@ import io.opentargets.etl.backend.target.Target
 import io.opentargets.etl.backend.drug.Drug
 import io.opentargets.etl.backend.evidence.Evidence
 import io.opentargets.etl.backend.graph.EtlDag
-import io.opentargets.etl.backend.literature.{Epmc, Literature}
+import io.opentargets.etl.backend.literature.Literature
 import io.opentargets.etl.backend.facetSearch.FacetSearch
 import io.opentargets.etl.backend.pharmacogenomics.Pharmacogenomics
 import io.opentargets.etl.backend.targetEngine.TargetEngine
