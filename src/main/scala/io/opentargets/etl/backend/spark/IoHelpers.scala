@@ -31,22 +31,12 @@ case class IOResourceML(data: Word2VecModel, configuration: IOResourceConfig)
   *   configuration options
   * @param partitionBy
   *   partition results by
-  * @param generateMetadata
-  *   whether the resource needs associated metadata.
   */
 case class IOResourceConfig(
     format: String,
     path: String,
     options: Option[Seq[IOResourceConfigOption]] = None,
-    partitionBy: Option[Seq[String]] = None,
-    generateMetadata: Boolean = false
-)
-
-case class Metadata(
-    id: String,
-    resource: IOResourceConfig,
-    serialisedSchema: String,
-    columns: List[String]
+    partitionBy: Option[Seq[String]] = None
 )
 
 object CsvHelpers {
@@ -56,11 +46,8 @@ object CsvHelpers {
 }
 
 object IoHelpers extends LazyLogging {
-  type WriterConfigurator = DataFrameWriter[Row] => DataFrameWriter[Row]
   type IOResourceConfigurations = Map[String, IOResourceConfig]
   type IOResources = Map[String, IOResource]
-
-  lazy val metadataHelper: ETLSessionContext => MetadataWriter = new MetadataHelper(_)
 
   /** It creates an hashmap of dataframes. Es. inputsDataFrame {"disease", Dataframe} , {"target",
     * Dataframe} Reading is the first step in the pipeline
@@ -244,16 +231,7 @@ object IoHelpers extends LazyLogging {
     val datasetNamesStr = outputs.keys.mkString("(", ", ", ")")
     logger.info(s"write datasets $datasetNamesStr")
 
-    resourcesToWrite foreach { out =>
-      logger.info(s"save dataset ${out._1}")
-      writeTo(out._2)
-
-      if (out._2.configuration.generateMetadata) {
-        logger.info(s"save metadata for dataset ${out._1}")
-        val metadata = metadataHelper(context).create(out._2)
-        metadataHelper(context).write(metadata)
-      }
-    }
+    resourcesToWrite.values.foreach(writeTo)
 
     outputs
   }
