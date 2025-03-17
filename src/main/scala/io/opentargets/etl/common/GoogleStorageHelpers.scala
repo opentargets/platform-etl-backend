@@ -8,7 +8,7 @@ object GoogleStorageHelpers {
     *   a tuple of (bucket, blob) for a given path.
     */
   def pathToBucketBlob(path: String): (String, String) = {
-    require(path.trim.startsWith("gs://"))
+    require(isGoogleStoragePath(path), "path is not a google storage path")
     val noPrefix = path.drop(5)
     val bucketAndBlob = noPrefix.splitAt(noPrefix.prefixLength(_ != '/'))
     (
