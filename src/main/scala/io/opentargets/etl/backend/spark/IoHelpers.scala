@@ -1,17 +1,10 @@
 package io.opentargets.etl.backend.spark
 
-import com.google.api.gax.paging.Page
-import com.google.cloud.storage.Storage.BlobListOption
 import com.typesafe.scalalogging.LazyLogging
-import com.google.cloud.storage.{Blob, Storage, StorageOptions}
-import org.apache.hadoop.conf.Configuration
-import org.apache.hadoop.fs.{FileSystem, Path}
 import io.opentargets.etl.backend.ETLSessionContext
-import io.opentargets.etl.common.GoogleStorageHelpers
 import org.apache.spark.ml.feature.Word2VecModel
-import org.apache.spark.sql.{DataFrame, DataFrameWriter, Row, SparkSession}
+import org.apache.spark.sql.{DataFrame, SparkSession}
 
-import scala.collection.JavaConverters
 import scala.util.Random
 
 /** Options to be used by Spark to configure dataframe loading. */
@@ -88,39 +81,6 @@ object IoHelpers extends LazyLogging {
   def seqToIOResourceConfigMap(resourceConfigs: Seq[IOResourceConfig]): IOResourceConfigurations =
     (for (rc <- resourceConfigs) yield Random.alphanumeric.take(6).toString -> rc).toMap
 
-  def hasContent: (String) => Boolean = (path: String) =>
-    if (GoogleStorageHelpers.isGoogleStoragePath(path)) hasContentGoogle(path)
-    else hasContentFileSystem(path)
-
-  private def hasContentGoogle: (String) => Boolean = (path: String) => {
-    val storage: Storage = StorageOptions.getDefaultInstance.getService
-
-    val (bucket, blob) = GoogleStorageHelpers.pathToBucketBlob(path)
-
-    val blobs: Page[Blob] =
-      storage.list(bucket, BlobListOption.currentDirectory(), BlobListOption.prefix(blob))
-
-    val existingOutputs = JavaConverters
-      .asScalaIteratorConverter(blobs.iterateAll().iterator())
-      .asScala
-
-    val toReturn = existingOutputs.size > 0
-    toReturn
-  }
-
-  private def hasContentFileSystem: (String) => Boolean = (path: String) => {
-
-    // Create a Hadoop Configuration object
-    val hadoopConf = new Configuration()
-
-    // Create a FileSystem object for the folder's file system
-    val fs = FileSystem.get(new Path(path).toUri(), hadoopConf)
-
-    // Check if the folder exists and has any files or subdirectories
-    fs.exists(new Path(path)) && fs.listStatus(new Path(path)).nonEmpty
-
-  }
-
   // TODO: Refactorizar para recibir config
   def writeTo(output: IOResourceML)(implicit context: ETLSessionContext): IOResourceML = {
     val configuration = output.configuration
@@ -129,7 +89,6 @@ object IoHelpers extends LazyLogging {
 
     context.configuration.sparkSettings.writeMode match {
       case "overwrite" => output.data.write.overwrite().save(outputPath)
-      case "ignore"    => if (!hasContent(outputPath)) output.data.save(outputPath)
       case _           => output.data.save(outputPath)
     }
 
