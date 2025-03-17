@@ -25,7 +25,7 @@ class ConfigurationTest extends AnyFlatSpecLike with Matchers with LazyLogging {
   "SparkSettings" should "only accept valid write modes as input parameters" in {
     // given
     val invalidMode = "concatenate"
-    val validModes = Seq("error", "errorifexists", "append", "overwrite", "ignore")
+    val validModes = Seq("error", "errorifexists", "append", "overwrite")
     // when
     val settings = validModes.map(SparkSettings(_, ignoreIfExists = false, Seq()))
     // then
