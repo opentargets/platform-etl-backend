@@ -174,13 +174,10 @@ object Configuration extends LazyLogging {
       output: IOResourceConfig
   )
 
-  case class MetadataConfig(writeMode: String, output: IOResourceConfig)
-
   case class Common(
       path: String,
       outputFormat: String,
       additionalOutputs: List[String],
-      metadata: MetadataConfig
   )
 
   case class KnownDrugsInputsSection(
