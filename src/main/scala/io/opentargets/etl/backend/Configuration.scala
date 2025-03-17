@@ -177,7 +177,7 @@ object Configuration extends LazyLogging {
   case class Common(
       path: String,
       outputFormat: String,
-      additionalOutputs: List[String],
+      additionalOutputs: List[String]
   )
 
   case class KnownDrugsInputsSection(
@@ -298,7 +298,7 @@ object Configuration extends LazyLogging {
                            ignoreIfExists: Boolean,
                            defaultSparkSessionConfig: Seq[IOResourceConfigOption]
   ) {
-    val validWriteModes = Set("error", "errorifexists", "append", "overwrite", "ignore")
+    val validWriteModes = Set("error", "errorifexists", "append", "overwrite")
     require(
       validWriteModes.contains(writeMode),
       s"$writeMode is not valid. Must be one of ${validWriteModes.toString()}"
