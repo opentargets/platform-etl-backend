@@ -7,7 +7,6 @@ import org.scalatest.Inspectors._
 class LiteratureTest extends EtlSparkUnitTest {
 
   "Literature class" should "create a new session with lit specific configurations" in {
-    import sparkSession.implicits._
     implicit val context = ctx
     val session = Literature.createETLSession()
 

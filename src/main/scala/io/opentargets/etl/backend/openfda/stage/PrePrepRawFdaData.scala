@@ -1,7 +1,6 @@
 package io.opentargets.etl.backend.openfda.stage
 
 import com.typesafe.scalalogging.LazyLogging
-import io.opentargets.etl.backend.FdaData
 import org.apache.spark.sql.DataFrame
 
 object PrePrepRawFdaData extends LazyLogging {

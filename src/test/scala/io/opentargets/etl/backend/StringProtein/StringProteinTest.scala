@@ -2,11 +2,8 @@ package io.opentargets.etl.backend.StringProtein
 
 import io.opentargets.etl.backend.EtlSparkUnitTest
 import io.opentargets.etl.backend.ETLSessionContext
-import io.opentargets.etl.backend.stringProtein._
 import io.opentargets.etl.backend.stringProtein.StringProtein
-import org.apache.spark.sql.functions.{array_contains, col, map_keys}
-import org.apache.spark.sql.types._
-import org.apache.spark.sql.{DataFrame, Dataset, Row, SparkSession}
+import org.apache.spark.sql.DataFrame
 
 object StringProteinTest {
 
@@ -21,7 +18,6 @@ object StringProteinTest {
 }
 
 class StringProteinTest extends EtlSparkUnitTest {
-  import sparkSession.implicits._
 
   "Processing String input file " should "return a dataframe with a specific schema" in {
 

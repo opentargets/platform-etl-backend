@@ -2,8 +2,6 @@ package io.opentargets.etl.backend.openfda.utils
 
 import breeze.linalg.{DenseMatrix => BDM, DenseVector => BDV}
 import io.opentargets.etl.backend.EtlSparkUnitTest
-import org.scalatest.flatspec.AnyFlatSpecLike
-import org.scalatest.matchers.should.Matchers
 import org.scalatest.matchers.should.Matchers.convertToAnyShouldWrapper
 
 class MathUtilsTest extends EtlSparkUnitTest {

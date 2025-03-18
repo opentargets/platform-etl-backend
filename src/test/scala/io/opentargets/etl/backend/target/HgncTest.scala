@@ -3,7 +3,7 @@ package io.opentargets.etl.backend.target
 import io.opentargets.etl.backend.EtlSparkUnitTest
 import io.opentargets.etl.backend.target.HgncTest.hgncRawDf
 import org.apache.spark.sql.functions.col
-import org.apache.spark.sql.{DataFrame, Dataset, Row, SparkSession}
+import org.apache.spark.sql.{DataFrame, Dataset, SparkSession}
 
 object HgncTest {
   def hgncRawDf(implicit sparkSession: SparkSession): DataFrame =

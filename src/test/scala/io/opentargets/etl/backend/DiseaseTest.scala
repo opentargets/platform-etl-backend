@@ -1,9 +1,6 @@
 package io.opentargets.etl.backend
 
-import io.opentargets.etl.backend.spark.Helpers
-import org.apache.spark.sql.{DataFrame, Dataset, Row, SparkSession}
-import org.apache.spark.sql.functions.{col, explode}
-import org.apache.spark.sql.types.{StringType, StructField, StructType}
+import org.apache.spark.sql.{DataFrame, SparkSession}
 
 object DiseaseTest {
 
@@ -12,7 +9,6 @@ object DiseaseTest {
 }
 
 class DiseaseTest extends EtlSparkUnitTest {
-  import sparkSession.implicits._
 
   "Processing EFO ontology input file" should "return a dataframe with a specific list of attributes" in {
     // given
