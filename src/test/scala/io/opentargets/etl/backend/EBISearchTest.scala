@@ -1,19 +1,8 @@
 package io.opentargets.etl.backend
 
-import io.opentargets.etl.backend.Configuration.OTConfig
-import io.opentargets.etl.backend.spark.{
-  Helpers,
-  IOResource,
-  IOResourceConfig,
-  IOResourceConfigOption,
-  IoHelpers
-}
-import org.apache.spark.sql.{DataFrame, Dataset, Row, SparkSession}
-import org.apache.spark.sql.types.{StringType, StructField, StructType}
-import io.opentargets.etl.backend.spark.{IOResource, IOResourceConfig, IoHelpers}
-import io.opentargets.etl.backend.spark.IoHelpers
+import io.opentargets.etl.backend.spark.{IOResource, IOResourceConfig}
+import org.apache.spark.sql.SparkSession
 import io.opentargets.etl.backend.spark.IoHelpers.IOResources
-import pureconfig.ConfigReader
 
 object EBISearchTest {
 
@@ -63,7 +52,6 @@ object EBISearchTest {
 }
 
 class EBISearchTest extends EtlSparkUnitTest {
-  import sparkSession.implicits._
 
   "Processing Diseases,Target and Evidence" should "return a dataframe with a specific list of attributes" in {
     // given

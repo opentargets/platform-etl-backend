@@ -1,12 +1,9 @@
 package io.opentargets.etl.backend.Drug
 
-import io.opentargets.etl.backend.Drug.IndicationTest.IndicationRow
 import io.opentargets.etl.backend.EtlSparkUnitTest
 import io.opentargets.etl.backend.drug.Indication
-import io.opentargets.etl.backend.spark.Helpers
 import org.apache.spark.sql.{DataFrame, Dataset, Row, SparkSession}
 import org.apache.spark.sql.functions.{col, explode}
-import org.apache.spark.sql.types.{StringType, StructField, StructType}
 
 object IndicationTest {
 
@@ -22,8 +19,6 @@ class IndicationTest extends EtlSparkUnitTest {
   val getEfoDataFrame: PrivateMethod[Dataset[Row]] = PrivateMethod[Dataset[Row]]('getEfoDataframe)
   val approvedIndications: PrivateMethod[Dataset[Row]] =
     PrivateMethod[Dataset[Row]]('approvedIndications)
-
-  import sparkSession.implicits._
 
   "Processing EFO metadata" should "return a dataframe with the EFO's id, label" in {
     // given
