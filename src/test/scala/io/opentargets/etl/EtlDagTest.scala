@@ -74,7 +74,7 @@ class EtlDagTest extends AnyFlatSpecLike with Matchers with AppendedClues {
     aBeforeB("reactome", "target")
     aBeforeB("target", "drug")
     aBeforeB("target", "fda")
-    aBeforeB("mouse_phenotypes", "known_drug")
+    aBeforeB("target", "mouse_phenotypes")
     aBeforeB("target", "evidence")
     aBeforeB("association", "search")
   }
