@@ -165,15 +165,7 @@ object Configuration extends LazyLogging {
       outputs: InteractionsOutput
   )
 
-  case class ExpressionSection(
-      rna: IOResourceConfig,
-      binned: IOResourceConfig,
-      zscore: IOResourceConfig,
-      tissues: IOResourceConfig,
-      efomap: IOResourceConfig,
-      exprhierarchy: IOResourceConfig,
-      output: IOResourceConfig
-  )
+  case class ExpressionSection(input: IOResourceConfigurations, output: IOResourceConfigurations)
 
   case class Common(
       path: String,
