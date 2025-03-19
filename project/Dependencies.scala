@@ -51,7 +51,7 @@ object Dependencies {
     "org.jgrapht" % "jgrapht-core" % "1.4.0"
   )
 
-  lazy val sparkVersion = "3.1.3"
+  lazy val sparkVersion = "3.2.4"
 
   lazy val sparkDeps: Seq[ModuleID] = {
     val sparkDepsOptionallyProvided = Seq(
