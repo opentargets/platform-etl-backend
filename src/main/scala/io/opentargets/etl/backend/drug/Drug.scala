@@ -106,8 +106,12 @@ object Drug extends Serializable with LazyLogging {
 
     val dataframesToSave: IOResources = Map(
       "drug" -> IOResource(drugDf, outputs("drug")),
-      "mechanism_of_action" -> IOResource(mechanismOfActionProcessedDf, outputs("mechanism-of-action")),
-      "indication" -> IOResource(indicationProcessedDf.drop("linkedDiseases"), outputs("indications")),
+      "mechanism_of_action" -> IOResource(mechanismOfActionProcessedDf,
+                                          outputs("mechanism-of-action")
+      ),
+      "indication" -> IOResource(indicationProcessedDf.drop("linkedDiseases"),
+                                 outputs("indications")
+      ),
       "drug_warnings" -> IOResource(warningsDF, outputs("warnings"))
     )
 

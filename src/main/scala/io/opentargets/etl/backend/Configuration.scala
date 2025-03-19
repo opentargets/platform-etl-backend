@@ -152,7 +152,9 @@ object Configuration extends LazyLogging {
 
   case class GeneOntologySection(goInput: IOResourceConfig, output: IOResourceConfig)
 
-  case class MousePhenotypeSection(input: IOResourceConfigurations, output: IOResourceConfigurations)
+  case class MousePhenotypeSection(input: IOResourceConfigurations,
+                                   output: IOResourceConfigurations
+  )
 
   case class SearchInputsSection(
       evidences: IOResourceConfig,
@@ -209,17 +211,22 @@ object Configuration extends LazyLogging {
                                 categories: FacetSearchCategories
   )
 
-  case class PharmacogenomicsSection(input: IOResourceConfigurations, output: IOResourceConfigurations)
+  case class PharmacogenomicsSection(input: IOResourceConfigurations,
+                                     output: IOResourceConfigurations
+  )
 
   case class ReactomeSection(input: IOResourceConfigurations, output: IOResourceConfigurations)
 
-  case class Target(input: IOResourceConfigurations, output: IOResourceConfigurations, hgncOrthologSpecies: List[String])
+  case class Target(input: IOResourceConfigurations,
+                    output: IOResourceConfigurations,
+                    hgncOrthologSpecies: List[String]
+  )
 
   case class SparkSettings(writeMode: String,
                            ignoreIfExists: Boolean,
                            defaultSparkSessionConfig: Seq[IOResourceConfigOption]
   ) {
-    val validWriteModes = Set("error", "errorifexists", "append", "overwrite")//TODO: add ignore
+    val validWriteModes = Set("error", "errorifexists", "append", "overwrite") // TODO: add ignore
     require(
       validWriteModes.contains(writeMode),
       s"$writeMode is not valid. Must be one of ${validWriteModes.toString()}"
