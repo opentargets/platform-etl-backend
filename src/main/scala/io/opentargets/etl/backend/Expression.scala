@@ -264,22 +264,13 @@ object Expression extends LazyLogging {
     val HPAConfiguration = context.configuration.expression
 
     logger.info("Loading raw inputs for Base Expression step.")
-    val mappedInputs = Map(
-      "tissues" -> HPAConfiguration.tissues,
-      "rna" -> HPAConfiguration.rna,
-      "zscore" -> HPAConfiguration.zscore,
-      "binned" -> HPAConfiguration.binned,
-      "mapwithefos" -> HPAConfiguration.efomap,
-      "expressionhierarchy" -> HPAConfiguration.exprhierarchy
-    )
-
-    val inputDataFrames = IoHelpers.readFrom(mappedInputs)
+    val inputDataFrames = IoHelpers.readFrom(HPAConfiguration.input)
 
     val normalTissueDF = transformNormalTissue(inputDataFrames("tissues").data)
 
     val efoTissueMap = efoTissueMapping(
-      inputDataFrames("mapwithefos").data,
-      inputDataFrames("expressionhierarchy").data
+      inputDataFrames("efomap").data,
+      inputDataFrames("exprhierarchy").data
     )
 
     val baselineExpressionDF = baselineExpressionMaps(
@@ -298,7 +289,7 @@ object Expression extends LazyLogging {
 
     logger.info(s"Expression output data folder at '${context.configuration.expression.output}'")
     val outputs = Map(
-      "baselineExpression" -> IOResource(dataframesToSave, context.configuration.expression.output)
+      "baselineExpression" -> IOResource(dataframesToSave, context.configuration.expression.output("expression"))
     )
 
     IoHelpers.writeTo(outputs)
