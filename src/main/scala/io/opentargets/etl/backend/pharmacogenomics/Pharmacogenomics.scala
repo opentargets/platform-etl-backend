@@ -29,10 +29,7 @@ object Pharmacogenomics extends LazyLogging {
     logger.info("Executing Pharmacogenomics step.")
 
     logger.debug("Reading Pharmacogenomics inputs")
-    val mappedInputs = Map(
-      "pgx" -> context.configuration.pharmacogenomics.inputs.pgkb,
-      "drug" -> context.configuration.pharmacogenomics.inputs.drug
-    )
+    val mappedInputs = context.configuration.pharmacogenomics.input
 
     logger.debug("Processing Pharmacogenomics data")
     val inputDataFrames = IoHelpers.readFrom(mappedInputs)
@@ -90,7 +87,7 @@ object Pharmacogenomics extends LazyLogging {
 
     logger.debug("Writing Pharmacogenomics outputs")
     val dataframesToSave: IOResources = Map(
-      "pgx" -> IOResource(dataEnrichedDF, context.configuration.pharmacogenomics.outputs)
+      "pgx" -> IOResource(dataEnrichedDF, context.configuration.pharmacogenomics.output("pgx"))
     )
 
     IoHelpers.writeTo(dataframesToSave)
