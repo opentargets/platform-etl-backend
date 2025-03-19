@@ -2,6 +2,7 @@ package io.opentargets.etl.backend
 
 import com.typesafe.config.ConfigFactory
 import com.typesafe.scalalogging.LazyLogging
+import io.opentargets.etl.backend.spark.IoHelpers.IOResourceConfigurations
 import io.opentargets.etl.backend.spark.{IOResourceConfig, IOResourceConfigOption}
 import pureconfig.ConfigReader.Result
 import pureconfig._
@@ -252,53 +253,17 @@ object Configuration extends LazyLogging {
                                 categories: FacetSearchCategories
   )
 
-  case class PharmacogenomicsInputs(pgkb: IOResourceConfig, drug: IOResourceConfig)
+  case class PharmacogenomicsSection(input: IOResourceConfigurations, output: IOResourceConfigurations)
 
-  case class PharmacogenomicsSection(inputs: PharmacogenomicsInputs, outputs: IOResourceConfig)
+  case class ReactomeSection(input: IOResourceConfigurations, output: IOResourceConfigurations)
 
-  case class ReactomeSectionInputs(pathways: IOResourceConfig, relations: IOResourceConfig)
-
-  case class ReactomeSection(inputs: ReactomeSectionInputs, output: IOResourceConfig)
-
-  case class Target(input: TargetInput, outputs: TargetOutput, hgncOrthologSpecies: List[String])
-
-  case class TargetInput(
-      chemicalProbes: IOResourceConfig,
-      hgnc: IOResourceConfig,
-      ensembl: IOResourceConfig,
-      uniprot: IOResourceConfig,
-      uniprotSsl: IOResourceConfig,
-      geneEssentiality: IOResourceConfig,
-      genCode: IOResourceConfig,
-      geneOntology: IOResourceConfig,
-      geneOntologyRna: IOResourceConfig,
-      geneOntologyRnaLookup: IOResourceConfig,
-      geneOntologyEco: IOResourceConfig,
-      tep: IOResourceConfig,
-      hpa: IOResourceConfig,
-      hpaSlOntology: IOResourceConfig,
-      hallmarks: IOResourceConfig,
-      ncbi: IOResourceConfig,
-      psEssentialityMatrix: IOResourceConfig,
-      psGeneIdentifier: IOResourceConfig,
-      chembl: IOResourceConfig,
-      geneticConstraints: IOResourceConfig,
-      homologyDictionary: IOResourceConfig,
-      homologyCodingProteins: IOResourceConfig,
-      homologyGeneDictionary: IOResourceConfig,
-      tractability: IOResourceConfig,
-      safetyEvidence: IOResourceConfig,
-      reactomeEtl: IOResourceConfig,
-      reactomePathways: IOResourceConfig
-  )
-
-  case class TargetOutput(target: IOResourceConfig, geneEssentiality: IOResourceConfig)
+  case class Target(input: IOResourceConfigurations, output: IOResourceConfigurations, hgncOrthologSpecies: List[String])
 
   case class SparkSettings(writeMode: String,
                            ignoreIfExists: Boolean,
                            defaultSparkSessionConfig: Seq[IOResourceConfigOption]
   ) {
-    val validWriteModes = Set("error", "errorifexists", "append", "overwrite")
+    val validWriteModes = Set("error", "errorifexists", "append", "overwrite")//TODO: add ignore
     require(
       validWriteModes.contains(writeMode),
       s"$writeMode is not valid. Must be one of ${validWriteModes.toString()}"
