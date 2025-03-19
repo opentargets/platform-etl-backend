@@ -394,16 +394,7 @@ object Interactions extends LazyLogging {
     logger.info("Loading raw inputs for Interactin step.")
     val interactionsConfiguration = context.configuration.interactions
 
-    val mappedInputs = Map(
-      "targets" -> interactionsConfiguration.targetEtl,
-      "rnacentral" -> interactionsConfiguration.rnacentral,
-      "humanmapping" -> interactionsConfiguration.humanmapping,
-      "intact" -> interactionsConfiguration.intact,
-      "ensproteins" -> interactionsConfiguration.ensproteins,
-      "strings" -> interactionsConfiguration.strings
-    )
-
-    val inputDataFrame = IoHelpers.readFrom(mappedInputs)
+    val inputDataFrame = IoHelpers.readFrom(interactionsConfiguration.input)
     // String dataset needs some transformation.
     val stringDataframe =
       StringProtein(inputDataFrame("strings").data, interactionsConfiguration.scorethreshold)
@@ -429,15 +420,15 @@ object Interactions extends LazyLogging {
       .generateEvidences(interactionStringsDFValid)
       .repartitionByRange(200, $"targetA".asc, $"targetB".asc)
 
-    val outputs = context.configuration.interactions.outputs
+    val output = context.configuration.interactions.output
 
     Map(
-      "interactionsEvidence" -> IOResource(interactionEvidences, outputs.interactionsEvidence),
-      "interactions" -> IOResource(aggregationInteractions, outputs.interactions),
+      "interactionsEvidence" -> IOResource(interactionEvidences, output("interactions-evidence")),
+      "interactions" -> IOResource(aggregationInteractions, output("interactions")),
       // This can be transformed into a ammonite script.
       "interactionUnmatch" -> IOResource(
         getUnmatch(interactionIntactDF, interactionStringsDF),
-        outputs.interactionsUnmatched
+        output("interactions-unmatched")
       )
     )
   }

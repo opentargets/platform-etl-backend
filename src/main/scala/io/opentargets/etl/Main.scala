@@ -20,7 +20,6 @@ object ETL extends LazyLogging {
     step.toLowerCase match {
       case "association"      => Association()
       case "association_otf"  => AssociationOTF()
-      case "disease"          => Disease()
       case "drug"             => Drug()
       case "evidence"         => Evidence()
       case "expression"       => Expression()
