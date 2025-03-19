@@ -1,6 +1,6 @@
 package io.opentargets.etl.backend.openfda.stage
 
-import io.opentargets.etl.backend.spark.IoHelpers
+import io.opentargets.etl.backend.spark.{IOResourceConfig, IoHelpers}
 import io.opentargets.etl.backend.{
   Blacklisting,
   DrugData,
@@ -16,25 +16,24 @@ object LoadData {
     // Get the Spark Session
     implicit val sparkSession = context.sparkSession
 
-    // Prepare the loading Map
+    val input = context.configuration.steps.openfda.input
+
+    val commonData = Map(
+      DrugData() -> input("chembl_drugs"),
+      Blacklisting() -> input("blacklisted_events"),
+      FdaData() -> input("fda_data")
+    )
+
     val sourceData =
-      context.configuration.openfda.meddra match {
-        // DISCLAIMER - There's probably a better way to do this
-        case Some(meddraConfig) =>
-          Map(
-            DrugData() -> context.configuration.openfda.chemblDrugs,
-            Blacklisting() -> context.configuration.openfda.blacklistedEvents,
-            FdaData() -> context.configuration.openfda.fdaData,
-            MeddraPreferredTermsData() -> meddraConfig.meddraPreferredTerms,
-            MeddraLowLevelTermsData() -> meddraConfig.meddraLowLevelTerms
-          )
-        case _ =>
-          Map(
-            DrugData() -> context.configuration.openfda.chemblDrugs,
-            Blacklisting() -> context.configuration.openfda.blacklistedEvents,
-            FdaData() -> context.configuration.openfda.fdaData
-          )
+      if (input.contains("meddra_preferred_terms") && input.contains("meddra_low_level_terms")) {
+        commonData ++ Map(
+          MeddraPreferredTermsData() -> input("meddra_preferred_terms"),
+          MeddraLowLevelTermsData() -> input("meddra_low_level_terms")
+        )
+      } else {
+        commonData
       }
+
     // Load the data
     IoHelpers.readFrom(sourceData)
   }

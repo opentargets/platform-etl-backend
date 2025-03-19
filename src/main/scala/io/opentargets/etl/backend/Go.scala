@@ -15,14 +15,14 @@ object Go extends LazyLogging {
     logger.info("Executing Gene Ontology step.")
 
     logger.debug("Reading GO inputs")
-    val inputs = Map("go" -> getGoDataFrame(context.configuration.geneOntology.goInput))
+    val inputs = Map("go" -> getGoDataFrame(context.configuration.steps.go.input("go")))
 
     logger.debug("Processing Gene Ontology")
     val goDF = inputs("go").data
 
     logger.debug("Writing Gene Ontology outputs")
     val dataframesToSave: IOResources = Map(
-      "go" -> IOResource(goDF, context.configuration.geneOntology.output)
+      "go" -> IOResource(goDF, context.configuration.steps.go.output("go"))
     )
 
     IoHelpers.writeTo(dataframesToSave)

@@ -54,7 +54,7 @@ object StratifiedSampling extends LazyLogging {
         rawFda
           .withColumn("seriousnessdeath", lit(1))
           .join(reportIds, Seq("safetyreportid")),
-        context.configuration.openfda.outputs.sampling
+        context.configuration.steps.openfda.output("sampling")
       )
     )
 

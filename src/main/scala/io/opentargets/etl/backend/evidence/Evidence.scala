@@ -92,7 +92,7 @@ object Evidence extends LazyLogging {
     implicit val session: SparkSession = context.sparkSession
     import session.implicits._
     val evsConf = broadcast(
-      context.configuration.evidences.dataSources
+      context.configuration.steps.evidence.dataSources
         .filter(_.excludedBiotypes.isDefined)
         .map(ds => (ds.id, ds.excludedBiotypes.get))
         .toDF(datasourceIdCol, btsCol)
@@ -204,7 +204,7 @@ object Evidence extends LazyLogging {
     logger.info(
       "build a LUT table for the datatypes to make sure every datasource has one datatype id"
     )
-    val config = context.configuration.evidences
+    val config = context.configuration.steps.evidence
 
     val dsId = "datasourceId"
     val colName = "datatypeId"
@@ -239,7 +239,7 @@ object Evidence extends LazyLogging {
   def generateHashes(df: DataFrame, columnName: String)(implicit
       context: ETLSessionContext
   ): DataFrame = {
-    val config = context.configuration.evidences
+    val config = context.configuration.steps.evidence
 
     logger.info("Validate each evidence: generating a hash to check for duplicates")
 
@@ -292,7 +292,7 @@ object Evidence extends LazyLogging {
 
   def score(df: DataFrame, columnName: String)(implicit context: ETLSessionContext): DataFrame = {
     logger.info("score each evidence and mark unscored ones")
-    val config = context.configuration.evidences
+    val config = context.configuration.steps.evidence
 
     val dts = config.dataSources.map { dt =>
       (col("sourceId") === dt.id) -> expr(dt.scoreExpr)
@@ -335,18 +335,11 @@ object Evidence extends LazyLogging {
   def compute()(implicit context: ETLSessionContext): IOResources = {
     implicit val ss: SparkSession = context.sparkSession
 
-    val evidencesSec = context.configuration.evidences
+    val evidencesSec = context.configuration.steps.evidence
 
     logger.info(s"Executing evidence step with data-types: ${evidencesSec.dataSources.map(_.id)}")
 
-    val mappedInputs = Map(
-      "targets" -> evidencesSec.inputs.targets,
-      "diseases" -> evidencesSec.inputs.diseases,
-      "rawInputEvidences" -> evidencesSec.inputs.rawInputEvidences,
-      "rawIntermediateEvidences" -> evidencesSec.inputs.rawIntermediateEvidences,
-      "mechanismOfAction" -> evidencesSec.inputs.mechanismOfAction
-    )
-    val dfs = IoHelpers.readFrom(mappedInputs)
+    val dfs = IoHelpers.readFrom(evidencesSec.input)
 
     val rt = "resolvedTarget"
     val rd = "resolvedDisease"
@@ -364,8 +357,8 @@ object Evidence extends LazyLogging {
     val varIdLenThreshold = 300
 
     val combinedEvidencesDF =
-      dfs("rawInputEvidences").data
-        .unionByName(dfs("rawIntermediateEvidences").data, allowMissingColumns = true)
+      dfs("raw_input_evidences").data
+        .unionByName(dfs("raw_intermediate_evidences").data, allowMissingColumns = true)
 
     val transformedDF = combinedEvidencesDF
       .transform(prepare)
@@ -379,19 +372,19 @@ object Evidence extends LazyLogging {
       .transform(checkNullifiedScores(_, sc, ns))
       .transform(markDuplicates(_, id, md))
       .transform(
-        DirectionOfEffect(_, dfs("targets").data, dfs("mechanismOfAction").data)
+        DirectionOfEffect(_, dfs("targets").data, dfs("mechanism_of_action").data)
       )
       .persist(StorageLevel.DISK_ONLY)
 
     val okFitler = col(rt) and col(rd) and !col(md) and !col(ns) and !col(xb)
 
-    val outputPathConf = context.configuration.evidences.outputs
+    val outputPathConf = context.configuration.steps.evidence.output
     Map(
       "ok" -> IOResource(
         transformedDF.filter(okFitler).drop(rt, rd, md, ns, xb),
-        outputPathConf.succeeded
+        outputPathConf("succeeded")
       ),
-      "failed" -> IOResource(transformedDF.filter(not(okFitler)), outputPathConf.failed)
+      "failed" -> IOResource(transformedDF.filter(not(okFitler)), outputPathConf("failed"))
     )
   }
 

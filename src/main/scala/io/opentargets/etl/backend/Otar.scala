@@ -7,7 +7,7 @@ import org.apache.spark.sql.{DataFrame, SparkSession}
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.types.BooleanType
 
-object OtarProject extends LazyLogging {
+object Otar extends LazyLogging {
 
   /** @param disease
     *   output of ETL disease step
@@ -40,32 +40,25 @@ object OtarProject extends LazyLogging {
   }
 
   def apply()(implicit context: ETLSessionContext): IOResources = {
+    val config = context.configuration.steps.otar
     implicit val ss: SparkSession = context.sparkSession
 
     logger.info("Executing Otar projects step.")
-
     logger.debug("Reading Otar projects inputs")
-    val OtarConfiguration = context.configuration.otarproject
 
-    val mappedInputs = Map(
-      "diseases" -> OtarConfiguration.diseaseEtl,
-      "projects" -> OtarConfiguration.otarMeta,
-      "project2efo" -> OtarConfiguration.otarProjectToEfo
-    )
-    val inputDataFrames = IoHelpers.readFrom(mappedInputs)
+    val inputDataFrames = IoHelpers.readFrom(config.input)
 
     val otarDF = generateOtarInfo(
       inputDataFrames("diseases").data,
-      inputDataFrames("projects").data,
-      inputDataFrames("project2efo").data
+      inputDataFrames("otar_meta").data,
+      inputDataFrames("otar_project_to_efo").data
     )
 
     logger.debug("Writing Otar Projects outputs")
+
     val dataframesToSave: IOResources = Map(
-      "otar_projects" -> IOResource(otarDF, context.configuration.otarproject.output)
+      "otar_projects" -> IOResource(otarDF, config.output("otar"))
     )
     IoHelpers.writeTo(dataframesToSave)
-
   }
-
 }
