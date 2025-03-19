@@ -121,48 +121,16 @@ object Configuration extends LazyLogging {
       warnings: IOResourceConfig
   )
   case class DrugSection(
-      chemicalProbes: IOResourceConfig,
-      chemblMolecule: IOResourceConfig,
-      chemblIndication: IOResourceConfig,
-      chemblMechanism: IOResourceConfig,
-      chemblTarget: IOResourceConfig,
-      chemblWarning: IOResourceConfig,
-      drugbankToChembl: IOResourceConfig,
+      input: IOResourceConfigurations,
       drugExtensions: Seq[InputExtension],
-      diseaseEtl: IOResourceConfig,
-      targetEtl: IOResourceConfig,
-      outputs: DrugOutputs
-  )
-
-  case class DiseaseOutput(
-      diseases: IOResourceConfig,
-      hpo: IOResourceConfig,
-      diseaseHpo: IOResourceConfig
-  )
-  case class DiseaseSection(
-      efoOntology: IOResourceConfig,
-      mondoOntology: IOResourceConfig,
-      hpoOntology: IOResourceConfig,
-      hpoPhenotype: IOResourceConfig,
-      outputs: DiseaseOutput
-  )
-
-  case class InteractionsOutput(
-      interactions: IOResourceConfig,
-      interactionsEvidence: IOResourceConfig,
-      interactionsUnmatched: IOResourceConfig
+      output: IOResourceConfigurations
   )
 
   case class InteractionsSection(
       scorethreshold: Int,
       stringVersion: String,
-      targetEtl: IOResourceConfig,
-      rnacentral: IOResourceConfig,
-      humanmapping: IOResourceConfig,
-      ensproteins: IOResourceConfig,
-      intact: IOResourceConfig,
-      strings: IOResourceConfig,
-      outputs: InteractionsOutput
+      input: IOResourceConfigurations,
+      output: IOResourceConfigurations
   )
 
   case class ExpressionSection(input: IOResourceConfigurations, output: IOResourceConfigurations)
@@ -184,11 +152,7 @@ object Configuration extends LazyLogging {
 
   case class GeneOntologySection(goInput: IOResourceConfig, output: IOResourceConfig)
 
-  case class MousePhenotypeSection(
-      input: IOResourceConfig,
-      target: IOResourceConfig,
-      output: SucceedFailedOutputs
-  )
+  case class MousePhenotypeSection(input: IOResourceConfigurations, output: IOResourceConfigurations)
 
   case class SearchInputsSection(
       evidences: IOResourceConfig,
@@ -394,7 +358,6 @@ object Configuration extends LazyLogging {
       evidences: EvidencesSection,
       facetSearch: FacetSearchSection,
       drug: DrugSection,
-      disease: DiseaseSection,
       interactions: InteractionsSection,
       knownDrugs: KnownDrugsSection,
       geneOntology: GeneOntologySection,

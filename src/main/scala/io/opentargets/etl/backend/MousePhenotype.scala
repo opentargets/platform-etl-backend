@@ -11,24 +11,24 @@ object MousePhenotype extends Serializable with LazyLogging {
     implicit val ss: SparkSession = context.sparkSession
 
     implicit val target_df: DataFrame =
-      IoHelpers.loadFileToDF(context.configuration.mousePhenotype.target)
+      IoHelpers.loadFileToDF(context.configuration.mousePhenotype.input("target"))
     logger.info(s"MousePhenotypes step")
 
     logger.info(s"MousePhenotypes Reading input data")
-    val inputs = Map("mousePhenotypes" -> context.configuration.mousePhenotype.input)
+    val inputs = context.configuration.mousePhenotype.input
 
     val inputDataframes = IoHelpers.readFrom(inputs)
 
-    val mousePhenotypesDf = inputDataframes("mousePhenotypes").data
+    val mousePhenotypesDf = inputDataframes("mouse-phenotypes").data
 
     logger.info(s"MousePhenotypes Validating data")
     val (valid_targets_df, missing_targets_df) = validate(mousePhenotypesDf, "targetFromSourceId")
 
     val outputs = Map(
       "succeeded" -> IOResource(valid_targets_df,
-                                context.configuration.mousePhenotype.output.succeeded
+                                context.configuration.mousePhenotype.output("succeeded")
       ),
-      "failed" -> IOResource(missing_targets_df, context.configuration.mousePhenotype.output.failed)
+      "failed" -> IOResource(missing_targets_df, context.configuration.mousePhenotype.output("failed"))
     )
 
     logger.info(s"MousePhenotypes writing output data")
