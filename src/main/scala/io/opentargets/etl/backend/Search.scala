@@ -622,23 +622,8 @@ object Search extends LazyLogging {
     implicit val ss: SparkSession = context.sparkSession
     import Transformers.Implicits
 
-    val searchSec = context.configuration.search
-    val mappedInputs = Map(
-      "disease" -> searchSec.inputs.diseases,
-      "diseasehpo" -> searchSec.inputs.diseaseHpo,
-      "hpo" -> searchSec.inputs.hpo,
-      "drug" -> searchSec.inputs.drugs.drug,
-      "mechanism" -> searchSec.inputs.drugs.mechanismOfAction,
-      "indication" -> searchSec.inputs.drugs.indications,
-      "evidence" -> searchSec.inputs.evidences,
-      "target" -> searchSec.inputs.targets,
-      "association" -> searchSec.inputs.associations,
-      "variants" -> searchSec.inputs.variants,
-      "studies" -> searchSec.inputs.studies,
-      "credibleSets" -> searchSec.inputs.credibleSets
-    )
-
-    val inputDataFrame = IoHelpers.readFrom(mappedInputs)
+    val config = context.configuration.steps.search
+    val inputDataFrame = IoHelpers.readFrom(config.input)
 
     logger.info("process diseases and compute ancestors and descendants and persist")
     val diseases = inputDataFrame("disease").data
@@ -648,7 +633,7 @@ object Search extends LazyLogging {
       .persist(StorageLevel.DISK_ONLY)
 
     logger.info("process hpo and hpo disease and persist")
-    val phenotypeNames = inputDataFrame("diseasehpo").data
+    val phenotypeNames = inputDataFrame("disease_hpo").data
       .join(inputDataFrame("hpo").data, col("phenotype") === col("id"))
       .select("disease", "phenotype", "name")
       .groupBy("disease")
@@ -720,7 +705,7 @@ object Search extends LazyLogging {
       )
 
     // read in the credible sets, extract the studyId field. Then create a column with the count of each studyId
-    val credibleSets = inputDataFrame("credibleSets").data
+    val credibleSets = inputDataFrame("credible_sets").data
       .select("studyId")
       .groupBy("studyId")
       .agg(count("studyId").cast(DoubleType) as "credibleSetCount")
@@ -852,13 +837,12 @@ object Search extends LazyLogging {
 
     val searchStudies = studies.setIdAndSelectFromStudies(targets, credibleSets).repartition(100)
 
-    val conf = context.configuration.search
     val outputs = Map(
-      "search_diseases" -> IOResource(searchDiseases, conf.outputs.diseases),
-      "search_targets" -> IOResource(searchTargets, conf.outputs.targets),
-      "search_drugs" -> IOResource(searchDrugs, conf.outputs.drugs),
-      "search_variants" -> IOResource(searchVariants, conf.outputs.variants),
-      "search_studies" -> IOResource(searchStudies, conf.outputs.studies)
+      "search_diseases" -> IOResource(searchDiseases, config.output("diseases")),
+      "search_targets" -> IOResource(searchTargets, config.output("targets")),
+      "search_drugs" -> IOResource(searchDrugs, config.output("drugs")),
+      "search_variants" -> IOResource(searchVariants, config.output("variants")),
+      "search_studies" -> IOResource(searchStudies, config.output("studies"))
     )
 
     IoHelpers.writeTo(outputs)

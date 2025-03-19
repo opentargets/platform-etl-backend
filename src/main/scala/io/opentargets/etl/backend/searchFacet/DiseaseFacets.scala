@@ -1,6 +1,6 @@
-package io.opentargets.etl.backend.facetSearch
+package io.opentargets.etl.backend.searchFacet
 
-import io.opentargets.etl.backend.facetSearch.Helpers._
+import io.opentargets.etl.backend.searchFacet.Helpers._
 import com.typesafe.scalalogging.LazyLogging
 import io.opentargets.etl.backend.Configuration.FacetSearchCategories
 import org.apache.spark.sql.functions.{col, collect_set, lit}

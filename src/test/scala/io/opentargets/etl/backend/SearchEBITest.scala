@@ -4,7 +4,7 @@ import io.opentargets.etl.backend.spark.{IOResource, IOResourceConfig}
 import org.apache.spark.sql.SparkSession
 import io.opentargets.etl.backend.spark.IoHelpers.IOResources
 
-object EBISearchTest {
+object SearchEBITest {
 
   def setupResources(implicit sparkSession: SparkSession): IOResources = {
 
@@ -42,23 +42,23 @@ object EBISearchTest {
     val config = IOResourceConfig("csv", "")
     val allResources: IOResources =
       Map(
-        "targets" -> IOResource(targets, config),
-        "diseases" -> IOResource(diseases, config),
+        "target" -> IOResource(targets, config),
+        "disease" -> IOResource(diseases, config),
         "evidence" -> IOResource(evidence, config),
-        "associationDirectOverall" -> IOResource(associations, config)
+        "association" -> IOResource(associations, config)
       )
     allResources
   }
 }
 
-class EBISearchTest extends EtlSparkUnitTest {
+class SearchEBITest extends EtlSparkUnitTest {
 
   "Processing Diseases,Target and Evidence" should "return a dataframe with a specific list of attributes" in {
     // given
-    val resources: IOResources = EBISearchTest.setupResources(sparkSession)
+    val resources: IOResources = SearchEBITest.setupResources(sparkSession)
     val expectedColumns = Set("diseaseId", "targetId", "score", "approvedSymbol", "name")
     // when
-    val results = EBISearch.generateDatasets(resources)
+    val results = SearchEBI.generateDatasets(resources)
 
     // then
     assert(

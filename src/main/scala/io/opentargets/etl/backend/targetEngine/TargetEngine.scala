@@ -23,30 +23,20 @@ object TargetEngine extends LazyLogging {
   def readInputs()(implicit context: ETLSessionContext): IOResources = {
     implicit val ss: SparkSession = context.sparkSession
 
-    val config = context.configuration.targetEngine.inputs
+    val input = context.configuration.steps.targetEngine.input
 
-    val mappedInputs = Map(
-      "targets" -> config.targets,
-      "molecule" -> config.molecule,
-      "mouse" -> config.mousePhenotypes,
-      "moleculeMec" -> config.mechanismOfAction,
-      "hpaData" -> config.hpaData,
-      "uniprotSlterms" -> config.uniprotSlterms,
-      "mousePhenoScores" -> config.mousePhenoScores
-    )
-
-    readFrom(mappedInputs)
+    readFrom(input)
 
   }
 
   def compute(inputs: IOResources): DataFrame = {
     val targetsDF = inputs("targets").data
-    val mouseDF = inputs("mouse").data
+    val mouseDF = inputs("mouse_phenotypes").data
     val moleculeDF = inputs("molecule").data
-    val moleculeMecDF = inputs("moleculeMec").data
-    val hpaDataDF = inputs("hpaData").data
-    val uniprotDF = inputs("uniprotSlterms").data
-    val mousePhenoScoresDF = inputs("mousePhenoScores").data
+    val moleculeMecDF = inputs("mechanism_of_action").data
+    val hpaDataDF = inputs("hpa_data").data
+    val uniprotDF = inputs("uniprot_slterms").data
+    val mousePhenoScoresDF = inputs("mouse_pheno_scores").data
 
     val parentChildCousinsDF = FindParentChidCousins(uniprotDF)
 
@@ -90,7 +80,7 @@ object TargetEngine extends LazyLogging {
   }
 
   def writeOutput(targetEngineDF: DataFrame)(implicit context: ETLSessionContext): Unit = {
-    val outputConfig = context.configuration.targetEngine.outputs.targetEngine
+    val outputConfig = context.configuration.steps.targetEngine.output("target_engine")
 
     val dataFramesToSave = Map("targetEngine" -> IOResource(targetEngineDF, outputConfig))
 

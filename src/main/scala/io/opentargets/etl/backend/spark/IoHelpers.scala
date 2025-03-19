@@ -125,7 +125,7 @@ object IoHelpers extends LazyLogging {
   /** Add additional output formats to prepared IOResources. Each dataframe will be cached to
     * prevent recalculation on a subsequent call to write.
     *
-    * Additional formats are set in the configuration under `common.additional-outputs`. When there
+    * Additional formats are set in the configuration under `common.additional_outputs`. When there
     * are entries here, each output is given an additional configuration to facilitate writing in
     * multiple output formats (eg, json and parquet).
     * @param resources

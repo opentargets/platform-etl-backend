@@ -29,15 +29,9 @@ object KnownDrugs extends LazyLogging {
   def apply()(implicit context: ETLSessionContext): IOResources = {
     implicit val ss: SparkSession = context.sparkSession
 
-    val conf = context.configuration.knownDrugs
-    val mappedInputs = Map(
-      "evidence" -> conf.inputs.evidences,
-      "disease" -> conf.inputs.diseases,
-      "target" -> conf.inputs.targets,
-      "drug" -> conf.inputs.drugs.drug,
-      "mechanism" -> conf.inputs.drugs.mechanismOfAction
-    )
-    val inputDataFrame = IoHelpers.readFrom(mappedInputs)
+    val conf = context.configuration.steps.knownDrug
+
+    val inputDataFrame = IoHelpers.readFrom(conf.input)
 
     val dfDirectInfoAnnotated = compute(List("chembl"), inputDataFrame)
 
@@ -52,7 +46,7 @@ object KnownDrugs extends LazyLogging {
     import ss.implicits._
 
     val diseases = broadcast(
-      inputs("disease").data
+      inputs("diseases").data
         .select(
           $"id".as("diseaseId"),
           $"ancestors",
@@ -62,7 +56,7 @@ object KnownDrugs extends LazyLogging {
     )
 
     val targets = broadcast(
-      inputs("target").data
+      inputs("targets").data
         .select(
           col("id") as "targetId",
           col("approvedSymbol"),
@@ -96,7 +90,7 @@ object KnownDrugs extends LazyLogging {
         .orderBy($"drugId".asc, $"targetId".asc)
     )
 
-    val knownDrugsDF = inputs("evidence").data
+    val knownDrugsDF = inputs("evidences").data
       .filter($"sourceId" isInCollection datasources)
       .transform(aggregateDrugsByOntology)
       .join(diseases, Seq("diseaseId"))
@@ -104,7 +98,10 @@ object KnownDrugs extends LazyLogging {
       .join(drugs, Seq("drugId", "targetId"))
 
     Map(
-      "knownDrugs" -> IOResource(knownDrugsDF, context.configuration.knownDrugs.output)
+      "knownDrugs" -> IOResource(
+        knownDrugsDF,
+        context.configuration.steps.knownDrug.output("known_drugs")
+      )
     )
   }
 }

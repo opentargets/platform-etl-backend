@@ -18,39 +18,27 @@ object Drug extends Serializable with LazyLogging {
   def apply()(implicit context: ETLSessionContext): Unit = {
     implicit val ss: SparkSession = context.sparkSession
 
-    val drugConfiguration = context.configuration.drug
-    val outputs = drugConfiguration.outputs
+    val drugConfiguration = context.configuration.steps.drug
+    val outputs = drugConfiguration.output
 
     logger.info("Loading raw inputs for Drug beta step.")
-    val mappedInputs = Map(
-      "chemicalProbes" -> drugConfiguration.chemicalProbes,
-      "indication" -> drugConfiguration.chemblIndication,
-      "mechanism" -> drugConfiguration.chemblMechanism,
-      "molecule" -> drugConfiguration.chemblMolecule,
-      "target" -> drugConfiguration.chemblTarget,
-      "warnings" -> drugConfiguration.chemblWarning,
-      "drugbankChemblMap" -> drugConfiguration.drugbankToChembl,
-      "efo" -> drugConfiguration.diseaseEtl,
-      "gene" -> drugConfiguration.targetEtl
-    )
-
-    val inputDataFrames = IoHelpers.readFrom(mappedInputs)
+    val inputDataFrames = IoHelpers.readFrom(drugConfiguration.input)
 
     // raw input dataframes
-    lazy val probesDf: DataFrame = inputDataFrames("chemicalProbes").data
+    lazy val probesDf: DataFrame = inputDataFrames("chemical_probes").data
       .filter(col("drugId").isNotNull)
       .select(col("drugId").as("chemicalProbeDrugId"))
       .distinct()
-    lazy val moleculeDf: DataFrame = inputDataFrames("molecule").data
-    lazy val mechanismDf: DataFrame = inputDataFrames("mechanism").data
-    lazy val indicationDf: DataFrame = inputDataFrames("indication").data
-    lazy val targetDf: DataFrame = inputDataFrames("target").data
-    lazy val geneDf: DataFrame = inputDataFrames("gene").data
-    lazy val drugbank2ChemblMap: DataFrame = inputDataFrames("drugbankChemblMap").data
+    lazy val moleculeDf: DataFrame = inputDataFrames("chembl_molecule").data
+    lazy val mechanismDf: DataFrame = inputDataFrames("chembl_mechanism").data
+    lazy val indicationDf: DataFrame = inputDataFrames("chembl_indication").data
+    lazy val targetDf: DataFrame = inputDataFrames("chembl_target").data
+    lazy val geneDf: DataFrame = inputDataFrames("target_etl").data
+    lazy val drugbank2ChemblMap: DataFrame = inputDataFrames("drugbank_to_chembl").data
       .withColumnRenamed("From src:'1'", "id")
       .withColumnRenamed("To src:'2'", "drugbank_id")
-    lazy val efoDf: DataFrame = inputDataFrames("efo").data
-    lazy val warningRawDf: DataFrame = inputDataFrames("warnings").data
+    lazy val efoDf: DataFrame = inputDataFrames("disease_etl").data
+    lazy val warningRawDf: DataFrame = inputDataFrames("chembl_warning").data
 
     // processed dataframes
     logger.info("Raw inputs for Drug loaded.")
@@ -117,10 +105,14 @@ object Drug extends Serializable with LazyLogging {
       .transform(cleanup)
 
     val dataframesToSave: IOResources = Map(
-      "drug" -> IOResource(drugDf, outputs.drug),
-      "mechanism_of_action" -> IOResource(mechanismOfActionProcessedDf, outputs.mechanismOfAction),
-      "indication" -> IOResource(indicationProcessedDf.drop("linkedDiseases"), outputs.indications),
-      "drug_warnings" -> IOResource(warningsDF, outputs.warnings)
+      "drug" -> IOResource(drugDf, outputs("drug")),
+      "mechanism_of_action" -> IOResource(mechanismOfActionProcessedDf,
+                                          outputs("mechanism_of_action")
+      ),
+      "indication" -> IOResource(indicationProcessedDf.drop("linkedDiseases"),
+                                 outputs("indications")
+      ),
+      "drug_warnings" -> IOResource(warningsDF, outputs("warnings"))
     )
 
     IoHelpers.writeTo(dataframesToSave)

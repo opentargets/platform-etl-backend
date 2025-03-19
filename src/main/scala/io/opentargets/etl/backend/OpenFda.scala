@@ -37,6 +37,7 @@ object OpenFda extends LazyLogging {
   def apply()(implicit context: ETLSessionContext): Unit = {
     implicit val sparkSession = context.sparkSession
     import sparkSession.implicits._
+    val config = context.configuration.steps.openfda
 
     // --- Massage OpenFDA FAERS and drug data ---
     // Data loading stage
@@ -54,8 +55,8 @@ object OpenFda extends LazyLogging {
       TargetDimension(
         "chembl_id",
         "uniq_report_ids_by_drug",
-        context.configuration.openfda.outputs.fdaUnfiltered,
-        context.configuration.openfda.outputs.fdaResults
+        config.output("fda_unfiltered"),
+        config.output("fda_results")
       )
     )
     // --- Run OpenFDA FAERS for targets ---
@@ -70,8 +71,8 @@ object OpenFda extends LazyLogging {
       TargetDimension(
         "targetId",
         "uniq_report_ids_by_target",
-        context.configuration.openfda.outputs.fdaTargetsUnfiltered,
-        context.configuration.openfda.outputs.fdaTargetsResults
+        config.output("fda_targets_unfiltered"),
+        config.output("fda_targets_results")
       )
     )
     logger.info("OpenFDA FAERS step completed")

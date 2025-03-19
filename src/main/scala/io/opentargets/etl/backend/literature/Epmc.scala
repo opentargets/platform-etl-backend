@@ -15,20 +15,16 @@ object Epmc extends LazyLogging {
 
     logger.info("Prepare EPMC evidence")
 
-    val conf = context.configuration.literature.epmc
+    val conf = context.configuration.steps.literature
 
-    val inputDataFrames = IoHelpers.readFrom(
-      Map(
-        "cooccurences" -> conf.input.cooccurences
-      )
-    )
+    val inputDataFrames = IoHelpers.readFrom(conf.input.filter(_._1.startsWith("epmc_")))
 
-    val inputDf = inputDataFrames("cooccurences").data
+    val inputDf = inputDataFrames("epmc_cooccurences").data
 
     val cooccurencesDf = compute(
       inputDf,
-      conf.excludedTargetTerms,
-      conf.sectionsOfInterest
+      conf.epmc.excludedTargetTerms,
+      conf.epmc.sectionsOfInterest
     )
 
     val evidence = cooccurencesDf
@@ -48,7 +44,7 @@ object Epmc extends LazyLogging {
     val epmcCooccurrencesDf = EpmcCooccurrences(inputDf)
 
     logger.info("EPMC disease target evidence saved.")
-    if (conf.printMetrics) {
+    if (conf.epmc.printMetrics) {
       logger.info(s"Number of evidence: ${cooccurencesDf.count()}")
       logger.info(
         s"Number of publications: ${cooccurencesDf.select(col("publicationIdentifier")).count()}"
@@ -71,11 +67,11 @@ object Epmc extends LazyLogging {
       )
     }
 
-    logger.info(s"Write EMPC data to ${conf.outputs.output.path}")
+    logger.info(s"Write EMPC data to ${conf.output("epmc_output").path}")
     val dataframesToSave = Map(
       // coalesce to maintain logic previously used by datateam. A single file is used for metrics calculations.
-      "epmc" -> IOResource(evidence.coalesce(1), conf.outputs.output),
-      "epmcCooccurrences" -> IOResource(epmcCooccurrencesDf, conf.outputs.epmcCooccurrences)
+      "epmc" -> IOResource(evidence.coalesce(1), conf.output("epmc_output")),
+      "epmcCooccurrences" -> IOResource(epmcCooccurrencesDf, conf.output("epmc_cooccurrences"))
     )
 
     IoHelpers.writeTo(dataframesToSave)

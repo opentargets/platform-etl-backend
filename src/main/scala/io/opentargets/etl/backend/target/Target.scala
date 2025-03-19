@@ -42,14 +42,16 @@ object Target extends LazyLogging {
     val targetsDF = compute(context)
 
     val dataframesToSave: IOResources = Map(
-      "target" -> IOResource(targetsDF("target"), context.configuration.target.outputs.target),
-      "targetEssentiality" -> IOResource(targetsDF("targetEssentiality"),
-                                         context.configuration.target.outputs.geneEssentiality
+      "target" -> IOResource(targetsDF("target"),
+                             context.configuration.steps.target.output("target")
+      ),
+      "targetEssentiality" -> IOResource(
+        targetsDF("targetEssentiality"),
+        context.configuration.steps.target.output("gene_essentiality")
       )
     )
 
     IoHelpers.writeTo(dataframesToSave)
-
   }
 
   def compute(
@@ -57,45 +59,45 @@ object Target extends LazyLogging {
   )(implicit ctx: ETLSessionContext): Map[String, DataFrame] = {
     implicit val ss: SparkSession = ctx.sparkSession
     // 1. get input data frames
-    val inputDataFrames = getMappedInputs(context.configuration.target)
+    val inputDataFrames = getMappedInputs(context.configuration.steps.target)
 
     // 2. prepare intermediate dataframes per source
-    val chemicalProbes: DataFrame = inputDataFrames("chemicalProbes").data
-    val geneCode: Dataset[GeneAndCanonicalTranscript] = GeneCode(inputDataFrames("geneCode").data)
+    val chemicalProbes: DataFrame = inputDataFrames("chemical_probes").data
+    val geneCode: Dataset[GeneAndCanonicalTranscript] = GeneCode(inputDataFrames("gene_code").data)
     val hgnc: Dataset[Hgnc] = Hgnc(inputDataFrames("hgnc").data)
     val hallmarks: Dataset[HallmarksWithId] = Hallmarks(inputDataFrames("hallmarks").data)
     val ncbi: Dataset[Ncbi] = Ncbi(inputDataFrames("ncbi").data)
     val ensemblDf: Dataset[Ensembl] = Ensembl(inputDataFrames("ensembl").data, geneCode)
     val uniprotDS: Dataset[Uniprot] =
-      Uniprot(inputDataFrames("uniprot").data, inputDataFrames("uniprotSsl").data)
+      Uniprot(inputDataFrames("uniprot").data, inputDataFrames("uniprot_ssl").data)
     val geneOntologyDf: Dataset[GeneOntologyByEnsembl] = GeneOntology(
-      inputDataFrames("geneOntologyHuman").data,
-      inputDataFrames("geneOntologyRna").data,
-      inputDataFrames("geneOntologyRnaLookup").data,
-      inputDataFrames("geneOntologyEcoLookup").data,
+      inputDataFrames("gene_ontology_human").data,
+      inputDataFrames("gene_ontology_rna").data,
+      inputDataFrames("gene_ontology_rna_lookup").data,
+      inputDataFrames("gene_ontology_eco_lookup").data,
       ensemblDf
     )
     val tep: Dataset[Tep] = Tep(inputDataFrames("tep").data)
     val hpa: Dataset[GeneWithLocation] =
-      GeneWithLocation(inputDataFrames("hpa").data, inputDataFrames("hpaSL").data)
+      GeneWithLocation(inputDataFrames("hpa").data, inputDataFrames("hpa_sl").data)
     val projectScoresDS: Dataset[GeneWithDbXRef] = ProjectScores(
-      inputDataFrames("projectScoresIds").data,
-      inputDataFrames("projectScoresEssentialityMatrix").data
+      inputDataFrames("project_scores_ids").data,
+      inputDataFrames("project_scores_essentiality_matrix").data
     )
     val proteinClassification: Dataset[ProteinClassification] = ProteinClassification(
       inputDataFrames("chembl").data
     )
     val geneticConstraints: Dataset[GeneticConstraintsWithId] = GeneticConstraints(
-      inputDataFrames("geneticConstraints").data
+      inputDataFrames("genetic_constraints").data
     )
     val homology: Dataset[Ortholog] = Ortholog(
-      inputDataFrames("homologyDictionary").data,
-      inputDataFrames("homologyCodingProteins").data,
-      inputDataFrames("homologyGeneDictionary").data,
-      context.configuration.target.hgncOrthologSpecies
+      inputDataFrames("homology_dictionary").data,
+      inputDataFrames("homology_coding_proteins").data,
+      inputDataFrames("homology_gene_dictionary").data,
+      context.configuration.steps.target.hgncOrthologSpecies
     )
     val reactome: Dataset[Reactomes] =
-      Reactome(inputDataFrames("reactomePathways").data, inputDataFrames("reactomeEtl").data)
+      Reactome(inputDataFrames("reactome_pathways").data, inputDataFrames("reactome_etl").data)
     val tractability: Dataset[TractabilityWithId] = Tractability(
       inputDataFrames("tractability").data
     )
@@ -168,7 +170,7 @@ object Target extends LazyLogging {
       .transform(addTss)
 
     val targetEssentialityDF = targetsDF
-      .transform(addGeneEssentiality(inputDataFrames("geneEssentiality").data, ensemblIdLookupDf))
+      .transform(addGeneEssentiality(inputDataFrames("gene_essentiality").data, ensemblIdLookupDf))
 
     Map(
       "target" -> targetsDF,
@@ -395,7 +397,7 @@ object Target extends LazyLogging {
     val diseasesDf = inputDataFrames("diseases").data
 
     val tsDS: Dataset[TargetSafety] = Safety(
-      inputDataFrames("safetyEvidence").data,
+      inputDataFrames("safety_evidence").data,
       geneToEnsemblLookup,
       diseasesDf
     )
@@ -446,7 +448,7 @@ object Target extends LazyLogging {
 
   /** Return map on input IOResources */
   private def getMappedInputs(
-      targetConfig: Configuration.Target
+      targetConfig: Configuration.TargetSection
   )(implicit sparkSession: SparkSession): Map[String, IOResource] = {
     def getUniprotDataFrame(io: IOResourceConfig)(implicit ss: SparkSession): IOResource = {
       import ss.implicits._
@@ -455,48 +457,16 @@ object Target extends LazyLogging {
       IOResource(data.toDF(), io)
     }
 
-    val targetInputs = targetConfig.input
-    val mappedInputs = Map(
-      "chembl" -> targetInputs.chembl,
-      "chemicalProbes" -> targetInputs.chemicalProbes,
-      "ensembl" -> targetInputs.ensembl,
-      "geneticConstraints" -> targetInputs.geneticConstraints,
-      "geneCode" -> targetInputs.genCode,
-      "geneOntologyHuman" -> targetInputs.geneOntology,
-      "geneOntologyRna" -> targetInputs.geneOntologyRna,
-      "geneOntologyRnaLookup" -> targetInputs.geneOntologyRnaLookup,
-      "geneOntologyEcoLookup" -> targetInputs.geneOntologyEco,
-      "hallmarks" -> targetInputs.hallmarks,
-      "hgnc" -> targetInputs.hgnc,
-      "homologyCodingProteins" -> targetInputs.homologyCodingProteins,
-      "homologyDictionary" -> targetInputs.homologyDictionary,
-      "homologyGeneDictionary" -> targetInputs.homologyGeneDictionary,
-      "hpa" -> targetInputs.hpa,
-      "hpaSL" -> targetInputs.hpaSlOntology,
-      "ncbi" -> targetInputs.ncbi.copy(options = targetInputs.ncbi.options match {
-        case Some(value) => Option(value)
-        case None        => CsvHelpers.tsvWithHeader
-      }),
-      "projectScoresIds" -> targetInputs.psGeneIdentifier,
-      "projectScoresEssentialityMatrix" -> targetInputs.psEssentialityMatrix,
-      "reactomeEtl" -> targetInputs.reactomeEtl,
-      "reactomePathways" -> targetInputs.reactomePathways,
-      "safetyEvidence" -> targetInputs.safetyEvidence,
-      "tep" -> targetInputs.tep,
-      "tractability" -> targetInputs.tractability,
-      "uniprotSsl" -> targetInputs.uniprotSsl,
-      "geneEssentiality" -> targetInputs.geneEssentiality,
-      "diseases" -> targetInputs.diseases
-    )
+    val targetInputs = targetConfig.input - "uniprot"
 
     IoHelpers
-      .readFrom(mappedInputs)
+      .readFrom(targetInputs)
       .updated(
         "uniprot",
         getUniprotDataFrame(
           IOResourceConfig(
-            targetInputs.uniprot.format,
-            targetInputs.uniprot.path
+            targetConfig.input("uniprot").format,
+            targetConfig.input("uniprot").path
           )
         )
       )

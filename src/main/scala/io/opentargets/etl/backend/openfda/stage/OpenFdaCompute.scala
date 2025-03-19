@@ -25,35 +25,37 @@ object OpenFdaCompute extends LazyLogging {
     val fdaDataMontecarloReady =
       PrepareForMontecarlo(fdaDataWithSummaryStats, targetDimension.statsColId)
     // Add Meddra
-    val fdaDataWithMeddra = (context.configuration.openfda.meddra match {
-      case Some(_) =>
+    val input = context.configuration.steps.openfda.input
+    val fdaDataWithMeddra =
+      if (input.contains("meddra_preferred_terms") && input.contains("meddra_low_level_terms")) {
         AttachMeddraData(
           fdaDataMontecarloReady,
           targetDimension.colId,
           dfsData(MeddraPreferredTermsData()).data,
           dfsData(MeddraLowLevelTermsData()).data
         )
-      case _ =>
+      } else
         fdaDataMontecarloReady
           .withColumn("meddraCode", typedLit[String](""))
-    }).persist(StorageLevel.MEMORY_AND_DISK_SER)
+          .persist(StorageLevel.MEMORY_AND_DISK_SER)
     // Conditional generation of Stratified Sampling
-    val stratifiedSamplingData: IOResources = if (context.configuration.openfda.sampling.enabled) {
-      // This one really uses the raw OpenFDA Data
-      StratifiedSampling(
-        dfsData(FdaData()).data,
-        fdaDataWithSummaryStats,
-        fdaDataWithMeddra,
-        targetDimension.colId
-      )
-    } else Map()
+    val stratifiedSamplingData: IOResources =
+      if (context.configuration.steps.openfda.sampling.enabled) {
+        // This one really uses the raw OpenFDA Data
+        StratifiedSampling(
+          dfsData(FdaData()).data,
+          fdaDataWithSummaryStats,
+          fdaDataWithMeddra,
+          targetDimension.colId
+        )
+      } else Map()
     // Compute Montecarlo Sampling
     val montecarloResults = MonteCarloSampling(
       fdaDataWithMeddra,
       targetDimension.colId,
       targetDimension.statsColId,
-      context.configuration.openfda.montecarlo.percentile,
-      context.configuration.openfda.montecarlo.permutations
+      context.configuration.steps.openfda.montecarlo.percentile,
+      context.configuration.steps.openfda.montecarlo.permutations
     ).persist(StorageLevel.MEMORY_AND_DISK_SER)
     // Produce Output
     logger.info(s"Write OpenFDA computation for target dimension '${targetDimension.colId}'")

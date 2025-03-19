@@ -8,7 +8,7 @@ import org.apache.spark.sql.{Column, DataFrame}
 object EpmcCooccurrences extends LazyLogging {
 
   def generateUri(keywordId: Column)(implicit context: ETLSessionContext): Column = {
-    val uris = context.configuration.literature.epmc.uris
+    val uris = context.configuration.steps.literature.epmc.uris
     when(keywordId.startsWith("ENSG"), concat(lit(uris.ensembl), keywordId))
       .when(keywordId.startsWith("CHEMBL"), concat(lit(uris.chembl), keywordId))
       .otherwise(concat(lit(uris.ontologies), keywordId))

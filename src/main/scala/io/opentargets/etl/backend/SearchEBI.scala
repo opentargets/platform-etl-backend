@@ -5,13 +5,13 @@ import org.apache.spark.sql._
 import io.opentargets.etl.backend.spark.{IOResource, IoHelpers}
 import org.apache.spark.sql.SparkSession
 
-object EBISearch extends LazyLogging {
+object SearchEBI extends LazyLogging {
 
   def generateDatasets(resources: IoHelpers.IOResources): Map[String, DataFrame] = {
 
-    val diseases = resources("diseases").data.withColumnRenamed("id", "diseaseId")
-    val targets = resources("targets").data.withColumnRenamed("id", "targetId")
-    val associationsDirectOverall = resources("associationDirectOverall").data
+    val diseases = resources("disease").data.withColumnRenamed("id", "diseaseId")
+    val targets = resources("target").data.withColumnRenamed("id", "targetId")
+    val associationsDirectOverall = resources("association").data
     val evidence = resources("evidence").data
 
     val datasetAssociations = associationsDirectOverall
@@ -32,32 +32,23 @@ object EBISearch extends LazyLogging {
   }
   def apply()(implicit context: ETLSessionContext) = {
     implicit val ss: SparkSession = context.sparkSession
+    val config = context.configuration.steps.searchEbi
 
     logger.info("Generate EBI Search dataset")
-
-    val EBIConfiguration = context.configuration.ebisearch
-
     logger.info("Loading raw inputs for Base Expression step.")
 
-    val mappedInputs = Map(
-      "diseases" -> EBIConfiguration.diseaseEtl,
-      "targets" -> EBIConfiguration.targetEtl,
-      "evidence" -> EBIConfiguration.evidenceETL,
-      "associationDirectOverall" -> EBIConfiguration.associationETL
-    )
-
-    val inputDataFrames = IoHelpers.readFrom(mappedInputs)
+    val inputDataFrames = IoHelpers.readFrom(config.input)
     val dataToSave = generateDatasets(inputDataFrames)
 
     IoHelpers.writeTo(
       Map(
         "ebisearchEvidence" -> IOResource(
           dataToSave("ebisearchEvidence"),
-          EBIConfiguration.outputs.ebisearchEvidence
+          config.output("evidence")
         ),
         "ebisearchAssociations" -> IOResource(
           dataToSave("ebisearchAssociations"),
-          EBIConfiguration.outputs.ebisearchAssociations
+          config.output("associations")
         )
       )
     )

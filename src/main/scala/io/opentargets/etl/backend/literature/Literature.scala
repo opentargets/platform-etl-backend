@@ -21,7 +21,7 @@ object Literature extends LazyLogging {
     val configurations = config.sparkSettings.defaultSparkSessionConfig
 
     val litConfigurations =
-      configurations ++ config.literature.common.sparkSessionConfig.getOrElse(Seq())
+      configurations ++ config.steps.literature.common.sparkSessionConfig.getOrElse(Seq())
 
     val etlSessionContext = ETLSessionContext(
       config,
