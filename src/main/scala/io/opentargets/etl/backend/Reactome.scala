@@ -20,12 +20,7 @@ object Reactome extends LazyLogging {
     val dfName = "reactome"
     val reactomeC = context.configuration.reactome
 
-    val mappedInputs = Map(
-      "pathways" -> reactomeC.inputs.pathways,
-      "relations" -> reactomeC.inputs.relations
-    )
-
-    val reactomeIs = IoHelpers.readFrom(mappedInputs)
+    val reactomeIs = IoHelpers.readFrom(reactomeC.input)
     val pathways = reactomeIs("pathways").data.transform(cleanPathways)
     val edges = reactomeIs("relations").data.toDF("src", "dst")
 
@@ -33,7 +28,7 @@ object Reactome extends LazyLogging {
 
     logger.info("compute reactome dataset")
     val outputs = Map(
-      dfName -> IOResource(index, reactomeC.output)
+      dfName -> IOResource(index, reactomeC.output("reactome"))
     )
 
     IoHelpers.writeTo(outputs)
