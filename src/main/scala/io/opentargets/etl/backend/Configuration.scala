@@ -70,20 +70,9 @@ object Configuration extends LazyLogging {
       sources: List[String]
   )
 
-  case class AssociationInputsSection(evidences: IOResourceConfig, diseases: IOResourceConfig)
-
-  case class AssociationOutputsSection(
-      directByDatasource: IOResourceConfig,
-      directByDatatype: IOResourceConfig,
-      directByOverall: IOResourceConfig,
-      indirectByDatasource: IOResourceConfig,
-      indirectByDatatype: IOResourceConfig,
-      indirectByOverall: IOResourceConfig
-  )
-
   case class AssociationsSection(
-      outputs: AssociationOutputsSection,
-      inputs: AssociationInputsSection,
+      output: IOResourceConfigurations,
+      input: IOResourceConfigurations,
       defaultWeight: Double,
       defaultPropagate: Boolean,
       dataSources: List[DataSource]
@@ -96,12 +85,6 @@ object Configuration extends LazyLogging {
 
   case class InputExtension(extensionType: String, input: IOResourceConfig)
 
-  case class DrugOutputs(
-      drug: IOResourceConfig,
-      mechanismOfAction: IOResourceConfig,
-      indications: IOResourceConfig,
-      warnings: IOResourceConfig
-  )
   case class DrugSection(
       input: IOResourceConfigurations,
       drugExtensions: Seq[InputExtension],
@@ -125,7 +108,7 @@ object Configuration extends LazyLogging {
 
   case class KnownDrugsSection(input: IOResourceConfigurations, output: IOResourceConfigurations)
 
-  case class GeneOntologySection(goInput: IOResourceConfig, output: IOResourceConfig)
+  case class GeneOntologySection(input: IOResourceConfigurations, output: IOResourceConfigurations)
 
   case class MousePhenotypeSection(input: IOResourceConfigurations, output: IOResourceConfigurations)
 
@@ -149,17 +132,8 @@ object Configuration extends LazyLogging {
       goC: String
   )
 
-  case class FacetSearchInputsSection(
-      diseases: IOResourceConfig,
-      targets: IOResourceConfig,
-      go: IOResourceConfig
-  )
-  case class FacetSearchOutputsSection(
-      diseases: IOResourceConfig,
-      targets: IOResourceConfig
-  )
-  case class FacetSearchSection(inputs: FacetSearchInputsSection,
-                                outputs: FacetSearchOutputsSection,
+  case class FacetSearchSection(input: IOResourceConfigurations,
+                                output: IOResourceConfigurations,
                                 categories: FacetSearchCategories
   )
 
@@ -182,10 +156,8 @@ object Configuration extends LazyLogging {
 
   // --- OtarProject configuration
   case class OtarProjectSection(
-      diseaseEtl: IOResourceConfig,
-      output: IOResourceConfig,
-      otarMeta: IOResourceConfig,
-      otarProjectToEfo: IOResourceConfig
+     input: IOResourceConfigurations,
+     output: IOResourceConfigurations
   )
 
   case class EBISearchSection(
@@ -257,18 +229,7 @@ object Configuration extends LazyLogging {
       epmc: Epmc
   )
 
-  case class TargetEngineInputs(targets: IOResourceConfig,
-                                molecule: IOResourceConfig,
-                                mechanismOfAction: IOResourceConfig,
-                                mousePhenotypes: IOResourceConfig,
-                                hpaData: IOResourceConfig,
-                                uniprotSlterms: IOResourceConfig,
-                                mousePhenoScores: IOResourceConfig
-  )
-
-  case class TargetEngineOutputs(targetEngine: IOResourceConfig)
-
-  case class TargetEngineSection(inputs: TargetEngineInputs, outputs: TargetEngineOutputs)
+  case class TargetEngineSection(input: IOResourceConfigurations, output: IOResourceConfigurations)
 
   // --- END --- //
 

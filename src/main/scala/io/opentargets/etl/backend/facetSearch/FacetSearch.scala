@@ -52,13 +52,8 @@ object FacetSearch extends LazyLogging {
     */
   def readInputs()(implicit context: ETLSessionContext): IOResources = {
     implicit val ss: SparkSession = context.sparkSession
-    val inputs = context.configuration.facetSearch.inputs
-    val mappedInputs = Map(
-      "targets" -> inputs.targets,
-      "diseases" -> inputs.diseases,
-      "go" -> inputs.go
-    )
-    readFrom(mappedInputs)
+    val inputs = context.configuration.facetSearch.input
+    readFrom(inputs)
   }
 
   /** Compute facets for targets.
@@ -126,10 +121,10 @@ object FacetSearch extends LazyLogging {
   def writeOutput(facetSearchTarget: DataFrame, facetSearchDisease: DataFrame)(implicit
       context: ETLSessionContext
   ): Unit = {
-    val outputConfig = context.configuration.facetSearch.outputs
+    val outputConfig = context.configuration.facetSearch.output
     val outputs = Map(
-      "facetSearchTarget" -> IOResource(facetSearchTarget, outputConfig.targets),
-      "facetSearchDisease" -> IOResource(facetSearchDisease, outputConfig.diseases)
+      "facetSearchTarget" -> IOResource(facetSearchTarget, outputConfig("targets")),
+      "facetSearchDisease" -> IOResource(facetSearchDisease, outputConfig("diseases"))
     )
     writeTo(outputs)
   }
