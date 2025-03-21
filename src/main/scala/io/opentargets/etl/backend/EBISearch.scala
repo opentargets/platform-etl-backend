@@ -9,9 +9,9 @@ object EBISearch extends LazyLogging {
 
   def generateDatasets(resources: IoHelpers.IOResources): Map[String, DataFrame] = {
 
-    val diseases = resources("diseases").data.withColumnRenamed("id", "diseaseId")
-    val targets = resources("targets").data.withColumnRenamed("id", "targetId")
-    val associationsDirectOverall = resources("associationDirectOverall").data
+    val diseases = resources("disease").data.withColumnRenamed("id", "diseaseId")
+    val targets = resources("target").data.withColumnRenamed("id", "targetId")
+    val associationsDirectOverall = resources("association").data
     val evidence = resources("evidence").data
 
     val datasetAssociations = associationsDirectOverall
@@ -39,25 +39,25 @@ object EBISearch extends LazyLogging {
 
     logger.info("Loading raw inputs for Base Expression step.")
 
-    val mappedInputs = Map(
-      "diseases" -> EBIConfiguration.diseaseEtl,
-      "targets" -> EBIConfiguration.targetEtl,
-      "evidence" -> EBIConfiguration.evidenceETL,
-      "associationDirectOverall" -> EBIConfiguration.associationETL
-    )
+//    val mappedInputs = Map(
+//      "diseases" -> EBIConfiguration.diseaseEtl,
+//      "targets" -> EBIConfiguration.targetEtl,
+//      "evidence" -> EBIConfiguration.evidenceETL,
+//      "associationDirectOverall" -> EBIConfiguration.associationETL
+//    )
 
-    val inputDataFrames = IoHelpers.readFrom(mappedInputs)
+    val inputDataFrames = IoHelpers.readFrom(EBIConfiguration.input)
     val dataToSave = generateDatasets(inputDataFrames)
 
     IoHelpers.writeTo(
       Map(
         "ebisearchEvidence" -> IOResource(
           dataToSave("ebisearchEvidence"),
-          EBIConfiguration.outputs.ebisearchEvidence
+          EBIConfiguration.output("evidence")
         ),
         "ebisearchAssociations" -> IOResource(
           dataToSave("ebisearchAssociations"),
-          EBIConfiguration.outputs.ebisearchAssociations
+          EBIConfiguration.output("associations")
         )
       )
     )

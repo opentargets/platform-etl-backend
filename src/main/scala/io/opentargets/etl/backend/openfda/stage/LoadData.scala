@@ -1,14 +1,7 @@
 package io.opentargets.etl.backend.openfda.stage
 
-import io.opentargets.etl.backend.spark.IoHelpers
-import io.opentargets.etl.backend.{
-  Blacklisting,
-  DrugData,
-  ETLSessionContext,
-  FdaData,
-  MeddraLowLevelTermsData,
-  MeddraPreferredTermsData
-}
+import io.opentargets.etl.backend.spark.{IOResourceConfig, IoHelpers}
+import io.opentargets.etl.backend.{Blacklisting, DrugData, ETLSessionContext, FdaData, MeddraLowLevelTermsData, MeddraPreferredTermsData}
 
 object LoadData {
   def apply()(implicit context: ETLSessionContext) = {
@@ -16,25 +9,23 @@ object LoadData {
     // Get the Spark Session
     implicit val sparkSession = context.sparkSession
 
-    // Prepare the loading Map
-    val sourceData =
-      context.configuration.openfda.meddra match {
-        // DISCLAIMER - There's probably a better way to do this
-        case Some(meddraConfig) =>
-          Map(
-            DrugData() -> context.configuration.openfda.chemblDrugs,
-            Blacklisting() -> context.configuration.openfda.blacklistedEvents,
-            FdaData() -> context.configuration.openfda.fdaData,
-            MeddraPreferredTermsData() -> meddraConfig.meddraPreferredTerms,
-            MeddraLowLevelTermsData() -> meddraConfig.meddraLowLevelTerms
-          )
-        case _ =>
-          Map(
-            DrugData() -> context.configuration.openfda.chemblDrugs,
-            Blacklisting() -> context.configuration.openfda.blacklistedEvents,
-            FdaData() -> context.configuration.openfda.fdaData
-          )
-      }
+    val input = context.configuration.openfda.input
+
+    val commonData = Map(
+      DrugData() -> input("chembl-drugs"),
+      Blacklisting() -> input("blacklisted-events"),
+      FdaData() -> input("fda-data")
+    )
+
+    val sourceData = if (input.contains("meddra-preferred-terms") && input.contains("meddra-low-level-terms")) {
+      commonData ++ Map(
+        MeddraPreferredTermsData() -> input("meddra-preferred-terms"),
+        MeddraLowLevelTermsData() -> input("meddra-low-level-terms")
+      )
+    } else {
+      commonData
+    }
+
     // Load the data
     IoHelpers.readFrom(sourceData)
   }
