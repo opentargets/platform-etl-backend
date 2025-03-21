@@ -23,19 +23,12 @@ object Configuration extends LazyLogging {
 
   case class DataSource(id: String, weight: Double, dataType: String, propagate: Boolean)
 
-  case class EpmcInputs(cooccurences: IOResourceConfig)
-
-  case class EpmcOutputs(
-      output: IOResourceConfig,
-      epmcCooccurrences: IOResourceConfig
-  )
-
   case class EpmcUris(ensembl: String, chembl: String, ontologies: String)
 
   case class Epmc(
       uris: EpmcUris,
-      input: EpmcInputs,
-      outputs: EpmcOutputs,
+      input: IOResourceConfigurations,
+      output: IOResourceConfigurations,
       excludedTargetTerms: List[String],
       sectionsOfInterest: List[String],
       printMetrics: Boolean
@@ -179,25 +172,10 @@ object Configuration extends LazyLogging {
       output: IOResourceConfigurations
   )
 
-  case class LiteratureProcessingOutputs(cooccurrences: IOResourceConfig,
-                                         matches: IOResourceConfig,
-                                         failedCooccurrences: IOResourceConfig,
-                                         failedMatches: IOResourceConfig,
-                                         literatureIndex: IOResourceConfig,
-                                         literatureSentences: IOResourceConfig
-  )
-
-  case class LiteratureProcessing(epmcids: IOResourceConfig,
-                                  diseases: IOResourceConfig,
-                                  targets: IOResourceConfig,
-                                  drugs: IOResourceConfig,
-                                  abstracts: EPMCInput,
-                                  fullTexts: EPMCInput,
-                                  outputs: LiteratureProcessingOutputs,
+  case class LiteratureProcessing(input: IOResourceConfigurations,
+                                  output: IOResourceConfigurations,
                                   writeFailures: Boolean
   )
-
-  case class EPMCInput(kind: String, input: IOResourceConfig)
 
   case class LiteratureModelConfiguration(windowSize: Int,
                                           numPartitions: Int,
@@ -206,14 +184,12 @@ object Configuration extends LazyLogging {
                                           stepSize: Double
   )
 
-  case class LiteratureEmbeddingOutputs(model: IOResourceConfig, trainingSet: IOResourceConfig)
-
   case class LiteratureEmbedding(modelConfiguration: LiteratureModelConfiguration,
-                                 input: IOResourceConfig,
-                                 outputs: LiteratureEmbeddingOutputs
+                                 input: IOResourceConfigurations,
+                                 output: IOResourceConfigurations
   )
 
-  case class LiteratureVectors(input: String, output: IOResourceConfig)
+  case class LiteratureVectors(input: String, output: IOResourceConfigurations)
 
   case class LiteratureSectionRanks(section: String, rank: Long, weight: Double)
 
