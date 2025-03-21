@@ -180,8 +180,8 @@ object Association extends LazyLogging {
     val associationsSec = context.configuration.associations
 
     val mappedInputs = Map(
-      "evidences" -> context.configuration.associations.inputs.evidences,
-      "diseases" -> context.configuration.associations.inputs.diseases
+      "evidences" -> context.configuration.associations.input("evidences"),
+      "diseases" -> context.configuration.associations.input("diseases")
     )
 
     val evidenceColumns = Seq(
@@ -214,7 +214,7 @@ object Association extends LazyLogging {
   }
 
   def computeDirectAssociations()(implicit context: ETLSessionContext): IOResources = {
-    val outputs = context.configuration.associations.outputs
+    val outputs = context.configuration.associations.output
 
     val evidenceSet = prepareEvidences().persist(StorageLevel.DISK_ONLY)
     val associationsPerDS = computeAssociationsPerDS(evidenceSet).persist()
@@ -222,14 +222,14 @@ object Association extends LazyLogging {
     val associationsOverall = computeAssociationsAllDS(associationsPerDS)
 
     Map(
-      "directByDatasource" -> IOResource(associationsPerDS, outputs.directByDatasource),
-      "directByDatatype" -> IOResource(associationsPerDT, outputs.directByDatatype),
-      "directByOverall" -> IOResource(associationsOverall, outputs.directByOverall)
+      "directByDatasource" -> IOResource(associationsPerDS, outputs("direct-by-datasource")),
+      "directByDatatype" -> IOResource(associationsPerDT, outputs("direct-by-datatype")),
+      "directByOverall" -> IOResource(associationsOverall, outputs("direct-by-overall"))
     )
   }
 
   def computeIndirectAssociations()(implicit context: ETLSessionContext): IOResources = {
-    val outputs = context.configuration.associations.outputs
+    val outputs = context.configuration.associations.output
 
     val evidenceSet = prepareEvidences(expandOntology = true).persist()
     val associationsPerDS = computeAssociationsPerDS(evidenceSet).persist()
@@ -237,9 +237,9 @@ object Association extends LazyLogging {
     val associationsOverall = computeAssociationsAllDS(associationsPerDS)
 
     Map(
-      "indirectByDatasource" -> IOResource(associationsPerDS, outputs.indirectByDatasource),
-      "indirectByDatatype" -> IOResource(associationsPerDT, outputs.indirectByDatatype),
-      "indirectByOverall" -> IOResource(associationsOverall, outputs.indirectByOverall)
+      "indirectByDatasource" -> IOResource(associationsPerDS, outputs("indirect-by-datasource")),
+      "indirectByDatatype" -> IOResource(associationsPerDT, outputs("indirect-by-datatype")),
+      "indirectByOverall" -> IOResource(associationsOverall, outputs("indirect-by-overall"))
     )
   }
 
