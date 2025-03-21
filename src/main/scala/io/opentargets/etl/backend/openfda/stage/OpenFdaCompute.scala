@@ -25,18 +25,18 @@ object OpenFdaCompute extends LazyLogging {
     val fdaDataMontecarloReady =
       PrepareForMontecarlo(fdaDataWithSummaryStats, targetDimension.statsColId)
     // Add Meddra
-    val fdaDataWithMeddra = (context.configuration.openfda.meddra match {
-      case Some(_) =>
-        AttachMeddraData(
-          fdaDataMontecarloReady,
-          targetDimension.colId,
-          dfsData(MeddraPreferredTermsData()).data,
-          dfsData(MeddraLowLevelTermsData()).data
-        )
-      case _ =>
-        fdaDataMontecarloReady
-          .withColumn("meddraCode", typedLit[String](""))
-    }).persist(StorageLevel.MEMORY_AND_DISK_SER)
+    val input = context.configuration.openfda.input
+    val fdaDataWithMeddra = if (input.contains("meddra-preferred-terms") && input.contains("meddra-low-level-terms")) {
+      AttachMeddraData(
+        fdaDataMontecarloReady,
+        targetDimension.colId,
+        dfsData(MeddraPreferredTermsData()).data,
+        dfsData(MeddraLowLevelTermsData()).data
+      )
+    } else {
+      fdaDataMontecarloReady
+        .withColumn("meddraCode", typedLit[String](""))
+    }.persist(StorageLevel.MEMORY_AND_DISK_SER)
     // Conditional generation of Stratified Sampling
     val stratifiedSamplingData: IOResources = if (context.configuration.openfda.sampling.enabled) {
       // This one really uses the raw OpenFDA Data

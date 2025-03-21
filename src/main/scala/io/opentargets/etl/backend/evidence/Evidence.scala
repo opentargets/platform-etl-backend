@@ -339,14 +339,7 @@ object Evidence extends LazyLogging {
 
     logger.info(s"Executing evidence step with data-types: ${evidencesSec.dataSources.map(_.id)}")
 
-    val mappedInputs = Map(
-      "targets" -> evidencesSec.inputs.targets,
-      "diseases" -> evidencesSec.inputs.diseases,
-      "rawInputEvidences" -> evidencesSec.inputs.rawInputEvidences,
-      "rawIntermediateEvidences" -> evidencesSec.inputs.rawIntermediateEvidences,
-      "mechanismOfAction" -> evidencesSec.inputs.mechanismOfAction
-    )
-    val dfs = IoHelpers.readFrom(mappedInputs)
+    val dfs = IoHelpers.readFrom(evidencesSec.input)
 
     val rt = "resolvedTarget"
     val rd = "resolvedDisease"
@@ -364,8 +357,8 @@ object Evidence extends LazyLogging {
     val varIdLenThreshold = 300
 
     val combinedEvidencesDF =
-      dfs("rawInputEvidences").data
-        .unionByName(dfs("rawIntermediateEvidences").data, allowMissingColumns = true)
+      dfs("raw-input-evidences").data
+        .unionByName(dfs("raw-intermediate-evidences").data, allowMissingColumns = true)
 
     val transformedDF = combinedEvidencesDF
       .transform(prepare)
@@ -379,19 +372,19 @@ object Evidence extends LazyLogging {
       .transform(checkNullifiedScores(_, sc, ns))
       .transform(markDuplicates(_, id, md))
       .transform(
-        DirectionOfEffect(_, dfs("targets").data, dfs("mechanismOfAction").data)
+        DirectionOfEffect(_, dfs("targets").data, dfs("mechanism-of-action").data)
       )
       .persist(StorageLevel.DISK_ONLY)
 
     val okFitler = col(rt) and col(rd) and !col(md) and !col(ns) and !col(xb)
 
-    val outputPathConf = context.configuration.evidences.outputs
+    val outputPathConf = context.configuration.evidences.output
     Map(
       "ok" -> IOResource(
         transformedDF.filter(okFitler).drop(rt, rd, md, ns, xb),
-        outputPathConf.succeeded
+        outputPathConf("succeeded")
       ),
-      "failed" -> IOResource(transformedDF.filter(not(okFitler)), outputPathConf.failed)
+      "failed" -> IOResource(transformedDF.filter(not(okFitler)), outputPathConf("failed"))
     )
   }
 

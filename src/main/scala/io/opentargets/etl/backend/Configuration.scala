@@ -49,25 +49,15 @@ object Configuration extends LazyLogging {
       excludedBiotypes: Option[List[String]]
   )
 
-  case class EvidenceInputsSection(
-      rawInputEvidences: IOResourceConfig,
-      rawIntermediateEvidences: IOResourceConfig,
-      diseases: IOResourceConfig,
-      targets: IOResourceConfig,
-      mechanismOfAction: IOResourceConfig
-  )
-
-  case class SucceedFailedOutputs(succeeded: IOResourceConfig, failed: IOResourceConfig)
-
   case class EvidencesSection(
-      inputs: EvidenceInputsSection,
+      input: IOResourceConfigurations,
       uniqueFields: List[String],
       scoreExpr: String,
       datatypeId: String,
       dataSourcesExclude: List[String],
       dataSources: List[EvidenceEntry],
       directionOfEffect: DirectionOfEffectSection,
-      outputs: SucceedFailedOutputs
+      output: IOResourceConfigurations
   )
 
   case class DirectionOfEffectSection(
@@ -99,17 +89,9 @@ object Configuration extends LazyLogging {
       dataSources: List[DataSource]
   )
 
-  case class AOTFInputsSection(
-      evidences: IOResourceConfig,
-      diseases: IOResourceConfig,
-      targets: IOResourceConfig
-  )
-
-  case class AOTFOutputsSection(clickhouse: IOResourceConfig)
-
   case class AOTFSection(
-      outputs: AOTFOutputsSection,
-      inputs: AOTFInputsSection
+      output: IOResourceConfigurations,
+      input: IOResourceConfigurations
   )
 
   case class InputExtension(extensionType: String, input: IOResourceConfig)
@@ -141,14 +123,7 @@ object Configuration extends LazyLogging {
       additionalOutputs: List[String]
   )
 
-  case class KnownDrugsInputsSection(
-      evidences: IOResourceConfig,
-      diseases: IOResourceConfig,
-      targets: IOResourceConfig,
-      drugs: DrugOutputs
-  )
-
-  case class KnownDrugsSection(inputs: KnownDrugsInputsSection, output: IOResourceConfig)
+  case class KnownDrugsSection(input: IOResourceConfigurations, output: IOResourceConfigurations)
 
   case class GeneOntologySection(goInput: IOResourceConfig, output: IOResourceConfig)
 
@@ -156,28 +131,7 @@ object Configuration extends LazyLogging {
                                    output: IOResourceConfigurations
   )
 
-  case class SearchInputsSection(
-      evidences: IOResourceConfig,
-      diseases: IOResourceConfig,
-      diseaseHpo: IOResourceConfig,
-      hpo: IOResourceConfig,
-      targets: IOResourceConfig,
-      drugs: DrugOutputs,
-      associations: IOResourceConfig,
-      variants: IOResourceConfig,
-      studies: IOResourceConfig,
-      credibleSets: IOResourceConfig
-  )
-
-  case class SearchOutputsSection(
-      targets: IOResourceConfig,
-      diseases: IOResourceConfig,
-      drugs: IOResourceConfig,
-      variants: IOResourceConfig,
-      studies: IOResourceConfig
-  )
-
-  case class SearchSection(inputs: SearchInputsSection, outputs: SearchOutputsSection)
+  case class SearchSection(input: IOResourceConfigurations, output: IOResourceConfigurations)
 
   case class FacetSearchCategories(
       diseaseName: String,
@@ -241,18 +195,9 @@ object Configuration extends LazyLogging {
       otarProjectToEfo: IOResourceConfig
   )
 
-  // --- EBISearch configuration
-  case class EBISearchOutputSection(
-      ebisearchAssociations: IOResourceConfig,
-      ebisearchEvidence: IOResourceConfig
-  )
-
   case class EBISearchSection(
-      diseaseEtl: IOResourceConfig,
-      targetEtl: IOResourceConfig,
-      associationETL: IOResourceConfig,
-      evidenceETL: IOResourceConfig,
-      outputs: EBISearchOutputSection
+      input: IOResourceConfigurations,
+      output: IOResourceConfigurations
   )
 
   // --- OpenFDA FAERS configuration --- //
@@ -260,29 +205,13 @@ object Configuration extends LazyLogging {
 
   case class OpenfdaSamplingSection(size: Double, enabled: Boolean)
 
-  case class OpenfdaOutputsSection(
-      fdaUnfiltered: IOResourceConfig,
-      fdaResults: IOResourceConfig,
-      fdaTargetsUnfiltered: IOResourceConfig,
-      fdaTargetsResults: IOResourceConfig,
-      sampling: IOResourceConfig,
-      samplingTargets: IOResourceConfig
-  )
-  case class OpenfdaMeddraSection(
-      meddraPreferredTerms: IOResourceConfig,
-      meddraLowLevelTerms: IOResourceConfig
-  )
-
   case class OpenfdaSection(
-      chemblDrugs: IOResourceConfig,
-      fdaData: IOResourceConfig,
-      blacklistedEvents: IOResourceConfig,
-      meddra: Option[OpenfdaMeddraSection],
+      input: IOResourceConfigurations,
       meddraPreferredTermsCols: List[String],
       meddraLowLevelTermsCols: List[String],
       montecarlo: OpenfdaMontecarloSection,
       sampling: OpenfdaSamplingSection,
-      outputs: OpenfdaOutputsSection
+      output: IOResourceConfigurations
   )
 
   case class LiteratureProcessingOutputs(cooccurrences: IOResourceConfig,
@@ -370,7 +299,7 @@ object Configuration extends LazyLogging {
       geneOntology: GeneOntologySection,
       search: SearchSection,
       aotf: AOTFSection,
-      target: Target,
+      target: Target,//TODO: rename to match the rest of the sections
       mousePhenotype: MousePhenotypeSection,
       expression: ExpressionSection,
       openfda: OpenfdaSection,

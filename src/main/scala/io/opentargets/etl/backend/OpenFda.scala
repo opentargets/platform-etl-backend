@@ -54,8 +54,8 @@ object OpenFda extends LazyLogging {
       TargetDimension(
         "chembl_id",
         "uniq_report_ids_by_drug",
-        context.configuration.openfda.outputs.fdaUnfiltered,
-        context.configuration.openfda.outputs.fdaResults
+        context.configuration.openfda.output("fda-unfiltered"),
+        context.configuration.openfda.output("fda-results")
       )
     )
     // --- Run OpenFDA FAERS for targets ---
@@ -70,8 +70,8 @@ object OpenFda extends LazyLogging {
       TargetDimension(
         "targetId",
         "uniq_report_ids_by_target",
-        context.configuration.openfda.outputs.fdaTargetsUnfiltered,
-        context.configuration.openfda.outputs.fdaTargetsResults
+        context.configuration.openfda.output("fda-targets-unfiltered"),
+        context.configuration.openfda.output("fda-targets-results")
       )
     )
     logger.info("OpenFDA FAERS step completed")
