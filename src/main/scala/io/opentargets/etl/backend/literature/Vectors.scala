@@ -46,7 +46,7 @@ object Vectors extends Serializable with LazyLogging {
     val vdf = compute(mdf)
 
     val dataframesToSave = Map(
-      "vectorsIndex" -> IOResource(vdf, configuration.output)
+      "vectorsIndex" -> IOResource(vdf, configuration.output("vectors"))
     )
 
     writeTo(dataframesToSave)

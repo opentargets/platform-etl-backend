@@ -579,15 +579,7 @@ object Grounding extends Serializable with LazyLogging {
 
     val pipeline = generatePipeline("text", pipelineColumns)
 
-    val mappedInputs = Map(
-      // search output of ETL. (disease,drug,target)
-      "epmcids" -> empcConfiguration.epmcids,
-      "targets" -> empcConfiguration.targets,
-      "diseases" -> empcConfiguration.diseases,
-      "drugs" -> empcConfiguration.drugs,
-      "abstracts" -> empcConfiguration.abstracts.input,
-      "fullTexts" -> empcConfiguration.fullTexts.input
-    )
+    val mappedInputs = empcConfiguration.input
 
     val inputDataFrames = readFrom(mappedInputs)
 
@@ -604,9 +596,9 @@ object Grounding extends Serializable with LazyLogging {
     )
 
     val abstractsDF = inputDataFrames("abstracts").data
-      .select(col("*"), lit(empcConfiguration.abstracts.kind).as("kind"))
+      .select(col("*"), lit("Abstracts").as("kind"))
     val fullTextsDF = inputDataFrames("fullTexts").data
-      .select(col("*"), lit(empcConfiguration.fullTexts.kind).as("kind"))
+      .select(col("*"), lit("Full-text").as("kind"))
 
     import context.sparkSession.implicits._
 
