@@ -98,7 +98,9 @@ object KnownDrugs extends LazyLogging {
       .join(drugs, Seq("drugId", "targetId"))
 
     Map(
-      "knownDrugs" -> IOResource(knownDrugsDF, context.configuration.knownDrugs.output("known-drugs"))
+      "knownDrugs" -> IOResource(knownDrugsDF,
+                                 context.configuration.knownDrugs.output("known-drugs")
+      )
     )
   }
 }
