@@ -156,8 +156,8 @@ object Configuration extends LazyLogging {
 
   // --- OtarProject configuration
   case class OtarProjectSection(
-     input: IOResourceConfigurations,
-     output: IOResourceConfigurations
+      input: IOResourceConfigurations,
+      output: IOResourceConfigurations
   )
 
   case class EBISearchSection(
@@ -253,7 +253,7 @@ object Configuration extends LazyLogging {
       geneOntology: GeneOntologySection,
       search: SearchSection,
       aotf: AOTFSection,
-      target: Target,//TODO: rename to match the rest of the sections
+      target: Target, // TODO: rename to match the rest of the sections
       mousePhenotype: MousePhenotypeSection,
       expression: ExpressionSection,
       openfda: OpenfdaSection,
