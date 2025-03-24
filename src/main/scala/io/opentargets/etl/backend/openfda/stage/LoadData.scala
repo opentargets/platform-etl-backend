@@ -1,6 +1,6 @@
 package io.opentargets.etl.backend.openfda.stage
 
-import io.opentargets.etl.backend.spark.{IOResourceConfig, IoHelpers}
+import io.opentargets.etl.backend.spark.IoHelpers
 import io.opentargets.etl.backend.{
   Blacklisting,
   DrugData,
