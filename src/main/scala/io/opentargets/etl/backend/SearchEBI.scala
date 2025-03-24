@@ -5,7 +5,7 @@ import org.apache.spark.sql._
 import io.opentargets.etl.backend.spark.{IOResource, IoHelpers}
 import org.apache.spark.sql.SparkSession
 
-object EBISearch extends LazyLogging {
+object SearchEBI extends LazyLogging {
 
   def generateDatasets(resources: IoHelpers.IOResources): Map[String, DataFrame] = {
 
@@ -38,13 +38,6 @@ object EBISearch extends LazyLogging {
     val EBIConfiguration = context.configuration.searchEbi
 
     logger.info("Loading raw inputs for Base Expression step.")
-
-//    val mappedInputs = Map(
-//      "diseases" -> EBIConfiguration.diseaseEtl,
-//      "targets" -> EBIConfiguration.targetEtl,
-//      "evidence" -> EBIConfiguration.evidenceETL,
-//      "associationDirectOverall" -> EBIConfiguration.associationETL
-//    )
 
     val inputDataFrames = IoHelpers.readFrom(EBIConfiguration.input)
     val dataToSave = generateDatasets(inputDataFrames)
