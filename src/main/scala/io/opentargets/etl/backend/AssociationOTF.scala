@@ -94,7 +94,7 @@ object AssociationOTF extends LazyLogging {
 
     val conf = context.configuration
 
-    val dfs = IoHelpers.readFrom(conf.aotf.input)
+    val dfs = IoHelpers.readFrom(conf.associationOtf.input)
 
     val diseaseColumns = Seq(
       "id as disease_id",
@@ -171,7 +171,7 @@ object AssociationOTF extends LazyLogging {
       .selectExpr(evidenceColumnsCleaned: _*)
 
     Map(
-      "aotfsClickhouse" -> IOResource(clickhouseDF, conf.aotf.output("clickhouse"))
+      "aotfsClickhouse" -> IOResource(clickhouseDF, conf.associationOtf.output("clickhouse"))
     )
   }
 
