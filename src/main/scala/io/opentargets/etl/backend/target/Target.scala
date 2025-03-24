@@ -4,7 +4,7 @@ import com.typesafe.scalalogging.LazyLogging
 import io.opentargets.etl.backend.spark.Helpers.{mkFlattenArray, nest, safeArrayUnion}
 import io.opentargets.etl.backend.{Configuration, ETLSessionContext}
 import io.opentargets.etl.backend.spark.IoHelpers.IOResources
-import io.opentargets.etl.backend.spark.{CsvHelpers, IOResource, IOResourceConfig, IoHelpers}
+import io.opentargets.etl.backend.spark.{IOResource, IOResourceConfig, IoHelpers}
 import io.opentargets.etl.preprocess.uniprot.UniprotConverter
 import org.apache.spark.sql.expressions.UserDefinedFunction
 import org.apache.spark.sql.functions.{
