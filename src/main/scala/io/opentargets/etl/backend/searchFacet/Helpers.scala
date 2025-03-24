@@ -1,4 +1,4 @@
-package io.opentargets.etl.backend.facetSearch
+package io.opentargets.etl.backend.searchFacet
 
 import com.typesafe.scalalogging.LazyLogging
 import org.apache.spark.sql.{DataFrame, Dataset, Encoder, SparkSession}
