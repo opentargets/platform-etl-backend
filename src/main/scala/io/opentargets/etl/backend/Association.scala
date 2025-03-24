@@ -177,11 +177,11 @@ object Association extends LazyLogging {
     implicit val ss: SparkSession = context.sparkSession
     import Helpers.ImplicitExtras
 
-    val associationsSec = context.configuration.associations
+    val associationsSec = context.configuration.association
 
     val mappedInputs = Map(
-      "evidences" -> context.configuration.associations.input("evidences"),
-      "diseases" -> context.configuration.associations.input("diseases")
+      "evidences" -> context.configuration.association.input("evidences"),
+      "diseases" -> context.configuration.association.input("diseases")
     )
 
     val evidenceColumns = Seq(
@@ -214,7 +214,7 @@ object Association extends LazyLogging {
   }
 
   def computeDirectAssociations()(implicit context: ETLSessionContext): IOResources = {
-    val outputs = context.configuration.associations.output
+    val outputs = context.configuration.association.output
 
     val evidenceSet = prepareEvidences().persist(StorageLevel.DISK_ONLY)
     val associationsPerDS = computeAssociationsPerDS(evidenceSet).persist()
@@ -229,7 +229,7 @@ object Association extends LazyLogging {
   }
 
   def computeIndirectAssociations()(implicit context: ETLSessionContext): IOResources = {
-    val outputs = context.configuration.associations.output
+    val outputs = context.configuration.association.output
 
     val evidenceSet = prepareEvidences(expandOntology = true).persist()
     val associationsPerDS = computeAssociationsPerDS(evidenceSet).persist()
@@ -269,7 +269,7 @@ object Association extends LazyLogging {
     val res = assocsPerDS
       .withColumnRenamed(dsIdScore, dsScoreName)
       .withColumnRenamed(dsEvsCount, dsCountName)
-      .leftJoinWeights(context.configuration.associations, weightId)
+      .leftJoinWeights(context.configuration.association, weightId)
       .transform(harmonicFn(_, pairPartition, dsScoreName, overallDtIdScore, None, None))
       .withColumn(dtEvsCount, sum(col(dsCountName)).over(w))
       .selectExpr(cols: _*)
@@ -297,7 +297,7 @@ object Association extends LazyLogging {
     val dsCountName = mkRandomPrefix() + "DSCount"
 
     val res = assocsPerDS
-      .leftJoinWeights(context.configuration.associations, weightId)
+      .leftJoinWeights(context.configuration.association, weightId)
       .withColumnRenamed(dsIdScore, dsScoreName)
       .withColumnRenamed(dsEvsCount, dsCountName)
       .transform(

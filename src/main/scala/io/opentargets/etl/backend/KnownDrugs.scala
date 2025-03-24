@@ -29,7 +29,7 @@ object KnownDrugs extends LazyLogging {
   def apply()(implicit context: ETLSessionContext): IOResources = {
     implicit val ss: SparkSession = context.sparkSession
 
-    val conf = context.configuration.knownDrugs
+    val conf = context.configuration.knownDrug
 
     val inputDataFrame = IoHelpers.readFrom(conf.input)
 
@@ -99,7 +99,7 @@ object KnownDrugs extends LazyLogging {
 
     Map(
       "knownDrugs" -> IOResource(knownDrugsDF,
-                                 context.configuration.knownDrugs.output("known-drugs")
+                                 context.configuration.knownDrug.output("known-drugs")
       )
     )
   }
