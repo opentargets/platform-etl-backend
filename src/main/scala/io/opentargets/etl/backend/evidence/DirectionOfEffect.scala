@@ -43,7 +43,7 @@ object DirectionOfEffect {
   def apply(evidencesDF: DataFrame, targetsDF: DataFrame, mechanismsOfActionDF: DataFrame)(implicit
       context: ETLSessionContext
   ): DataFrame = {
-    val evidenceConfig = context.configuration.evidences
+    val evidenceConfig = context.configuration.evidence
     val actionTypeDF = mechanismsOfActionDF
       .select(
         explode_outer(col("chemblIds")).as("drugId2"),
@@ -102,7 +102,7 @@ object DirectionOfEffect {
                             oncolabelDF: DataFrame,
                             actionTypeDF: DataFrame
   )(implicit context: ETLSessionContext): DataFrame = {
-    val evidenceConfig = context.configuration.evidences;
+    val evidenceConfig = context.configuration.evidence;
     val gof = evidenceConfig.directionOfEffect.gof;
     val lof = evidenceConfig.directionOfEffect.lof;
     val filterLof = evidenceConfig.directionOfEffect.varFilterLof;

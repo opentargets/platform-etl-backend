@@ -49,7 +49,7 @@ object StringProtein extends Serializable with LazyLogging {
   def apply(stringDataset: DataFrame, scorethreshold: Int)(implicit
       context: ETLSessionContext
   ): DataFrame = {
-    val configuration = context.configuration.interactions
+    val configuration = context.configuration.interaction
 
     logger.info("Compute string protein dataset threshold: " + scorethreshold.toString)
 

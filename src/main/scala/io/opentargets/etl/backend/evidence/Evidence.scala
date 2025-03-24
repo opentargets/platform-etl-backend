@@ -92,7 +92,7 @@ object Evidence extends LazyLogging {
     implicit val session: SparkSession = context.sparkSession
     import session.implicits._
     val evsConf = broadcast(
-      context.configuration.evidences.dataSources
+      context.configuration.evidence.dataSources
         .filter(_.excludedBiotypes.isDefined)
         .map(ds => (ds.id, ds.excludedBiotypes.get))
         .toDF(datasourceIdCol, btsCol)
@@ -204,7 +204,7 @@ object Evidence extends LazyLogging {
     logger.info(
       "build a LUT table for the datatypes to make sure every datasource has one datatype id"
     )
-    val config = context.configuration.evidences
+    val config = context.configuration.evidence
 
     val dsId = "datasourceId"
     val colName = "datatypeId"
@@ -239,7 +239,7 @@ object Evidence extends LazyLogging {
   def generateHashes(df: DataFrame, columnName: String)(implicit
       context: ETLSessionContext
   ): DataFrame = {
-    val config = context.configuration.evidences
+    val config = context.configuration.evidence
 
     logger.info("Validate each evidence: generating a hash to check for duplicates")
 
@@ -292,7 +292,7 @@ object Evidence extends LazyLogging {
 
   def score(df: DataFrame, columnName: String)(implicit context: ETLSessionContext): DataFrame = {
     logger.info("score each evidence and mark unscored ones")
-    val config = context.configuration.evidences
+    val config = context.configuration.evidence
 
     val dts = config.dataSources.map { dt =>
       (col("sourceId") === dt.id) -> expr(dt.scoreExpr)
@@ -335,7 +335,7 @@ object Evidence extends LazyLogging {
   def compute()(implicit context: ETLSessionContext): IOResources = {
     implicit val ss: SparkSession = context.sparkSession
 
-    val evidencesSec = context.configuration.evidences
+    val evidencesSec = context.configuration.evidence
 
     logger.info(s"Executing evidence step with data-types: ${evidencesSec.dataSources.map(_.id)}")
 
@@ -378,7 +378,7 @@ object Evidence extends LazyLogging {
 
     val okFitler = col(rt) and col(rd) and !col(md) and !col(ns) and !col(xb)
 
-    val outputPathConf = context.configuration.evidences.output
+    val outputPathConf = context.configuration.evidence.output
     Map(
       "ok" -> IOResource(
         transformedDF.filter(okFitler).drop(rt, rd, md, ns, xb),

@@ -35,7 +35,7 @@ object EBISearch extends LazyLogging {
 
     logger.info("Generate EBI Search dataset")
 
-    val EBIConfiguration = context.configuration.ebisearch
+    val EBIConfiguration = context.configuration.searchEbi
 
     logger.info("Loading raw inputs for Base Expression step.")
 
