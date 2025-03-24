@@ -214,28 +214,28 @@ object Configuration extends LazyLogging {
   case class EtlDagConfig(steps: List[EtlStep[String]], resolve: Boolean)
 
   case class OTConfig(
-                       sparkUri: Option[String],
-                       sparkSettings: SparkSettings,
-                       etlDag: EtlDagConfig,
-                       common: Common,
-                       pharmacogenomics: PharmacogenomicsSection,
-                       reactome: ReactomeSection,
-                       association: AssociationsSection,
-                       evidence: EvidencesSection,
-                       searchFacet: FacetSearchSection,
-                       drug: DrugSection,
-                       interaction: InteractionsSection,
-                       knownDrug: KnownDrugsSection,
-                       go: GeneOntologySection,
-                       search: SearchSection,
-                       associationOtf: AOTFSection,
-                       target: Target, // TODO: rename to match the rest of the sections
-                       mousePhenotype: MousePhenotypeSection,
-                       expression: ExpressionSection,
-                       openfda: OpenfdaSection,
-                       searchEbi: EBISearchSection,
-                       otar: OtarProjectSection,
-                       literature: LiteratureSection,
-                       targetEngine: TargetEngineSection
+      sparkUri: Option[String],
+      sparkSettings: SparkSettings,
+      etlDag: EtlDagConfig,
+      common: Common,
+      pharmacogenomics: PharmacogenomicsSection,
+      reactome: ReactomeSection,
+      association: AssociationsSection,
+      evidence: EvidencesSection,
+      searchFacet: FacetSearchSection,
+      drug: DrugSection,
+      interaction: InteractionsSection,
+      knownDrug: KnownDrugsSection,
+      go: GeneOntologySection,
+      search: SearchSection,
+      associationOtf: AOTFSection,
+      target: Target, // TODO: rename to match the rest of the sections
+      mousePhenotype: MousePhenotypeSection,
+      expression: ExpressionSection,
+      openfda: OpenfdaSection,
+      searchEbi: EBISearchSection,
+      otar: OtarProjectSection,
+      literature: LiteratureSection,
+      targetEngine: TargetEngineSection
   )
 }
