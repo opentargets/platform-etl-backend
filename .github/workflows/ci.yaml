@@ -4,7 +4,7 @@ on:
   workflow_call:
 
 env:
-  SCALA_VERSION: 2.12.12
+  SCALA_VERSION: 2.12.20
 
 jobs:
   format:
