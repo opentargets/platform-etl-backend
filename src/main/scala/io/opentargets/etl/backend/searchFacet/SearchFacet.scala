@@ -1,9 +1,9 @@
-package io.opentargets.etl.backend.facetSearch
+package io.opentargets.etl.backend.searchFacet
 
 import com.typesafe.scalalogging.LazyLogging
 import io.opentargets.etl.backend.ETLSessionContext
-import io.opentargets.etl.backend.facetSearch.DiseaseFacets._
-import io.opentargets.etl.backend.facetSearch.TargetFacets._
+import io.opentargets.etl.backend.searchFacet.DiseaseFacets._
+import io.opentargets.etl.backend.searchFacet.TargetFacets._
 import io.opentargets.etl.backend.spark.IOResource
 import io.opentargets.etl.backend.spark.IoHelpers.{IOResources, readFrom, writeTo}
 import org.apache.spark.sql.{DataFrame, Dataset, SparkSession}

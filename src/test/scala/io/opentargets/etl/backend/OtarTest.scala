@@ -3,7 +3,7 @@ package io.opentargets.etl.backend
 import org.apache.spark.sql._
 import org.apache.spark.sql.functions._
 
-class OtarProjectTest extends EtlSparkUnitTest {
+class OtarTest extends EtlSparkUnitTest {
   import sparkSession.implicits._
   lazy val inputDiseases: DataFrame = Seq(
     ("EFO_0003767", List("EFO1", "EFO2")),
@@ -28,7 +28,7 @@ class OtarProjectTest extends EtlSparkUnitTest {
     // given
     val expectedColumns = Set("efo_id", "projects")
     // when
-    val results = OtarProject.generateOtarInfo(inputDiseases, inputOtarMeta, inputOtarLookup)
+    val results = Otar.generateOtarInfo(inputDiseases, inputOtarMeta, inputOtarLookup)
 
     // then
     assert(expectedColumns.forall(expectedCol => results.columns.contains(expectedCol)))
@@ -37,7 +37,7 @@ class OtarProjectTest extends EtlSparkUnitTest {
   it should "return EFO id from ancestors info" in {
     // given
     // when
-    val results = OtarProject.generateOtarInfo(inputDiseases, inputOtarMeta, inputOtarLookup)
+    val results = Otar.generateOtarInfo(inputDiseases, inputOtarMeta, inputOtarLookup)
 
     // then
     assert(results.filter(col("efo_id") === "EFO5").count() === 1)

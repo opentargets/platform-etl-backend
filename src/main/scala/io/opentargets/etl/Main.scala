@@ -9,7 +9,7 @@ import io.opentargets.etl.backend.drug.Drug
 import io.opentargets.etl.backend.evidence.Evidence
 import io.opentargets.etl.backend.graph.EtlDag
 import io.opentargets.etl.backend.literature.Literature
-import io.opentargets.etl.backend.facetSearch.FacetSearch
+import io.opentargets.etl.backend.searchFacet.FacetSearch
 import io.opentargets.etl.backend.pharmacogenomics.Pharmacogenomics
 import io.opentargets.etl.backend.targetEngine.TargetEngine
 
@@ -28,11 +28,11 @@ object ETL extends LazyLogging {
       case "interaction"      => Interactions()
       case "known_drug"       => KnownDrugs()
       case "literature"       => Literature()
-      case "otar"             => OtarProject()
+      case "otar"             => Otar()
       case "pharmacogenomics" => Pharmacogenomics()
       case "reactome"         => Reactome()
       case "search"           => Search()
-      case "search_ebi"       => EBISearch()
+      case "search_ebi"       => SearchEBI()
       case "search_facet"     => FacetSearch()
       case "target"           => Target()
       case "target_engine"    => TargetEngine()
