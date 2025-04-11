@@ -12,6 +12,9 @@ class SafetyTest extends EtlSparkUnitTest {
   def safetyRawDf(implicit sparkSession: SparkSession): DataFrame =
     sparkSession.read.json(this.getClass.getResource("/target/safety_100.jsonl").getPath)
 
+  def diseaseObsoleteMap(implicit sparkSession: SparkSession): DataFrame =
+    sparkSession.read.json(this.getClass.getResource("/disease_obsolete_map.jsonl").getPath)
+
   val ensgLookup: DataFrame = Seq(
     ("ENSG1", Seq("ALPP")),
     ("ENSG2", Seq("AR")),
@@ -30,9 +33,11 @@ class SafetyTest extends EtlSparkUnitTest {
   "Safety dataset" should "be properly created" in {
     // given
     val safetyDf = safetyRawDf
+    val diseaseMapDf = diseaseObsoleteMap
     val lookupDf = ensgLookup
     // when
-    val results = Safety(safetyEvidence = safetyDf, geneToEnsgLookup = lookupDf)
+    val results =
+      Safety(safetyEvidence = safetyDf, geneToEnsgLookup = lookupDf, diseasesDf = diseaseMapDf)
 
     // then
     results.count() should be > (10L)

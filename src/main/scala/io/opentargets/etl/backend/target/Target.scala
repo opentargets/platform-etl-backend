@@ -55,8 +55,10 @@ object Target extends LazyLogging {
 
   }
 
-  def compute(context: ETLSessionContext)(implicit ss: SparkSession): Map[String, DataFrame] = {
-
+  def compute(
+      context: ETLSessionContext
+  )(implicit ctx: ETLSessionContext): Map[String, DataFrame] = {
+    implicit val ss: SparkSession = ctx.sparkSession
     // 1. get input data frames
     val inputDataFrames = getMappedInputs(context.configuration.target)
 
@@ -389,36 +391,18 @@ object Target extends LazyLogging {
       .drop("s", "ss", "ns")
   }
 
-  /**
-   * Creates a LUT from the dieseases input to replace the obsolete EFOs in the safety evidence data,
-   * @param inputDataFrames map with input dataframes
-   * @return Safety Evidence DataFrame with obsolete EFOs replaced
-   */
-  private def replaceObsoleteEFOs(inputDataFrames: IOResources): DataFrame = {
-    logger.info("Replacing obsolete EFOs in gene ontology using diseases data")
-
-    logger.debug("Loading dataframes for replaceObsoleteEFOs")
-    val safetyEvidenceDf = inputDataFrames("safetyEvidence").data
-    val diseasesDf = inputDataFrames("diseases").data
-
-    val diseaseMappingDf = diseasesDf.select(col("id").as("diseaseId"), explode(col("obsoleteTerms")).as("obsoleteTerm"))
-
-    safetyEvidenceDf
-      .join(diseaseMappingDf, col("id") === diseaseMappingDf.col("obsoleteTerm"), "left_outer")
-      .withColumn("id", coalesce(col("diseaseId"), col("id")))
-      .drop("obsoleteTerm", "diseaseId")
-  }
-
   private def addTargetSafety(inputDataFrames: IOResources, geneToEnsemblLookup: DataFrame)(
       dataFrame: DataFrame
-  )(implicit sparkSession: SparkSession): DataFrame = {
-
-    val safetyEvidenceDf = replaceObsoleteEFOs(inputDataFrames)
+  )(implicit ctx: ETLSessionContext): DataFrame = {
+    implicit val sparkSession: SparkSession = ctx.sparkSession
+    val diseasesDf = inputDataFrames("diseases").data
 
     val tsDS: Dataset[TargetSafety] = Safety(
-      safetyEvidenceDf,
-      geneToEnsemblLookup
+      inputDataFrames("safetyEvidence").data,
+      geneToEnsemblLookup,
+      diseasesDf
     )
+
     logger.info("Adding target safety to dataframe")
     dataFrame.join(tsDS, Seq("id"), "left_outer")
   }

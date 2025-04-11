@@ -1,7 +1,9 @@
 package io.opentargets.etl.backend.target
 
 import com.typesafe.scalalogging.LazyLogging
+import io.opentargets.etl.backend.ETLSessionContext
 import io.opentargets.etl.backend.spark.Helpers.unionDataframeDifferentSchema
+import io.opentargets.etl.backend.target.Target.logger
 import org.apache.spark.sql.functions.{
   array_contains,
   broadcast,
@@ -9,6 +11,7 @@ import org.apache.spark.sql.functions.{
   col,
   collect_set,
   element_at,
+  explode,
   lit,
   split,
   struct,
@@ -44,7 +47,8 @@ object Safety extends LazyLogging {
 
   def apply(
       safetyEvidence: DataFrame,
-      geneToEnsgLookup: DataFrame
+      geneToEnsgLookup: DataFrame,
+      diseasesDf: DataFrame
   )(implicit sparkSession: SparkSession): Dataset[TargetSafety] = {
     import sparkSession.implicits._
 
@@ -54,6 +58,7 @@ object Safety extends LazyLogging {
       addMissingGeneIdsToSafetyEvidence(safetyEvidence, geneToEnsgLookup)
 
     val safetyGroupedById = safetyWithEnsgIds
+      .transform(replaceObsoleteEFOs(diseasesDf, _))
       .transform(groupByEvidence)
 
     safetyGroupedById.as[TargetSafety]
@@ -88,6 +93,27 @@ object Safety extends LazyLogging {
     tDf
   }
 
+  /** Creates a LUT from the dieseases input to replace the obsolete EFOs in the safety evidence
+    * data,
+    *
+    * @param inputDataFrames
+    *   map with input dataframes
+    * @return
+    *   Safety Evidence DataFrame with obsolete EFOs replaced
+    */
+  private def replaceObsoleteEFOs(diseasesDf: DataFrame, safety: DataFrame): DataFrame = {
+    logger.info("Replacing obsolete EFOs in gene ontology using diseases data")
+
+    val diseaseMappingDf =
+      diseasesDf.select(col("id").as("diseaseId"), explode(col("obsoleteTerms")).as("obsoleteTerm"))
+
+    safety
+      .join(diseaseMappingDf, col("eventId") === diseaseMappingDf.col("obsoleteTerm"), "left_outer")
+      .withColumn("eventId", coalesce(col("diseaseId"), col("eventId")))
+      .drop("obsoleteTerm", "diseaseId")
+  }
+
+  // TODO: Move replaceObsoleteEFOs to this object
   private def groupByEvidence(df: DataFrame): DataFrame = {
     logger.debug("Grouping target safety by ensembl id.")
     df.select(
