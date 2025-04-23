@@ -59,7 +59,7 @@ object Embedding extends Serializable with LazyLogging {
       Map(
         "trainingSet" -> IOResource(
           trDS,
-          etlSessionContext.configuration.literature.embedding.output("training-set")
+          etlSessionContext.configuration.literature.output("embedding-training-set")
         )
       )
     )(etlSessionContext)
@@ -106,13 +106,13 @@ object Embedding extends Serializable with LazyLogging {
     makeWord2VecModel(df, modelConfiguration, inputColName = "terms", outputColName = "synonyms")
   }
 
-  def compute(matches: DataFrame, configuration: OTConfig)(implicit
+  def compute(matches: DataFrame)(implicit
       etlSessionContext: ETLSessionContext
   ): IOResourceML = {
 
     val matchesModels = generateModel(matches)
 
-    val configuration = etlSessionContext.configuration.literature.embedding.output("model")
+    val configuration = etlSessionContext.configuration.literature.output("embedding-model")
     val output = IOResourceML(matchesModels, configuration)
 
     writeTo(output)
@@ -124,8 +124,8 @@ object Embedding extends Serializable with LazyLogging {
     logger.info("Embedding step reading the files matches")
     val configuration = context.configuration
 
-    val input = configuration.literature.embedding.input
+    val input = configuration.literature.input.filter(_._1.startsWith("embedding-"))
     val inputDataFrames = readFrom(input)
-    compute(inputDataFrames("matches").data, configuration)
+    compute(inputDataFrames("embedding-matches").data)
   }
 }

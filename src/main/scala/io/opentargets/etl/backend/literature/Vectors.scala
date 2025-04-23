@@ -40,13 +40,13 @@ object Vectors extends Serializable with LazyLogging {
     implicit val ss: SparkSession = context.sparkSession
 
     logger.info("Generate vector table from W2V model")
-    val configuration = context.configuration.literature.vectors
+    val configuration = context.configuration.literature
 
-    val mdf = loadVectorsFromModel(configuration.input)
+    val mdf = loadVectorsFromModel(configuration.input("vectors-input").path)
     val vdf = compute(mdf)
 
     val dataframesToSave = Map(
-      "vectorsIndex" -> IOResource(vdf, configuration.output("vectors"))
+      "vectorsIndex" -> IOResource(vdf, configuration.output("vectors-output"))
     )
 
     writeTo(dataframesToSave)

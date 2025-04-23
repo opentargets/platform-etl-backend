@@ -1,7 +1,7 @@
 package io.opentargets.etl.backend.literature
 
 import com.typesafe.scalalogging.LazyLogging
-import io.opentargets.etl.backend.Configuration.LiteratureProcessing
+import io.opentargets.etl.backend.Configuration.{LiteratureProcessing, LiteratureSection}
 import io.opentargets.etl.backend.ETLSessionContext
 import io.opentargets.etl.backend.spark.IoHelpers.writeTo
 import io.opentargets.etl.backend.spark.IOResource
@@ -121,8 +121,8 @@ object Processing extends Serializable with LazyLogging {
 
     logger.info("Processing step")
 
-    val processingConfiguration: LiteratureProcessing = context.configuration.literature.processing
-    val grounding: Map[String, DataFrame] = Grounding.compute(processingConfiguration)
+    val configuration: LiteratureSection = context.configuration.literature
+    val grounding: Map[String, DataFrame] = Grounding.compute(context.configuration.literature)
 
     logger.info("Processing raw evidences and persist matches and cooccurrences")
 
@@ -138,22 +138,26 @@ object Processing extends Serializable with LazyLogging {
 
     val literatureIndexAlt: (DataFrame, DataFrame) = filterMatchesForCH(matches)
 
-    val outputs = processingConfiguration.output
+    val outputs = configuration.output
     val dataframesToSave = Map(
-      "cooccurrences" -> IOResource(coocs, outputs("cooccurrences")),
-      "matches" -> IOResource(matches, outputs("matches")),
-      "literatureIndex" -> IOResource(literatureIndexAlt._1, outputs("literature-index")),
-      "publicationSentences" -> IOResource(literatureIndexAlt._2, outputs("literature-sentences"))
+      "cooccurrences" -> IOResource(coocs, outputs("processing-cooccurrences")),
+      "matches" -> IOResource(matches, outputs("processing-matches")),
+      "literatureIndex" -> IOResource(literatureIndexAlt._1,
+                                      outputs("processing-literature-index")
+      ),
+      "publicationSentences" -> IOResource(literatureIndexAlt._2,
+                                           outputs("processing-literature-sentences")
+      )
     ) ++ {
-      if (processingConfiguration.writeFailures) {
+      if (configuration.processing.writeFailures) {
         Map(
           "failedMatches" -> IOResource(
             grounding("matchesFailed"),
-            outputs("matches").copy(path = outputs("failed-matches").path)
+            outputs("matches").copy(path = outputs("processing-failed-matches").path)
           ),
           "failedCoocs" -> IOResource(
             grounding("cooccurrencesFailed"),
-            outputs("matches").copy(path = outputs("failed-cooccurrences").path)
+            outputs("matches").copy(path = outputs("processing-failed-cooccurrences").path)
           )
         )
       } else Map.empty

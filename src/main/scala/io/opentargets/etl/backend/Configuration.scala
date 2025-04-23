@@ -27,8 +27,6 @@ object Configuration extends LazyLogging {
 
   case class Epmc(
       uris: EpmcUris,
-      input: IOResourceConfigurations,
-      output: IOResourceConfigurations,
       excludedTargetTerms: List[String],
       sectionsOfInterest: List[String],
       printMetrics: Boolean
@@ -140,7 +138,7 @@ object Configuration extends LazyLogging {
                            ignoreIfExists: Boolean,
                            defaultSparkSessionConfig: Seq[IOResourceConfigOption]
   ) {
-    val validWriteModes = Set("error", "errorifexists", "append", "overwrite")//TODO: add ignore
+    val validWriteModes = Set("error", "errorifexists", "append", "overwrite", "ignore")
     require(
       validWriteModes.contains(writeMode),
       s"$writeMode is not valid. Must be one of ${validWriteModes.toString()}"
@@ -172,10 +170,7 @@ object Configuration extends LazyLogging {
       output: IOResourceConfigurations
   )
 
-  case class LiteratureProcessing(input: IOResourceConfigurations,
-                                  output: IOResourceConfigurations,
-                                  writeFailures: Boolean
-  )
+  case class LiteratureProcessing(writeFailures: Boolean)
 
   case class LiteratureModelConfiguration(windowSize: Int,
                                           numPartitions: Int,
@@ -184,12 +179,7 @@ object Configuration extends LazyLogging {
                                           stepSize: Double
   )
 
-  case class LiteratureEmbedding(modelConfiguration: LiteratureModelConfiguration,
-                                 input: IOResourceConfigurations,
-                                 output: IOResourceConfigurations
-  )
-
-  case class LiteratureVectors(input: String, output: IOResourceConfigurations)
+  case class LiteratureEmbedding(modelConfiguration: LiteratureModelConfiguration)
 
   case class LiteratureSectionRanks(section: String, rank: Long, weight: Double)
 
@@ -199,9 +189,10 @@ object Configuration extends LazyLogging {
 
   case class LiteratureSection(
       common: LiteratureCommon,
+      input: IOResourceConfigurations,
+      output: IOResourceConfigurations,
       processing: LiteratureProcessing,
       embedding: LiteratureEmbedding,
-      vectors: LiteratureVectors,
       epmc: Epmc
   )
 
