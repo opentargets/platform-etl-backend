@@ -16,7 +16,7 @@
 /output/
 /tmp
 /scratch
-/configuration/local
+/local-configuration
 /deprecated/resources/amm.application.conf
 project/metals.sbt
 .vscode/
