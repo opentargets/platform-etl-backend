@@ -8,7 +8,7 @@ import org.apache.spark.ml.Pipeline
 import org.apache.spark.sql._
 import com.johnsnowlabs.nlp.{DocumentAssembler, Finisher}
 import com.johnsnowlabs.nlp.annotator._
-import io.opentargets.etl.backend.Configuration.LiteratureProcessing
+import io.opentargets.etl.backend.Configuration.{LiteratureProcessing, LiteratureSection}
 import io.opentargets.etl.backend.ETLSessionContext
 import org.apache.spark.sql.types._
 import org.apache.spark.sql.expressions.Window
@@ -571,7 +571,7 @@ object Grounding extends Serializable with LazyLogging {
   }
 
   def compute(
-      empcConfiguration: LiteratureProcessing
+      configuration: LiteratureSection
   )(implicit context: ETLSessionContext): Map[String, DataFrame] = {
     implicit val ss: SparkSession = context.sparkSession
 
@@ -579,25 +579,25 @@ object Grounding extends Serializable with LazyLogging {
 
     val pipeline = generatePipeline("text", pipelineColumns)
 
-    val mappedInputs = empcConfiguration.input
+    val mappedInputs = configuration.input.filter(_._1.startsWith("processing-"))
 
     val inputDataFrames = readFrom(mappedInputs)
 
     logger.info("Load PMCID-PMID lut and OT entity lut")
-    val idLUT: DataFrame = loadEPMCIDs(inputDataFrames("epmcids").data)
+    val idLUT: DataFrame = loadEPMCIDs(inputDataFrames("processing-epmcids").data)
     val luts: DataFrame = broadcast(
       loadEntityLUT(
-        inputDataFrames("targets").data,
-        inputDataFrames("diseases").data,
-        inputDataFrames("drugs").data,
+        inputDataFrames("processing-targets").data,
+        inputDataFrames("processing-diseases").data,
+        inputDataFrames("processing-drugs").data,
         pipeline,
         pipelineColumns
       )
     )
 
-    val abstractsDF = inputDataFrames("abstracts").data
+    val abstractsDF = inputDataFrames("processing-abstracts").data
       .select(col("*"), lit("Abstracts").as("kind"))
-    val fullTextsDF = inputDataFrames("fullTexts").data
+    val fullTextsDF = inputDataFrames("processing-full-texts").data
       .select(col("*"), lit("Full-text").as("kind"))
 
     import context.sparkSession.implicits._
