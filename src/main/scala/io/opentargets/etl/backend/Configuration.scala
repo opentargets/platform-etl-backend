@@ -218,12 +218,10 @@ object Configuration extends LazyLogging {
 
   case class EtlStep[T](step: T, dependencies: List[T])
 
-  case class EtlDagConfig(steps: List[EtlStep[String]], resolve: Boolean)
-
   case class OTConfig(
       sparkUri: Option[String],
       sparkSettings: SparkSettings,
-      etlDag: EtlDagConfig,
+      steps: List[String],
       common: Common,
       pharmacogenomics: PharmacogenomicsSection,
       reactome: ReactomeSection,

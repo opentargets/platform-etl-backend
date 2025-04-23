@@ -7,7 +7,6 @@ import io.opentargets.etl.backend._
 import io.opentargets.etl.backend.target.Target
 import io.opentargets.etl.backend.drug.Drug
 import io.opentargets.etl.backend.evidence.Evidence
-import io.opentargets.etl.backend.graph.EtlDag
 import io.opentargets.etl.backend.literature.Literature
 import io.opentargets.etl.backend.searchFacet.FacetSearch
 import io.opentargets.etl.backend.pharmacogenomics.Pharmacogenomics
@@ -47,12 +46,10 @@ object ETL extends LazyLogging {
       case Right(otContext) =>
         implicit val ctxt: ETLSessionContext = otContext
 
-        // build ETL DAG graph
-        val etlDag = new EtlDag[String](otContext.configuration.etlDag.steps)
+        val stepList = otContext.configuration.steps
 
         val etlSteps =
-          if (steps.isEmpty) etlDag.getAll
-          else if (otContext.configuration.etlDag.resolve) etlDag.getDependenciesFor(steps: _*)
+          if (steps.isEmpty) stepList
           else steps
 
         logger.info(s"Steps to execute: $etlSteps")
