@@ -142,7 +142,6 @@ object Configuration extends LazyLogging {
   )
 
   case class SparkSettings(writeMode: String,
-                           ignoreIfExists: Boolean,
                            defaultSparkSessionConfig: Seq[IOResourceConfigOption]
   ) {
     val validWriteModes = Set("error", "errorifexists", "append", "overwrite", "ignore")
