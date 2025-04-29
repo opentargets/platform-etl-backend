@@ -60,7 +60,7 @@ object ETL extends LazyLogging {
       "evidence" -> ctx.configuration.evidences.outputs.succeeded.path,
       "expression" -> ctx.configuration.expression.output.path,
       "openfda" -> ctx.configuration.openfda.outputs.fdaResults.path,
-      "go" -> ctx.configuration.geneOntology.output.path,
+      "go-step" -> ctx.configuration.geneOntology.output.path,
       "interaction" -> ctx.configuration.interactions.outputs.interactions.path,
       "known_drug" -> ctx.configuration.knownDrugs.output.path,
       "literature" -> ctx.configuration.literature.processing.outputs.literatureIndex.path,
