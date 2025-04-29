@@ -22,7 +22,8 @@ object Dependencies {
     testingDeps,
     gcpEtl,
     typeSafeConfig,
-    johnS
+    johnS,
+    scalanlp
   ).flatten
 
   lazy val catsVersion = "3.3.14"
@@ -52,6 +53,10 @@ object Dependencies {
   )
 
   lazy val sparkVersion = "3.2.4"
+
+  lazy val scalanlp = Seq(
+    "org.scalanlp" %% "breeze" % "1.2"
+  )
 
   lazy val sparkDeps: Seq[ModuleID] = {
     val sparkDepsOptionallyProvided = Seq(
