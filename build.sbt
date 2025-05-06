@@ -10,7 +10,7 @@ val buildResolvers = Seq(
 
 ThisBuild / organization := "io.opentargets"
 ThisBuild / version := sys.env.getOrElse("TAG", "0.0.0")
-ThisBuild / scalaVersion := "2.12.12"
+ThisBuild / scalaVersion := "2.12.20"
 
 def jarName(name: String): String = s"$name-${sys.env.getOrElse("TAG", "0.0.0")}.jar"
 

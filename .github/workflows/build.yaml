@@ -10,7 +10,7 @@ jobs:
     permissions:
       contents: read
     env:
-      SCALA_VERSION: 2.12.12
+      SCALA_VERSION: 2.12.20
       TAG: ${{ github.ref_name }}
     steps:
       - name: Prepare tag

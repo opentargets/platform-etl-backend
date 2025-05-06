@@ -10,7 +10,7 @@ OpenTargets ETL pipeline to process Pipeline output in order to obtain a new API
 ### Requirements
 
 1. OpenJDK 8/11
-2. scala 2.12.x (through SDKMAN is simple) [Scala Doc](https://www.scala-lang.org/api/2.12.12/index.html)
+2. scala 2.12.x (through SDKMAN is simple) [Scala Doc](https://www.scala-lang.org/api/2.12.20/index.html)
 3. ammonite REPL
 4. Input resources from PIS (src/main/resources/conference.conf)
 
