@@ -8,27 +8,23 @@ import org.apache.spark.sql.{DataFrame, SparkSession}
 object MousePhenotype extends Serializable with LazyLogging {
 
   def apply()(implicit context: ETLSessionContext): IOResources = {
+    val config = context.configuration.steps.mousePhenotype
     implicit val ss: SparkSession = context.sparkSession
+    implicit val target_df: DataFrame = IoHelpers.loadFileToDF(config.input("target"))
 
-    implicit val target_df: DataFrame =
-      IoHelpers.loadFileToDF(context.configuration.mousePhenotype.input("target"))
     logger.info(s"MousePhenotypes step")
-
     logger.info(s"MousePhenotypes Reading input data")
-    val inputs = context.configuration.mousePhenotype.input
 
+    val inputs = config.input
     val inputDataframes = IoHelpers.readFrom(inputs)
-
     val mousePhenotypesDf = inputDataframes("mouse-phenotypes").data
 
     logger.info(s"MousePhenotypes Validating data")
-    val (valid_targets_df, missing_targets_df) = validate(mousePhenotypesDf, "targetFromSourceId")
 
+    val (valid_targets_df, missing_targets_df) = validate(mousePhenotypesDf, "targetFromSourceId")
     val outputs = Map(
-      "succeeded" -> IOResource(valid_targets_df,
-                                context.configuration.mousePhenotype.output("succeeded")
-      ),
-      "failed" -> IOResource(missing_targets_df, context.configuration.mousePhenotype.output("failed"))
+      "succeeded" -> IOResource(valid_targets_df, config.output("succeeded")),
+      "failed" -> IOResource(missing_targets_df, config.output("failed"))
     )
 
     logger.info(s"MousePhenotypes writing output data")
@@ -49,9 +45,7 @@ object MousePhenotype extends Serializable with LazyLogging {
       targetDf: DataFrame
   ): (DataFrame, DataFrame) = {
 
-    val cleanedDf = df
-      .join(targetDf, targetDf("id") === df(idColumn), "left_semi")
-
+    val cleanedDf = df.join(targetDf, targetDf("id") === df(idColumn), "left_semi")
     val missing = df.join(cleanedDf.select(idColumn), Seq(idColumn), "left_anti")
 
     (cleanedDf, missing)

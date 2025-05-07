@@ -7,48 +7,64 @@ import io.opentargets.etl.backend.spark.{IOResourceConfig, IOResourceConfigOptio
 import pureconfig.ConfigReader.Result
 import pureconfig._
 import pureconfig.generic.auto._
+import pureconfig.generic.ProductHint
 
 object Configuration extends LazyLogging {
+  implicit def hint[A]: ProductHint[A] = ProductHint[A](ConfigFieldMapping(CamelCase, SnakeCase))
+
   lazy val config: Result[OTConfig] = load
 
   def load: ConfigReader.Result[OTConfig] = {
-    logger.info("load configuration from file")
     val config = ConfigFactory.load()
-
     val obj = ConfigSource.fromConfig(config).load[OTConfig]
-    logger.debug(s"configuration properly case classed ${obj.toString}")
+    logger.debug(s"configuration parsed successfully ${obj.toString}")
 
     obj
   }
 
-  case class DataSource(id: String, weight: Double, dataType: String, propagate: Boolean)
+  // step confuguration classes
 
-  case class EpmcUris(ensembl: String, chembl: String, ontologies: String)
-
-  case class Epmc(
-      uris: EpmcUris,
-      excludedTargetTerms: List[String],
-      sectionsOfInterest: List[String],
-      printMetrics: Boolean
+  // association
+  case class DataSource(
+      id: String,
+      weight: Double,
+      dataType: String,
+      propagate: Boolean
   )
 
+  case class AssociationSection(
+      output: IOResourceConfigurations,
+      input: IOResourceConfigurations,
+      defaultWeight: Double,
+      defaultPropagate: Boolean,
+      dataSources: List[DataSource]
+  )
+
+  // association_otf
+  case class AssociationOTFSection(
+      output: IOResourceConfigurations,
+      input: IOResourceConfigurations
+  )
+
+  // drug
+  case class InputExtension(
+      extensionType: String,
+      input: IOResourceConfig
+  )
+
+  case class DrugSection(
+      input: IOResourceConfigurations,
+      drugExtensions: Seq[InputExtension],
+      output: IOResourceConfigurations
+  )
+
+  // evidence
   case class EvidenceEntry(
       id: String,
       uniqueFields: List[String],
       datatypeId: Option[String],
       scoreExpr: String,
       excludedBiotypes: Option[List[String]]
-  )
-
-  case class EvidencesSection(
-      input: IOResourceConfigurations,
-      uniqueFields: List[String],
-      scoreExpr: String,
-      datatypeId: String,
-      dataSourcesExclude: List[String],
-      dataSources: List[EvidenceEntry],
-      directionOfEffect: DirectionOfEffectSection,
-      output: IOResourceConfigurations
   )
 
   case class DirectionOfEffectSection(
@@ -61,50 +77,150 @@ object Configuration extends LazyLogging {
       sources: List[String]
   )
 
-  case class AssociationsSection(
-      output: IOResourceConfigurations,
+  case class EvidenceSection(
       input: IOResourceConfigurations,
-      defaultWeight: Double,
-      defaultPropagate: Boolean,
-      dataSources: List[DataSource]
-  )
-
-  case class AOTFSection(
-      output: IOResourceConfigurations,
-      input: IOResourceConfigurations
-  )
-
-  case class InputExtension(extensionType: String, input: IOResourceConfig)
-
-  case class DrugSection(
-      input: IOResourceConfigurations,
-      drugExtensions: Seq[InputExtension],
+      uniqueFields: List[String],
+      scoreExpr: String,
+      datatypeId: String,
+      dataSourcesExclude: List[String],
+      dataSources: List[EvidenceEntry],
+      directionOfEffect: DirectionOfEffectSection,
       output: IOResourceConfigurations
   )
 
-  case class InteractionsSection(
+  // expression
+  case class ExpressionSection(
+      input: IOResourceConfigurations,
+      output: IOResourceConfigurations
+  )
+
+  // go
+  case class GOSection(
+      input: IOResourceConfigurations,
+      output: IOResourceConfigurations
+  )
+
+  // interation
+  case class InteractionSection(
       scorethreshold: Int,
       stringVersion: String,
       input: IOResourceConfigurations,
       output: IOResourceConfigurations
   )
 
-  case class ExpressionSection(input: IOResourceConfigurations, output: IOResourceConfigurations)
-
-  case class Common(
-      path: String,
-      outputFormat: String,
-      additionalOutputs: List[String]
+  // known_drug
+  case class KnownDrugSection(
+      input: IOResourceConfigurations,
+      output: IOResourceConfigurations
   )
 
-  case class KnownDrugsSection(input: IOResourceConfigurations, output: IOResourceConfigurations)
+  // literature
+  case class LiteratureSectionRanks(
+      section: String,
+      rank: Long,
+      weight: Double
+  )
 
-  case class GeneOntologySection(input: IOResourceConfigurations, output: IOResourceConfigurations)
+  case class LiteratureCommon(
+      publicationSectionRanks: List[LiteratureSectionRanks],
+      sparkSessionConfig: Option[Seq[IOResourceConfigOption]] = None
+  )
 
-  case class MousePhenotypeSection(input: IOResourceConfigurations, output: IOResourceConfigurations)
+  case class LiteratureProcessing(
+      writeFailures: Boolean
+  )
 
-  case class SearchSection(input: IOResourceConfigurations, output: IOResourceConfigurations)
+  case class LiteratureModelConfiguration(
+      windowSize: Int,
+      numPartitions: Int,
+      maxIter: Int,
+      minCount: Int,
+      stepSize: Double
+  )
 
+  case class LiteratureEmbedding(
+      modelConfiguration: LiteratureModelConfiguration
+  )
+
+  case class EpmcUris(
+      ensembl: String,
+      chembl: String,
+      ontologies: String
+  )
+
+  case class Epmc(
+      uris: EpmcUris,
+      excludedTargetTerms: List[String],
+      sectionsOfInterest: List[String],
+      printMetrics: Boolean
+  )
+
+  case class LiteratureSection(
+      common: LiteratureCommon,
+      input: IOResourceConfigurations,
+      output: IOResourceConfigurations,
+      processing: LiteratureProcessing,
+      embedding: LiteratureEmbedding,
+      epmc: Epmc
+  )
+
+  // mouse_phenotype
+  case class MousePhenotypeSection(
+      input: IOResourceConfigurations,
+      output: IOResourceConfigurations
+  )
+
+  // openfda
+  case class OpenfdaMontecarloSection(
+      permutations: Int,
+      percentile: Double
+  )
+
+  case class OpenfdaSamplingSection(
+      size: Double,
+      enabled: Boolean
+  )
+
+  case class OpenfdaSection(
+      input: IOResourceConfigurations,
+      meddraPreferredTermsCols: List[String],
+      meddraLowLevelTermsCols: List[String],
+      montecarlo: OpenfdaMontecarloSection,
+      sampling: OpenfdaSamplingSection,
+      output: IOResourceConfigurations
+  )
+
+  // otar
+  case class OtarSection(
+      input: IOResourceConfigurations,
+      output: IOResourceConfigurations
+  )
+
+  // pharmacogenomics
+  case class PharmacogenomicsSection(
+      input: IOResourceConfigurations,
+      output: IOResourceConfigurations
+  )
+
+  // reactome
+  case class ReactomeSection(
+      input: IOResourceConfigurations,
+      output: IOResourceConfigurations
+  )
+
+  // search
+  case class SearchSection(
+      input: IOResourceConfigurations,
+      output: IOResourceConfigurations
+  )
+
+  // search_ebi
+  case class SearchEbiSection(
+      input: IOResourceConfigurations,
+      output: IOResourceConfigurations
+  )
+
+  // search_facet
   case class FacetSearchCategories(
       diseaseName: String,
       therapeuticArea: String,
@@ -123,19 +239,51 @@ object Configuration extends LazyLogging {
       goC: String
   )
 
-  case class FacetSearchSection(input: IOResourceConfigurations,
-                                output: IOResourceConfigurations,
-                                categories: FacetSearchCategories
+  case class SearchFacetSection(
+      input: IOResourceConfigurations,
+      output: IOResourceConfigurations,
+      categories: FacetSearchCategories
   )
 
-  case class PharmacogenomicsSection(input: IOResourceConfigurations, output: IOResourceConfigurations)
+  // target
+  case class TargetSection(
+      input: IOResourceConfigurations,
+      output: IOResourceConfigurations,
+      hgncOrthologSpecies: List[String]
+  )
 
-  case class ReactomeSection(input: IOResourceConfigurations, output: IOResourceConfigurations)
+  // target_engine
+  case class TargetEngineSection(
+      input: IOResourceConfigurations,
+      output: IOResourceConfigurations
+  )
 
-  case class Target(input: IOResourceConfigurations, output: IOResourceConfigurations, hgncOrthologSpecies: List[String])
+  case class Steps(
+      association: AssociationSection,
+      associationOtf: AssociationOTFSection,
+      drug: DrugSection,
+      evidence: EvidenceSection,
+      expression: ExpressionSection,
+      go: GOSection,
+      interaction: InteractionSection,
+      knownDrug: KnownDrugSection,
+      literature: LiteratureSection,
+      mousePhenotype: MousePhenotypeSection,
+      openfda: OpenfdaSection,
+      otar: OtarSection,
+      pharmacogenomics: PharmacogenomicsSection,
+      reactome: ReactomeSection,
+      search: SearchSection,
+      searchEbi: SearchEbiSection,
+      searchFacet: SearchFacetSection,
+      target: TargetSection,
+      targetEngine: TargetEngineSection
+  )
 
-  case class SparkSettings(writeMode: String,
-                           defaultSparkSessionConfig: Seq[IOResourceConfigOption]
+  // main config classes
+  case class SparkSettings(
+      writeMode: String,
+      defaultSparkSessionConfig: Seq[IOResourceConfigOption]
   ) {
     val validWriteModes = Set("error", "errorifexists", "append", "overwrite", "ignore")
     require(
@@ -144,86 +292,16 @@ object Configuration extends LazyLogging {
     )
   }
 
-  // --- OtarProject configuration
-  case class OtarProjectSection(
-      input: IOResourceConfigurations,
-      output: IOResourceConfigurations
+  case class Common(
+      path: String,
+      outputFormat: String,
+      additionalOutputs: List[String]
   )
-
-  case class EBISearchSection(
-      input: IOResourceConfigurations,
-      output: IOResourceConfigurations
-  )
-
-  // --- OpenFDA FAERS configuration --- //
-  case class OpenfdaMontecarloSection(permutations: Int, percentile: Double)
-
-  case class OpenfdaSamplingSection(size: Double, enabled: Boolean)
-
-  case class OpenfdaSection(
-      input: IOResourceConfigurations,
-      meddraPreferredTermsCols: List[String],
-      meddraLowLevelTermsCols: List[String],
-      montecarlo: OpenfdaMontecarloSection,
-      sampling: OpenfdaSamplingSection,
-      output: IOResourceConfigurations
-  )
-
-  case class LiteratureProcessing(writeFailures: Boolean)
-
-  case class LiteratureModelConfiguration(windowSize: Int,
-                                          numPartitions: Int,
-                                          maxIter: Int,
-                                          minCount: Int,
-                                          stepSize: Double
-  )
-
-  case class LiteratureEmbedding(modelConfiguration: LiteratureModelConfiguration)
-
-  case class LiteratureSectionRanks(section: String, rank: Long, weight: Double)
-
-  case class LiteratureCommon(publicationSectionRanks: List[LiteratureSectionRanks],
-                              sparkSessionConfig: Option[Seq[IOResourceConfigOption]] = None
-  )
-
-  case class LiteratureSection(
-      common: LiteratureCommon,
-      input: IOResourceConfigurations,
-      output: IOResourceConfigurations,
-      processing: LiteratureProcessing,
-      embedding: LiteratureEmbedding,
-      epmc: Epmc
-  )
-
-  case class TargetEngineSection(input: IOResourceConfigurations, output: IOResourceConfigurations)
-
-  // --- END --- //
-
-  case class EtlStep[T](step: T, dependencies: List[T])
 
   case class OTConfig(
       sparkUri: Option[String],
       sparkSettings: SparkSettings,
-      steps: List[String],
-      common: Common,
-      pharmacogenomics: PharmacogenomicsSection,
-      reactome: ReactomeSection,
-      association: AssociationsSection,
-      evidence: EvidencesSection,
-      searchFacet: FacetSearchSection,
-      drug: DrugSection,
-      interaction: InteractionsSection,
-      knownDrug: KnownDrugsSection,
-      go: GeneOntologySection,
-      search: SearchSection,
-      associationOtf: AOTFSection,
-      target: Target, // TODO: rename to match the rest of the sections
-      mousePhenotype: MousePhenotypeSection,
-      expression: ExpressionSection,
-      openfda: OpenfdaSection,
-      searchEbi: EBISearchSection,
-      otar: OtarProjectSection,
-      literature: LiteratureSection,
-      targetEngine: TargetEngineSection
+      steps: Steps,
+      common: Common
   )
 }

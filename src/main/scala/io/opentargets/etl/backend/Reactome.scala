@@ -18,17 +18,15 @@ object Reactome extends LazyLogging {
   def apply()(implicit context: ETLSessionContext): IOResources = {
     implicit val ss: SparkSession = context.sparkSession
     val dfName = "reactome"
-    val reactomeC = context.configuration.reactome
-
-    val reactomeIs = IoHelpers.readFrom(reactomeC.input)
+    val config = context.configuration.steps.reactome
+    val reactomeIs = IoHelpers.readFrom(config.input)
     val pathways = reactomeIs("pathways").data.transform(cleanPathways)
     val edges = reactomeIs("relations").data.toDF("src", "dst")
-
     val index = GraphNode(pathways, edges).distinct
 
     logger.info("compute reactome dataset")
     val outputs = Map(
-      dfName -> IOResource(index, reactomeC.output("reactome"))
+      dfName -> IOResource(index, config.output("reactome"))
     )
 
     IoHelpers.writeTo(outputs)

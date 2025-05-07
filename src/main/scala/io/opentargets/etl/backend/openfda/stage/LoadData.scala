@@ -16,7 +16,7 @@ object LoadData {
     // Get the Spark Session
     implicit val sparkSession = context.sparkSession
 
-    val input = context.configuration.openfda.input
+    val input = context.configuration.steps.openfda.input
 
     val commonData = Map(
       DrugData() -> input("chembl-drugs"),

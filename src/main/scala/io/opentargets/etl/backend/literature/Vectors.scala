@@ -40,7 +40,7 @@ object Vectors extends Serializable with LazyLogging {
     implicit val ss: SparkSession = context.sparkSession
 
     logger.info("Generate vector table from W2V model")
-    val configuration = context.configuration.literature
+    val configuration = context.configuration.steps.literature
 
     val mdf = loadVectorsFromModel(configuration.input("vectors-input").path)
     val vdf = compute(mdf)

@@ -23,7 +23,7 @@ object TargetEngine extends LazyLogging {
   def readInputs()(implicit context: ETLSessionContext): IOResources = {
     implicit val ss: SparkSession = context.sparkSession
 
-    val input = context.configuration.targetEngine.input
+    val input = context.configuration.steps.targetEngine.input
 
     readFrom(input)
 
@@ -80,7 +80,7 @@ object TargetEngine extends LazyLogging {
   }
 
   def writeOutput(targetEngineDF: DataFrame)(implicit context: ETLSessionContext): Unit = {
-    val outputConfig = context.configuration.targetEngine.output("target-engine")
+    val outputConfig = context.configuration.steps.targetEngine.output("target-engine")
 
     val dataFramesToSave = Map("targetEngine" -> IOResource(targetEngineDF, outputConfig))
 

@@ -13,7 +13,7 @@ class LiteratureTest extends EtlSparkUnitTest {
     session should not be (null)
 
     val sessionConfigurations = session.sparkSession.conf.getAll
-    val configurations = session.configuration.literature.common.sparkSessionConfig.get
+    val configurations = session.configuration.steps.literature.common.sparkSessionConfig.get
       .map((conf) => (conf.k, conf.v))
       .toMap
       .keys

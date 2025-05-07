@@ -32,25 +32,23 @@ object SearchEBI extends LazyLogging {
   }
   def apply()(implicit context: ETLSessionContext) = {
     implicit val ss: SparkSession = context.sparkSession
+    val config = context.configuration.steps.searchEbi
 
     logger.info("Generate EBI Search dataset")
-
-    val EBIConfiguration = context.configuration.searchEbi
-
     logger.info("Loading raw inputs for Base Expression step.")
 
-    val inputDataFrames = IoHelpers.readFrom(EBIConfiguration.input)
+    val inputDataFrames = IoHelpers.readFrom(config.input)
     val dataToSave = generateDatasets(inputDataFrames)
 
     IoHelpers.writeTo(
       Map(
         "ebisearchEvidence" -> IOResource(
           dataToSave("ebisearchEvidence"),
-          EBIConfiguration.output("evidence")
+          config.output("evidence")
         ),
         "ebisearchAssociations" -> IOResource(
           dataToSave("ebisearchAssociations"),
-          EBIConfiguration.output("associations")
+          config.output("associations")
         )
       )
     )

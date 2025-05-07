@@ -622,9 +622,8 @@ object Search extends LazyLogging {
     implicit val ss: SparkSession = context.sparkSession
     import Transformers.Implicits
 
-    val searchSec = context.configuration.search
-
-    val inputDataFrame = IoHelpers.readFrom(searchSec.input)
+    val config = context.configuration.steps.search
+    val inputDataFrame = IoHelpers.readFrom(config.input)
 
     logger.info("process diseases and compute ancestors and descendants and persist")
     val diseases = inputDataFrame("disease").data
@@ -838,13 +837,12 @@ object Search extends LazyLogging {
 
     val searchStudies = studies.setIdAndSelectFromStudies(targets, credibleSets).repartition(100)
 
-    val conf = context.configuration.search
     val outputs = Map(
-      "search_diseases" -> IOResource(searchDiseases, conf.output("diseases")),
-      "search_targets" -> IOResource(searchTargets, conf.output("targets")),
-      "search_drugs" -> IOResource(searchDrugs, conf.output("drugs")),
-      "search_variants" -> IOResource(searchVariants, conf.output("variants")),
-      "search_studies" -> IOResource(searchStudies, conf.output("studies"))
+      "search_diseases" -> IOResource(searchDiseases, config.output("diseases")),
+      "search_targets" -> IOResource(searchTargets, config.output("targets")),
+      "search_drugs" -> IOResource(searchDrugs, config.output("drugs")),
+      "search_variants" -> IOResource(searchVariants, config.output("variants")),
+      "search_studies" -> IOResource(searchStudies, config.output("studies"))
     )
 
     IoHelpers.writeTo(outputs)

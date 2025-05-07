@@ -8,7 +8,7 @@ import org.apache.spark.ml.Pipeline
 import org.apache.spark.sql._
 import com.johnsnowlabs.nlp.{DocumentAssembler, Finisher}
 import com.johnsnowlabs.nlp.annotator._
-import io.opentargets.etl.backend.Configuration.{LiteratureProcessing, LiteratureSection}
+import io.opentargets.etl.backend.Configuration.LiteratureSection
 import io.opentargets.etl.backend.ETLSessionContext
 import org.apache.spark.sql.types._
 import org.apache.spark.sql.expressions.Window

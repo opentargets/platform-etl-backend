@@ -6,7 +6,10 @@ import io.opentargets.etl.backend.spark.Helpers.getOrCreateSparkSession
 import org.apache.spark.sql.SparkSession
 import pureconfig.error.ConfigReaderFailures
 
-case class ETLSessionContext(configuration: OTConfig, sparkSession: SparkSession)
+case class ETLSessionContext(
+    configuration: OTConfig,
+    sparkSession: SparkSession
+)
 
 object ETLSessionContext extends LazyLogging {
   val progName: String = "ot-platform-etl"
@@ -16,18 +19,18 @@ object ETLSessionContext extends LazyLogging {
       config <- Configuration.config
     } yield {
       logger.info("Generating ETL Session Context")
-      val evidence = if (config.evidence.dataSourcesExclude.nonEmpty) {
-        logger.info(s"Excluding data sources for evidence: ${config.evidence.dataSourcesExclude}")
-        val ds = config.evidence.dataSources.filter(d =>
-          !config.evidence.dataSourcesExclude.contains(d.id)
+      val filteredEvidence = if (config.steps.evidence.dataSourcesExclude.nonEmpty) {
+        logger.info(s"Excluding evidence datasources: ${config.steps.evidence.dataSourcesExclude}")
+        val ds = config.steps.evidence.dataSources.filter(d =>
+          !config.steps.evidence.dataSourcesExclude.contains(d.id)
         )
-        config.evidence.copy(dataSources = ds)
-      } else config.evidence
+        config.steps.evidence.copy(dataSources = ds)
+      } else config.steps.evidence
 
       val configurations = config.sparkSettings.defaultSparkSessionConfig
 
       ETLSessionContext(
-        config.copy(evidence = evidence),
+        config.copy(steps = config.steps.copy(evidence = filteredEvidence)),
         getOrCreateSparkSession(progName, configurations, config.sparkUri)
       )
     }

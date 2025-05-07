@@ -40,14 +40,13 @@ object Otar extends LazyLogging {
   }
 
   def apply()(implicit context: ETLSessionContext): IOResources = {
+    val config = context.configuration.steps.otar
     implicit val ss: SparkSession = context.sparkSession
 
     logger.info("Executing Otar projects step.")
-
     logger.debug("Reading Otar projects inputs")
-    val OtarConfiguration = context.configuration.otar
 
-    val inputDataFrames = IoHelpers.readFrom(OtarConfiguration.input)
+    val inputDataFrames = IoHelpers.readFrom(config.input)
 
     val otarDF = generateOtarInfo(
       inputDataFrames("diseases").data,
@@ -56,11 +55,10 @@ object Otar extends LazyLogging {
     )
 
     logger.debug("Writing Otar Projects outputs")
+
     val dataframesToSave: IOResources = Map(
-      "otar_projects" -> IOResource(otarDF, context.configuration.otar.output("otar"))
+      "otar_projects" -> IOResource(otarDF, config.output("otar"))
     )
     IoHelpers.writeTo(dataframesToSave)
-
   }
-
 }

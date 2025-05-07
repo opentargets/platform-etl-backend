@@ -1,7 +1,7 @@
 package io.opentargets.etl.backend.literature
 
 import com.typesafe.scalalogging.LazyLogging
-import io.opentargets.etl.backend.Configuration.{LiteratureProcessing, LiteratureSection}
+import io.opentargets.etl.backend.Configuration.LiteratureSection
 import io.opentargets.etl.backend.ETLSessionContext
 import io.opentargets.etl.backend.spark.IoHelpers.writeTo
 import io.opentargets.etl.backend.spark.IOResource
@@ -52,7 +52,7 @@ object Processing extends Serializable with LazyLogging {
   )(implicit context: ETLSessionContext): (DataFrame, DataFrame) = {
     import context.sparkSession.implicits._
 
-    val sectionImportances = context.configuration.literature.common.publicationSectionRanks
+    val sectionImportances = context.configuration.steps.literature.common.publicationSectionRanks
     val titleWeight = sectionImportances.withFilter(_.section == "title").map(_.weight).head
 
     val sectionRankTable =
@@ -121,8 +121,9 @@ object Processing extends Serializable with LazyLogging {
 
     logger.info("Processing step")
 
-    val configuration: LiteratureSection = context.configuration.literature
-    val grounding: Map[String, DataFrame] = Grounding.compute(context.configuration.literature)
+    val configuration: LiteratureSection = context.configuration.steps.literature
+    val grounding: Map[String, DataFrame] =
+      Grounding.compute(context.configuration.steps.literature)
 
     logger.info("Processing raw evidences and persist matches and cooccurrences")
 
