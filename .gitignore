@@ -38,3 +38,4 @@ application.xml
 workflow/target
 /credentials/
 /.env
+work/
