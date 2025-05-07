@@ -42,9 +42,12 @@ object Target extends LazyLogging {
     val targetsDF = compute(context)
 
     val dataframesToSave: IOResources = Map(
-      "target" -> IOResource(targetsDF("target"), context.configuration.target.output("target")),
-      "targetEssentiality" -> IOResource(targetsDF("targetEssentiality"),
-                                         context.configuration.target.output("gene-essentiality")
+      "target" -> IOResource(targetsDF("target"),
+                             context.configuration.steps.target.output("target")
+      ),
+      "targetEssentiality" -> IOResource(
+        targetsDF("targetEssentiality"),
+        context.configuration.steps.target.output("gene-essentiality")
       )
     )
 
@@ -56,7 +59,7 @@ object Target extends LazyLogging {
   )(implicit ctx: ETLSessionContext): Map[String, DataFrame] = {
     implicit val ss: SparkSession = ctx.sparkSession
     // 1. get input data frames
-    val inputDataFrames = getMappedInputs(context.configuration.target)
+    val inputDataFrames = getMappedInputs(context.configuration.steps.target)
 
     // 2. prepare intermediate dataframes per source
     val chemicalProbes: DataFrame = inputDataFrames("chemical-probes").data
@@ -91,7 +94,7 @@ object Target extends LazyLogging {
       inputDataFrames("homology-dictionary").data,
       inputDataFrames("homology-coding-proteins").data,
       inputDataFrames("homology-gene-dictionary").data,
-      context.configuration.target.hgncOrthologSpecies
+      context.configuration.steps.target.hgncOrthologSpecies
     )
     val reactome: Dataset[Reactomes] =
       Reactome(inputDataFrames("reactome-pathways").data, inputDataFrames("reactome-etl").data)
@@ -445,7 +448,7 @@ object Target extends LazyLogging {
 
   /** Return map on input IOResources */
   private def getMappedInputs(
-      targetConfig: Configuration.Target
+      targetConfig: Configuration.TargetSection
   )(implicit sparkSession: SparkSession): Map[String, IOResource] = {
     def getUniprotDataFrame(io: IOResourceConfig)(implicit ss: SparkSession): IOResource = {
       import ss.implicits._

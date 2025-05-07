@@ -15,7 +15,7 @@ object Epmc extends LazyLogging {
 
     logger.info("Prepare EPMC evidence")
 
-    val conf = context.configuration.literature
+    val conf = context.configuration.steps.literature
 
     val inputDataFrames = IoHelpers.readFrom(conf.input.filter(_._1.startsWith("epmc-")))
 

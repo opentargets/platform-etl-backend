@@ -18,7 +18,7 @@ object Drug extends Serializable with LazyLogging {
   def apply()(implicit context: ETLSessionContext): Unit = {
     implicit val ss: SparkSession = context.sparkSession
 
-    val drugConfiguration = context.configuration.drug
+    val drugConfiguration = context.configuration.steps.drug
     val outputs = drugConfiguration.output
 
     logger.info("Loading raw inputs for Drug beta step.")
@@ -106,8 +106,12 @@ object Drug extends Serializable with LazyLogging {
 
     val dataframesToSave: IOResources = Map(
       "drug" -> IOResource(drugDf, outputs("drug")),
-      "mechanism_of_action" -> IOResource(mechanismOfActionProcessedDf, outputs("mechanism-of-action")),
-      "indication" -> IOResource(indicationProcessedDf.drop("linkedDiseases"), outputs("indications")),
+      "mechanism_of_action" -> IOResource(mechanismOfActionProcessedDf,
+                                          outputs("mechanism-of-action")
+      ),
+      "indication" -> IOResource(indicationProcessedDf.drop("linkedDiseases"),
+                                 outputs("indications")
+      ),
       "drug_warnings" -> IOResource(warningsDF, outputs("warnings"))
     )
 

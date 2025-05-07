@@ -81,7 +81,7 @@ object Association extends LazyLogging {
       import Configuration._
       import ss.implicits._
 
-      def computeOntologyExpansion(diseases: DataFrame, otc: AssociationsSection): DataFrame = {
+      def computeOntologyExpansion(diseases: DataFrame, otc: AssociationSection): DataFrame = {
         // generate needed fields as descendants
         val diseaseCols = Seq(
           "id as did",
@@ -128,7 +128,7 @@ object Association extends LazyLogging {
         * @return
         *   the modified dataframe
         */
-      def leftJoinWeights(otc: AssociationsSection, weightColName: String): DataFrame = {
+      def leftJoinWeights(otc: AssociationSection, weightColName: String): DataFrame = {
         // obtain weights per datasource table
         val datasourceWeights =
           broadcast(otc.dataSources.toDS()).toDF
@@ -177,11 +177,11 @@ object Association extends LazyLogging {
     implicit val ss: SparkSession = context.sparkSession
     import Helpers.ImplicitExtras
 
-    val associationsSec = context.configuration.association
+    val associationsSec = context.configuration.steps.association
 
     val mappedInputs = Map(
-      "evidences" -> context.configuration.association.input("evidences"),
-      "diseases" -> context.configuration.association.input("diseases")
+      "evidences" -> context.configuration.steps.association.input("evidences"),
+      "diseases" -> context.configuration.steps.association.input("diseases")
     )
 
     val evidenceColumns = Seq(
@@ -214,7 +214,7 @@ object Association extends LazyLogging {
   }
 
   def computeDirectAssociations()(implicit context: ETLSessionContext): IOResources = {
-    val outputs = context.configuration.association.output
+    val outputs = context.configuration.steps.association.output
 
     val evidenceSet = prepareEvidences().persist(StorageLevel.DISK_ONLY)
     val associationsPerDS = computeAssociationsPerDS(evidenceSet).persist()
@@ -229,7 +229,7 @@ object Association extends LazyLogging {
   }
 
   def computeIndirectAssociations()(implicit context: ETLSessionContext): IOResources = {
-    val outputs = context.configuration.association.output
+    val outputs = context.configuration.steps.association.output
 
     val evidenceSet = prepareEvidences(expandOntology = true).persist()
     val associationsPerDS = computeAssociationsPerDS(evidenceSet).persist()
@@ -269,7 +269,7 @@ object Association extends LazyLogging {
     val res = assocsPerDS
       .withColumnRenamed(dsIdScore, dsScoreName)
       .withColumnRenamed(dsEvsCount, dsCountName)
-      .leftJoinWeights(context.configuration.association, weightId)
+      .leftJoinWeights(context.configuration.steps.association, weightId)
       .transform(harmonicFn(_, pairPartition, dsScoreName, overallDtIdScore, None, None))
       .withColumn(dtEvsCount, sum(col(dsCountName)).over(w))
       .selectExpr(cols: _*)
@@ -297,7 +297,7 @@ object Association extends LazyLogging {
     val dsCountName = mkRandomPrefix() + "DSCount"
 
     val res = assocsPerDS
-      .leftJoinWeights(context.configuration.association, weightId)
+      .leftJoinWeights(context.configuration.steps.association, weightId)
       .withColumnRenamed(dsIdScore, dsScoreName)
       .withColumnRenamed(dsEvsCount, dsCountName)
       .transform(

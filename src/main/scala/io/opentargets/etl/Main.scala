@@ -15,7 +15,6 @@ import io.opentargets.etl.backend.targetEngine.TargetEngine
 object ETL extends LazyLogging {
   def applySingleStep(step: String)(implicit context: ETLSessionContext): Unit = {
     logger.info(s"running step $step")
-
     step.toLowerCase match {
       case "association"      => Association()
       case "association_otf"  => AssociationOTF()
@@ -45,24 +44,12 @@ object ETL extends LazyLogging {
     ETLSessionContext() match {
       case Right(otContext) =>
         implicit val ctxt: ETLSessionContext = otContext
-
-        val stepList = otContext.configuration.steps
-
-        val etlSteps =
-          if (steps.isEmpty) stepList
-          else steps
-
-        logger.info(s"Steps to execute: $etlSteps")
-
-        etlSteps.foreach { step =>
-          logger.debug(s"step to run: '$step'")
-          ETL.applySingleStep(step)
-        }
-      case Left(ex) => logger.error(ex.prettyPrint())
+        steps.foreach(step => ETL.applySingleStep(step))
+      case Left(ex) =>
+        logger.error(ex.prettyPrint())
     }
 }
 
 object Main {
-  def main(args: Array[String]): Unit =
-    ETL(args)
+  def main(args: Array[String]): Unit = ETL(args)
 }

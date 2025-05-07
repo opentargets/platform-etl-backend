@@ -392,7 +392,7 @@ object Interactions extends LazyLogging {
     import InteractionsHelpers._
 
     logger.info("Loading raw inputs for Interactin step.")
-    val interactionsConfiguration = context.configuration.interaction
+    val interactionsConfiguration = context.configuration.steps.interaction
 
     val inputDataFrame = IoHelpers.readFrom(interactionsConfiguration.input)
     // String dataset needs some transformation.
@@ -420,7 +420,7 @@ object Interactions extends LazyLogging {
       .generateEvidences(interactionStringsDFValid)
       .repartitionByRange(200, $"targetA".asc, $"targetB".asc)
 
-    val output = context.configuration.interaction.output
+    val output = context.configuration.steps.interaction.output
 
     Map(
       "interactionsEvidence" -> IOResource(interactionEvidences, output("interactions-evidence")),

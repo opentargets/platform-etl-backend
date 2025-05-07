@@ -19,7 +19,7 @@ object AttachMeddraData extends LazyLogging {
       .withColumn("_c0", regexp_replace(col("_c0"), "\\$$", ""))
       .withColumn("_c0", split(col("_c0"), ","))
       .select(
-        context.configuration.openfda.meddraPreferredTermsCols.zipWithIndex.map(i =>
+        context.configuration.steps.openfda.meddraPreferredTermsCols.zipWithIndex.map(i =>
           col("_c0").getItem(i._2).as(s"${i._1}")
         ): _*
       )
@@ -34,7 +34,7 @@ object AttachMeddraData extends LazyLogging {
       .withColumn("_c0", regexp_replace(col("_c0"), "\\$$", ""))
       .withColumn("_c0", split(col("_c0"), ","))
       .select(
-        context.configuration.openfda.meddraLowLevelTermsCols.zipWithIndex.map(i =>
+        context.configuration.steps.openfda.meddraLowLevelTermsCols.zipWithIndex.map(i =>
           col("_c0").getItem(i._2).as(s"${i._1}")
         ): _*
       )

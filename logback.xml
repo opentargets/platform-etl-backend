@@ -12,7 +12,7 @@
     <logger name="ammonite" level="DEBUG"/>
     <logger name="org.apache.spark" level="WARN"/>
 
-    <root level="${ot.logging.level:-WARN}">
+    <root level="${ot.logging.level:-DEBUG}">
         <appender-ref ref="STDOUT" />
     </root>
 </configuration>

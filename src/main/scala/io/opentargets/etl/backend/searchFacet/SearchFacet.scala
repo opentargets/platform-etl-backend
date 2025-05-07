@@ -52,7 +52,7 @@ object FacetSearch extends LazyLogging {
     */
   def readInputs()(implicit context: ETLSessionContext): IOResources = {
     implicit val ss: SparkSession = context.sparkSession
-    val inputs = context.configuration.searchFacet.input
+    val inputs = context.configuration.steps.searchFacet.input
     readFrom(inputs)
   }
 
@@ -69,7 +69,7 @@ object FacetSearch extends LazyLogging {
       inputs: IOResources
   )(implicit context: ETLSessionContext): DataFrame = {
     implicit val ss: SparkSession = context.sparkSession
-    val categoryValues = context.configuration.searchFacet.categories
+    val categoryValues = context.configuration.steps.searchFacet.categories
     val targetsDF: DataFrame = inputs("targets").data
     val goDF: DataFrame = inputs("go").data
     val targetFacetsDatasets: Seq[Dataset[Facets]] = Seq(
@@ -99,7 +99,7 @@ object FacetSearch extends LazyLogging {
       inputs: IOResources
   )(implicit context: ETLSessionContext): DataFrame = {
     implicit val ss: SparkSession = context.sparkSession
-    val categoryValues = context.configuration.searchFacet.categories
+    val categoryValues = context.configuration.steps.searchFacet.categories
     val diseaseDF = inputs("diseases").data
     val diseaseFacetDatasets =
       Seq(computeDiseaseNameFacets(diseaseDF, categoryValues),
@@ -121,7 +121,7 @@ object FacetSearch extends LazyLogging {
   def writeOutput(facetSearchTarget: DataFrame, facetSearchDisease: DataFrame)(implicit
       context: ETLSessionContext
   ): Unit = {
-    val outputConfig = context.configuration.searchFacet.output
+    val outputConfig = context.configuration.steps.searchFacet.output
     val outputs = Map(
       "facetSearchTarget" -> IOResource(facetSearchTarget, outputConfig("targets")),
       "facetSearchDisease" -> IOResource(facetSearchDisease, outputConfig("diseases"))

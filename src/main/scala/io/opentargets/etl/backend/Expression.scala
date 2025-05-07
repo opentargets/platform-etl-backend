@@ -261,7 +261,7 @@ object Expression extends LazyLogging {
   def compute()(implicit context: ETLSessionContext): DataFrame = {
     implicit val ss: SparkSession = context.sparkSession
 
-    val HPAConfiguration = context.configuration.expression
+    val HPAConfiguration = context.configuration.steps.expression
 
     logger.info("Loading raw inputs for Base Expression step.")
     val inputDataFrames = IoHelpers.readFrom(HPAConfiguration.input)
@@ -287,9 +287,14 @@ object Expression extends LazyLogging {
     logger.info("transform Baseline Expression dataset")
     val dataframesToSave = compute()
 
-    logger.info(s"Expression output data folder at '${context.configuration.expression.output}'")
+    logger.info(
+      s"Expression output data folder at '${context.configuration.steps.expression.output}'"
+    )
     val outputs = Map(
-      "baselineExpression" -> IOResource(dataframesToSave, context.configuration.expression.output("expression"))
+      "baselineExpression" -> IOResource(
+        dataframesToSave,
+        context.configuration.steps.expression.output("expression")
+      )
     )
 
     IoHelpers.writeTo(outputs)

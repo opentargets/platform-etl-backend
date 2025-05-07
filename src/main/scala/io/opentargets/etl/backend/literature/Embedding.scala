@@ -1,7 +1,7 @@
 package io.opentargets.etl.backend.literature
 
 import com.typesafe.scalalogging.LazyLogging
-import io.opentargets.etl.backend.Configuration.{LiteratureModelConfiguration, OTConfig}
+import io.opentargets.etl.backend.Configuration.LiteratureModelConfiguration
 import io.opentargets.etl.backend.ETLSessionContext
 import io.opentargets.etl.backend.spark.{IOResource, IOResourceML}
 import io.opentargets.etl.backend.spark.IoHelpers.{readFrom, writeTo}
@@ -31,7 +31,7 @@ object Embedding extends Serializable with LazyLogging {
 
     logger.info("prepare matches regrouping the entities by ranked section")
     val sectionImportances =
-      etlSessionContext.configuration.literature.common.publicationSectionRanks
+      etlSessionContext.configuration.steps.literature.common.publicationSectionRanks
     val sectionRankTable =
       broadcast(
         sectionImportances
@@ -59,7 +59,7 @@ object Embedding extends Serializable with LazyLogging {
       Map(
         "trainingSet" -> IOResource(
           trDS,
-          etlSessionContext.configuration.literature.output("embedding-training-set")
+          etlSessionContext.configuration.steps.literature.output("embedding-training-set")
         )
       )
     )(etlSessionContext)
@@ -93,7 +93,8 @@ object Embedding extends Serializable with LazyLogging {
   def generateModel(
       matches: DataFrame
   )(implicit etlSessionContext: ETLSessionContext): Word2VecModel = {
-    val modelConfiguration = etlSessionContext.configuration.literature.embedding.modelConfiguration
+    val modelConfiguration =
+      etlSessionContext.configuration.steps.literature.embedding.modelConfiguration
 
     logger.info("CPUs available: " + Runtime.getRuntime().availableProcessors().toString())
     logger.info(s"Model configuration: ${modelConfiguration.toString}")
@@ -112,7 +113,7 @@ object Embedding extends Serializable with LazyLogging {
 
     val matchesModels = generateModel(matches)
 
-    val configuration = etlSessionContext.configuration.literature.output("embedding-model")
+    val configuration = etlSessionContext.configuration.steps.literature.output("embedding-model")
     val output = IOResourceML(matchesModels, configuration)
 
     writeTo(output)
@@ -124,7 +125,7 @@ object Embedding extends Serializable with LazyLogging {
     logger.info("Embedding step reading the files matches")
     val configuration = context.configuration
 
-    val input = configuration.literature.input.filter(_._1.startsWith("embedding-"))
+    val input = configuration.steps.literature.input.filter(_._1.startsWith("embedding-"))
     val inputDataFrames = readFrom(input)
     compute(inputDataFrames("embedding-matches").data)
   }
