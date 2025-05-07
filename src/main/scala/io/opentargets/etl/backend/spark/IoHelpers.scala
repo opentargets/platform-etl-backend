@@ -57,16 +57,58 @@ object IoHelpers extends LazyLogging {
   def loadFileToDF(pathInfo: IOResourceConfig)(implicit session: SparkSession): DataFrame = {
     logger.info(s"load dataset ${pathInfo.path} with ${pathInfo.toString}")
 
+    val effectivePath = if (pathInfo.path.endsWith(".zip")) {
+      extractFileFromZip(pathInfo.path)
+    } else {
+      pathInfo.path
+    }
+
     try
       pathInfo.options
-        .foldLeft(session.read.format(pathInfo.format)) { case ops =>
-          val options = ops._2.map(c => c.k -> c.v).toMap
-          ops._1.options(options)
+        .foldLeft(session.read.format(pathInfo.format)) { case (reader, options) =>
+          reader.options(options.map(c => c.k -> c.v).toMap)
         }
-        .load(pathInfo.path)
+        .load(effectivePath)
     catch {
       case e: Exception =>
-        logger.error(s"Error loading file ${pathInfo.path} with ${pathInfo.toString}")
+        logger.error(s"Error loading file $effectivePath with ${pathInfo.toString}")
+        throw e
+    }
+  }
+
+  private def extractFileFromZip(zipPath: String): String = {
+    import better.files._
+
+    val zipFile = File(zipPath)
+    val innerFileName = zipFile.nameWithoutExtension
+    val tempDir = File.newTemporaryDirectory("spark_zip_extract_")
+
+    logger.info(s"Extracting file $innerFileName from zip $zipPath to $tempDir")
+
+    try {
+      zipFile.unzipTo(tempDir)
+
+      val extractedFiles = tempDir.children.toList
+      val matchingFile = extractedFiles.find(f => f.name == innerFileName)
+
+      matchingFile match {
+        case Some(file) =>
+          logger.info(s"Found matching file: ${file.pathAsString}")
+          file.pathAsString
+        case None =>
+          extractedFiles.headOption match {
+            case Some(file) =>
+              logger.info(s"No exact match found, using first file: ${file.pathAsString}")
+              file.pathAsString
+            case None =>
+              logger.error(s"No files found in zip archive: $zipPath")
+              throw new RuntimeException(s"Empty zip archive: $zipPath")
+          }
+      }
+    } catch {
+      case e: Exception =>
+        logger.error(s"Error extracting from zip file $zipPath", e)
+        tempDir.delete(swallowIOExceptions = true)
         throw e
     }
   }
