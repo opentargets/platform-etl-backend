@@ -357,8 +357,8 @@ object Evidence extends LazyLogging {
     val varIdLenThreshold = 300
 
     val combinedEvidencesDF =
-      dfs("raw-input-evidences").data
-        .unionByName(dfs("raw-intermediate-evidences").data, allowMissingColumns = true)
+      dfs("raw_input_evidences").data
+        .unionByName(dfs("raw_intermediate_evidences").data, allowMissingColumns = true)
 
     val transformedDF = combinedEvidencesDF
       .transform(prepare)
@@ -372,7 +372,7 @@ object Evidence extends LazyLogging {
       .transform(checkNullifiedScores(_, sc, ns))
       .transform(markDuplicates(_, id, md))
       .transform(
-        DirectionOfEffect(_, dfs("targets").data, dfs("mechanism-of-action").data)
+        DirectionOfEffect(_, dfs("targets").data, dfs("mechanism_of_action").data)
       )
       .persist(StorageLevel.DISK_ONLY)
 

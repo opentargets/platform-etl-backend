@@ -633,7 +633,7 @@ object Search extends LazyLogging {
       .persist(StorageLevel.DISK_ONLY)
 
     logger.info("process hpo and hpo disease and persist")
-    val phenotypeNames = inputDataFrame("disease-hpo").data
+    val phenotypeNames = inputDataFrame("disease_hpo").data
       .join(inputDataFrame("hpo").data, col("phenotype") === col("id"))
       .select("disease", "phenotype", "name")
       .groupBy("disease")
@@ -705,7 +705,7 @@ object Search extends LazyLogging {
       )
 
     // read in the credible sets, extract the studyId field. Then create a column with the count of each studyId
-    val credibleSets = inputDataFrame("credible-sets").data
+    val credibleSets = inputDataFrame("credible_sets").data
       .select("studyId")
       .groupBy("studyId")
       .agg(count("studyId").cast(DoubleType) as "credibleSetCount")

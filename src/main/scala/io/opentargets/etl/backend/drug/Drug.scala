@@ -25,20 +25,20 @@ object Drug extends Serializable with LazyLogging {
     val inputDataFrames = IoHelpers.readFrom(drugConfiguration.input)
 
     // raw input dataframes
-    lazy val probesDf: DataFrame = inputDataFrames("chemical-probes").data
+    lazy val probesDf: DataFrame = inputDataFrames("chemical_probes").data
       .filter(col("drugId").isNotNull)
       .select(col("drugId").as("chemicalProbeDrugId"))
       .distinct()
-    lazy val moleculeDf: DataFrame = inputDataFrames("chembl-molecule").data
-    lazy val mechanismDf: DataFrame = inputDataFrames("chembl-mechanism").data
-    lazy val indicationDf: DataFrame = inputDataFrames("chembl-indication").data
-    lazy val targetDf: DataFrame = inputDataFrames("chembl-target").data
-    lazy val geneDf: DataFrame = inputDataFrames("target-etl").data
-    lazy val drugbank2ChemblMap: DataFrame = inputDataFrames("drugbank-to-chembl").data
+    lazy val moleculeDf: DataFrame = inputDataFrames("chembl_molecule").data
+    lazy val mechanismDf: DataFrame = inputDataFrames("chembl_mechanism").data
+    lazy val indicationDf: DataFrame = inputDataFrames("chembl_indication").data
+    lazy val targetDf: DataFrame = inputDataFrames("chembl_target").data
+    lazy val geneDf: DataFrame = inputDataFrames("target_etl").data
+    lazy val drugbank2ChemblMap: DataFrame = inputDataFrames("drugbank_to_chembl").data
       .withColumnRenamed("From src:'1'", "id")
       .withColumnRenamed("To src:'2'", "drugbank_id")
-    lazy val efoDf: DataFrame = inputDataFrames("disease-etl").data
-    lazy val warningRawDf: DataFrame = inputDataFrames("chembl-warning").data
+    lazy val efoDf: DataFrame = inputDataFrames("disease_etl").data
+    lazy val warningRawDf: DataFrame = inputDataFrames("chembl_warning").data
 
     // processed dataframes
     logger.info("Raw inputs for Drug loaded.")
@@ -107,7 +107,7 @@ object Drug extends Serializable with LazyLogging {
     val dataframesToSave: IOResources = Map(
       "drug" -> IOResource(drugDf, outputs("drug")),
       "mechanism_of_action" -> IOResource(mechanismOfActionProcessedDf,
-                                          outputs("mechanism-of-action")
+                                          outputs("mechanism_of_action")
       ),
       "indication" -> IOResource(indicationProcessedDf.drop("linkedDiseases"),
                                  outputs("indications")

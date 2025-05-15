@@ -579,26 +579,26 @@ object Grounding extends Serializable with LazyLogging {
 
     val pipeline = generatePipeline("text", pipelineColumns)
 
-    val mappedInputs = configuration.input.filter(_._1.startsWith("processing-"))
+    val mappedInputs = configuration.input.filter(_._1.startsWith("processing_"))
 
     val inputDataFrames = readFrom(mappedInputs)
 
     logger.info("Load PMCID-PMID lut and OT entity lut")
-    val idLUT: DataFrame = loadEPMCIDs(inputDataFrames("processing-epmcids").data)
+    val idLUT: DataFrame = loadEPMCIDs(inputDataFrames("processing_epmcids").data)
     val luts: DataFrame = broadcast(
       loadEntityLUT(
-        inputDataFrames("processing-targets").data,
-        inputDataFrames("processing-diseases").data,
-        inputDataFrames("processing-drugs").data,
+        inputDataFrames("processing_targets").data,
+        inputDataFrames("processing_diseases").data,
+        inputDataFrames("processing_drugs").data,
         pipeline,
         pipelineColumns
       )
     )
 
-    val abstractsDF = inputDataFrames("processing-abstracts").data
+    val abstractsDF = inputDataFrames("processing_abstracts").data
       .select(col("*"), lit("Abstracts").as("kind"))
-    val fullTextsDF = inputDataFrames("processing-full-texts").data
-      .select(col("*"), lit("Full-text").as("kind"))
+    val fullTextsDF = inputDataFrames("processing_full_texts").data
+      .select(col("*"), lit("Full_text").as("kind"))
 
     import context.sparkSession.implicits._
 

@@ -19,16 +19,16 @@ object LoadData {
     val input = context.configuration.steps.openfda.input
 
     val commonData = Map(
-      DrugData() -> input("chembl-drugs"),
-      Blacklisting() -> input("blacklisted-events"),
-      FdaData() -> input("fda-data")
+      DrugData() -> input("chembl_drugs"),
+      Blacklisting() -> input("blacklisted_events"),
+      FdaData() -> input("fda_data")
     )
 
     val sourceData =
-      if (input.contains("meddra-preferred-terms") && input.contains("meddra-low-level-terms")) {
+      if (input.contains("meddra_preferred_terms") && input.contains("meddra_low_level_terms")) {
         commonData ++ Map(
-          MeddraPreferredTermsData() -> input("meddra-preferred-terms"),
-          MeddraLowLevelTermsData() -> input("meddra-low-level-terms")
+          MeddraPreferredTermsData() -> input("meddra_preferred_terms"),
+          MeddraLowLevelTermsData() -> input("meddra_low_level_terms")
         )
       } else {
         commonData

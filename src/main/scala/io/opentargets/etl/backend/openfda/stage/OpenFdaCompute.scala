@@ -27,7 +27,7 @@ object OpenFdaCompute extends LazyLogging {
     // Add Meddra
     val input = context.configuration.steps.openfda.input
     val fdaDataWithMeddra =
-      if (input.contains("meddra-preferred-terms") && input.contains("meddra-low-level-terms")) {
+      if (input.contains("meddra_preferred_terms") && input.contains("meddra_low_level_terms")) {
         AttachMeddraData(
           fdaDataMontecarloReady,
           targetDimension.colId,

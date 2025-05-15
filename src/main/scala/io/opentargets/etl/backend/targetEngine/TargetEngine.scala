@@ -31,12 +31,12 @@ object TargetEngine extends LazyLogging {
 
   def compute(inputs: IOResources): DataFrame = {
     val targetsDF = inputs("targets").data
-    val mouseDF = inputs("mouse-phenotypes").data
+    val mouseDF = inputs("mouse_phenotypes").data
     val moleculeDF = inputs("molecule").data
-    val moleculeMecDF = inputs("mechanism-of-action").data
-    val hpaDataDF = inputs("hpa-data").data
-    val uniprotDF = inputs("uniprot-slterms").data
-    val mousePhenoScoresDF = inputs("mouse-pheno-scores").data
+    val moleculeMecDF = inputs("mechanism_of_action").data
+    val hpaDataDF = inputs("hpa_data").data
+    val uniprotDF = inputs("uniprot_slterms").data
+    val mousePhenoScoresDF = inputs("mouse_pheno_scores").data
 
     val parentChildCousinsDF = FindParentChidCousins(uniprotDF)
 
@@ -80,7 +80,7 @@ object TargetEngine extends LazyLogging {
   }
 
   def writeOutput(targetEngineDF: DataFrame)(implicit context: ETLSessionContext): Unit = {
-    val outputConfig = context.configuration.steps.targetEngine.output("target-engine")
+    val outputConfig = context.configuration.steps.targetEngine.output("target_engine")
 
     val dataFramesToSave = Map("targetEngine" -> IOResource(targetEngineDF, outputConfig))
 

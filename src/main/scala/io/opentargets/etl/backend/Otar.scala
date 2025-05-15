@@ -50,8 +50,8 @@ object Otar extends LazyLogging {
 
     val otarDF = generateOtarInfo(
       inputDataFrames("diseases").data,
-      inputDataFrames("otar-meta").data,
-      inputDataFrames("otar-project-to-efo").data
+      inputDataFrames("otar_meta").data,
+      inputDataFrames("otar_project_to_efo").data
     )
 
     logger.debug("Writing Otar Projects outputs")

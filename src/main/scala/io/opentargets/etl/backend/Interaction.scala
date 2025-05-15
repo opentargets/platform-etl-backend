@@ -423,12 +423,12 @@ object Interactions extends LazyLogging {
     val output = context.configuration.steps.interaction.output
 
     Map(
-      "interactionsEvidence" -> IOResource(interactionEvidences, output("interactions-evidence")),
+      "interactionsEvidence" -> IOResource(interactionEvidences, output("interactions_evidence")),
       "interactions" -> IOResource(aggregationInteractions, output("interactions")),
       // This can be transformed into a ammonite script.
       "interactionUnmatch" -> IOResource(
         getUnmatch(interactionIntactDF, interactionStringsDF),
-        output("interactions-unmatched")
+        output("interactions_unmatched")
       )
     )
   }
