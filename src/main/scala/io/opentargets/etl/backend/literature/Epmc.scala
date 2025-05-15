@@ -17,9 +17,9 @@ object Epmc extends LazyLogging {
 
     val conf = context.configuration.steps.literature
 
-    val inputDataFrames = IoHelpers.readFrom(conf.input.filter(_._1.startsWith("epmc-")))
+    val inputDataFrames = IoHelpers.readFrom(conf.input.filter(_._1.startsWith("epmc_")))
 
-    val inputDf = inputDataFrames("epmc-cooccurences").data
+    val inputDf = inputDataFrames("epmc_cooccurences").data
 
     val cooccurencesDf = compute(
       inputDf,
@@ -67,11 +67,11 @@ object Epmc extends LazyLogging {
       )
     }
 
-    logger.info(s"Write EMPC data to ${conf.output("epmc-output").path}")
+    logger.info(s"Write EMPC data to ${conf.output("epmc_output").path}")
     val dataframesToSave = Map(
       // coalesce to maintain logic previously used by datateam. A single file is used for metrics calculations.
-      "epmc" -> IOResource(evidence.coalesce(1), conf.output("epmc-output")),
-      "epmcCooccurrences" -> IOResource(epmcCooccurrencesDf, conf.output("epmc-cooccurrences"))
+      "epmc" -> IOResource(evidence.coalesce(1), conf.output("epmc_output")),
+      "epmcCooccurrences" -> IOResource(epmcCooccurrencesDf, conf.output("epmc_cooccurrences"))
     )
 
     IoHelpers.writeTo(dataframesToSave)

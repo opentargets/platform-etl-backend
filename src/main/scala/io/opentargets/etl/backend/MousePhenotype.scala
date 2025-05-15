@@ -17,7 +17,7 @@ object MousePhenotype extends Serializable with LazyLogging {
 
     val inputs = config.input
     val inputDataframes = IoHelpers.readFrom(inputs)
-    val mousePhenotypesDf = inputDataframes("mouse-phenotypes").data
+    val mousePhenotypesDf = inputDataframes("mouse_phenotypes").data
 
     logger.info(s"MousePhenotypes Validating data")
 

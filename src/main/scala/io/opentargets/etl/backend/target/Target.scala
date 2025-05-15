@@ -47,7 +47,7 @@ object Target extends LazyLogging {
       ),
       "targetEssentiality" -> IOResource(
         targetsDF("targetEssentiality"),
-        context.configuration.steps.target.output("gene-essentiality")
+        context.configuration.steps.target.output("gene_essentiality")
       )
     )
 
@@ -62,42 +62,42 @@ object Target extends LazyLogging {
     val inputDataFrames = getMappedInputs(context.configuration.steps.target)
 
     // 2. prepare intermediate dataframes per source
-    val chemicalProbes: DataFrame = inputDataFrames("chemical-probes").data
-    val geneCode: Dataset[GeneAndCanonicalTranscript] = GeneCode(inputDataFrames("gene-code").data)
+    val chemicalProbes: DataFrame = inputDataFrames("chemical_probes").data
+    val geneCode: Dataset[GeneAndCanonicalTranscript] = GeneCode(inputDataFrames("genecode").data)
     val hgnc: Dataset[Hgnc] = Hgnc(inputDataFrames("hgnc").data)
     val hallmarks: Dataset[HallmarksWithId] = Hallmarks(inputDataFrames("hallmarks").data)
     val ncbi: Dataset[Ncbi] = Ncbi(inputDataFrames("ncbi").data)
     val ensemblDf: Dataset[Ensembl] = Ensembl(inputDataFrames("ensembl").data, geneCode)
     val uniprotDS: Dataset[Uniprot] =
-      Uniprot(inputDataFrames("uniprot").data, inputDataFrames("uniprot-ssl").data)
+      Uniprot(inputDataFrames("uniprot").data, inputDataFrames("uniprot_ssl").data)
     val geneOntologyDf: Dataset[GeneOntologyByEnsembl] = GeneOntology(
-      inputDataFrames("gene-ontology-human").data,
-      inputDataFrames("gene-ontology-rna").data,
-      inputDataFrames("gene-ontology-rna-lookup").data,
-      inputDataFrames("gene-ontology-eco-lookup").data,
+      inputDataFrames("gene_ontology_human").data,
+      inputDataFrames("gene_ontology_rna").data,
+      inputDataFrames("gene_ontology_rna_lookup").data,
+      inputDataFrames("gene_ontology_eco_lookup").data,
       ensemblDf
     )
     val tep: Dataset[Tep] = Tep(inputDataFrames("tep").data)
     val hpa: Dataset[GeneWithLocation] =
-      GeneWithLocation(inputDataFrames("hpa").data, inputDataFrames("hpa-sl").data)
+      GeneWithLocation(inputDataFrames("hpa").data, inputDataFrames("hpa_sl").data)
     val projectScoresDS: Dataset[GeneWithDbXRef] = ProjectScores(
-      inputDataFrames("project-scores-ids").data,
-      inputDataFrames("project-scores-essentiality-matrix").data
+      inputDataFrames("project_scores_ids").data,
+      inputDataFrames("project_scores_essentiality_matrix").data
     )
     val proteinClassification: Dataset[ProteinClassification] = ProteinClassification(
       inputDataFrames("chembl").data
     )
     val geneticConstraints: Dataset[GeneticConstraintsWithId] = GeneticConstraints(
-      inputDataFrames("genetic-constraints").data
+      inputDataFrames("genetic_constraints").data
     )
     val homology: Dataset[Ortholog] = Ortholog(
-      inputDataFrames("homology-dictionary").data,
-      inputDataFrames("homology-coding-proteins").data,
-      inputDataFrames("homology-gene-dictionary").data,
+      inputDataFrames("homology_dictionary").data,
+      inputDataFrames("homology_coding_proteins").data,
+      inputDataFrames("homology_gene_dictionary").data,
       context.configuration.steps.target.hgncOrthologSpecies
     )
     val reactome: Dataset[Reactomes] =
-      Reactome(inputDataFrames("reactome-pathways").data, inputDataFrames("reactome-etl").data)
+      Reactome(inputDataFrames("reactome_pathways").data, inputDataFrames("reactome_etl").data)
     val tractability: Dataset[TractabilityWithId] = Tractability(
       inputDataFrames("tractability").data
     )
@@ -170,7 +170,7 @@ object Target extends LazyLogging {
       .transform(addTss)
 
     val targetEssentialityDF = targetsDF
-      .transform(addGeneEssentiality(inputDataFrames("gene-essentiality").data, ensemblIdLookupDf))
+      .transform(addGeneEssentiality(inputDataFrames("gene_essentiality").data, ensemblIdLookupDf))
 
     Map(
       "target" -> targetsDF,

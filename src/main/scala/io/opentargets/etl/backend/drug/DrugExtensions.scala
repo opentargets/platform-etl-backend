@@ -37,7 +37,7 @@ object DrugExtensions extends LazyLogging {
   ): DataFrame = {
     // get extensions from config and read into dataframes.
     val xrefExtensions: Seq[IOResourceConfig] =
-      DrugExtensions.groupExtensionByType("cross-references", config)
+      DrugExtensions.groupExtensionByType("cross_references", config)
     logger.debug(s"Found ${xrefExtensions.size} cross reference extension files.")
 
     val extensionDataFrames: Iterable[DataFrame] =

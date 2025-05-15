@@ -141,24 +141,24 @@ object Processing extends Serializable with LazyLogging {
 
     val outputs = configuration.output
     val dataframesToSave = Map(
-      "cooccurrences" -> IOResource(coocs, outputs("processing-cooccurrences")),
-      "matches" -> IOResource(matches, outputs("processing-matches")),
+      "cooccurrences" -> IOResource(coocs, outputs("processing_cooccurrences")),
+      "matches" -> IOResource(matches, outputs("processing_matches")),
       "literatureIndex" -> IOResource(literatureIndexAlt._1,
-                                      outputs("processing-literature-index")
+                                      outputs("processing_literature_index")
       ),
       "publicationSentences" -> IOResource(literatureIndexAlt._2,
-                                           outputs("processing-literature-sentences")
+                                           outputs("processing_literature_sentences")
       )
     ) ++ {
       if (configuration.processing.writeFailures) {
         Map(
           "failedMatches" -> IOResource(
             grounding("matchesFailed"),
-            outputs("matches").copy(path = outputs("processing-failed-matches").path)
+            outputs("matches").copy(path = outputs("processing_failed_matches").path)
           ),
           "failedCoocs" -> IOResource(
             grounding("cooccurrencesFailed"),
-            outputs("matches").copy(path = outputs("processing-failed-cooccurrences").path)
+            outputs("matches").copy(path = outputs("processing_failed_cooccurrences").path)
           )
         )
       } else Map.empty

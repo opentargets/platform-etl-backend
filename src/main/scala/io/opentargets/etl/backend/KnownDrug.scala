@@ -100,7 +100,7 @@ object KnownDrugs extends LazyLogging {
     Map(
       "knownDrugs" -> IOResource(
         knownDrugsDF,
-        context.configuration.steps.knownDrug.output("known-drugs")
+        context.configuration.steps.knownDrug.output("known_drugs")
       )
     )
   }

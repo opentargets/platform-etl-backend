@@ -42,11 +42,11 @@ object Vectors extends Serializable with LazyLogging {
     logger.info("Generate vector table from W2V model")
     val configuration = context.configuration.steps.literature
 
-    val mdf = loadVectorsFromModel(configuration.input("vectors-input").path)
+    val mdf = loadVectorsFromModel(configuration.input("vectors_input").path)
     val vdf = compute(mdf)
 
     val dataframesToSave = Map(
-      "vectorsIndex" -> IOResource(vdf, configuration.output("vectors-output"))
+      "vectorsIndex" -> IOResource(vdf, configuration.output("vectors_output"))
     )
 
     writeTo(dataframesToSave)

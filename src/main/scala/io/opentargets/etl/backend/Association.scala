@@ -222,9 +222,9 @@ object Association extends LazyLogging {
     val associationsOverall = computeAssociationsAllDS(associationsPerDS)
 
     Map(
-      "directByDatasource" -> IOResource(associationsPerDS, outputs("direct-by-datasource")),
-      "directByDatatype" -> IOResource(associationsPerDT, outputs("direct-by-datatype")),
-      "directByOverall" -> IOResource(associationsOverall, outputs("direct-by-overall"))
+      "directByDatasource" -> IOResource(associationsPerDS, outputs("direct_by_datasource")),
+      "directByDatatype" -> IOResource(associationsPerDT, outputs("direct_by_datatype")),
+      "directByOverall" -> IOResource(associationsOverall, outputs("direct_by_overall"))
     )
   }
 
@@ -237,9 +237,9 @@ object Association extends LazyLogging {
     val associationsOverall = computeAssociationsAllDS(associationsPerDS)
 
     Map(
-      "indirectByDatasource" -> IOResource(associationsPerDS, outputs("indirect-by-datasource")),
-      "indirectByDatatype" -> IOResource(associationsPerDT, outputs("indirect-by-datatype")),
-      "indirectByOverall" -> IOResource(associationsOverall, outputs("indirect-by-overall"))
+      "indirectByDatasource" -> IOResource(associationsPerDS, outputs("indirect_by_datasource")),
+      "indirectByDatatype" -> IOResource(associationsPerDT, outputs("indirect_by_datatype")),
+      "indirectByOverall" -> IOResource(associationsOverall, outputs("indirect_by_overall"))
     )
   }
 
