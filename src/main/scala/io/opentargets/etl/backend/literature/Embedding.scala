@@ -125,7 +125,7 @@ object Embedding extends Serializable with LazyLogging {
     logger.info("Embedding step reading the files matches")
     val configuration = context.configuration
 
-    val input = configuration.steps.literature.input.filter(_._1.startsWith("embedding-"))
+    val input = configuration.steps.literature.input.filter(_._1.startsWith("embedding_"))
     val inputDataFrames = readFrom(input)
     compute(inputDataFrames("embedding_matches").data)
   }
