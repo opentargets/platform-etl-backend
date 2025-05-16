@@ -63,7 +63,7 @@ object Target extends LazyLogging {
 
     // 2. prepare intermediate dataframes per source
     val chemicalProbes: DataFrame = inputDataFrames("chemical_probes").data
-    val geneCode: Dataset[GeneAndCanonicalTranscript] = GeneCode(inputDataFrames("genecode").data)
+    val geneCode: Dataset[GeneAndCanonicalTranscript] = GeneCode(inputDataFrames("gene_code").data)
     val hgnc: Dataset[Hgnc] = Hgnc(inputDataFrames("hgnc").data)
     val hallmarks: Dataset[HallmarksWithId] = Hallmarks(inputDataFrames("hallmarks").data)
     val ncbi: Dataset[Ncbi] = Ncbi(inputDataFrames("ncbi").data)
