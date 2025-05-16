@@ -397,7 +397,7 @@ object Target extends LazyLogging {
     val diseasesDf = inputDataFrames("diseases").data
 
     val tsDS: Dataset[TargetSafety] = Safety(
-      inputDataFrames("safetyEvidence").data,
+      inputDataFrames("safety_evidence").data,
       geneToEnsemblLookup,
       diseasesDf
     )
