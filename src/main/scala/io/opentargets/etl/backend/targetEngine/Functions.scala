@@ -479,13 +479,12 @@ object Functions extends LazyLogging {
     val mouseModelsDF = mouseDF
       .select(
         col("targetFromSourceId").as("target_id_"),
-        explode_outer(col("modelPhenotypeClasses")).as("classes"),
-        col("classes.label"),
-        col("classes.id")
+        explode(col("modelPhenotypeClasses")).as("classes")
       )
+    val mouseModelsPhenoScoresDF = mouseModelsDF
       .join(
         phenoScoresDF,
-        col("classes.id") === phenoScoresDF.col("idLabel"),
+        mouseModelsDF.col("classes.id") === phenoScoresDF.col("idLabel"),
         "left"
       )
       .withColumn("score", col("score").cast("double"))
@@ -501,7 +500,7 @@ object Functions extends LazyLogging {
           .otherwise((col("ScaledHarmonicSum") - lowThreshold).multiply(-1) / (1 - lowThreshold))
       )
     querySetDF
-      .join(mouseModelsDF, col("target_id_") === querySetDF.col("targetid"), "left")
+      .join(mouseModelsPhenoScoresDF, col("target_id_") === querySetDF.col("targetid"), "left")
 
   }
 
