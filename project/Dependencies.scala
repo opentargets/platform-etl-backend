@@ -13,7 +13,8 @@ object Dependencies {
     testingDeps,
     gcpEtl,
     typeSafeConfig,
-    johnS
+    johnS,
+    breeze
   ).flatten
 
   lazy val cli = Seq(
@@ -38,6 +39,10 @@ object Dependencies {
   )
 
   lazy val sparkVersion = "3.2.4"
+
+  lazy val breeze = Seq(
+    "org.scalanlp" %% "breeze" % "1.2"
+  )
 
   lazy val sparkDeps: Seq[ModuleID] = {
     val sparkDepsOptionallyProvided = Seq(
