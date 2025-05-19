@@ -22,12 +22,12 @@ lazy val root = (project in file("."))
     resolvers ++= buildResolvers,
     libraryDependencies ++= etlDependencies,
     testFrameworks += new TestFramework("minitest.runner.Framework"),
-    mainClass in (Compile, run) := Some("io.opentargets.etl.Main"),
-    mainClass in (Compile, packageBin) := Some("io.opentargets.etl.Main"),
-    assemblyShadeRules in assembly := Seq(
+    Compile / run / mainClass := Some("io.opentargets.etl.Main"),
+    Compile / packageBin / mainClass := Some("io.opentargets.etl.Main"),
+    assembly / assemblyShadeRules := Seq(
       ShadeRule.rename("shapeless.**" -> "new_shapeless.@1").inAll
     ),
-    assemblyMergeStrategy in assembly := {
+    assembly / assemblyMergeStrategy := {
       case PathList("META-INF", "services", "org.apache.hadoop.fs.FileSystem") =>
         MergeStrategy.filterDistinctLines
       case PathList("META-INF", "services", "org.apache.spark.sql.sources.DataSourceRegister") =>
