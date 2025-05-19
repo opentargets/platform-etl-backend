@@ -87,16 +87,16 @@ object Dependencies {
   lazy val typeSafeConfig = Seq("com.typesafe" % "config" % "1.4.1")
 
   lazy val gcpEtl = Seq(
-    "com.google.cloud" % "google-cloud-dataproc" % "4.2.0" % "provided",
-    "com.google.cloud" % "google-cloud-storage" % "2.4.2"
+    "com.google.cloud" % "google-cloud-dataproc" % "4.58.0" % "provided",
+    "com.google.cloud" % "google-cloud-storage" % "2.52.2"
   )
   lazy val gcpWorkflow = Seq(
-    "com.google.cloud" % "google-cloud-dataproc" % "4.2.0",
-    "com.google.cloud" % "google-cloud-storage" % "2.4.2",
+    "com.google.cloud" % "google-cloud-dataproc" % "4.58.0",
+    "com.google.cloud" % "google-cloud-storage" % "2.52.2",
     // https://storage.googleapis.com/cloud-opensource-java-dashboard/com.google.cloud/libraries-bom/26.1.4/index.html
-    "io.grpc" % "grpc-netty-shaded" % "1.50.2", // needed for workflow to communicate with GCP
-    "io.grpc" % "grpc-netty" % "1.50.2", // needed for workflow to communicate with GCP
-    "io.grpc" % "grpc-okhttp" % "1.50.2" // needed for workflow to communicate with GCP
+    "io.grpc" % "grpc-netty-shaded" % "1.72.0", // needed for workflow to communicate with GCP
+    "io.grpc" % "grpc-netty" % "1.72.0", // needed for workflow to communicate with GCP
+    "io.grpc" % "grpc-okhttp" % "1.72.0" // needed for workflow to communicate with GCP
   )
 
   lazy val johnSVersion = "3.3.4"
