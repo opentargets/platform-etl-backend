@@ -4,18 +4,22 @@ import io.opentargets.etl.backend.ETLSessionContext
 import io.opentargets.etl.backend.spark.Helpers.getOrCreateSparkSession
 import io.opentargets.etl.backend.ETLSessionContext.progName
 import com.typesafe.scalalogging.LazyLogging
+import org.apache.spark.sql.SparkSession
+import io.opentargets.etl.backend.spark.IoHelpers.readFrom
 
 object Literature extends LazyLogging {
 
   def apply()(implicit context: ETLSessionContext): Unit = {
+    implicit val ss: SparkSession = context.sparkSession
 
     val etlSessionContext: ETLSessionContext = createETLSession()
 
     val input = context.configuration.steps.literature.input.filter(_._1.startsWith("embedding_"))
     logger.info(s"INPUT DATASETS: ${input.toString()}")
+    val inputDataFrames = readFrom(input)
+    logger.info("INPUT DATAFRAMES: " + inputDataFrames.toString())
 
     // runSteps(etlSessionContext)
-
   }
 
   def createETLSession()(implicit context: ETLSessionContext): ETLSessionContext = {
