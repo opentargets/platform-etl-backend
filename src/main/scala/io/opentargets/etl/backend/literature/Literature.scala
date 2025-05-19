@@ -11,7 +11,10 @@ object Literature extends LazyLogging {
 
     val etlSessionContext: ETLSessionContext = createETLSession()
 
-    runSteps(etlSessionContext)
+    val input = context.configuration.steps.literature.input.filter(_._1.startsWith("embedding_"))
+    logger.info(s"INPUT DATASETS: ${input.toString()}")
+
+    // runSteps(etlSessionContext)
 
   }
 

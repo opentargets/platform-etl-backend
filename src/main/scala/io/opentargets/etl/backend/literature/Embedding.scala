@@ -126,6 +126,7 @@ object Embedding extends Serializable with LazyLogging {
     val configuration = context.configuration
 
     val input = configuration.steps.literature.input.filter(_._1.startsWith("embedding_"))
+    logger.info(s"INPUT DATASETS: ${input.toString()}")
     val inputDataFrames = readFrom(input)
     compute(inputDataFrames("embedding_matches").data)
   }
