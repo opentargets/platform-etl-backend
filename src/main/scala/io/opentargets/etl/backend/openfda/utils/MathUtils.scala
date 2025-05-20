@@ -1,10 +1,11 @@
 package io.opentargets.etl.backend.openfda.utils
 
 import breeze.linalg.{sum, DenseMatrix => BDM, DenseVector => BDV}
-import breeze.stats.distributions.Binomial
+import breeze.stats.distributions.{Binomial, RandBasis}
 
 object MathUtils {
-
+  val seed: Int = 0
+  implicit val rand: RandBasis = RandBasis.withSeed(seed)
   def calculateCriticalValues(
       permutations: Int,
       n_j: Int,
@@ -23,7 +24,7 @@ object MathUtils {
 
     x := MathUtils.rmultinom(permutations, n_j, probV)
 
-    val LLRS: BDM[Double] = BDM.zeros(probV.size, permutations)
+    val LLRS: BDM[Double] = BDM.zeros[Double](probV.size, permutations)
 
     for (c <- 0 until probV.size) {
       val X = x(c, ::).t
@@ -53,7 +54,7 @@ object MathUtils {
     require(probV.size > 0 && size > 0, "the probability vector must be > 0 and the size > 0")
     require(iterations > 0, "iterations must be greater than zero.")
 
-    val X: BDM[Double] = BDM.zeros(probV.size, iterations)
+    val X: BDM[Double] = BDM.zeros[Double](probV.size, iterations)
     val p: BDV[Double] = probV / sum(probV)
 
     val Bin = Binomial(size, p(0))

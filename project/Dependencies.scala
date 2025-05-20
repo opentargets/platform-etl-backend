@@ -41,6 +41,8 @@ object Dependencies {
   lazy val sparkVersion = "3.2.4"
 
   lazy val breeze = Seq(
+    "org.scalanlp" %% "breeze" % "2.1.0",
+    "org.scalanlp" %% "breeze-natives" % "2.1.0"
   )
 
   lazy val sparkDeps: Seq[ModuleID] = {
@@ -48,8 +50,7 @@ object Dependencies {
       "org.apache.spark" %% "spark-core" % sparkVersion,
       "org.apache.spark" %% "spark-sql" % sparkVersion,
       "org.apache.spark" %% "spark-graphx" % sparkVersion,
-      "org.apache.spark" %% "spark-mllib" % sparkVersion,
-      "org.scalanlp" %% "breeze" % "1.2"
+      "org.apache.spark" %% "spark-mllib" % sparkVersion
     )
     val sparkDeps =
       if (sys.props.getOrElse("ETL_FLAG_DATAPROC", "true").toBoolean) {
