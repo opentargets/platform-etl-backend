@@ -41,8 +41,7 @@ object Dependencies {
   lazy val sparkVersion = "3.2.4"
 
   lazy val breeze = Seq(
-    "org.scalanlp" %% "breeze" % "2.1.0",
-    "org.scalanlp" %% "breeze-natives" % "2.1.0"
+    "org.scalanlp" %% "breeze" % "2.1.0"
   )
 
   lazy val sparkDeps: Seq[ModuleID] = {
