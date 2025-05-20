@@ -13,8 +13,7 @@ object Dependencies {
     testingDeps,
     gcpEtl,
     typeSafeConfig,
-    johnS,
-    breeze
+    johnS
   ).flatten
 
   lazy val cli = Seq(
@@ -40,16 +39,12 @@ object Dependencies {
 
   lazy val sparkVersion = "3.2.4"
 
-  lazy val breeze = Seq(
-  )
-
   lazy val sparkDeps: Seq[ModuleID] = {
     val sparkDepsOptionallyProvided = Seq(
       "org.apache.spark" %% "spark-core" % sparkVersion,
       "org.apache.spark" %% "spark-sql" % sparkVersion,
       "org.apache.spark" %% "spark-graphx" % sparkVersion,
-      "org.apache.spark" %% "spark-mllib" % sparkVersion,
-      "org.scalanlp" %% "breeze" % "1.2"
+      "org.apache.spark" %% "spark-mllib" % sparkVersion
     )
     val sparkDeps =
       if (sys.props.getOrElse("ETL_FLAG_DATAPROC", "true").toBoolean) {

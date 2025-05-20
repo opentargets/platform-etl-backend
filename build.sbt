@@ -21,6 +21,7 @@ lazy val root = (project in file("."))
     name := "io-opentargets-etl-backend",
     resolvers ++= buildResolvers,
     libraryDependencies ++= etlDependencies,
+    dependencyOverrides ++= Seq("org.scalanlp" %% "breeze" % "1.2"),
     testFrameworks += new TestFramework("minitest.runner.Framework"),
     Compile / run / mainClass := Some("io.opentargets.etl.Main"),
     Compile / packageBin / mainClass := Some("io.opentargets.etl.Main"),
