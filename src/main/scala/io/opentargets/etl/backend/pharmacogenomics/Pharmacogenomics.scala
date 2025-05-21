@@ -75,6 +75,7 @@ object Pharmacogenomics extends LazyLogging {
           col("pgxCategory"),
           col("phenotypeFromSourceId"),
           col("phenotypeText"),
+          col("variantAnnotation"),
           col("studyId"),
           col("targetFromSourceId"),
           col("variantFunctionalConsequenceId"),
