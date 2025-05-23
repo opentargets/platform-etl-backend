@@ -70,7 +70,7 @@ object Drug extends Serializable with LazyLogging {
     )
 
     // We define a drug as having either a drugbank id, a mechanism of action, an indication, or if it is a chemical probe.
-    val isDrugMolecule: Column = array_contains(map_keys(col("crossReferences")), "drugbank") ||
+    val isDrugMolecule: Column = array_contains(col("crossReferences.source"), "drugbank") ||
       col("indications").isNotNull ||
       col("mechanismsOfAction").isNotNull ||
       col("chemicalProbeDrugId").isNotNull

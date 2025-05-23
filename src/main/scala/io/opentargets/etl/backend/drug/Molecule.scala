@@ -15,6 +15,7 @@ import org.apache.spark.sql.functions.{
   explode,
   lit,
   map_concat,
+  struct,
   typedLit,
   udf,
   upper,
@@ -164,7 +165,14 @@ object Molecule extends LazyLogging {
       .foldLeft(chemblCrossReferences)((agg, a) => mergeCrossReferenceMaps(agg, a))
       .filter(col(XREF_COLUMN_NAME).isNotNull)
       .withColumnRenamed(XREF_COLUMN_NAME, "crossReferences")
-    references
+
+    val transformedCrossReference = references
+      .select(col("id"), explode(col("crossReferences")))
+      .withColumnRenamed("key", "source")
+      .withColumnRenamed("value", "ids")
+      .groupBy("id")
+      .agg(collect_set(struct(col("source"), col("ids"))).as("crossReferences"))
+    transformedCrossReference
   }
 
   /** @param preProcessedMolecules
