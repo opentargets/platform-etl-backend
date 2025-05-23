@@ -447,6 +447,24 @@ object Transformers {
 
     }
 
+    /** Collect cross reference ids for the drugs
+      * @param crossReferences
+      *   crossReferences column from the drug dataframe
+      * @return
+      *   a column with an array of cross reference ids
+      */
+    def collectCrossReferenceIds(crossReferences: Column): Column =
+      sort_array(
+        array_distinct(
+          flatten(
+            transform(
+              crossReferences,
+              x => x.getField("ids")
+            )
+          )
+        )
+      ).alias("crossReferences")
+
     // uses target_ids, drug_id, target_labels, disease_id, disease_labels
     def setIdAndSelectFromDrugs(
         associatedDrugs: DataFrame,
@@ -502,6 +520,10 @@ object Transformers {
           when(col("disease_labels").isNull, Array.empty[String])
             .otherwise(col("disease_labels"))
         )
+        .withColumn(
+          "crossReferences",
+          collectCrossReferenceIds(col("crossReferences"))
+        )
       SearchIndex(
         id = col("id"),
         name = col("name"),
@@ -514,9 +536,7 @@ object Transformers {
           "array(name)",
           "array(id)",
           "childChemblIds",
-          "crossReferences.PubChem",
-          "crossReferences.drugbank",
-          "crossReferences.chEBI"
+          "crossReferences"
         ),
         prefixes = C.flattenCat(
           "synonyms",
