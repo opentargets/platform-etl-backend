@@ -21,9 +21,7 @@ object Dependencies {
     "com.monovore" %% "decline-effect" % "2.5.0"
   )
 
-  lazy val betterFiles = Seq(
-    "com.github.pathikrit" %% "better-files-akka" % "3.9.2"
-  )
+  lazy val betterFiles = Seq("com.github.pathikrit" %% "better-files-akka" % "3.9.2")
 
   lazy val configDeps = Seq(
     "com.github.pureconfig" %% "pureconfig" % "0.17.8"
