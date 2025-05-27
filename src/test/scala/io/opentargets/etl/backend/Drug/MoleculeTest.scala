@@ -202,10 +202,10 @@ class MoleculeTest extends EtlSparkUnitTest {
       .json(this.getClass.getResource("/sample_mol_after_preprocessing.json").getPath)
     // when
     val results = Molecule invokePrivate processMoleculeCrossReferences(sampleMolecule)
-    val xrefMap = results.head.getMap(1)
+    val xrefMap = results.head.getList(1)
     // then
     assertResult(4) {
-      xrefMap.keySet.size
+      xrefMap.size
     }
   }
 
