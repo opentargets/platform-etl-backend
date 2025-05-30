@@ -455,13 +455,16 @@ object Transformers {
       */
     def collectCrossReferenceIds(crossReferences: Column): Column =
       sort_array(
-        flatten(
-          transform(
-            crossReferences,
-            x => x.getField("ids")
+        array_distinct(
+          flatten(
+            transform(
+              crossReferences,
+              x => x.getField("ids")
+            )
           )
-        ).alias("crossReferences")
-      )
+        )
+      ).alias("crossReferences")
+
     // uses target_ids, drug_id, target_labels, disease_id, disease_labels
     def setIdAndSelectFromDrugs(
         associatedDrugs: DataFrame,
