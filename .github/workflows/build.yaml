@@ -2,6 +2,12 @@ name: Build
 
 on:
   workflow_call:
+    inputs:
+      is_dataproc:
+        description: 'whether to build the dataproc JAR (no spark embedded) or locally runnable JAR.'
+        type: boolean
+        required: false
+        default: true
 
 jobs:
   build:
@@ -15,8 +21,10 @@ jobs:
     steps:
       - name: Prepare tag
         run: |
-          TAG=$(echo $TAG | sed 's/^v//')
+          PREFIX=${{ inputs.is_dataproc == false && 'local-' || '' }}
+          TAG="${PREFIX}$(echo $TAG | sed 's/^v//')"
           echo "TAG=$TAG" >> $GITHUB_ENV
+          echo "The tag for this build is $TAG"
       - uses: actions/checkout@v4
         name: Checkout code
       - uses: coursier/cache-action@v6
@@ -26,7 +34,7 @@ jobs:
         with:
           java-version: openjdk@1.11
       - name: Build JAR
-        run: sbt ++${{env.SCALA_VERSION }} 'set test in assembly := {}' assembly
+        run: sbt ++${{env.SCALA_VERSION }} -DETL_FLAG_DATAPROC=${{ inputs.is_dataproc }} 'set test in assembly := {}' assembly
       - uses: actions/upload-artifact@v4
         name: Upload JAR
         with:

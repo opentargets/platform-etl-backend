@@ -13,10 +13,13 @@ jobs:
   ci:
     uses: ./.github/workflows/ci.yaml
 
-  build:
-    uses: ./.github/workflows/build.yaml
+  build_dataproc:
+    name: Build Dataproc 🏗️☁️📦
     needs: ci
+    uses: ./.github/workflows/build.yaml
+    with:
+      is_dataproc: true
 
   upload:
     uses: ./.github/workflows/upload.yaml
-    needs: build
+    needs: build_dataproc

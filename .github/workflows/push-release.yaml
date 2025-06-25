@@ -9,18 +9,32 @@ jobs:
   ci:
     uses: ./.github/workflows/ci.yaml
 
-  build:
-    uses: ./.github/workflows/build.yaml
+  build_dataproc:
+    name: Build Dataproc 🏗️☁️📦
     needs: ci
+    uses: ./.github/workflows/build.yaml
+    with:
+      is_dataproc: true
+
+  build_local:
+    name: Build Local 🏗️🖥️📦
+    needs: ci
+    uses: ./.github/workflows/build.yaml
+    with:
+      is_dataproc: false
 
   upload:
     uses: ./.github/workflows/upload.yaml
-    needs: build
+    needs:
+      - build_dataproc
+      - build_local
 
   release:
     name: Release 🚀
     runs-on: ubuntu-22.04
-    needs: build
+    needs:
+      - build_dataproc
+      - build_local
     permissions:
       contents: write
     env:
@@ -31,9 +45,17 @@ jobs:
           TAG=$(echo $TAG | sed 's/^v//')
           echo "TAG=$TAG" >> $GITHUB_ENV
       - uses: actions/download-artifact@v4
-        name: Download JAR
+        name: Download artifacts
         with:
-          name: etl-${{ env.TAG }}.jar
+          merge-multiple: true
+      - name: debug this thing
+        run: |
+          echo "Current directory contents:"
+          ls -laR
+          echo "All .jar files:"
+          find . -name "*.jar" -type f
+          echo "All files:"
+          find . -type f
       - name: Create draft release 🐙
         run: >-
           gh release create
@@ -41,6 +63,6 @@ jobs:
           --repo ${{ github.repository }}
           --title ${{ github.ref_name }}
           ${{ github.ref_name }}
-          etl-${{ env.TAG }}.jar
+          etl*.jar
         env:
           GH_TOKEN: ${{ github.token }}
