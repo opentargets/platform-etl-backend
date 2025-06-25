@@ -48,14 +48,6 @@ jobs:
         name: Download artifacts
         with:
           merge-multiple: true
-      - name: debug this thing
-        run: |
-          echo "Current directory contents:"
-          ls -laR
-          echo "All .jar files:"
-          find . -name "*.jar" -type f
-          echo "All files:"
-          find . -type f
       - name: Create draft release 🐙
         run: >-
           gh release create
