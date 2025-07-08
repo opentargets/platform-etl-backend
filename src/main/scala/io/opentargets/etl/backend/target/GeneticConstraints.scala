@@ -1,8 +1,9 @@
 package io.opentargets.etl.backend.target
 
 import com.typesafe.scalalogging.LazyLogging
-import org.apache.spark.sql.functions.{array, col, lit, struct}
-import org.apache.spark.sql.types.{FloatType, IntegerType}
+import org.apache.spark.sql.expressions.Window
+import org.apache.spark.sql.functions.{array, col, lit, ntile, struct, when}
+import org.apache.spark.sql.types.{FloatType, IntegerType, StringType}
 import org.apache.spark.sql.{DataFrame, Dataset, SparkSession}
 
 /** @param constraintType
@@ -41,44 +42,50 @@ object GeneticConstraints extends LazyLogging {
     logger.info("Calculating genetic constraints")
     import sparkSession.implicits._
 
-    df.select(
-      col("gene_id").as("id"),
+    df.withColumn(
+      "lof.oe_ci.upper_bin_sextile",
+        when(col("lof.oe_ci.upper_rank") =!= "NA",
+          ntile(6).over(Window.orderBy(col("lof.oe_ci.upper_rank").cast(IntegerType))) - 1
+        ).otherwise("NA")
+      )
+      .select(
+      col("gene_id").cast(StringType).as("id"),
       array(
         struct(
           lit("syn").as("constraintType"),
-          col("syn_z").cast(FloatType).as("score"),
-          col("exp_syn").cast(FloatType).as("exp"),
-          col("obs_syn").cast(IntegerType).as("obs"),
-          col("oe_syn").cast(FloatType).as("oe"),
-          col("oe_syn_lower").cast(FloatType).as("oeLower"),
-          col("oe_syn_upper").cast(FloatType).as("oeUpper"),
+          col("syn.z_score").cast(FloatType).as("score"),
+          col("syn.exp").cast(FloatType).as("exp"),
+          col("syn.obs").cast(IntegerType).as("obs"),
+          col("syn.oe").cast(FloatType).as("oe"),
+          col("syn.oe_ci.lower").cast(FloatType).as("oeLower"),
+          col("syn.oe_ci.upper").cast(FloatType).as("oeUpper"),
           lit(null).as("upperRank"),
           lit(null).as("upperBin"),
           lit(null).as("upperBin6")
         ),
         struct(
           lit("mis").as("constraintType"),
-          col("mis_z").cast(FloatType).as("score"),
-          col("exp_mis").cast(FloatType).as("exp"),
-          col("obs_mis").cast(IntegerType).as("obs"),
-          col("oe_mis").cast(FloatType).as("oe"),
-          col("oe_mis_lower").cast(FloatType).as("oeLower"),
-          col("oe_mis_upper").cast(FloatType).as("oeUpper"),
+          col("mis.z_score").cast(FloatType).as("score"),
+          col("mis.exp").cast(FloatType).as("exp"),
+          col("mis.obs").cast(IntegerType).as("obs"),
+          col("mis.oe").cast(FloatType).as("oe"),
+          col("mis.oe_ci.lower").cast(FloatType).as("oeLower"),
+          col("mis.oe_ci.upper").cast(FloatType).as("oeUpper"),
           lit(null).as("upperRank"),
           lit(null).as("upperBin"),
           lit(null).as("upperBin6")
         ),
         struct(
           lit("lof").as("constraintType"),
-          col("pLi").cast(FloatType).as("score"),
-          col("exp_lof").cast(FloatType).as("exp"),
-          col("obs_lof").cast(IntegerType).as("obs"),
-          col("oe_lof").cast(FloatType).as("oe"),
-          col("oe_lof_lower").cast(FloatType).as("oeLower"),
-          col("oe_lof_upper").cast(FloatType).as("oeUpper"),
-          col("oe_lof_upper_rank").cast(IntegerType).as("upperRank"),
-          col("oe_lof_upper_bin").cast(IntegerType).as("upperBin"),
-          col("oe_lof_upper_bin_6").cast(IntegerType).as("upperBin6")
+          col("lof.pLI").cast(FloatType).as("score"),
+          col("lof.exp").cast(FloatType).as("exp"),
+          col("lof.obs").cast(IntegerType).as("obs"),
+          col("lof.oe").cast(FloatType).as("oe"),
+          col("lof.oe_ci.lower").cast(FloatType).as("oeLower"),
+          col("lof.oe_ci.upper").cast(FloatType).as("oeUpper"),
+          col("lof.oe_ci.upper_rank").cast(IntegerType).as("upperRank"),
+          col("lof.oe_ci.upper_bin_decile").cast(IntegerType).as("upperBin"),
+          col("lof.oe_ci.upper_bin_sextile").cast(IntegerType).as("upperBin6")
         )
       ).as("constraint")
     ).as[GeneticConstraintsWithId]
