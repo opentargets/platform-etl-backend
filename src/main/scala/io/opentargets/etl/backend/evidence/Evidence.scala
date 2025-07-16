@@ -197,6 +197,70 @@ object Evidence extends LazyLogging {
     resolved
   }
 
+  def resolvePublicationDates(
+      df: DataFrame,
+      publication_date_mapping: DataFrame
+  )(implicit context: ETLSessionContext): DataFrame = {
+    logger.info("resolve publication dates for evidences based on literature identifiers")
+
+    implicit val session: SparkSession = context.sparkSession
+
+    // Process literature identifiers - equivalent to the PySpark processed_dates
+    val processedDates = publication_date_mapping
+      // Filter for MED, AGR and pre-prints (PPR)
+      .filter(col("source").isin("MED", "PPR", "AGR"))
+      // Use SQL to unpivot the identifier columns
+      .createOrReplaceTempView("pub_data")
+    
+    val unpivotedData = session.sql("""
+      SELECT firstPublicationDate as publicationDate, pmid as publicationId FROM pub_data WHERE pmid IS NOT NULL
+      UNION ALL
+      SELECT firstPublicationDate as publicationDate, id as publicationId FROM pub_data WHERE id IS NOT NULL  
+      UNION ALL
+      SELECT firstPublicationDate as publicationDate, pmcid as publicationId FROM pub_data WHERE pmcid IS NOT NULL
+    """).distinct()
+
+    val processedDatesLut = broadcast(unpivotedData.orderBy(col("publicationId").asc))
+
+    // Process evidence with literature field
+    val evidenceWithPubIds = df
+      .select(col("id"), explode(col("literature")).as("publicationId"))
+      // Clean publication IDs - trim and uppercase
+      .withColumn(
+        "publicationId",
+        upper(trim(col("publicationId")))
+      )
+
+    // Join with publication dates
+    val datedEvidence = evidenceWithPubIds
+      .join(processedDatesLut, Seq("publicationId"), "inner")
+      // Rank by publication date to find earliest publication for each evidence
+      .withColumn(
+        "rank",
+        row_number().over(
+          Window.partitionBy("id").orderBy(col("publicationDate").asc)
+        )
+      )
+      // Filter for the first (earliest) publication for each evidence
+      .filter(col("rank") === 1)
+      .select("id", "publicationDate")
+
+    val datedEvidenceLut = broadcast(datedEvidence.orderBy(col("id").asc))
+
+    // Join original evidence with dated evidence
+    val resolved = df
+      .join(datedEvidenceLut, Seq("id"), "left_outer")
+      .withColumn(
+        "evidenceDate",
+        coalesce(
+          col("publicationDate").cast(DateType), 
+          col("releaseDate").cast(DateType)
+        )
+      )
+
+    resolved
+  }
+
   def normaliseDatatypes(df: DataFrame)(implicit context: ETLSessionContext): DataFrame = {
     implicit val ss: SparkSession = context.sparkSession
     import ss.implicits._
@@ -364,6 +428,7 @@ object Evidence extends LazyLogging {
       .transform(prepare)
       .transform(resolveTargets(_, dfs("targets").data, rt, fromTargetId, targetId))
       .transform(resolveDiseases(_, dfs("diseases").data, rd, fromDiseaseId, diseaseId))
+      .transform(resolvePublicationDates(_, dfs("literature_dating_input").data))
       .transform(excludeByBiotype(_, dfs("targets").data, xb, targetId, datasourceId))
       .transform(normaliseDatatypes _)
       .transform(generateHashes(_, id))
