@@ -68,202 +68,62 @@ class EvidenceDatingTest extends AnyFlatSpec with Matchers {
         literatureMapSchema
     )
 
-  "resolvePublicationDates" should "return dataframe" in {
     // Apply the function using shared test data
     val result = Evidence.resolvePublicationDates(testEvidenceData, testPublicationData)
+
+  "resolvePublicationDates" should "return dataframe" in {
 
     // Compile-time type assertion
     implicitly[result.type <:< DataFrame]
     
-    // Test that DataFrame is created successfully
-    result.count() should be(5)
-    result.columns should contain("evidenceDate")
-    
-    // // Assert return type and schema
-    // result shouldBe a[DataFrame]
-    
-    // // Assert specific columns exist
-    // result.columns should contain allOf("id", "releaseDate", "literature", "evidenceDate")
-    
-    // // Assert column types
-    // val schema = result.schema
-    // schema("id").dataType should be(StringType)
-    // schema("releaseDate").dataType should be(StringType)
-    // schema("literature").dataType should be(ArrayType(StringType, true))
-    // schema("evidenceDate").dataType should be(DateType)
-    
-    // // Assert nullable properties
-    // schema("id").nullable should be(false)
-    // schema("releaseDate").nullable should be(true)
-    // schema("evidenceDate").nullable should be(true)
   }
 
-//   "resolvePublicationDates" should "have correct function signature and return type" in {
-//     // Apply the function using shared test data  
-//     val result = Evidence.resolvePublicationDates(testEvidenceData, testPublicationData)
+  it should "return all evidence" in {
+    // Test that DataFrame is created successfully
+    result.count() should be(5)
+
+    // Should have all expected columns
+    val expectedColumns = testEvidenceData.columns
+    result.columns should contain allElementsOf(expectedColumns)
+
+  }
+
+  it should "have new publicationDate column with the right type" in {
+    // Test for new column:
+    result.columns should contain("publicationDate")
+
+    // Test column schema:
+    result.schema("publicationDate").dataType should be(StringType)
+    result.schema("publicationDate").nullable should be(true)
+  }
+
+  it should "correctly resolve publication dates for specific evidence" in {
+    // Test specific evidence records
     
-//     // Type-level assertions
-//     val method = Evidence.getClass.getMethods.find(_.getName == "resolvePublicationDates").get
-//     method.getReturnType should be(classOf[DataFrame])
+    // e1: No literature, no releaseDate - publicationDate should be null, evidenceDate should be null
+    val evidence1 = result.filter(col("id") === "e1").collect().head
+    evidence1.getString(evidence1.fieldIndex("publicationDate")) should be(null)
+    evidence1.getString(evidence1.fieldIndex("evidenceDate")) should be(null)
     
-//     // Parameter type assertions
-//     val paramTypes = method.getParameterTypes
-//     paramTypes should have length 2
-//     paramTypes(0) should be(classOf[DataFrame])
-//     paramTypes(1) should be(classOf[DataFrame])
-//   }
+    // e2: No literature, has releaseDate - publicationDate should be null, evidenceDate should be releaseDate
+    val evidence2 = result.filter(col("id") === "e2").collect().head
+    evidence2.getString(evidence2.fieldIndex("publicationDate")) should be(null)
+    evidence2.getString(evidence2.fieldIndex("evidenceDate")) should be("2021-02-03")
 
-//   "resolvePublicationDates" should "correctly resolve publication dates from literature identifiers" in {
-//     // Apply the function using shared test data
-//     val result = Evidence.resolvePublicationDates(testEvidenceData, testPublicationData)
+    // e3: Has literature that can be resolved - publicationDate should be from literature, evidenceDate should prioritize publication date
+    val evidence3 = result.filter(col("id") === "e3").collect().head
+    evidence3.getString(evidence3.fieldIndex("publicationDate")) should be("2021-06-15")
+    evidence3.getString(evidence3.fieldIndex("evidenceDate")) should be("2021-06-15")
 
-//     // Collect results for assertions
-//     val resultData = result.select("id", "evidenceDate", "publicationDate").collect()
+    // e4: Has literature that can be resolved - publicationDate should be from literature, evidenceDate should prioritize publication date
+    val evidence4 = result.filter(col("id") === "e4").collect().head
+    evidence4.getString(evidence4.fieldIndex("publicationDate")) should be("2021-06-15")
+    evidence4.getString(evidence4.fieldIndex("evidenceDate")) should be("2021-06-15")
 
-//     // Assertions
-//     resultData should have length 5
+    // e5: Has literature that can be resolved - publicationDate should be from literature, which is an older date
+    val evidence5 = result.filter(col("id") === "e5").collect().head
+    evidence5.getString(evidence5.fieldIndex("publicationDate")) should be("2021-08-15")
+    evidence5.getString(evidence5.fieldIndex("evidenceDate")) should be("2021-08-15")
 
-//     // e1: No dates - should fall back to releaseDate (null), evidenceDate should be null
-//     val evidence1 = resultData.find(_.getString(0) == "e1").get
-//     Option(evidence1.getDate(1)) should be(None) // evidenceDate should be null (no releaseDate or publicationDate)
-//     Option(evidence1.getDate(2)) should be(None) // publicationDate should be null
-
-//     // e2: Only release date - should use releaseDate
-//     val evidence2 = resultData.find(_.getString(0) == "e2").get
-//     evidence2.getDate(1) should not be null // evidenceDate should be releaseDate
-//     Option(evidence2.getDate(2)) should be(None) // publicationDate should be null
-
-//     // e3: Both release date and literature - should prioritize publication date
-//     val evidence3 = resultData.find(_.getString(0) == "e3").get
-//     evidence3.getDate(1) should not be null // evidenceDate should be publication date
-//     evidence3.getDate(2) should not be null // publicationDate should be resolved
-
-//     // e4: Only literature - should use publication date
-//     val evidence4 = resultData.find(_.getString(0) == "e4").get
-//     evidence4.getDate(1) should not be null // evidenceDate should be publication date
-//     evidence4.getDate(2) should not be null // publicationDate should be resolved
-
-//     // e5: Only one literature source - should use publication date
-//     val evidence5 = resultData.find(_.getString(0) == "e5").get
-//     evidence5.getDate(1) should not be null // evidenceDate should be publication date
-//     evidence5.getDate(2) should not be null // publicationDate should be resolved
-//   }
-
-//   "resolvePublicationDates" should "prioritize earliest publication date when multiple publications exist" in {
-//     // Create test evidence with multiple literature references
-//     val evidenceData = Seq(
-//       ("evidence1", "2023-01-01", Seq("PMID123", "PMID456"))
-//     ).toDF("id", "releaseDate", "literature")
-
-//     // Create publication data with different dates for same evidence
-//     val publicationData = Seq(
-//       ("MED", "2022-08-15", "PMID123", "PMID123", ""), // Later date
-//       ("MED", "2022-06-10", "PMID456", "PMID456", "")  // Earlier date - should be selected
-//     ).toDF("source", "firstPublicationDate", "pmid", "id", "pmcid")
-//       .withColumn("pmcid", when(col("pmcid") === "", lit(null).cast(StringType)).otherwise(col("pmcid")))
-
-//     val result = Evidence.resolvePublicationDates(evidenceData, publicationData)
-//     val resultRow = result.select("id", "publicationDate").collect().head
-
-//     // Should select the earlier publication date (2022-06-10)
-//     resultRow.getDate(1).toString should be("2022-06-10")
-//   }
-
-//   "resolvePublicationDates" should "filter sources correctly (MED, PPR, AGR only)" in {
-//     val evidenceData = Seq(
-//       ("evidence1", "2023-01-01", Seq("PMID123"))
-//     ).toDF("id", "releaseDate", "literature")
-
-//     val publicationData = Seq(
-//       ("MED", "2022-06-15", "PMID123", "PMID123", ""), // Should be included
-//       ("DOI", "2022-06-15", "PMID123", "PMID123", ""), // Should be filtered out
-//       ("OTHER", "2022-06-15", "PMID123", "PMID123", "") // Should be filtered out
-//     ).toDF("source", "firstPublicationDate", "pmid", "id", "pmcid")
-//       .withColumn("pmcid", when(col("pmcid") === "", lit(null).cast(StringType)).otherwise(col("pmcid")))
-
-//     val result = Evidence.resolvePublicationDates(evidenceData, publicationData)
-//     val resultRow = result.select("id", "publicationDate").collect().head
-
-//     // Should only match MED source
-//     resultRow.getDate(1) should not be null
-//   }
-
-//   "resolvePublicationDates" should "handle case-insensitive publication ID matching" in {
-//     val evidenceData = Seq(
-//       ("evidence1", "2023-01-01", Seq("pmid123", " PMID456 ")) // lowercase and with spaces
-//     ).toDF("id", "releaseDate", "literature")
-
-//     val publicationData = Seq(
-//       ("MED", "2022-06-15", "PMID123", "PMID123", ""),
-//       ("MED", "2022-07-15", "PMID456", "PMID456", "")
-//     ).toDF("source", "firstPublicationDate", "pmid", "id", "pmcid")
-//       .withColumn("pmcid", when(col("pmcid") === "", lit(null).cast(StringType)).otherwise(col("pmcid")))
-
-//     val result = Evidence.resolvePublicationDates(evidenceData, publicationData)
-//     val resultRow = result.select("id", "publicationDate").collect().head
-
-//     // Should successfully match despite case differences and spaces
-//     resultRow.getDate(1) should not be null
-//   }
-
-//   "resolvePublicationDates" should "properly cast dates to DateType" in {
-//     val evidenceData = Seq(
-//       ("evidence1", "2023-01-01", Seq("PMID123"))
-//     ).toDF("id", "releaseDate", "literature")
-
-//     val publicationData = Seq(
-//       ("MED", "2022-06-15", "PMID123", "PMID123", "")
-//     ).toDF("source", "firstPublicationDate", "pmid", "id", "pmcid")
-//       .withColumn("pmcid", when(col("pmcid") === "", lit(null).cast(StringType)).otherwise(col("pmcid")))
-
-//     val result = Evidence.resolvePublicationDates(evidenceData, publicationData)
-
-//     // Check that evidenceDate column has DateType
-//     val evidenceDateField = result.schema.fields.find(_.name == "evidenceDate").get
-//     evidenceDateField.dataType should be(DateType)
-//   }
-
-//   "resolvePublicationDates" should "handle empty literature arrays gracefully" in {
-//     val evidenceData = Seq(
-//       ("evidence1", "2023-01-01", Seq.empty[String]),
-//       ("evidence2", "2023-02-01", null.asInstanceOf[Seq[String]])
-//     ).toDF("id", "releaseDate", "literature")
-
-//     val publicationData = Seq(
-//       ("MED", "2022-06-15", "PMID123", "PMID123", "")
-//     ).toDF("source", "firstPublicationDate", "pmid", "id", "pmcid")
-//       .withColumn("pmcid", when(col("pmcid") === "", lit(null).cast(StringType)).otherwise(col("pmcid")))
-
-//     // Should not throw an exception
-//     val result = Evidence.resolvePublicationDates(evidenceData, publicationData)
-//     val resultData = result.collect()
-
-//     resultData should have length 2
-//     // Both should fall back to releaseDate
-//     resultData.foreach { row =>
-//       row.getDate(row.fieldIndex("evidenceDate")) should not be null
-//     }
-//   }
-
-//   // TODO: Add tests for other Evidence functions
-//   "prepare" should "add sourceId column and handle resourceScore" in {
-//     val inputData = Seq(
-//       ("ds1", 0.5),
-//       ("ds2", 0.8)
-//     ).toDF("datasourceId", "resourceScore")
-
-//     val result = Evidence.prepare(inputData)
-
-//     result.columns should contain("sourceId")
-//     result.select("sourceId").collect().map(_.getString(0)) should contain allOf("ds1", "ds2")
-//   }
-
-  // TODO: Add more comprehensive tests for:
-  // - resolveTargets
-  // - resolveDiseases
-  // - excludeByBiotype
-  // - generateHashes
-  // - score
-  // - markDuplicates
-  // etc.
+  }
 }

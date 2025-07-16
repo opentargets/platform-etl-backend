@@ -253,8 +253,8 @@ object Evidence extends LazyLogging {
       .withColumn(
         "evidenceDate",
         coalesce(
-          col("publicationDate").cast(DateType), 
-          col("releaseDate").cast(DateType)
+          col("publicationDate"), 
+          col("releaseDate")
         )
       )
 
