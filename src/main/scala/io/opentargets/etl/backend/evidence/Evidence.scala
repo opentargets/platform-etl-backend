@@ -218,20 +218,16 @@ object Evidence extends LazyLogging {
     implicit val session: SparkSession = context.sparkSession
 
     // Filter for MED, AGR and pre-prints (PPR) and create temp view called pub_data:
-    publication_date_mapping
+     val processedPublicationData = publication_date_mapping
       .filter(col("source").isin("MED", "PPR", "AGR"))
-      .createOrReplaceTempView("pub_data")
-    
-    // Use SQL to unpivot the identifier columns on pub_data temporary view:
-    val unpivotedData = session.sql("""
-      SELECT firstPublicationDate as publicationDate, pmid as publicationId FROM pub_data WHERE pmid IS NOT NULL
-      UNION ALL
-      SELECT firstPublicationDate as publicationDate, id as publicationId FROM pub_data WHERE id IS NOT NULL  
-      UNION ALL
-      SELECT firstPublicationDate as publicationDate, pmcid as publicationId FROM pub_data WHERE pmcid IS NOT NULL
-    """).distinct()
+      .select(
+        col("firstPublicationDate").alias("publicationDate"),
+        explode(
+          expr("filter(array(pmid, id, pmcid), x -> x is not null)")
+        ).alias("publicationId")
+      )
 
-    val processedDatesLut = broadcast(unpivotedData.orderBy(col("publicationId").asc))
+    val processedDatesLut = broadcast(processedPublicationData.orderBy(col("publicationId").asc))
 
     // Process evidence with literature field
     val evidenceWithPubIds = df
