@@ -197,6 +197,18 @@ object Evidence extends LazyLogging {
     resolved
   }
 
+  /**
+   * Resolves publication dates for evidence based on literature identifiers.
+   * 
+   * This function takes evidence records with literature arrays and matches them
+   * against a publication date mapping to add publicationDate and evidenceDate columns.
+   * The evidenceDate uses publicationDate when available, falling back to releaseDate.
+   *
+   * @param df the evidence DataFrame containing literature arrays
+   * @param publication_date_mapping DataFrame with publication dates mapped to identifiers
+   * @param context the ETL session context containing Spark session
+   * @return DataFrame with added publicationDate and evidenceDate columns
+   */
   def resolvePublicationDates(
       df: DataFrame,
       publication_date_mapping: DataFrame
@@ -205,13 +217,12 @@ object Evidence extends LazyLogging {
 
     implicit val session: SparkSession = context.sparkSession
 
-    // Process literature identifiers - equivalent to the PySpark processed_dates
-    val processedDates = publication_date_mapping
-      // Filter for MED, AGR and pre-prints (PPR)
+    // Filter for MED, AGR and pre-prints (PPR) and create temp view called pub_data:
+    publication_date_mapping
       .filter(col("source").isin("MED", "PPR", "AGR"))
-      // Use SQL to unpivot the identifier columns
       .createOrReplaceTempView("pub_data")
     
+    // Use SQL to unpivot the identifier columns on pub_data temporary view:
     val unpivotedData = session.sql("""
       SELECT firstPublicationDate as publicationDate, pmid as publicationId FROM pub_data WHERE pmid IS NOT NULL
       UNION ALL

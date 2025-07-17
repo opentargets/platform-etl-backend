@@ -88,13 +88,22 @@ class EvidenceDatingTest extends AnyFlatSpec with Matchers {
 
   }
 
-  it should "have new publicationDate column with the right type" in {
+  it should "have new `publicationDate` column with the right type" in {
     // Test for new column:
     result.columns should contain("publicationDate")
 
     // Test column schema:
     result.schema("publicationDate").dataType should be(StringType)
     result.schema("publicationDate").nullable should be(true)
+  }
+
+  it should "have new `evidenceDate` column with the right type" in {
+    // Test for new column:
+    result.columns should contain("evidenceDate")
+
+    // Test column schema:
+    result.schema("evidenceDate").dataType should be(StringType)
+    result.schema("evidenceDate").nullable should be(true)
   }
 
   it should "correctly resolve publication dates for specific evidence" in {
