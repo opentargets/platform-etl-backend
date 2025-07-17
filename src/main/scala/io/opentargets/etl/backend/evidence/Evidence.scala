@@ -435,7 +435,6 @@ object Evidence extends LazyLogging {
       .transform(prepare)
       .transform(resolveTargets(_, dfs("targets").data, rt, fromTargetId, targetId))
       .transform(resolveDiseases(_, dfs("diseases").data, rd, fromDiseaseId, diseaseId))
-      .transform(resolvePublicationDates(_, dfs("literature_dating_input").data))
       .transform(excludeByBiotype(_, dfs("targets").data, xb, targetId, datasourceId))
       .transform(normaliseDatatypes _)
       .transform(generateHashes(_, id))
@@ -443,6 +442,7 @@ object Evidence extends LazyLogging {
       .transform(score(_, sc))
       .transform(checkNullifiedScores(_, sc, ns))
       .transform(markDuplicates(_, id, md))
+      .transform(resolvePublicationDates(_, dfs("literature_dating_input").data))
       .transform(
         DirectionOfEffect(_, dfs("targets").data, dfs("mechanism_of_action").data)
       )
