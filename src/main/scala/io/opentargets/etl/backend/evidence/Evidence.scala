@@ -227,7 +227,7 @@ object Evidence extends LazyLogging {
         ).alias("publicationId")
       )
 
-    val processedDatesLut = broadcast(processedPublicationData.orderBy(col("publicationId").asc))
+    // val processedDatesLut = broadcast(processedPublicationData.orderBy(col("publicationId").asc))
 
     // Process evidence with literature field
     val evidenceWithPubIds = df
@@ -240,7 +240,7 @@ object Evidence extends LazyLogging {
 
     // Join with publication dates
     val datedEvidence = evidenceWithPubIds
-      .join(processedDatesLut, Seq("publicationId"), "inner")
+      .join(processedPublicationData, Seq("publicationId"), "inner")
       // Rank by publication date to find earliest publication for each evidence
       .withColumn(
         "rank",
