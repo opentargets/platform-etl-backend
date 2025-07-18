@@ -254,8 +254,8 @@ object Evidence extends LazyLogging {
 
     val datedEvidenceLut = broadcast(datedEvidence.orderBy(col("id").asc))
 
-    // Join original evidence with dated evidence
-    val resolved = df
+    // Join original evidence with dated evidence and return
+    df
       .join(datedEvidenceLut, Seq("id"), "left_outer")
       .withColumn(
         "evidenceDate",
@@ -265,7 +265,6 @@ object Evidence extends LazyLogging {
         )
       )
 
-    resolved
   }
 
   def normaliseDatatypes(df: DataFrame)(implicit context: ETLSessionContext): DataFrame = {
@@ -442,7 +441,7 @@ object Evidence extends LazyLogging {
       .transform(score(_, sc))
       .transform(checkNullifiedScores(_, sc, ns))
       .transform(markDuplicates(_, id, md))
-      .transform(resolvePublicationDates(_, dfs("literature_dating_input").data))
+      .transform(resolvePublicationDates(_, dfs("literature_dating").data))
       .transform(
         DirectionOfEffect(_, dfs("targets").data, dfs("mechanism_of_action").data)
       )
