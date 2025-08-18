@@ -197,18 +197,21 @@ object Evidence extends LazyLogging {
     resolved
   }
 
-  /**
-   * Resolves publication dates for evidence based on literature identifiers.
-   * 
-   * This function takes evidence records with literature arrays and matches them
-   * against a publication date mapping to add publicationDate and evidenceDate columns.
-   * The evidenceDate uses publicationDate when available, falling back to releaseDate.
-   *
-   * @param df the evidence DataFrame containing literature arrays
-   * @param publication_date_mapping DataFrame with publication dates mapped to identifiers
-   * @param context the ETL session context containing Spark session
-   * @return DataFrame with added publicationDate and evidenceDate columns
-   */
+  /** Resolves publication dates for evidence based on literature identifiers.
+    *
+    * This function takes evidence records with literature arrays and matches them against a
+    * publication date mapping to add publicationDate and evidenceDate columns. The evidenceDate
+    * uses publicationDate when available, falling back to releaseDate.
+    *
+    * @param df
+    *   the evidence DataFrame containing literature arrays
+    * @param publication_date_mapping
+    *   DataFrame with publication dates mapped to identifiers
+    * @param context
+    *   the ETL session context containing Spark session
+    * @return
+    *   DataFrame with added publicationDate and evidenceDate columns
+    */
   def resolvePublicationDates(
       df: DataFrame,
       publication_date_mapping: DataFrame
@@ -218,7 +221,7 @@ object Evidence extends LazyLogging {
     implicit val session: SparkSession = context.sparkSession
 
     // Filter for MED, AGR and pre-prints (PPR) and create temp view called pub_data:
-     val processedPublicationData = publication_date_mapping
+    val processedPublicationData = publication_date_mapping
       .filter(col("source").isin("MED", "PPR", "AGR"))
       .select(
         col("firstPublicationDate").alias("publicationDate"),
@@ -260,7 +263,7 @@ object Evidence extends LazyLogging {
       .withColumn(
         "evidenceDate",
         coalesce(
-          col("publicationDate"), 
+          col("publicationDate"),
           col("releaseDate")
         )
       )

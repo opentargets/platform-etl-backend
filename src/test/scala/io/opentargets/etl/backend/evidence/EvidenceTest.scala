@@ -1,7 +1,5 @@
 package io.opentargets.etl.backend.evidence
 
-
-
 import io.opentargets.etl.backend.{Configuration, ETLSessionContext}
 import io.opentargets.etl.backend.Configuration.OTConfig
 import io.opentargets.etl.backend.spark.{IOResource, IoHelpers}
@@ -28,54 +26,59 @@ class EvidenceDatingTest extends AnyFlatSpec with Matchers {
   )
 
   // Shared test data available to all tests
-  val evidenceSchema = StructType(Array(
-    StructField("id", StringType, nullable = false),
-    StructField("releaseDate", StringType, nullable = true),
-    StructField("literature", ArrayType(StringType), nullable = true)
-  ))
-
-    val testEvidenceData = sparkSession.createDataFrame(
-        sparkSession.sparkContext.parallelize(
-            Seq(
-                Row("e1", null, Array.empty[String]), // No dates, empty array instead of null
-                Row("e2", "2021-02-03", Array.empty[String]), // Release date is given, empty array
-                Row("e3", "2021-02-03", Array("123", "PMC456")), // Both release date and literature is given
-                Row("e4", null, Array("123", "PMC456")), // Only literature is given
-                Row("e5", null, Array("PMC456")) // Only literature but only one source.
-            )
-        ),
-        evidenceSchema
+  val evidenceSchema = StructType(
+    Array(
+      StructField("id", StringType, nullable = false),
+      StructField("releaseDate", StringType, nullable = true),
+      StructField("literature", ArrayType(StringType), nullable = true)
     )
+  )
 
-    val literatureMapSchema = StructType(
-            Array(
-                StructField("source", StringType, nullable = false),
-                StructField("firstPublicationDate", StringType, nullable = true),
-                StructField("pmid", StringType, nullable = true),
-                StructField("id", StringType, nullable = true),
-                StructField("pmcid", StringType, nullable = true)
-            )
-        )
+  val testEvidenceData = sparkSession.createDataFrame(
+    sparkSession.sparkContext.parallelize(
+      Seq(
+        Row("e1", null, Array.empty[String]), // No dates, empty array instead of null
+        Row("e2", "2021-02-03", Array.empty[String]), // Release date is given, empty array
+        Row("e3",
+            "2021-02-03",
+            Array("123", "PMC456")
+        ), // Both release date and literature is given
+        Row("e4", null, Array("123", "PMC456")), // Only literature is given
+        Row("e5", null, Array("PMC456")) // Only literature but only one source.
+      )
+    ),
+    evidenceSchema
+  )
 
-    val testPublicationData = sparkSession.createDataFrame(
-        sparkSession.sparkContext.parallelize(
-            Seq(
-                Row("MED", "2021-06-15", "123", "123", "PMC9936"),
-                Row("MED", "2021-08-15", null, "PMC456", "PMC456"),
-                Row("AGR", "2021-07-30", "AGR001", "AGR001", null)
-            )
-        ),
-        literatureMapSchema
+  val literatureMapSchema = StructType(
+    Array(
+      StructField("source", StringType, nullable = false),
+      StructField("firstPublicationDate", StringType, nullable = true),
+      StructField("pmid", StringType, nullable = true),
+      StructField("id", StringType, nullable = true),
+      StructField("pmcid", StringType, nullable = true)
     )
+  )
 
-    // Apply the function using shared test data
-    val result = Evidence.resolvePublicationDates(testEvidenceData, testPublicationData)
+  val testPublicationData = sparkSession.createDataFrame(
+    sparkSession.sparkContext.parallelize(
+      Seq(
+        Row("MED", "2021-06-15", "123", "123", "PMC9936"),
+        Row("MED", "2021-08-15", null, "PMC456", "PMC456"),
+        Row("AGR", "2021-07-30", "AGR001", "AGR001", null)
+      )
+    ),
+    literatureMapSchema
+  )
+
+  // Apply the function using shared test data
+  val result = Evidence.resolvePublicationDates(testEvidenceData, testPublicationData)
 
   "resolvePublicationDates" should "return dataframe" in {
 
     // Compile-time type assertion
     implicitly[result.type <:< DataFrame]
-    
+
   }
 
   it should "return all evidence" in {
@@ -84,7 +87,7 @@ class EvidenceDatingTest extends AnyFlatSpec with Matchers {
 
     // Should have all expected columns
     val expectedColumns = testEvidenceData.columns
-    result.columns should contain allElementsOf(expectedColumns)
+    result.columns should contain allElementsOf (expectedColumns)
 
   }
 
@@ -108,12 +111,12 @@ class EvidenceDatingTest extends AnyFlatSpec with Matchers {
 
   it should "correctly resolve publication dates for specific evidence" in {
     // Test specific evidence records
-    
+
     // e1: No literature, no releaseDate - publicationDate should be null, evidenceDate should be null
     val evidence1 = result.filter(col("id") === "e1").collect().head
     evidence1.getString(evidence1.fieldIndex("publicationDate")) should be(null)
     evidence1.getString(evidence1.fieldIndex("evidenceDate")) should be(null)
-    
+
     // e2: No literature, has releaseDate - publicationDate should be null, evidenceDate should be releaseDate
     val evidence2 = result.filter(col("id") === "e2").collect().head
     evidence2.getString(evidence2.fieldIndex("publicationDate")) should be(null)
