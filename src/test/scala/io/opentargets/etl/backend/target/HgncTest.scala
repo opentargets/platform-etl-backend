@@ -7,7 +7,11 @@ import org.apache.spark.sql.{DataFrame, Dataset, SparkSession}
 
 object HgncTest {
   def hgncRawDf(implicit sparkSession: SparkSession): DataFrame =
-    sparkSession.read.json(this.getClass.getResource("/target/hgnc_test.jsonl").getPath)
+    sparkSession.read
+      .option("sep", "\t")
+      .option("header", "true")
+      .option("nullValue", "null")
+      .csv(this.getClass.getResource("/target/hgnc_test.txt").getPath)
 }
 
 class HgncTest extends EtlSparkUnitTest {
