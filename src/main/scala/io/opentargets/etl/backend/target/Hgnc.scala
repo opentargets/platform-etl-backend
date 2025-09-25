@@ -23,9 +23,7 @@ object Hgnc extends LazyLogging {
 
   def apply(hgncRaw: DataFrame)(implicit ss: SparkSession): Dataset[Hgnc] = {
     logger.info("Transforming HGNC inputs.")
-    val hgnc = hgncRaw.select(explode(col("response.docs"))).select("col.*")
-    selectAndRenameFields(hgnc)
-
+    selectAndRenameFields(hgncRaw)
   }
 
   private def selectAndRenameFields(
