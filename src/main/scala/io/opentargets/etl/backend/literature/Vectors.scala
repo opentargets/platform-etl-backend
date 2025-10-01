@@ -45,8 +45,11 @@ object Vectors extends Serializable with LazyLogging {
     val mdf = loadVectorsFromModel(configuration.input("vectors_input").path)
     val vdf = compute(mdf)
 
+    // Coalesce the write operation to a single file
+    val vdfCoalesced = vdf.coalesce(1)
+
     val dataframesToSave = Map(
-      "vectorsIndex" -> IOResource(vdf, configuration.output("vectors_output"))
+      "vectorsIndex" -> IOResource(vdfCoalesced, configuration.output("vectors_output"))
     )
 
     writeTo(dataframesToSave)
