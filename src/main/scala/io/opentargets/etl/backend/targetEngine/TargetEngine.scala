@@ -82,7 +82,10 @@ object TargetEngine extends LazyLogging {
   def writeOutput(targetEngineDF: DataFrame)(implicit context: ETLSessionContext): Unit = {
     val outputConfig = context.configuration.steps.targetEngine.output("target_engine")
 
-    val dataFramesToSave = Map("targetEngine" -> IOResource(targetEngineDF, outputConfig))
+    // Coalesce to a single partition before saving
+    val coalescedDF = targetEngineDF.coalesce(1)
+
+    val dataFramesToSave = Map("targetEngine" -> IOResource(coalescedDF, outputConfig))
 
     writeTo(dataFramesToSave)
   }
