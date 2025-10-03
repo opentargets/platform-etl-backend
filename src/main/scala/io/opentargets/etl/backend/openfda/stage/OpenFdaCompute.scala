@@ -61,7 +61,7 @@ object OpenFdaCompute extends LazyLogging {
     logger.info(s"Write OpenFDA computation for target dimension '${targetDimension.colId}'")
 
     // Coalesce the write operation to a single file
-    val montecaloResultsCoalesced = montecarloResults.coalesce(1)
+    val montecarloResultsCoalesced = montecarloResults.coalesce(1)
 
     val outputMap: IOResources = Map(
       s"unfiltered-${targetDimension.colId}" -> IOResource(
@@ -69,7 +69,7 @@ object OpenFdaCompute extends LazyLogging {
         targetDimension.outputUnfilteredResults
       ),
       s"openFdaResults-${targetDimension.colId}" -> IOResource(
-        montecaloResultsCoalesced,
+        montecarloResultsCoalesced,
         targetDimension.outputResults
       )
     ) ++ stratifiedSamplingData
