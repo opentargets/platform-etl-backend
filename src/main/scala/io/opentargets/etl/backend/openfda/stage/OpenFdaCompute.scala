@@ -69,7 +69,7 @@ object OpenFdaCompute extends LazyLogging {
         targetDimension.outputUnfilteredResults
       ),
       s"openFdaResults-${targetDimension.colId}" -> IOResource(
-        motecaloResultsCoalesced,
+        montecaloResultsCoalesced,
         targetDimension.outputResults
       )
     ) ++ stratifiedSamplingData
