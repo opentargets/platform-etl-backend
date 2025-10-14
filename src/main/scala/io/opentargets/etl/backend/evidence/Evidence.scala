@@ -263,8 +263,10 @@ object Evidence extends LazyLogging {
       .withColumn(
         "evidenceDate",
         coalesce(
+          // To pick evidence date the highest priority is the studyStartDate, then releaseDate the lowest is publicationDate
           col("publicationDate"),
-          col("releaseDate")
+          col("releaseDate"),
+          col("studyStartDate")
         )
       )
 
