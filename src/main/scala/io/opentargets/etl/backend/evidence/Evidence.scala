@@ -116,6 +116,40 @@ object Evidence extends LazyLogging {
     filtered
   }
 
+  /**
+   * Computes the minimum (earliest) non-null date across the specified columns,
+   * safely handling cases where some or all of the columns may be missing from the DataFrame.
+   *
+   * This function inspects the provided DataFrame schema and includes only columns
+   * that are actually present when building the expression. If none of the specified
+   * columns exist, it returns a `NULL` literal of type `StringType`.
+   *
+   * Example usage:
+   * {{{
+   * val joined = df.join(datedEvidenceLut, Seq("id"), "left_outer")
+   * val result = joined.withColumn(
+   *   "evidenceDate",
+   *   minDate(joined, "studyStartDate", "publicationDate", "releaseDate")
+   * )
+   * }}}
+   *
+   * Behavior summary:
+   *   - If all specified columns exist → returns the minimum non-null date.
+   *   - If some columns are missing → ignores missing ones and uses existing columns.
+   *   - If none of the columns exist → returns a typed `NULL` column (`StringType`).
+   *
+   * @param df   The DataFrame whose schema is used to determine which columns exist.
+   * @param cols A variable-length list of column names to consider when computing the minimum date.
+   * @return A Spark [[org.apache.spark.sql.Column]] representing the minimum date across the existing columns.
+   */
+  def minDate(df: DataFrame, cols: String*): Column = {
+    val existingCols = cols.filter(df.columns.contains)
+    if (existingCols.isEmpty)
+      lit(null).cast(StringType)
+    else
+      array_min(array(existingCols.map(col): _*))
+  }
+
   def resolveTargets(
       df: DataFrame,
       targets: DataFrame,
@@ -258,15 +292,16 @@ object Evidence extends LazyLogging {
     val datedEvidenceLut = broadcast(datedEvidence.orderBy(col("id").asc))
 
     // Join original evidence with dated evidence and return
-    df
-      .join(datedEvidenceLut, Seq("id"), "left_outer")
+    val joined = df.join(datedEvidenceLut, Seq("id"), "left_outer")
+    
+    joined
       .withColumn(
         "evidenceDate",
-        coalesce(
-          // To pick evidence date the highest priority is the studyStartDate, then releaseDate the lowest is publicationDate
-          col("publicationDate"),
-          col("releaseDate"),
-          col("studyStartDate")
+        minDate(
+          joined,
+          "studyStartDate",
+          "publicationDate",
+          "releaseDate"
         )
       )
 

@@ -39,10 +39,7 @@ class EvidenceDatingTest extends AnyFlatSpec with Matchers {
       Seq(
         Row("e1", null, Array.empty[String]), // No dates, empty array instead of null
         Row("e2", "2021-02-03", Array.empty[String]), // Release date is given, empty array
-        Row("e3",
-            "2021-02-03",
-            Array("123", "PMC456")
-        ), // Both release date and literature is given
+        Row("e3", "2021-02-03", Array("123", "PMC456")), // Both release date and literature is given
         Row("e4", null, Array("123", "PMC456")), // Only literature is given
         Row("e5", null, Array("PMC456")) // Only literature but only one source.
       )
@@ -69,6 +66,66 @@ class EvidenceDatingTest extends AnyFlatSpec with Matchers {
       )
     ),
     literatureMapSchema
+  )
+
+  // Testing evidence date priorisation:
+  val df1 = sparkSession.createDataFrame(
+    sparkSession.sparkContext.parallelize(
+      Seq(
+        Row("1", "2021-06-15", "2022-05-12", "1996-05-12"),
+      )
+    ),
+    StructType(
+      Array(
+        StructField("id", StringType, nullable = false),
+        StructField("studyStartDate", StringType, nullable = true),
+        StructField("publicationDate", StringType, nullable = true),
+        StructField("releaseDate", StringType, nullable = true),
+      )
+    )
+  )
+
+  val df2 = sparkSession.createDataFrame(
+    sparkSession.sparkContext.parallelize(
+      Seq(
+        Row("1", "2021-06-15", "2022-05-12", null),
+      )
+    ),
+    StructType(
+      Array(
+        StructField("id", StringType, nullable = false),
+        StructField("studyStartDate", StringType, nullable = true),
+        StructField("publicationDate", StringType, nullable = true),
+        StructField("releaseDate", StringType, nullable = true),
+      )
+    )
+  )
+
+  val df3 = sparkSession.createDataFrame(
+    sparkSession.sparkContext.parallelize(
+      Seq(
+        Row("1", "1996-05-12"),
+      )
+    ),
+    StructType(
+      Array(
+        StructField("id", StringType, nullable = false),
+        StructField("releaseDate", StringType, nullable = true),
+      )
+    )
+  )
+
+  val df4 = sparkSession.createDataFrame(
+    sparkSession.sparkContext.parallelize(
+      Seq(
+        Row("1"),
+      )
+    ),
+    StructType(
+      Array(
+        StructField("id", StringType, nullable = false),
+      )
+    )
   )
 
   // Apply the function using shared test data
@@ -125,7 +182,7 @@ class EvidenceDatingTest extends AnyFlatSpec with Matchers {
     // e3: Has literature that can be resolved - publicationDate should be from literature, evidenceDate should prioritize publication date
     val evidence3 = result.filter(col("id") === "e3").collect().head
     evidence3.getString(evidence3.fieldIndex("publicationDate")) should be("2021-06-15")
-    evidence3.getString(evidence3.fieldIndex("evidenceDate")) should be("2021-06-15")
+    evidence3.getString(evidence3.fieldIndex("evidenceDate")) should be("2021-02-03")
 
     // e4: Has literature that can be resolved - publicationDate should be from literature, evidenceDate should prioritize publication date
     val evidence4 = result.filter(col("id") === "e4").collect().head
@@ -136,6 +193,43 @@ class EvidenceDatingTest extends AnyFlatSpec with Matchers {
     val evidence5 = result.filter(col("id") === "e5").collect().head
     evidence5.getString(evidence5.fieldIndex("publicationDate")) should be("2021-08-15")
     evidence5.getString(evidence5.fieldIndex("evidenceDate")) should be("2021-08-15")
+
+  }
+
+  // Test different use cases:
+  it should "robustly pick earliest date of arbitrary columns" in {
+      
+    val filtered1 = df1.select(
+      Evidence.minDate(
+        df1,
+        "studyStartDate",  "publicationDate", "releaseDate"
+      ).alias("evidenceDate")
+    ).first()
+    filtered1.getAs[String]("evidenceDate") should be("1996-05-12")
+
+    val filtered2 = df2.select(
+      Evidence.minDate(
+        df2,
+        "studyStartDate",  "publicationDate", "releaseDate"
+      ).alias("evidenceDate")
+    ).first()
+    filtered2.getAs[String]("evidenceDate") should be("2021-06-15")
+
+    val filtered3 = df3.select(
+      Evidence.minDate(
+        df3,
+        "studyStartDate",  "publicationDate", "releaseDate"
+      ).alias("evidenceDate")
+    ).first()
+    filtered3.getAs[String]("evidenceDate") should be("1996-05-12")
+
+    val filtered4 = df4.select(
+      Evidence.minDate(
+        df4,
+        "studyStartDate",  "publicationDate", "releaseDate"
+      ).alias("evidenceDate")
+    ).first()
+    filtered4.getAs[String]("evidenceDate") should be(null)
 
   }
 }
