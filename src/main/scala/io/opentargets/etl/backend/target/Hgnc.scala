@@ -7,7 +7,16 @@ import io.opentargets.etl.backend.spark.Helpers
 import io.opentargets.etl.backend.spark.Helpers._
 import io.opentargets.etl.backend.target.TargetUtils.transformArrayToStruct
 import org.apache.spark.sql.{Column, DataFrame, Dataset, SparkSession}
-import org.apache.spark.sql.functions.{array, array_remove, coalesce, col, element_at, explode, regexp_replace, split, typedLit, when}
+import org.apache.spark.sql.functions.{
+  array,
+  array_remove,
+  col,
+  element_at,
+  regexp_replace,
+  split,
+  typedLit,
+  when
+}
 import org.apache.spark.sql.types.LongType
 
 case class Hgnc(
@@ -35,20 +44,27 @@ object Hgnc extends LazyLogging {
     selectAndRenameFields(hgnc)
   }
 
-  /**
-   * Convert a pipe-separated string column into an array of strings
-   * @param colName Name of the column to convert
-   * @return Column with the converted array of strings
-   */
-  private def toStringArrayCol(colName: String): Column = when(col(colName).isNotNull, array_remove(split(regexp_replace(col(colName), """^\||\|$""", ""), """\|"""), "")).otherwise(null)
+  /** Convert a pipe-separated string column into an array of strings
+    * @param colName
+    *   Name of the column to convert
+    * @return
+    *   Column with the converted array of strings
+    */
+  private def toStringArrayCol(colName: String): Column =
+    when(col(colName).isNotNull,
+         array_remove(split(regexp_replace(col(colName), """^\||\|$""", ""), """\|"""), "")
+    ).otherwise(null)
 
-  /**
-   * Prepare the input DataFrame by:
-   *  - converting specified columns to arrays
-   * @param rawHgnc Raw HGNC DataFrame
-   * @return Prepared DataFrame
-   */
-  private def prepareInputDataFrame(rawHgnc: DataFrame)(implicit targetConfig: TargetSection): DataFrame = {
+  /** Prepare the input DataFrame by:
+    *   - converting specified columns to arrays
+    * @param rawHgnc
+    *   Raw HGNC DataFrame
+    * @return
+    *   Prepared DataFrame
+    */
+  private def prepareInputDataFrame(
+      rawHgnc: DataFrame
+  )(implicit targetConfig: TargetSection): DataFrame = {
     logger.info("Preparing HGNC raw DataFrame.")
     targetConfig.hgncArrayColumns.foldLeft(rawHgnc) { case (acc, c) =>
       acc.withColumn(c, toStringArrayCol(c))

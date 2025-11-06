@@ -33,12 +33,12 @@ object KnownDrugs extends LazyLogging {
 
     val inputDataFrame = IoHelpers.readFrom(conf.input)
 
-    val dfDirectInfoAnnotated = compute(List("chembl"), inputDataFrame)
+    val dfDirectInfoAnnotated = compute(inputDataFrame)
 
     IoHelpers.writeTo(dfDirectInfoAnnotated)
   }
 
-  def compute(datasources: Seq[String], inputs: IOResources)(implicit
+  def compute(inputs: IOResources)(implicit
       context: ETLSessionContext
   ): IOResources = {
     implicit val ss: SparkSession = context.sparkSession
@@ -91,7 +91,6 @@ object KnownDrugs extends LazyLogging {
     )
 
     val knownDrugsDF = inputs("evidences").data
-      .filter($"sourceId" isInCollection datasources)
       .transform(aggregateDrugsByOntology)
       .join(diseases, Seq("diseaseId"))
       .join(targets, Seq("targetId"))
