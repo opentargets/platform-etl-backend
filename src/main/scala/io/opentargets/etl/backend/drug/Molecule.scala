@@ -41,7 +41,7 @@ object Molecule extends LazyLogging {
     val hierarchy: DataFrame = processMoleculeHierarchy(mols)
     // combine molecule components
     val molCombined = mols
-      .drop("cross_references", "syns", "chebi_par_id")
+      .drop("cross_references", "syns")
       .join(synonyms, Seq("id"), "left_outer")
       .join(crossReferences, Seq("id"), "left_outer")
       .join(hierarchy, Seq("id"), "left_outer")
@@ -72,7 +72,6 @@ object Molecule extends LazyLogging {
         col("molecule_structures.canonical_smiles").as("canonicalSmiles"),
         col("molecule_structures.standard_inchi_key").as("inchiKey"),
         coalesce(col("molecule_type"), lit("Unknown")).as("drugType"),
-        col("chebi_par_id"),
         col("black_box_warning").as("blackBoxWarning"),
         col("pref_name").as("name"),
         col("cross_references"),
@@ -156,8 +155,7 @@ object Molecule extends LazyLogging {
 
     val chemblCrossReferences = processChemblCrossReferences(preProcessedMolecules)
     val singletonRefs: List[(String, String)] = List(
-      ("drugbank_id", "drugbank"),
-      ("chebi_par_id", "chEBI")
+      ("drugbank_id", "drugbank")
     )
 
     val references = singletonRefs
