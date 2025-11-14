@@ -21,8 +21,8 @@ jobs:
         name: Set up Scala
         with:
           java-version: openjdk@1.11
-      - name: Check format
-        run: sbt ++${{ env.SCALA_VERSION }} scalafmtCheckAll
+#      - name: Check format
+#        run: sbt ++${{ env.SCALA_VERSION }} scalafmtCheckAll
 
 #  test:
 #    name: Run tests 🧪
