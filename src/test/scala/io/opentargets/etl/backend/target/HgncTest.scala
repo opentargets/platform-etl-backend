@@ -1,12 +1,11 @@
 package io.opentargets.etl.backend.target
 
-import io.opentargets.etl.backend.Configuration.{OTConfig, TargetSection}
+import io.opentargets.etl.backend.Configuration.TargetSection
 import io.opentargets.etl.backend.spark.IoHelpers.IOResourceConfigurations
-import io.opentargets.etl.backend.{Configuration, EtlSparkUnitTest}
+import io.opentargets.etl.backend.EtlSparkUnitTest
 import io.opentargets.etl.backend.target.HgncTest.hgncRawDf
 import org.apache.spark.sql.functions.col
 import org.apache.spark.sql.{DataFrame, Dataset, SparkSession}
-import pureconfig.ConfigReader
 
 object HgncTest {
   def hgncRawDf(implicit sparkSession: SparkSession): DataFrame =
@@ -25,7 +24,7 @@ class HgncTest extends EtlSparkUnitTest {
   val prepareInputDataFrame: PrivateMethod[Dataset[Hgnc]] =
     PrivateMethod[Dataset[Hgnc]]('prepareInputDataFrame)
 
-  "HGNC" should "convert raw dataframe into HGCN objects without loss" in {
+  "HGNC" should "convert raw dataframe into HGNC objects without loss" in {
     val targetSection = TargetSection(
       null.asInstanceOf[IOResourceConfigurations],
       output = null.asInstanceOf[IOResourceConfigurations],
