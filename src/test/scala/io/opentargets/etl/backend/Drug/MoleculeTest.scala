@@ -18,7 +18,6 @@ object MoleculeTest {
     StructField("id", StringType) ::
       StructField("canonical_smiles", StringType, nullable = true) ::
       StructField("drugType", StringType, nullable = true) ::
-      StructField("chebi_par_id", LongType, nullable = true) ::
       StructField("blackBoxWarning", BooleanType, nullable = false) ::
       StructField("name", StringType, nullable = true) ::
       StructField(
@@ -204,7 +203,7 @@ class MoleculeTest extends EtlSparkUnitTest {
     val results = Molecule invokePrivate processMoleculeCrossReferences(sampleMolecule)
     val xrefMap = results.head.getList(1)
     // then
-    assertResult(4) {
+    assertResult(3) {
       xrefMap.size
     }
   }
