@@ -32,7 +32,7 @@ jobs:
       - uses: olafurpg/setup-scala@v11
         name: Set up Scala
         with:
-          java-version: openjdk@1.11
+          java-version: adopt@1.11
       - name: Build JAR
         run: sbt ++${{env.SCALA_VERSION }} -DETL_FLAG_DATAPROC=${{ inputs.is_dataproc }} 'set test in assembly := {}' assembly
       - uses: actions/upload-artifact@v4
