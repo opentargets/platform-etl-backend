@@ -249,7 +249,6 @@ object Configuration extends LazyLogging {
   case class TargetSection(
       input: IOResourceConfigurations,
       output: IOResourceConfigurations,
-      hgncArrayColumns: List[String],
       hgncOrthologSpecies: List[String]
   )
 

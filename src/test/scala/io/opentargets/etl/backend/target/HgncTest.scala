@@ -1,7 +1,5 @@
 package io.opentargets.etl.backend.target
 
-import io.opentargets.etl.backend.Configuration.TargetSection
-import io.opentargets.etl.backend.spark.IoHelpers.IOResourceConfigurations
 import io.opentargets.etl.backend.EtlSparkUnitTest
 import io.opentargets.etl.backend.target.HgncTest.hgncRawDf
 import org.apache.spark.sql.functions.col
@@ -9,11 +7,7 @@ import org.apache.spark.sql.{DataFrame, Dataset, SparkSession}
 
 object HgncTest {
   def hgncRawDf(implicit sparkSession: SparkSession): DataFrame =
-    sparkSession.read
-      .option("sep", "\t")
-      .option("header", "true")
-      .option("nullValue", "null")
-      .csv(this.getClass.getResource("/target/hgnc_test.txt").getPath)
+    sparkSession.read.json(this.getClass.getResource("/target/hgnc_test.jsonl").getPath)
 }
 
 class HgncTest extends EtlSparkUnitTest {
@@ -21,37 +15,9 @@ class HgncTest extends EtlSparkUnitTest {
   val selectAndRenameFields: PrivateMethod[Dataset[Hgnc]] =
     PrivateMethod[Dataset[Hgnc]]('selectAndRenameFields)
 
-  val prepareInputDataFrame: PrivateMethod[Dataset[Hgnc]] =
-    PrivateMethod[Dataset[Hgnc]]('prepareInputDataFrame)
-
-  "HGNC" should "convert raw dataframe into HGNC objects without loss" in {
-    val targetSection = TargetSection(
-      null.asInstanceOf[IOResourceConfigurations],
-      output = null.asInstanceOf[IOResourceConfigurations],
-      hgncArrayColumns = List(
-        "alias_name",
-        "ccds_id",
-        "ena",
-        "enzyme_id",
-        "gene_group",
-        "gene_group_id",
-        "lsdb",
-        "mane_select",
-        "mgd_id",
-        "omim_id",
-        "prev_name",
-        "prev_symbol",
-        "alias_symbol",
-        "pubmed_id",
-        "refseq_accession",
-        "rgd_id",
-        "rna_central_id",
-        "uniprot_ids"
-      ),
-      hgncOrthologSpecies = List()
-    )
+  "HGNC" should "convert raw dataframe into HGCN objects without loss" in {
     // given
-    val df = Hgnc invokePrivate prepareInputDataFrame(hgncRawDf, targetSection)
+    val df = hgncRawDf
     // when
     val results = Hgnc invokePrivate selectAndRenameFields(df, sparkSession)
     // then

@@ -1,23 +1,11 @@
 package io.opentargets.etl.backend.target
 
 import com.typesafe.scalalogging.LazyLogging
-import io.opentargets.etl.backend.Configuration.TargetSection
-import io.opentargets.etl.backend.ETLSessionContext
 import io.opentargets.etl.backend.spark.Helpers
 import io.opentargets.etl.backend.spark.Helpers._
 import io.opentargets.etl.backend.target.TargetUtils.transformArrayToStruct
-import org.apache.spark.sql.{Column, DataFrame, Dataset, SparkSession}
-import org.apache.spark.sql.functions.{
-  array,
-  array_remove,
-  col,
-  element_at,
-  regexp_replace,
-  split,
-  typedLit,
-  when
-}
-import org.apache.spark.sql.types.LongType
+import org.apache.spark.sql.{DataFrame, Dataset, SparkSession}
+import org.apache.spark.sql.functions.{array, col, element_at, explode, split, typedLit}
 
 case class Hgnc(
     ensemblId: String,
@@ -33,42 +21,11 @@ case class Hgnc(
 )
 object Hgnc extends LazyLogging {
 
-  def apply(hgncRaw: DataFrame)(implicit ctx: ETLSessionContext): Dataset[Hgnc] = {
+  def apply(hgncRaw: DataFrame)(implicit ss: SparkSession): Dataset[Hgnc] = {
     logger.info("Transforming HGNC inputs.")
-
-    implicit val targetConfig = ctx.configuration.steps.target;
-    implicit val ss: SparkSession = ctx.sparkSession;
-
-    val hgnc = prepareInputDataFrame(hgncRaw)
-
+    val hgnc = hgncRaw.select(explode(col("response.docs"))).select("col.*")
     selectAndRenameFields(hgnc)
-  }
 
-  /** Convert a pipe-separated string column into an array of strings
-    * @param colName
-    *   Name of the column to convert
-    * @return
-    *   Column with the converted array of strings
-    */
-  private def toStringArrayCol(colName: String): Column =
-    when(col(colName).isNotNull,
-         array_remove(split(regexp_replace(col(colName), """^\||\|$""", ""), """\|"""), "")
-    ).otherwise(null)
-
-  /** Prepare the input DataFrame by:
-    *   - converting specified columns to arrays
-    * @param rawHgnc
-    *   Raw HGNC DataFrame
-    * @return
-    *   Prepared DataFrame
-    */
-  private def prepareInputDataFrame(
-      rawHgnc: DataFrame
-  )(implicit targetConfig: TargetSection): DataFrame = {
-    logger.info("Preparing HGNC raw DataFrame.")
-    targetConfig.hgncArrayColumns.foldLeft(rawHgnc) { case (acc, c) =>
-      acc.withColumn(c, toStringArrayCol(c))
-    }
   }
 
   private def selectAndRenameFields(
