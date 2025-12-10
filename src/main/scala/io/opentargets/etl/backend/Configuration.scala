@@ -136,11 +136,7 @@ object Configuration extends LazyLogging {
       epmc: Epmc
   )
 
-  // mouse_phenotype
-  case class MousePhenotypeSection(
-      input: IOResourceConfigurations,
-      output: IOResourceConfigurations
-  )
+  
 
   // openfda
   case class OpenfdaMontecarloSection(
@@ -239,7 +235,6 @@ object Configuration extends LazyLogging {
       interaction: InteractionSection,
       knownDrug: KnownDrugSection,
       literature: LiteratureSection,
-      mousePhenotype: MousePhenotypeSection,
       openfda: OpenfdaSection,
       otar: OtarSection,
       pharmacogenomics: PharmacogenomicsSection,

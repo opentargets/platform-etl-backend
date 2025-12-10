@@ -33,7 +33,7 @@ object ETL extends LazyLogging {
       case "search_facet"     => FacetSearch()
       case "target"           => Target()
       case "target_engine"    => TargetEngine()
-      case "mouse_phenotype"  => MousePhenotype()
+      
       case _                  => throw new IllegalArgumentException(s"step $step is unknown")
     }
     logger.info(s"finished running step $step")
