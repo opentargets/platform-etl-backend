@@ -58,8 +58,6 @@ object Configuration extends LazyLogging {
       output: IOResourceConfigurations
   )
 
-  
-
   // expression
   case class ExpressionSection(
       input: IOResourceConfigurations,
@@ -135,8 +133,6 @@ object Configuration extends LazyLogging {
       embedding: LiteratureEmbedding,
       epmc: Epmc
   )
-
-  
 
   // openfda
   case class OpenfdaMontecarloSection(
