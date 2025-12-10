@@ -58,35 +58,7 @@ object Configuration extends LazyLogging {
       output: IOResourceConfigurations
   )
 
-  // evidence
-  case class EvidenceEntry(
-      id: String,
-      uniqueFields: List[String],
-      datatypeId: Option[String],
-      scoreExpr: String,
-      excludedBiotypes: Option[List[String]]
-  )
-
-  case class DirectionOfEffectSection(
-      varFilterLof: List[String],
-      gof: List[String],
-      lof: List[String],
-      oncotsgList: List[String],
-      inhibitors: List[String],
-      activators: List[String],
-      sources: List[String]
-  )
-
-  case class EvidenceSection(
-      input: IOResourceConfigurations,
-      uniqueFields: List[String],
-      scoreExpr: String,
-      datatypeId: String,
-      dataSourcesExclude: List[String],
-      dataSources: List[EvidenceEntry],
-      directionOfEffect: DirectionOfEffectSection,
-      output: IOResourceConfigurations
-  )
+  
 
   // expression
   case class ExpressionSection(
@@ -164,11 +136,7 @@ object Configuration extends LazyLogging {
       epmc: Epmc
   )
 
-  // mouse_phenotype
-  case class MousePhenotypeSection(
-      input: IOResourceConfigurations,
-      output: IOResourceConfigurations
-  )
+  
 
   // openfda
   case class OpenfdaMontecarloSection(
@@ -262,13 +230,11 @@ object Configuration extends LazyLogging {
       association: AssociationSection,
       associationOtf: AssociationOTFSection,
       drug: DrugSection,
-      evidence: EvidenceSection,
       expression: ExpressionSection,
       go: GOSection,
       interaction: InteractionSection,
       knownDrug: KnownDrugSection,
       literature: LiteratureSection,
-      mousePhenotype: MousePhenotypeSection,
       openfda: OpenfdaSection,
       otar: OtarSection,
       pharmacogenomics: PharmacogenomicsSection,
