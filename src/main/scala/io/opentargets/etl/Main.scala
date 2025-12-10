@@ -6,7 +6,7 @@ import scala.util._
 import io.opentargets.etl.backend._
 import io.opentargets.etl.backend.target.Target
 import io.opentargets.etl.backend.drug.Drug
-import io.opentargets.etl.backend.evidence.Evidence
+
 import io.opentargets.etl.backend.literature.Literature
 import io.opentargets.etl.backend.searchFacet.FacetSearch
 import io.opentargets.etl.backend.pharmacogenomics.Pharmacogenomics
@@ -19,7 +19,6 @@ object ETL extends LazyLogging {
       case "association"      => Association()
       case "association_otf"  => AssociationOTF()
       case "drug"             => Drug()
-      case "evidence"         => Evidence()
       case "expression"       => Expression()
       case "openfda"          => OpenFda()
       case "go"               => Go()
