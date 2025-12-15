@@ -153,6 +153,7 @@ object Expression extends LazyLogging {
   ): DataFrame = {
     val normalTissueKeyDF =
       normalTissueDF
+        .withColumn("Tissue", lower(col("Tissue")))
         .withColumn("key", concat(col("Gene"), lit('-'), col("Tissue")))
         .withColumnRenamed("Gene", "GeneNormal")
         .withColumnRenamed("Tissue", "TissueNormal")
