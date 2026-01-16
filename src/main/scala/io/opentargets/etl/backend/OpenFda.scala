@@ -3,7 +3,6 @@ package io.opentargets.etl.backend
 import com.typesafe.scalalogging.LazyLogging
 import io.opentargets.etl.backend.openfda.stage.{LoadData, OpenFdaCompute, OpenFdaDataPreparation}
 import io.opentargets.etl.backend.spark.IOResourceConfig
-import org.apache.spark.sql.functions.explode
 
 // Data Sources
 sealed trait FdaDataSource
@@ -57,22 +56,6 @@ object OpenFda extends LazyLogging {
         "uniq_report_ids_by_drug",
         config.output("fda_unfiltered"),
         config.output("fda_results")
-      )
-    )
-    // --- Run OpenFDA FAERS for targets ---
-    // We'll use only those reports with associated target information
-    val fdaDataTargets = fdaCookedData
-      .where($"linkedTargets".isNotNull)
-      .withColumn("targetId", explode($"linkedTargets.rows"))
-      .drop($"linkedTargets")
-    OpenFdaCompute(
-      dfsData,
-      fdaDataTargets,
-      TargetDimension(
-        "targetId",
-        "uniq_report_ids_by_target",
-        config.output("fda_targets_unfiltered"),
-        config.output("fda_targets_results")
       )
     )
     logger.info("OpenFDA FAERS step completed")

@@ -46,18 +46,6 @@ object Configuration extends LazyLogging {
       input: IOResourceConfigurations
   )
 
-  // drug
-  case class InputExtension(
-      extensionType: String,
-      input: IOResourceConfig
-  )
-
-  case class DrugSection(
-      input: IOResourceConfigurations,
-      drugExtensions: Seq[InputExtension],
-      output: IOResourceConfigurations
-  )
-
   // expression
   case class ExpressionSection(
       input: IOResourceConfigurations,
@@ -74,12 +62,6 @@ object Configuration extends LazyLogging {
   case class InteractionSection(
       scorethreshold: Int,
       stringVersion: String,
-      input: IOResourceConfigurations,
-      output: IOResourceConfigurations
-  )
-
-  // known_drug
-  case class KnownDrugSection(
       input: IOResourceConfigurations,
       output: IOResourceConfigurations
   )
@@ -160,12 +142,6 @@ object Configuration extends LazyLogging {
       output: IOResourceConfigurations
   )
 
-  // pharmacogenomics
-  case class PharmacogenomicsSection(
-      input: IOResourceConfigurations,
-      output: IOResourceConfigurations
-  )
-
   // reactome
   case class ReactomeSection(
       input: IOResourceConfigurations,
@@ -216,30 +192,20 @@ object Configuration extends LazyLogging {
       hgncOrthologSpecies: List[String]
   )
 
-  // target_engine
-  case class TargetEngineSection(
-      input: IOResourceConfigurations,
-      output: IOResourceConfigurations
-  )
-
   case class Steps(
       association: AssociationSection,
       associationOtf: AssociationOTFSection,
-      drug: DrugSection,
       expression: ExpressionSection,
       go: GOSection,
       interaction: InteractionSection,
-      knownDrug: KnownDrugSection,
       literature: LiteratureSection,
       openfda: OpenfdaSection,
       otar: OtarSection,
-      pharmacogenomics: PharmacogenomicsSection,
       reactome: ReactomeSection,
       search: SearchSection,
       searchEbi: SearchEbiSection,
       searchFacet: SearchFacetSection,
-      target: TargetSection,
-      targetEngine: TargetEngineSection
+      target: TargetSection
   )
 
   // main config classes
