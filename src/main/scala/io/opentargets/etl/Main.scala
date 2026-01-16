@@ -5,12 +5,9 @@ import com.typesafe.scalalogging.LazyLogging
 import scala.util._
 import io.opentargets.etl.backend._
 import io.opentargets.etl.backend.target.Target
-import io.opentargets.etl.backend.drug.Drug
 
 import io.opentargets.etl.backend.literature.Literature
 import io.opentargets.etl.backend.searchFacet.FacetSearch
-import io.opentargets.etl.backend.pharmacogenomics.Pharmacogenomics
-import io.opentargets.etl.backend.targetEngine.TargetEngine
 
 object ETL extends LazyLogging {
   def applySingleStep(step: String)(implicit context: ETLSessionContext): Unit = {
@@ -18,21 +15,17 @@ object ETL extends LazyLogging {
     step.toLowerCase match {
       case "association"      => Association()
       case "association_otf"  => AssociationOTF()
-      case "drug"             => Drug()
       case "expression"       => Expression()
       case "openfda"          => OpenFda()
       case "go"               => Go()
       case "interaction"      => Interactions()
-      case "known_drug"       => KnownDrugs()
       case "literature"       => Literature()
       case "otar"             => Otar()
-      case "pharmacogenomics" => Pharmacogenomics()
       case "reactome"         => Reactome()
       case "search"           => Search()
       case "search_ebi"       => SearchEBI()
       case "search_facet"     => FacetSearch()
       case "target"           => Target()
-      case "target_engine"    => TargetEngine()
 
       case _ => throw new IllegalArgumentException(s"step $step is unknown")
     }
