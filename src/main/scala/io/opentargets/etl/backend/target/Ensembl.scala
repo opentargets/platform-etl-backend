@@ -47,7 +47,8 @@ object Ensembl extends LazyLogging {
         col("signalP"),
         col("uniprot_trembl"),
         col("uniprot_swissprot"),
-        flatten(col("transcripts.translations")).as("translations")
+        flatten(col("transcripts.translations")).as("translations"),
+        parseTranscript(col("transcripts")).as("transcripts")
       )
       .orderBy(col("id").asc)
       .dropDuplicates("id")
@@ -73,6 +74,16 @@ object Ensembl extends LazyLogging {
         col("id") === col("ctId")
           && col("chromosome") === col("canonicalTranscript.chromosome"),
         "left_outer"
+      )
+      .withColumn(
+        "transcripts",
+        transform(
+          col("transcripts"),
+          transcript => transcript.withField(
+            "isEnsemblCanonical",
+            transcript.getField("transcriptId") === col("canonicalTranscript.id")
+          )
+        )
       )
       .drop("ctId")
 
@@ -257,6 +268,31 @@ object Ensembl extends LazyLogging {
       .withColumn("approvedName", element_at(col(d), 1))
       .withColumn("approvedName", regexp_replace(col("approvedName"), "(?i)tec", ""))
       .drop(d)
+  }
+
+  /** Parsing transcript column to extract relevant fields. 
+    * This will allow proper representation of available transcripts of the target.
+    *
+    * @param transcript: transcript column extracted form ensembl json.
+    */
+  private def parseTranscript(transcript: Column): Column = {
+    transform(transcript, (tr: Column) => 
+      struct(
+        tr.getField("id").as("transcriptId"),
+        tr.getField("biotype").as("biotype"),
+        // Extract uniprot id:
+        when(tr.getField("uniprot_swissprot").isNotNull, tr.getField("uniprot_swissprot").getItem(0))
+          .when(tr.getField("uniprot_trembl").isNotNull, tr.getField("uniprot_trembl").getItem(0))
+          .as("uniprotId"),
+        // Extract review flag:
+        when(tr.getField("uniprot_swissprot").isNotNull, lit(true))
+          .when(tr.getField("uniprot_trembl").isNotNull, lit(false))
+          .as("isUniprotReviewed"),
+        tr.getField("translations").getItem(0).getField("id").as("translationId"),
+        tr.getField("alphafold").getItem(0).as("alphafoldId"),
+        tr.getField("uniprot_isoform").getItem(0).as("uniprotIsoformId"),
+      )
+    )
   }
 
   private def refactorSignalP(dataframe: DataFrame): DataFrame =
