@@ -1,5 +1,6 @@
 package io.opentargets.etl.backend.target
 
+import org.apache.spark.sql.functions._
 import io.opentargets.etl.backend.EtlSparkUnitTest
 import io.opentargets.etl.backend.target.EnsemblTest.ensemblRawDf
 import org.apache.spark.sql.functions.col
@@ -7,10 +8,11 @@ import org.apache.spark.sql.{DataFrame, SparkSession}
 import org.scalatest.PrivateMethodTester
 import org.scalatest.matchers.should.Matchers.convertToAnyShouldWrapper
 import org.scalatest.matchers.should.Matchers._
+import java.sql.Struct
 
 object EnsemblTest {
   def ensemblRawDf(implicit sparkSession: SparkSession): DataFrame =
-    sparkSession.read.json(this.getClass.getResource("/target/homo_test.jsonl.gz").getPath)
+    sparkSession.read.json(this.getClass.getResource("/target/new_test.jsonl.gz").getPath)
 }
 
 case class Exon(start: Int, end: Int)
@@ -78,8 +80,7 @@ class EnsemblTest extends EtlSparkUnitTest with PrivateMethodTester {
       .select("approvedName")
       .head()
       .get(0)
-      .toString should include(
-      "mitochondrially encoded NADH:ubiquinone oxidoreductase core subunit 2"
+      .toString should include("mitochondrially encoded NADH:ubiquinone oxidoreductase core subunit 2"
     )
   }
 
@@ -115,19 +116,32 @@ class EnsemblTest extends EtlSparkUnitTest with PrivateMethodTester {
     // given
     import sparkSession.implicits._
     val addTranscript = PrivateMethod[DataFrame]('addCanonicalTranscriptId)
-    val ensemblDf = Seq(("ENSG00000228572", "X")).toDF("id", "chromosome")
+    val ensemblDf = Seq(
+        ("ENSG00000228572", "X", "ENST00000431238"),
+        ("ENSG00000228572", "X", "ENST00000473358"),
+        ("ENSG00000228572", "X", "ENST00000387401")
+    )
+      .toDF("id", "chromosome", "transcriptId")
+      .groupBy("id", "chromosome")
+      .agg(
+        collect_list(struct(col("transcriptId"))).alias("transcripts")
+      )
+
     val transcriptDf =
       Seq(
-        GeneAndCanonicalTranscript("ENSG00000228572",
-                                   CanonicalTranscript("ENST00000431238", "X", 253743, 255091, "+")
+        GeneAndCanonicalTranscript(
+          "ENSG00000228572",
+          CanonicalTranscript("ENST00000431238", "X", 253743, 255091, "+")
         ),
-        GeneAndCanonicalTranscript("ENSG00000228572",
-                                   CanonicalTranscript("ENST00000431238", "Y", 253743, 255091, "+")
+        GeneAndCanonicalTranscript(
+          "ENSG00000228572",
+          CanonicalTranscript("ENST00000431238", "Y", 253743, 255091, "+")
         )
       ).toDS()
 
     // when
     val results = Ensembl invokePrivate addTranscript(ensemblDf, transcriptDf)
+    results.show(truncate=false)
     // then
     results.count() should equal(1)
   }
