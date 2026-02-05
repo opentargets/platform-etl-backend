@@ -16,8 +16,6 @@ object ETL extends LazyLogging {
   def applySingleStep(step: String)(implicit context: ETLSessionContext): Unit = {
     logger.info(s"running step $step")
     step.toLowerCase match {
-      case "association"      => Association()
-      case "association_otf"  => AssociationOTF()
       case "drug"             => Drug()
       case "expression"       => Expression()
       case "openfda"          => OpenFda()
