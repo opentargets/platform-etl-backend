@@ -24,28 +24,6 @@ object Configuration extends LazyLogging {
 
   // step confuguration classes
 
-  // association
-  case class DataSource(
-      id: String,
-      weight: Double,
-      dataType: String,
-      propagate: Boolean
-  )
-
-  case class AssociationSection(
-      output: IOResourceConfigurations,
-      input: IOResourceConfigurations,
-      defaultWeight: Double,
-      defaultPropagate: Boolean,
-      dataSources: List[DataSource]
-  )
-
-  // association_otf
-  case class AssociationOTFSection(
-      output: IOResourceConfigurations,
-      input: IOResourceConfigurations
-  )
-
   // drug
   case class InputExtension(
       extensionType: String,
@@ -223,8 +201,6 @@ object Configuration extends LazyLogging {
   )
 
   case class Steps(
-      association: AssociationSection,
-      associationOtf: AssociationOTFSection,
       drug: DrugSection,
       expression: ExpressionSection,
       go: GOSection,
