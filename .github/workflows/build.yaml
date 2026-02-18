@@ -22,7 +22,7 @@ jobs:
       - name: Prepare tag
         run: |
           PREFIX=${{ inputs.is_dataproc == false && 'local-' || '' }}
-          TAG="${PREFIX}$(echo $TAG | sed 's/^v//')"
+          TAG="${PREFIX}$(echo $TAG | sed 's/^v//' | sed 's/\//-/g')"
           echo "TAG=$TAG" >> $GITHUB_ENV
           echo "The tag for this build is $TAG"
       - uses: actions/checkout@v4
