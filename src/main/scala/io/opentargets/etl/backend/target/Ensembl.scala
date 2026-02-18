@@ -79,10 +79,11 @@ object Ensembl extends LazyLogging {
         "transcripts",
         transform(
           col("transcripts"),
-          transcript => transcript.withField(
-            "isEnsemblCanonical",
-            transcript.getField("transcriptId") === col("canonicalTranscript.id")
-          )
+          transcript =>
+            transcript.withField(
+              "isEnsemblCanonical",
+              transcript.getField("transcriptId") === col("canonicalTranscript.id")
+            )
         )
       )
       .drop("ctId")
@@ -270,30 +271,34 @@ object Ensembl extends LazyLogging {
       .drop(d)
   }
 
-  /** Parsing transcript column to extract relevant fields. 
-    * This will allow proper representation of available transcripts of the target.
+  /** Parsing transcript column to extract relevant fields. This will allow proper representation of
+    * available transcripts of the target.
     *
-    * @param transcript: transcript column extracted form ensembl json.
+    * @param transcript:
+    *   transcript column extracted form ensembl json.
     */
-  private def parseTranscript(transcript: Column): Column = {
-    transform(transcript, (tr: Column) => 
-      struct(
-        tr.getField("id").as("transcriptId"),
-        tr.getField("biotype").as("biotype"),
-        // Extract uniprot id:
-        when(tr.getField("uniprot_swissprot").isNotNull, tr.getField("uniprot_swissprot").getItem(0))
-          .when(tr.getField("uniprot_trembl").isNotNull, tr.getField("uniprot_trembl").getItem(0))
-          .as("uniprotId"),
-        // Extract review flag:
-        when(tr.getField("uniprot_swissprot").isNotNull, lit(true))
-          .when(tr.getField("uniprot_trembl").isNotNull, lit(false))
-          .as("isUniprotReviewed"),
-        tr.getField("translations").getItem(0).getField("id").as("translationId"),
-        tr.getField("alphafold").getItem(0).as("alphafoldId"),
-        tr.getField("uniprot_isoform").getItem(0).as("uniprotIsoformId"),
-      )
+  private def parseTranscript(transcript: Column): Column =
+    transform(
+      transcript,
+      (tr: Column) =>
+        struct(
+          tr.getField("id").as("transcriptId"),
+          tr.getField("biotype").as("biotype"),
+          // Extract uniprot id:
+          when(tr.getField("uniprot_swissprot").isNotNull,
+               tr.getField("uniprot_swissprot").getItem(0)
+          )
+            .when(tr.getField("uniprot_trembl").isNotNull, tr.getField("uniprot_trembl").getItem(0))
+            .as("uniprotId"),
+          // Extract review flag:
+          when(tr.getField("uniprot_swissprot").isNotNull, lit(true))
+            .when(tr.getField("uniprot_trembl").isNotNull, lit(false))
+            .as("isUniprotReviewed"),
+          tr.getField("translations").getItem(0).getField("id").as("translationId"),
+          tr.getField("alphafold").getItem(0).as("alphafoldId"),
+          tr.getField("uniprot_isoform").getItem(0).as("uniprotIsoformId")
+        )
     )
-  }
 
   private def refactorSignalP(dataframe: DataFrame): DataFrame =
     dataframe
