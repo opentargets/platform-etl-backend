@@ -1,0 +1,14 @@
+name: Pull Request
+
+on:
+  pull_request:
+
+jobs:
+  ci:
+    uses: ./.github/workflows/ci.yaml
+
+  build:
+    needs: ci
+    uses: ./.github/workflows/build.yaml
+    with:
+      is_dataproc: true
