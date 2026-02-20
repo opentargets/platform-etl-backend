@@ -4,6 +4,7 @@ import com.typesafe.scalalogging.LazyLogging
 import org.apache.spark.sql._
 import io.opentargets.etl.backend.spark.{IOResource, IoHelpers}
 import org.apache.spark.sql.SparkSession
+import org.apache.spark.sql.functions.col
 
 object SearchEBI extends LazyLogging {
 
@@ -17,13 +18,24 @@ object SearchEBI extends LazyLogging {
     val datasetAssociations = associationsDirectOverall
       .join(targets, Seq("targetId"), "inner")
       .join(diseases, Seq("diseaseId"), "inner")
-      .select("targetId", "diseaseId", "approvedSymbol", "name", "score")
+      .select(
+        col("targetId"),
+        col("diseaseId"),
+        col("approvedSymbol"),
+        col("name"),
+        col("associationScore").alias("score")
+      )
 
     val datasetEvidence = evidence
       .join(targets, Seq("targetId"), "inner")
       .join(diseases, Seq("diseaseId"), "inner")
-      .select("targetId", "diseaseId", "approvedSymbol", "name", "score")
-
+      .select(
+        col("targetId"),
+        col("diseaseId"),
+        col("approvedSymbol"),
+        col("name"),
+        col("associationScore").alias("score")
+      )
     Map(
       "ebisearchAssociations" -> datasetAssociations,
       "ebisearchEvidence" -> datasetEvidence
