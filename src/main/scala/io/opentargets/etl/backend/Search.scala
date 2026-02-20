@@ -782,9 +782,10 @@ object Search extends LazyLogging {
 
     // TODO check the overall score column name
     logger.info("subselect indirect LLR associations just id and score and persist")
+
     val associationScores = inputDataFrame("association").data
       .withColumn("associationId", concat_ws("-", col("diseaseId"), col("targetId")))
-      .withColumnRenamed("overallDatasourceHarmonicScore", "score")
+      .withColumnRenamed("associationScore", "score")
       .select(associationColumns.head, associationColumns.tail: _*)
       .persist(StorageLevel.DISK_ONLY)
 
