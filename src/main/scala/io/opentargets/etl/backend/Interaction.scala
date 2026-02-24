@@ -207,6 +207,22 @@ object InteractionsHelpers extends LazyLogging {
           "interaction.evidence as evidencesList",
           "interactionScore"
         )
+        .withColumn(
+          "speciesA",
+          struct(
+            col("speciesA.mnemonic"),
+            col("speciesA.scientific_name") as "scientificName",
+            col("speciesA.taxon_id") as "taxonId"
+          )
+        )
+        .withColumn(
+          "speciesB",
+          struct(
+            col("speciesB.mnemonic"),
+            col("speciesB.scientific_name") as "scientificName",
+            col("speciesB.taxon_id") as "taxonId"
+          )
+        )
 
       val interactionMapLeft = interactions
         .join(mappingInfo, getCodeFcn(col("intA")) === col("mapped_id"), "left")
@@ -350,11 +366,11 @@ object Interactions extends LazyLogging {
   def getUnmatch(intact: DataFrame, string: DataFrame): DataFrame = {
 
     val intactMissing = intact
-      .filter(col("targetB").isNull && col("speciesB.taxon_id") === 9606)
+      .filter(col("targetB").isNull && col("speciesB.taxonId") === 9606)
       .select("intB")
 
     val stringMissing = string
-      .filter(col("targetB").isNull && col("speciesB.taxon_id") === 9606)
+      .filter(col("targetB").isNull && col("speciesB.taxonId") === 9606)
       .select("intB")
 
     val unionUnmatch = intactMissing.unionByName(stringMissing)
@@ -413,8 +429,11 @@ object Interactions extends LazyLogging {
     val interactionStringsDFValid = removeNullTargetA(interactionStringsDF)
 
     val aggregationInteractions =
-      interactionIntactDFValid
-        .interactionAggreation(interactionStringsDFValid)
+      Helpers
+        .snakeToLowerCamelSchema(
+          interactionIntactDFValid
+            .interactionAggreation(interactionStringsDFValid)
+        )
         .coalesce(200)
     val interactionEvidences = interactionIntactDFValid
       .generateEvidences(interactionStringsDFValid)
