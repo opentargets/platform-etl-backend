@@ -34,7 +34,7 @@ object SearchEBI extends LazyLogging {
         col("diseaseId"),
         col("approvedSymbol"),
         col("name"),
-        col("associationScore").alias("score")
+        col("score")
       )
     Map(
       "ebisearchAssociations" -> datasetAssociations,
