@@ -29,7 +29,7 @@ object SearchEBITest {
       ("ENSG00000171862", "EFO_0000729", 0.4323)
     )
     val evidence =
-      sparkSession.createDataFrame(inputEvidence).toDF("targetId", "diseaseId", "score")
+      sparkSession.createDataFrame(inputEvidence).toDF("targetId", "diseaseId", "associationScore")
 
     val inputAssociations = Seq(
       ("ENSG00000171862", "EFO_0003767", 0.8737),
