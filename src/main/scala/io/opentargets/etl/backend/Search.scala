@@ -435,8 +435,7 @@ object Transformers {
 
       // dataframe [drugId, indicationId, disease_name]
       val indications = df
-        .withColumn("indicationIds", expr("indications.rows.disease"))
-        .withColumn("indicationId", explode(col("indicationIds")))
+        .withColumn("indicationId", explode(col("indications")))
         .selectExpr("drugId", "indicationId")
         .join(dLabels, Seq("indicationId"), "inner")
         .groupBy(col("drugId"))
@@ -691,12 +690,10 @@ object Search extends LazyLogging {
       )
       .join(
         inputDataFrame("indication").data
-          .select(
-            col("id"),
-            col("indications") as "rows",
-            col("indicationCount") as "count"
-          )
-          .transform(nest(_: DataFrame, List("rows", "count"), "indications")),
+          .groupBy(col("drugId").alias("id"))
+          .agg(
+            collect_list(col("diseaseId")).alias("indications")
+          ),
         Seq("id"),
         "left_outer"
       )
