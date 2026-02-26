@@ -7,7 +7,7 @@ import org.apache.spark.sql.{DataFrame, Dataset, SparkSession}
 
 case class Hallmarks(attributes: Array[Hallmark], cancerHallmarks: Array[CancerHallmark])
 
-case class Hallmark(pmid: Long, attribute_name: String, description: String)
+case class Hallmark(pmid: Long, name: String, description: String)
 
 case class CancerHallmark(pmid: Long, description: String, label: String, impact: String)
 
@@ -69,7 +69,7 @@ object Hallmarks extends LazyLogging {
         struct(
           col("pmid"),
           col("description"),
-          col("hallmark") as "attribute_name"
+          col("hallmark") as "name"
         ).as("attributes")
       )
       .groupBy("gene_symbol")

@@ -39,7 +39,7 @@ class HallmarksTest extends EtlSparkUnitTest {
     // given
     // then
     ds.select(explode(col("hallmarks.attributes")) as "a")
-      .select("a.attribute_name")
+      .select("a.name")
       .distinct
       .count must equal(12)
   }
