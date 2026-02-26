@@ -37,7 +37,9 @@ object SearchEBITest {
       ("ENSG00000171862", "EFO_0000729", 0.3232)
     )
     val associations =
-      sparkSession.createDataFrame(inputAssociations).toDF("targetId", "diseaseId", "score")
+      sparkSession
+        .createDataFrame(inputAssociations)
+        .toDF("targetId", "diseaseId", "associationScore")
 
     val config = IOResourceConfig("csv", "")
     val allResources: IOResources =
