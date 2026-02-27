@@ -2,6 +2,10 @@ name: CI
 
 on:
   workflow_call:
+  pull_request:
+    types:
+      - opened
+      - synchronize
 
 env:
   SCALA_VERSION: 2.12.20
@@ -24,19 +28,19 @@ jobs:
       - name: Check format
         run: sbt ++${{ env.SCALA_VERSION }} scalafmtCheckAll
 
-  # test:
-  #   name: Run tests 🧪
-  #   runs-on: ubuntu-22.04
-  #   permissions:
-  #     contents: read
-  #   steps:
-  #     - uses: actions/checkout@v4
-  #       name: Checkout code
-  #     - uses: coursier/cache-action@v6
-  #       name: Set up cache
-  #     - uses: olafurpg/setup-scala@v11
-  #       name: Set up Scala
-  #       with:
-  #         java-version: adopt@1.11
-  #     - name: Run tests
-  #       run: sbt ++${{ env.SCALA_VERSION }} coverage test coverageReport
+  test:
+     name: Run tests 🧪
+     runs-on: ubuntu-22.04
+     permissions:
+       contents: read
+     steps:
+       - uses: actions/checkout@v4
+         name: Checkout code
+       - uses: coursier/cache-action@v6
+         name: Set up cache
+       - uses: olafurpg/setup-scala@v11
+         name: Set up Scala
+         with:
+           java-version: adopt@1.11
+       - name: Run tests
+         run: sbt ++${{ env.SCALA_VERSION }} coverage test coverageReport
