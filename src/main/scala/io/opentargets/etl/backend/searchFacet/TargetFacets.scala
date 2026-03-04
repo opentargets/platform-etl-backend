@@ -248,7 +248,6 @@ object TargetFacets extends LazyLogging {
       .flatMap(row => row.go.map(g => (row.ensemblId, g.id, g.aspect)))
       .toDF("ensemblGeneId", "id", "category")
       .join(goDF, Seq("id"), "left")
-      .withColumn("label", col("name"))
       .withColumn("datasourceId", col("id"))
       .groupBy("label", "category", "datasourceId")
       .agg(collect_set("ensemblGeneId").as("entityIds"))
