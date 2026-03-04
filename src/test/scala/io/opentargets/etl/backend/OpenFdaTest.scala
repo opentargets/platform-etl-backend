@@ -45,7 +45,7 @@ class OpenFdaTest extends AnyWordSpecLike with SparkSessionSetup with Matchers {
     "successfully load only drugs of interest" in {
       val drugList = PrepareDrugList(dfsData(DrugData()).data)
       val cols = drugList.columns
-      val expectedColumns = List("chembl_id", "drug_name", "linkedTargets")
+      val expectedColumns = List("chembl_id", "drug_name")
 
       assert(cols.length == expectedColumns.length)
       assert(cols.forall(colName => expectedColumns.contains(colName)))

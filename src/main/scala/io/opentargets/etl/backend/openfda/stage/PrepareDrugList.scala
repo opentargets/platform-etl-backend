@@ -12,8 +12,7 @@ object PrepareDrugList extends LazyLogging {
         "id as chembl_id",
         "synonyms as synonyms",
         "name as pref_name",
-        "tradeNames as trade_names",
-        "linkedTargets as linkedTargets"
+        "tradeNames as trade_names"
       )
       .withColumn(
         "drug_names",
@@ -21,7 +20,7 @@ object PrepareDrugList extends LazyLogging {
       )
       .withColumn("_drug_name", explode(col("drug_names")))
       .withColumn("drug_name", lower(col("_drug_name")))
-      .select("chembl_id", "drug_name", "linkedTargets")
+      .select("chembl_id", "drug_name")
       .distinct()
       .orderBy(col("drug_name"))
 
