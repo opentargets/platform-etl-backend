@@ -132,12 +132,6 @@ object Configuration extends LazyLogging {
       output: IOResourceConfigurations
   )
 
-  // search_ebi
-  case class SearchEbiSection(
-      input: IOResourceConfigurations,
-      output: IOResourceConfigurations
-  )
-
   // search_facet
   case class FacetSearchCategories(
       diseaseName: String,
@@ -179,7 +173,6 @@ object Configuration extends LazyLogging {
       otar: OtarSection,
       reactome: ReactomeSection,
       search: SearchSection,
-      searchEbi: SearchEbiSection,
       searchFacet: SearchFacetSection,
       target: TargetSection
   )
