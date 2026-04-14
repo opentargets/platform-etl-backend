@@ -16,7 +16,6 @@ object ETL extends LazyLogging {
       case "expression"   => Expression()
       case "openfda"      => OpenFda()
       case "go"           => Go()
-      case "interaction"  => Interactions()
       case "literature"   => Literature()
       case "otar"         => Otar()
       case "reactome"     => Reactome()
