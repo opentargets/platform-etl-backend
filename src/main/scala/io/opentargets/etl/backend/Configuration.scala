@@ -120,12 +120,6 @@ object Configuration extends LazyLogging {
       output: IOResourceConfigurations
   )
 
-  // reactome
-  case class ReactomeSection(
-      input: IOResourceConfigurations,
-      output: IOResourceConfigurations
-  )
-
   // search
   case class SearchSection(
       input: IOResourceConfigurations,
@@ -177,7 +171,6 @@ object Configuration extends LazyLogging {
       literature: LiteratureSection,
       openfda: OpenfdaSection,
       otar: OtarSection,
-      reactome: ReactomeSection,
       search: SearchSection,
       searchEbi: SearchEbiSection,
       searchFacet: SearchFacetSection,
