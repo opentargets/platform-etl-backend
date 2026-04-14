@@ -14,7 +14,6 @@ object ETL extends LazyLogging {
     logger.info(s"running step $step")
     step.toLowerCase match {
       case "expression"   => Expression()
-      case "openfda"      => OpenFda()
       case "go"           => Go()
       case "interaction"  => Interactions()
       case "literature"   => Literature()

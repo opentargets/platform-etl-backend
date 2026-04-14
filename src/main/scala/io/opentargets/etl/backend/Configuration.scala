@@ -94,26 +94,6 @@ object Configuration extends LazyLogging {
       epmc: Epmc
   )
 
-  // openfda
-  case class OpenfdaMontecarloSection(
-      permutations: Int,
-      percentile: Double
-  )
-
-  case class OpenfdaSamplingSection(
-      size: Double,
-      enabled: Boolean
-  )
-
-  case class OpenfdaSection(
-      input: IOResourceConfigurations,
-      meddraPreferredTermsCols: List[String],
-      meddraLowLevelTermsCols: List[String],
-      montecarlo: OpenfdaMontecarloSection,
-      sampling: OpenfdaSamplingSection,
-      output: IOResourceConfigurations
-  )
-
   // otar
   case class OtarSection(
       input: IOResourceConfigurations,
@@ -175,7 +155,6 @@ object Configuration extends LazyLogging {
       go: GOSection,
       interaction: InteractionSection,
       literature: LiteratureSection,
-      openfda: OpenfdaSection,
       otar: OtarSection,
       reactome: ReactomeSection,
       search: SearchSection,
