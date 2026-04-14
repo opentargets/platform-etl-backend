@@ -24,12 +24,6 @@ object Configuration extends LazyLogging {
 
   // step confuguration classes
 
-  // expression
-  case class ExpressionSection(
-      input: IOResourceConfigurations,
-      output: IOResourceConfigurations
-  )
-
   // go
   case class GOSection(
       input: IOResourceConfigurations,
@@ -171,7 +165,6 @@ object Configuration extends LazyLogging {
   )
 
   case class Steps(
-      expression: ExpressionSection,
       go: GOSection,
       interaction: InteractionSection,
       literature: LiteratureSection,
