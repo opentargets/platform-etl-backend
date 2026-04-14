@@ -30,12 +30,6 @@ object Configuration extends LazyLogging {
       output: IOResourceConfigurations
   )
 
-  // go
-  case class GOSection(
-      input: IOResourceConfigurations,
-      output: IOResourceConfigurations
-  )
-
   // interation
   case class InteractionSection(
       scorethreshold: Int,
@@ -172,7 +166,6 @@ object Configuration extends LazyLogging {
 
   case class Steps(
       expression: ExpressionSection,
-      go: GOSection,
       interaction: InteractionSection,
       literature: LiteratureSection,
       openfda: OpenfdaSection,
