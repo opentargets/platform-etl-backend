@@ -1,6 +1,21 @@
 package io.opentargets.etl.backend.searchFacet
 
-import io.opentargets.etl.backend.target.{GeneOntologyByEnsembl, Reactomes, TractabilityWithId}
+// Case classes previously in target package (now migrated to PTS)
+// Defined locally to avoid cross-package dependency
+
+// GeneOntologyByEnsembl and GO (for computeGOFacets)
+case class GO(id: String, source: String, evidence: String, aspect: String, geneProduct: String, ecoId: String)
+case class GeneOntologyByEnsembl(ensemblId: String, go: Array[GO])
+
+// Reactome (for computePathwaysFacets)
+case class Reactome(pathwayId: String, pathway: String, topLevelTerm: String)
+case class Reactomes(id: String, pathways: Seq[Reactome])
+
+// Tractability (for computeTractabilityFacets)
+case class Tractability(modality: String, value: Boolean, id: String)
+case class TractabilityWithId(ensemblGeneId: String, tractability: Array[Tractability])
+
+
 import io.opentargets.etl.backend.spark.Helpers.LocationAndSource
 import io.opentargets.etl.backend.searchFacet.Helpers._
 import com.typesafe.scalalogging.LazyLogging
