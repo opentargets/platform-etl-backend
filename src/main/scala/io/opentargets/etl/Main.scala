@@ -20,7 +20,6 @@ object ETL extends LazyLogging {
       case "literature"   => Literature()
       case "otar"         => Otar()
       case "reactome"     => Reactome()
-      case "search"       => Search()
       case "search_ebi"   => SearchEBI()
       case "search_facet" => FacetSearch()
       case "target"       => Target()
